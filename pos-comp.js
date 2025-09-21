@@ -234,6 +234,23 @@
       ]})
     }
 
+    // Bill discount
+    if(m?.type==='billDiscount'){
+      const totals = s.orderTotals || { subtotal:0, discount:0, total:0 };
+      const value = s.ui?.tempDiscount!=null ? s.ui.tempDiscount : String(s.order?.orderDiscount||0);
+      return A.Div({ class:"modal-backdrop" }, { default:[
+        A.Div({ tw:"card w-[min(420px,92vw)] p-4 space-y-3" }, { default:[
+          A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:["🏷️ ", t(s,'billDiscount')] }), closeBtn ] }),
+          A.Div({ tw:"text-sm text-slate-400" }, { default:[`${t(s,'subtotal')}: ${cur(s, totals.subtotal)}`] }),
+          A.Div({ tw:"text-sm text-slate-400" }, { default:[`${t(s,'discounts')}: ${cur(s, totals.discount)}`] }),
+          A.Input({ type:'number', min:'0', step:'0.01', value:value, placeholder:cur(s,0), tw:"w-full px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10", "data-oninput":"syncBillDiscount" }),
+          A.Div({ tw:"flex items-center justify-end gap-2" }, { default:[
+            A.Button({ tw:"btn-primary", "data-onclick":"applyBillDiscount" }, { default:["✅ ", t(s,'save')] })
+          ]})
+        ]})
+      ]})
+    }
+
     // Split payments
     if(m?.type==='split'){
       const pay = m.payments||[];

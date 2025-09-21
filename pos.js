@@ -128,6 +128,10 @@
       // ----- Order save / settle / split -----
       saveOrder({ truth }){ truth.batch(()=>{ truth.set(s=>{ const o={...s.order}; const totals = calcOrderTotals(o, s.settings); o.totals = totals; return { ...s, order:o, orderTotals:totals } }); truth.mark('order-panel') }) },
 
+      openBillDiscount({ truth }){ truth.set(s=>{ const cur = round(+s.order?.orderDiscount||0); return { ...s, ui:{ ...s.ui, modal:{ type:'billDiscount' }, tempDiscount:String(cur) } } }); truth.mark('modals') },
+      syncBillDiscount({ truth }, e){ const v = e?.target?.value ?? ''; truth.set(s=> ({ ...s, ui:{ ...s.ui, tempDiscount: v } })); truth.mark('modals') },
+      applyBillDiscount({ truth }){ truth.batch(()=>{ truth.set(s=>{ const raw=s.ui.tempDiscount; const amt=Math.max(0, +raw||0); const baseTotals=calcOrderTotals({ ...s.order, orderDiscount:0 }, s.settings); const discount=round(Math.min(amt, baseTotals.subtotal)); const order={ ...s.order, orderDiscount:discount }; const orderTotals=calcOrderTotals(order, s.settings); return { ...s, order, orderTotals, ui:{ ...s.ui, modal:null, tempDiscount:String(discount) } }; }); truth.mark('order-panel'); truth.mark('modals') }) },
+
       openSplitPay({ truth }){ const due = truth.get().orderTotals.total; truth.set(s=>({...s, ui:{...s.ui, modal:{ type:'split', payments:[ { method:'cash', amount:due } ] }}})); truth.mark('modals') },
       addPayLine({ truth }){ truth.set(s=>{ const m=s.ui.modal; if(!m||m.type!=='split') return s; return { ...s, ui:{...s.ui, modal:{ ...m, payments:[...m.payments, { method:'cash', amount:0 }] } } } }); truth.mark('modals') },
       changePayMethod({ truth }, e){ const i=+e.target.getAttribute('data-i'); const v=e.target.value; truth.set(s=>{ const m=s.ui.modal; m.payments[i].method=v; return { ...s, ui:{...s.ui, modal:m } } }); },
