@@ -118,8 +118,20 @@
       syncCustomer({ truth }, e){ const id=e.target.id, v=e.target.value; truth.batch(()=>{ truth.set(s=>{ const c={ ...(s.order.customer||{}), [id==='custName'?'name':'phone']: v }; return { ...s, order:{ ...s.order, customer:c } } }); truth.mark('order-panel') }) },
 
       // ----- Tables & Reservations -----
-      openTables({ truth }){ truth.set(s=>({...s, ui:{...s.ui, modal:{ type:'tables' }}})); truth.mark('modals') },
-      openTablesAssign({ truth }){ truth.set(s=>({...s, ui:{...s.ui, modal:{ type:'tables' }}})); truth.mark('modals') },
+      openTables({ truth }){
+        truth.set(s=>{
+          const pick = new Set((s.order?.tableIds)||[]);
+          return { ...s, ui:{ ...s.ui, tablePick:pick, modal:{ type:'tables' } } };
+        });
+        truth.mark('modals');
+      },
+      openTablesAssign({ truth }){
+        truth.set(s=>{
+          const pick = new Set((s.order?.tableIds)||[]);
+          return { ...s, ui:{ ...s.ui, tablePick:pick, modal:{ type:'tables' } } };
+        });
+        truth.mark('modals');
+      },
       pickTableToggle({ truth }, e){ const id = e.target.getAttribute('data-id'); truth.set(s=>{ const pick=new Set(s.ui.tablePick||new Set()); if(pick.has(id)) pick.delete(id); else pick.add(id); return { ...s, ui:{...s.ui, tablePick:pick} } }); },
       async applyTablesAssign({ truth }){ const pick = (s=> Array.from(s.ui.tablePick||new Set()))(truth.get()); truth.batch(()=>{ truth.set(s=> ({ ...s, order:{...s.order, tableIds: pick }, ui:{...s.ui, tablePick:new Set(), modal:null} })); truth.mark('order-panel'); truth.mark('modals') }) },
 
@@ -157,7 +169,14 @@
       async endShift({ truth }){ const s=truth.get(); if(!s.session.shift) return; const sh = { ...s.session.shift, endedAt:Date.now(), status:'closed' }; await DB.put('shifts', sh); truth.set(st=> ({ ...st, session:{ ...st.session, shift:null } })); truth.rebuildAll() },
 
       // ----- Misc -----
-      closeModal({ truth }){ truth.set(s=> ({ ...s, ui:{ ...s.ui, modal:null } })); truth.mark('modals') },
+      closeModal({ truth }){
+        truth.set(s=>{
+          const isTablesModal = s.ui.modal?.type==='tables';
+          const nextPick = isTablesModal ? new Set((s.order?.tableIds)||[]) : s.ui.tablePick;
+          return { ...s, ui:{ ...s.ui, modal:null, tablePick:nextPick } };
+        });
+        truth.mark('modals');
+      },
 
       // Thermal print: simple template
       printInvoice({ truth }, _e, orderArg){

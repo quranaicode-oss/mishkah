@@ -103,8 +103,11 @@
 
   POS.TableCard = ({ tbl, state }) => {
     const badge = tbl.status==='reserved' ? '🟡' : (tbl.status==='occupied'?'🔴':'🟢');
+    const pickSet = state.ui?.tablePick instanceof Set ? state.ui.tablePick : new Set(state.ui?.tablePick||[]);
+    const tblKey = String(tbl.id);
+    const isPicked = pickSet.has(tblKey) || pickSet.has(tbl.id);
     return A.Button({
-      tw:"card p-3 text-start hover:ring-2 ring-blue-500",
+      tw:`card p-3 text-start hover:ring-2 ring-blue-500 ${isPicked?'!ring-2 !ring-emerald-400 !bg-emerald-500/10':''}`,
       "data-onclick":"pickTableToggle", "data-id": tbl.id
     }, { default:[
       A.Div({ tw:"flex items-center justify-between" }, { default:[
@@ -218,7 +221,7 @@
 
     // Tables assign modal
     if(m?.type==='tables'){
-      const picked = new Set((s.order.tableIds||[]));
+      const picked = new Set(s.ui.tablePick instanceof Set ? s.ui.tablePick : (s.order.tableIds||[]));
       return A.Div({ class:"modal-backdrop" }, { default:[
         A.Div({ tw:"card w-[min(920px,98vw)] p-4 space-y-3" }, { default:[
           A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:["🍽️ ", t(s,'tablesAssign')] }), closeBtn ] }),
