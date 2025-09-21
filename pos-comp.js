@@ -300,7 +300,7 @@
           ]}),
           A.Div({ tw:"max-h-[60vh] scroll-y" }, { default:[
             A.Table({ tw:"w-full text-sm" }, { default:[
-              A.Thead({}, { default:[ A.Tr({}, { default:[ 'رقم','النوع','الحالة','الطاولات','العميل','الإجمالي','الكاشير' ].map(h=> A.Th({ tw:"text-start py-2" },{ default:[h] })) ]) ] }),
+              A.Thead({}, { default:[ A.Tr({}, { default:[ 'رقم','النوع','الحالة','الطاولات','العميل','الإجمالي','الكاشير' ].map(h=> A.Th({ tw:"text-start py-2" },{ default:[h] })) ] }) ] }),
               A.Tbody({}, { default:(rs.orders||[]).map(o=> A.Tr({ tw:"border-t border-white/10 cursor-pointer hover:bg-white/5", "data-onclick":"openReportOrder", "data-id":o.id }, { default:[
                 A.Td({ tw:"py-1" }, { default:[o.id] }),
                 A.Td({}, { default:[o.type] }),
