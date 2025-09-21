@@ -132,7 +132,19 @@
         });
         truth.mark('modals');
       },
-      pickTableToggle({ truth }, e){ const id = e.target.getAttribute('data-id'); truth.set(s=>{ const pick=new Set(s.ui.tablePick||new Set()); if(pick.has(id)) pick.delete(id); else pick.add(id); return { ...s, ui:{...s.ui, tablePick:pick} } }); },
+      pickTableToggle({ truth }, e){
+        let id = e.currentTarget?.getAttribute('data-id');
+        if(!id){
+          const targetWithId = e.target?.closest?.('[data-id]');
+          id = targetWithId?.getAttribute('data-id');
+        }
+        if(!id) return;
+        truth.set(s=>{
+          const pick=new Set(s.ui.tablePick||new Set());
+          if(pick.has(id)) pick.delete(id); else pick.add(id);
+          return { ...s, ui:{...s.ui, tablePick:pick} };
+        });
+      },
       async applyTablesAssign({ truth }){ const pick = (s=> Array.from(s.ui.tablePick||new Set()))(truth.get()); truth.batch(()=>{ truth.set(s=> ({ ...s, order:{...s.order, tableIds: pick }, ui:{...s.ui, tablePick:new Set(), modal:null} })); truth.mark('order-panel'); truth.mark('modals') }) },
 
       async createReservationOpen({ truth }){ const pick=Array.from((truth.get().ui.tablePick||new Set())); const name=prompt('اسم العميل:'); const phone=prompt('هاتف:'); const at=prompt('موعد (ISO):', new Date(Date.now()+60*60*1000).toISOString()); const pax=+prompt('عدد الأفراد:', '2'); if(!name||!at) return; const resv={ id:genId('resv'), tableId: pick[0]||null, customer:{ name, phone }, pax, dateTime:at, status:'reserved' }; await DB.put('reservations', resv); alert('تم إنشاء الحجز'); },
