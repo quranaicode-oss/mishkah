@@ -309,11 +309,38 @@ const budgetMax = (window.__MISHKAH_PERF_MAX__ || globalMax);
           let out;
           try{ out = meta.buildFn(state,{ registry,guardian,lifecycle,auditor,truth,uKey }) }catch(err){
             auditor.onError(uKey); auditor.logLocal({ uKey,name:uKey,logs:regionBook.get(uKey) },"build:error",{ error:String(err.stack||err) });
-            out = `<div class="mishkah-error" style="color:#b91c1c;background:#fee2e2;padding:8px;border-radius:8px">Region "${uKey}" build failed</div>`;
+            
+            // Enhanced error message with stack trace and context
+            const errorMsg = err.message || String(err);
+            const stackTrace = err.stack || '';
+            const lineMatch = stackTrace.match(/at.*:(\d+):(\d+)/);
+            const location = lineMatch ? ` (Line: ${lineMatch[1]})` : '';
+            
+            console.group(`🚨 Mishkah Region Build Error: "${uKey}"`);
+            console.error('Error Message:', errorMsg);
+            console.error('Stack Trace:', stackTrace);
+            console.error('Region State:', state);
+            console.error('Build Function:', meta.buildFn.toString().substring(0, 200) + '...');
+            console.groupEnd();
+            
+            out = `<div class="mishkah-error" style="color:#b91c1c;background:#fee2e2;padding:12px;border-radius:8px;font-family:monospace;border:2px solid #dc2626;margin:4px">
+              <div style="font-weight:bold;margin-bottom:8px">🚨 Region "${uKey}" build failed${location}</div>
+              <div style="font-size:14px;margin-bottom:4px;color:#7f1d1d">Error: ${errorMsg}</div>
+              <details style="margin-top:8px">
+                <summary style="cursor:pointer;color:#991b1b">Stack Trace (click to expand)</summary>
+                <pre style="background:#fef2f2;padding:8px;border-radius:4px;overflow-x:auto;font-size:12px;margin:4px 0">${stackTrace}</pre>
+              </details>
+            </div>`;
           }
           const t0=now();
           if(typeof out==="string") slot.innerHTML=out;
           else if(out instanceof Node) slot.replaceChildren(out);
+          
+          // ✅ الإضافة الجديدة: التحقق من كائن Atoms وتحويله تلقائيًا
+          else if (out && typeof out === 'object' && out.__A && window.Mishkah.Atoms.toNode) {
+            slot.replaceChildren(window.Mishkah.Atoms.toNode(out));
+          }
+          
           else if(Array.isArray(out)){ const f=document.createDocumentFragment(); out.forEach(n=>f.appendChild(n instanceof Node ? n : document.createTextNode(String(n)))); slot.replaceChildren(f) }
           else slot.innerHTML="";
           postSync(slot);
@@ -1220,16 +1247,23 @@ U.delegateMap = (root, types, mapOrArray, sharedOptions = {}) => {
 
   // ---- slots packer ---------------------------------------------------------
   const pack = (s) => {
-    if (s == null) return { default: [] };
-    if (Arr(s))   return { default: s };
-    if (Str(s))   return { default: [String(s)] };
-    if (Obj(s)) {
-      const o = {};
-      o.default = ('default' in s) ? toArr(s.default) : [];
-      for (const k in s) if (k !== "default") o[k] = toArr(s[k]);
-      return o;
+    try {
+      if (s == null) return { default: [] };
+      if (Arr(s))   return { default: s };
+      if (Str(s))   return { default: [String(s)] };
+      if (Obj(s)) {
+        const o = {};
+        o.default = ('default' in s) ? toArr(s.default) : [];
+        for (const k in s) if (k !== "default") o[k] = toArr(s[k]);
+        return o;
+      }
+      return { default: [s] };
+    } catch (err) {
+      console.error('🚨 Mishkah Pack Error:', err);
+      console.error('Input that caused error:', s);
+      console.error('Stack:', err.stack);
+      return { default: [`[Pack Error: ${err.message}]`] };
     }
-    return { default: [s] };
   };
 
   // ---- twcss bridge (rtl/ltr + dark/light) ---------------------------------
@@ -1329,23 +1363,28 @@ U.delegateMap = (root, types, mapOrArray, sharedOptions = {}) => {
     }
   }
 
-// ---- spec → DOM node ----
-  const toNode = (spec) => {
-    if (spec == null || spec === false) return document.createComment("NULL");
+const toNode = (spec) => {
+  try {
+    if (spec == null || spec === false) return document.createComment("NULL_SPEC");
     if (spec instanceof Node) return spec;
-    if (Str(spec)) return document.createTextNode(String(spec));
+    if (typeof spec === 'string' || typeof spec === 'number') return document.createTextNode(String(spec));
 
-    if (Arr(spec)) {
-      const f = document.createDocumentFragment();
-      spec.forEach(x => f.appendChild(toNode(x)));
-      return f;
+    if (Array.isArray(spec)) {
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < spec.length; i++) {
+        fragment.appendChild(toNode(spec[i]));
+      }
+      return fragment;
     }
 
-    if (Obj(spec) && spec.__A) {
+    if (typeof spec === 'object' && spec.__A) {
       if (spec.tag === "#fragment") {
-        const f = document.createDocumentFragment();
-        (spec.slots?.default || []).forEach(c => f.appendChild(toNode(c)));
-        return f;
+        const fragment = document.createDocumentFragment();
+        const children = spec.slots?.default || [];
+        for (let i = 0; i < children.length; i++) {
+          fragment.appendChild(toNode(children[i]));
+        }
+        return fragment;
       }
 
       const ns = (spec.tag === "svg" || spec.props?.ns === "svg" || spec.props?.xmlns)
@@ -1353,48 +1392,64 @@ U.delegateMap = (root, types, mapOrArray, sharedOptions = {}) => {
         : null;
 
       const el = ns ? document.createElementNS(ns, spec.tag) : document.createElement(spec.tag);
-      const p  = spec.props || {};
+      const p = spec.props || {};
 
       if (p.class != null) el.className = p.class;
-      setStyle(el, p.style);
-      if (Obj(p.data)) setDataset(el, p.data);
-      if (Obj(p.aria)) setAria(el, p.aria);
+      if (p.style) setStyle(el, p.style);
+      if (p.data && typeof p.data === 'object') setDataset(el, p.data);
+      if (p.aria && typeof p.aria === 'object') setAria(el, p.aria);
 
-      const htmlPayload = ("html" in p) ? p.html : (("dangerouslySetInnerHTML" in p) ? p.dangerouslySetInnerHTML : undefined);
+      const htmlPayload = p.html ?? p.dangerouslySetInnerHTML;
       if (htmlPayload != null) {
-        const v = htmlPayload;
-        if (v && Obj(v) && "__html" in v) el.innerHTML = String(v.__html);
-        else el.innerHTML = String(v);
+        if (htmlPayload && typeof htmlPayload === 'object' && "__html" in htmlPayload) {
+          el.innerHTML = String(htmlPayload.__html);
+        } else {
+          el.innerHTML = String(htmlPayload);
+        }
       }
 
-      let onMounted   = null;
+      let onMounted = null;
       let onUnmounted = null;
 
       for (const k in p) {
-        if (k === "class" || k === "className" || k === "style" || k === "children" || k === "data" || k === "aria" || k === "html" || k === "dangerouslySetInnerHTML") continue;
+        if (/^\d/.test(k)) {
+          console.warn(`[Mishkah.Atoms] Invalid attribute name "${k}" ignored.`);
+          continue;
+        }
+
         const v = p[k];
-        if (k === "onMounted")   { if (Fn(v)) onMounted = v; continue; }
-        if (k === "onUnmounted") { if (Fn(v)) onUnmounted = v; continue; }
+
+        if (k === "class" || k === "className" || k === "style" || k === "children" || k === "data" || k === "aria" || k === "html" || k === "dangerouslySetInnerHTML") {
+          continue;
+        }
+        
+        if (k === "onMounted") { if (typeof v === 'function') onMounted = v; continue; }
+        if (k === "onUnmounted") { if (typeof v === 'function') onUnmounted = v; continue; }
 
         if (k.startsWith("on") && k.length > 2 && k[2] === k[2].toUpperCase()) {
-          if (Fn(v)) {
+          if (typeof v === 'function') {
             el.addEventListener(k.slice(2).toLowerCase(), v);
-          } else if (Str(v)) {
+          } else if (v != null) {
             el.dataset[k.toLowerCase()] = String(v);
           }
           continue;
         }
 
         if (k === "ref") {
-          if (Fn(v)) v(el);
-          else if (v && "current" in v) v.current = el;
+          if (typeof v === 'function') v(el);
+          else if (v && typeof v === 'object' && "current" in v) v.current = el;
           continue;
         }
         
         if (k.startsWith("bind:")) {
           const bk = k.slice(5);
-          if (bk === "value") { el.value = v; el.setAttribute("data-value", String(v)); }
-          else if (bk === "checked" && ("checked" in el)) { el.checked = !!v; if (v) el.setAttribute("checked", ""); }
+          if (bk === "value") {
+            el.value = v;
+            el.setAttribute("data-value", String(v));
+          } else if (bk === "checked" && "checked" in el) {
+            el.checked = !!v;
+            if (v) el.setAttribute("checked", "");
+          }
           continue;
         }
         
@@ -1404,33 +1459,52 @@ U.delegateMap = (root, types, mapOrArray, sharedOptions = {}) => {
         }
 
         if ((k === "checked" || k === "selected" || k === "disabled" || k === "multiple") && (k in el)) {
-          el[k] = !!v; if (v) el.setAttribute(k, "");
+          el[k] = !!v;
+          if (v) el.setAttribute(k, "");
           continue;
         }
 
-        if (k === "value" && ("value" in el)) {
-          el.value = v; el.setAttribute("data-value", String(v));
+        if (k === "value" && "value" in el) {
+          el.value = v;
+          el.setAttribute("data-value", String(v));
           continue;
         }
 
         if (k in el) {
-          try { el[k] = v; }
-          catch(_) { el.setAttribute(k, String(v)); }
+          try {
+            el[k] = v;
+          } catch {
+            el.setAttribute(k, String(v));
+          }
         } else {
           el.setAttribute(k, String(v));
         }
       }
 
       if (htmlPayload == null) {
-        (spec.slots?.default || []).forEach(c => el.appendChild(toNode(c)));
+        const children = spec.slots?.default || [];
+        for (let i = 0; i < children.length; i++) {
+          el.appendChild(toNode(children[i]));
+        }
       }
+      
       if (onMounted || onUnmounted) attachLifecycle(el, onMounted, onUnmounted);
       return el;
     }
+
     return document.createTextNode(String(spec));
-  };
-  
-  
+
+  } catch (err) {
+    console.error('🚨 Mishkah DOM Build Error:', err);
+    console.error('Spec that caused error:', spec);
+    console.error('Stack:', err.stack);
+    
+    const errorEl = document.createElement('div');
+    errorEl.style.cssText = 'color:#b91c1c;background:#fee2e2;padding:8px;border-radius:4px;border:1px solid #dc2626;margin:2px;font-family:monospace;font-size:12px';
+    errorEl.innerHTML = `<strong>DOM Build Error:</strong> ${err.message}<br><small>Check console for details</small>`;
+    return errorEl;
+  }
+};
   
 // ---- factory / proxy API --------------------------------------------------
 function create() {
@@ -1467,7 +1541,7 @@ function create() {
       if (key === 'toNode') return toNode;
       if (key === 'mountRegion') return mountRegion;
       if (key === 'h') return h;
-      if (key === 'Fragment') return { __A: 1, tag: "#fragment", props: {}, slots: { default: [] } };
+      if (key === 'Fragment') return (p = {}, s = {}) => ({ __A: 1, tag: "#fragment", props: p, slots: pack(s) });
       if (key === 'component') return (fn) => (p = {}, s = {}) => fn(p, pack(s));
       if (key === 'cx') return j;
       if (key === 'defineTags') return arr => {
@@ -2741,8 +2815,7 @@ function create() {
   Comp.mole.define("Modal", (A,s,app,p={},sl={})=>{
     const doClose = (e)=>{ e && e.stopPropagation(); isFn(p.onClose) && p.onClose(); };
     const onKey = (e)=>{ if(e.key === "Escape") doClose(); };
-    const slots = A.Atoms.pack(sl); // Using the full namespace for clarity
-    
+    const slots = A.pack(sl);
     return A.Div({
       tw: "fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm",
       onClick: doClose,
@@ -3344,66 +3417,204 @@ function create() {
 
 
 
-function runMishkahDiagnostics() {
+function runPOSDiagnostics() {
   console.clear();
-  console.log("%c🚀 بدء تشخيص تطبيق Mishkah v5 🚀", "color: #4f46e5; font-size: 1.2em; font-weight: bold;");
-
-  // --- المرحلة الأولى: فحص المتطلبات الأساسية ---
-  console.log("\n%c--- 1. فحص المتطلبات الأساسية ---", "color: #1d4ed8; font-weight: bold;");
-  const checks = {
-    mishkah: !!window.Mishkah,
-    atoms: !!(window.Mishkah && window.Mishkah.Atoms),
-    comp: !!(window.Mishkah && window.Mishkah.Comp),
-   // posc: !!window.POSC,
-    appRoot: !!document.querySelector('#app'),
-    appInstance: !!(window.app && window.app.truth)
+  console.log("%c🏪 بدء تشخيص تطبيق POS الشامل 🏪", "color: #dc2626; font-size: 1.4em; font-weight: bold; background: #fef2f2; padding: 8px; border-radius: 4px;");
+  
+  let diagnosticResults = {
+    phase1: false,
+    phase2: false, 
+    phase3: false,
+    phase4: false,
+    phase5: false
   };
 
-  for (const [key, value] of Object.entries(checks)) {
-    console.log(`${value ? '✅' : '❌'} ${key.padEnd(15, ' ')}: ${value ? 'موجود' : 'غير موجود'}`);
+  // --- المرحلة 1: فحص البيئة الأساسية ---
+  console.log("\n%c=== المرحلة 1: فحص البيئة الأساسية ===", "color: #059669; font-weight: bold; font-size: 1.1em;");
+  
+  const coreChecks = {
+    mishkahCore: !!window.Mishkah,
+    mishkahAtoms: !!(window.Mishkah?.Atoms),
+    mishkahCore_createApp: !!(window.Mishkah?.Core?.createApp),
+    mockDatabase: !!window.database,
+    posComponents: !!window.POSC,
+    appInstance: !!window.app,
+    htmlRoot: !!document.querySelector('#app')
+  };
+
+  let phase1Success = true;
+  for (const [key, value] of Object.entries(coreChecks)) {
+    const status = value ? '✅' : '❌';
+    const color = value ? 'color: #16a34a' : 'color: #dc2626';
+    console.log(`%c${status} ${key.padEnd(20, ' ')}: ${value ? 'متوفر' : 'مفقود'}`, color);
+    if (!value) phase1Success = false;
   }
-  if (Object.values(checks).some(v => !v)) {
-     console.error("⚠️ توقف التشخيص: أحد المتطلبات الأساسية مفقود. يرجى مراجعة الأخطاء أعلاه.");
-     return;
+  
+  diagnosticResults.phase1 = phase1Success;
+  if (!phase1Success) {
+    console.error("%c⛔ توقف التشخيص: البيئة الأساسية غير مكتملة!", "color: #dc2626; font-weight: bold; background: #fee2e2; padding: 4px;");
+    return diagnosticResults;
   }
 
-  // --- المرحلة الثانية: فحص نقاط الإرساء (Mount Points) ---
-  console.log("\n%c--- 2. فحص نقاط الإرساء في الـ HTML ---", "color: #1d4ed8; font-weight: bold;");
-  const regions = ['#hdr', '#menu-panel', '#order-panel', '#modals', '#printer'];
-  let allRegionsFound = true;
-  regions.forEach(selector => {
-    const el = document.querySelector(selector);
-    console.log(`${el ? '✅' : '❌'} العنصر ${selector.padEnd(15, ' ')}: ${el ? 'موجود' : 'غير موجود'}`);
-    if (!el) allRegionsFound = false;
-  });
-   if (!allRegionsFound) {
-     console.error("⚠️ توقف التشخيص: بعض حاويات الرسم مفقودة في ملف HTML.");
-     return;
+  // --- المرحلة 2: فحص البيانات الأولية ---
+  console.log("\n%c=== المرحلة 2: فحص البيانات الأولية ===", "color: #059669; font-weight: bold; font-size: 1.1em;");
+  
+  const dataChecks = {
+    categories: (window.database?.categories || []).length,
+    items: (window.database?.items || []).length,
+    employees: (window.database?.employees || []).length,
+    tables: (window.database?.tables || []).length
+  };
+
+  let phase2Success = true;
+  for (const [key, count] of Object.entries(dataChecks)) {
+    const hasData = count > 0;
+    const status = hasData ? '✅' : '⚠️';
+    const color = hasData ? 'color: #16a34a' : 'color: #f59e0b';
+    console.log(`%c${status} ${key.padEnd(15, ' ')}: ${count} عنصر`, color);
+    if (!hasData && key === 'categories') phase2Success = false;
   }
+  
+  diagnosticResults.phase2 = phase2Success;
 
+  // --- المرحلة 3: فحص مكونات POSC ---
+  console.log("\n%c=== المرحلة 3: فحص مكونات POSC ===", "color: #059669; font-weight: bold; font-size: 1.1em;");
+  
+  const poscComponents = ['header', 'menu', 'order', 'modals'];
+  let phase3Success = true;
+  
+  for (const comp of poscComponents) {
+    const fn = window.POSC?.[comp];
+    const isFunction = typeof fn === 'function';
+    const status = isFunction ? '✅' : '❌';
+    const color = isFunction ? 'color: #16a34a' : 'color: #dc2626';
+    console.log(`%c${status} POSC.${comp.padEnd(10, ' ')}: ${isFunction ? 'دالة صحيحة' : 'مفقودة أو خاطئة'}`, color);
+    if (!isFunction) phase3Success = false;
+  }
+  
+  diagnosticResults.phase3 = phase3Success;
 
-  // --- المرحلة الثالثة: محاكاة عملية البناء لمكون واحد (Header) ---
-  console.log("\n%c--- 3. محاكاة عملية بناء المكون 'Header' ---", "color: #1d4ed8; font-weight: bold;");
+  // --- المرحلة 4: فحص تطبيق Mishkah ---
+  console.log("\n%c=== المرحلة 4: فحص تطبيق Mishkah ===", "color: #059669; font-weight: bold; font-size: 1.1em;");
+  
   try {
-    const state = window.app.truth.get();
-    console.log("   -> 1. تم الحصول على الحالة (State) الحالية بنجاح.");
+    const app = window.app;
+    const truth = app?.truth;
+    const state = truth?.get();
     
-    const componentFn = window.POSC.header;
-    if (typeof componentFn !== 'function') throw new Error("window.POSC.header ليست دالة!");
-    console.log("   -> 2. تم العثور على دالة المكون 'POSC.header'.");
-
-    const spec = componentFn(state, { dispatch: window.app.dispatch }); // محاكاة `fullCtx`
-    console.log("   -> 3. تم توليد مواصفات Atoms (Spec):", spec);
-    if (!spec || typeof spec !== 'object' || !spec.__A) throw new Error("المواصفات المولدة ليست كائن Atoms صالح.");
-
-    const finalElement = window.Mishkah.Atoms.toNode(spec);
-    console.log("   -> 4. تم تحويل المواصفات إلى عنصر DOM حقيقي:", finalElement);
-    if (!(finalElement instanceof Node)) throw new Error("الناتج النهائي ليس عنصر DOM صالح.");
-
-    console.log("\n%c🎉 نتيجة التشخيص: عملية البناء تعمل بنجاح! 🎉", "color: #16a34a; font-size: 1.2em; font-weight: bold;");
-
+    console.log("%c✅ التطبيق موجود:", "color: #16a34a", app ? 'نعم' : 'لا');
+    console.log("%c✅ Truth store موجود:", "color: #16a34a", truth ? 'نعم' : 'لا');
+    console.log("%c✅ State متوفر:", "color: #16a34a", state ? 'نعم' : 'لا');
+    
+    if (state) {
+      console.log("📊 محتويات State الحالية:");
+      console.log("   - settings:", !!state.settings);
+      console.log("   - catalog:", !!state.catalog);
+      console.log("   - employees:", Array.isArray(state.employees) ? `${state.employees.length} موظف` : 'غير محدد');
+      console.log("   - session:", !!state.session);
+      console.log("   - order:", !!state.order);
+      console.log("   - ui:", !!state.ui);
+    }
+    
+    diagnosticResults.phase4 = !!(app && truth && state);
   } catch (error) {
-    console.error("\n%c🔥 فشل التشخيص في المرحلة 3! 🔥", "color: #be123c; font-size: 1.2em; font-weight: bold;");
-    console.error("   -> سبب الفشل:", error);
+    console.error("%c❌ خطأ في فحص التطبيق:", "color: #dc2626", error);
+    diagnosticResults.phase4 = false;
+  }
+
+  // --- المرحلة 5: محاكاة بناء المكونات ---
+  console.log("\n%c=== المرحلة 5: محاكاة بناء المكونات ===", "color: #059669; font-weight: bold; font-size: 1.1em;");
+  
+  let phase5Success = true;
+  const state = window.app?.truth?.get();
+  
+  for (const compName of poscComponents) {
+    try {
+      console.log(`\n🔧 اختبار مكون: ${compName}`);
+      
+      const fn = window.POSC[compName];
+      if (typeof fn !== 'function') {
+        throw new Error(`${compName} ليس دالة`);
+      }
+      
+      console.log(`   ✅ الدالة متوفرة`);
+      
+      const result = fn(state);
+      console.log(`   ✅ تم تنفيذ الدالة`);
+      console.log(`   📦 نوع النتيجة:`, typeof result);
+      
+      if (result && typeof result === 'object' && result.__A) {
+        console.log(`   ✅ النتيجة كائن Atoms صحيح`);
+        
+        // محاولة تحويل إلى DOM
+        const domNode = window.Mishkah.Atoms.toNode(result);
+        if (domNode instanceof Node) {
+          console.log(`   ✅ تم تحويل إلى DOM بنجاح`);
+          console.log(`   🏷️ نوع العقدة:`, domNode.constructor.name);
+        } else {
+          throw new Error('فشل تحويل إلى DOM');
+        }
+      } else {
+        throw new Error('النتيجة ليست كائن Atoms صحيح');
+      }
+      
+      console.log(`   %c🎉 ${compName} يعمل بنجاح!`, "color: #16a34a; font-weight: bold");
+      
+    } catch (error) {
+      console.error(`   %c💥 فشل ${compName}:`, "color: #dc2626; font-weight: bold", error.message);
+      console.error(`   📍 التفاصيل:`, error);
+      phase5Success = false;
+    }
+  }
+  
+  diagnosticResults.phase5 = phase5Success;
+
+  // --- النتيجة النهائية ---
+  console.log("\n%c📋 ملخص التشخيص النهائي 📋", "color: #1e40af; font-size: 1.3em; font-weight: bold; background: #eff6ff; padding: 8px; border-radius: 4px;");
+  
+  for (const [phase, success] of Object.entries(diagnosticResults)) {
+    const status = success ? '✅' : '❌';
+    const color = success ? 'color: #16a34a' : 'color: #dc2626';
+    console.log(`%c${status} ${phase}: ${success ? 'نجح' : 'فشل'}`, color);
+  }
+  
+  const allSuccess = Object.values(diagnosticResults).every(Boolean);
+  
+  if (allSuccess) {
+    console.log("\n%c🎊 جميع المراحل نجحت! التطبيق يجب أن يعمل الآن. 🎊", "color: #16a34a; font-size: 1.2em; font-weight: bold; background: #f0fdf4; padding: 8px; border-radius: 4px;");
+    console.log("\n%c💡 إذا كانت الشاشة لا تزال فارغة، تحقق من:", "color: #f59e0b; font-weight: bold;");
+    console.log("   1. هل تم تشغيل app.dispatch('boot')؟");
+    console.log("   2. هل تم تسجيل المناطق بشكل صحيح؟");
+    console.log("   3. هل هناك أخطاء JavaScript في الكونسول؟");
+  } else {
+    console.log("\n%c🚨 التشخيص يشير إلى مشاكل في التطبيق! 🚨", "color: #dc2626; font-size: 1.2em; font-weight: bold; background: #fef2f2; padding: 8px; border-radius: 4px;");
+    console.log("راجع المراحل التي فشلت أعلاه لحل المشكلة.");
+  }
+  
+  return diagnosticResults;
+}
+
+// وظيفة تشخيص مبسطة للاستدعاء السريع
+function quickPOSCheck() {
+  console.log("%c🔍 فحص سريع لـ POS", "color: #2563eb; font-weight: bold;");
+  
+  const issues = [];
+  
+  if (!window.Mishkah) issues.push("❌ Mishkah Core مفقود");
+  if (!window.database) issues.push("❌ Mock data مفقود");  
+  if (!window.POSC) issues.push("❌ POSC components مفقود");
+  if (!window.app) issues.push("❌ App instance مفقود");
+  if (!document.querySelector('#app')) issues.push("❌ HTML root مفقود");
+  
+  if (issues.length === 0) {
+    console.log("✅ جميع المكونات الأساسية موجودة");
+    console.log("💡 شغل runPOSDiagnostics() للفحص التفصيلي");
+  } else {
+    console.log("⚠️ مشاكل تم العثور عليها:");
+    issues.forEach(issue => console.log(`   ${issue}`));
   }
 }
+
+// إضافة للـ window global
+window.runPOSDiagnostics = runPOSDiagnostics;
+window.quickPOSCheck = quickPOSCheck;
