@@ -2694,6 +2694,7 @@ function create() {
   const isFn  = v => typeof v === "function";
   const isStr = v => typeof v === "string" || typeof v === "number";
   const toArr = v => v == null ? [] : isArr(v) ? v : [v];
+  const asSlots = (slots)=> slots && isObj(slots) ? slots : { default: toArr(slots && slots.default ? slots.default : slots) };
   const C     = (...xs)=> xs.filter(Boolean).join(" ");
   const TW    = (cls)=>({ tw: cls }); // tailwind adapter (twcss)
   const t     = (k, vars, app) => (app && app.i18n && isFn(app.i18n.t)) ? app.i18n.t(k, vars) : (vars && vars.fallback) || k;
@@ -2701,6 +2702,7 @@ function create() {
 
   // ========= registry (mole/tissue/organ) =========
   const R = { mole:Object.create(null), tissue:Object.create(null), organ:Object.create(null) };
+  const Util = Object.create(null);
   function reg(kind,name,fn){ if(!name||!fn) return; R[kind][name]=fn }
   function get(kind,name){ return R[kind][name] || R.mole[name] || R.tissue[name] || R.organ[name] }
   function call(name,p={},s={},state,app){
@@ -2713,6 +2715,23 @@ function create() {
     tissue:{ define:(n,fn)=>reg("tissue",n,fn), list:()=>Object.keys(R.tissue) },
     organ:{ define:(n,fn)=>reg("organ",n,fn), list:()=>Object.keys(R.organ) },
     call, registry:R
+  };
+
+  function exposeUtil(name,value){
+    if(!name) return;
+    Util[name] = value;
+    Object.defineProperty(Comp.util, name, {
+      configurable:true,
+      enumerable:true,
+      get:()=>Util[name],
+      set:(v)=>{ Util[name] = v; }
+    });
+  }
+
+  Comp.util = {
+    register: exposeUtil,
+    get: (name)=>Util[name],
+    list: ()=>Object.keys(Util)
   };
 
   // ========= DataSource: AJAX + mapping =========
@@ -2809,69 +2828,231 @@ function create() {
       A.Input({ class:"flex-1 min-w-[8rem] outline-none", placeholder:p.placeholder||t("ui.addTag",{fallback:"Add tag"},app), onKeydown:key })
     ]});
   });
-  
-  // --- بعد تعريف TagInput ---
 
-  Comp.mole.define("Modal", (A,s,app,p={},sl={})=>{
-    const doClose = (e)=>{ e && e.stopPropagation(); isFn(p.onClose) && p.onClose(); };
-    const onKey = (e)=>{ if(e.key === "Escape") doClose(); };
-    const slots = A.pack(sl);
-    return A.Div({
-      tw: "fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm",
-      onClick: doClose,
-      onMounted: (el) => {
-        document.body.style.overflow = 'hidden';
-        document.addEventListener('keydown', onKey);
-        // Basic focus trap
-        const focusables = U.getFocusables && U.getFocusables(el);
-        if (focusables && focusables.length > 0) focusables[0].focus();
-      },
-      onUnmounted: () => {
-        document.body.style.overflow = '';
-        document.removeEventListener('keydown', onKey);
-      }
-    }, {
+  // --- Form & display atoms after TagInput ---
+
+  Comp.mole.define("Textarea", (A,s,app,p={},sl={}) =>
+    A.Textarea(Object.assign({
+      rows: p.rows || 3,
+      class: C("w-full rounded-xl border px-3 py-2", p.class)
+    }, TW(p.tw || "border-slate-300 f:ring-2 f:ring-indigo-500"), p))
+  );
+
+  Comp.mole.define("Switch", (A,s,app,p={},sl={}) => {
+    const checked = !!p.checked;
+    const label = p.label ? A.Span({ class: C("text-sm", p.labelClass) }, { default: [p.label] }) : null;
+    const toggle = () => {
+      if (isFn(p.onToggle)) return p.onToggle(!checked);
+      if (isFn(p.onChange)) return p.onChange(!checked);
+    };
+    return A.Label({ class: C("inline-flex items-center gap-3 cursor-pointer", p.class) }, {
       default: [
-        A.Div({
-          tw: "card w-[640px] max-w-[95vw] max-h-[90vh] flex flex-col",
-          class: p.class,
-          onClick: (e) => e.stopPropagation()
+        A.Span({
+          role: "switch",
+          "aria-checked": checked,
+          class: C("relative inline-flex h-6 w-11 items-center rounded-full transition-colors", checked ? "bg-indigo-600" : "bg-slate-300"),
+          onClick: (e) => { e.preventDefault(); toggle(); },
+          ...p
         }, {
           default: [
-            // Header Slot
-            A.Div({ tw: "flex items-center justify-between p-4 border-b" }, {
-              default: slots.header || [
-                A.H3({ tw: "text-xl font-bold" }, { default: [p.title || ""] }),
-                A.Button({ tw: "text-2xl text-slate-500 hover:text-slate-800", onClick: doClose }, { default: ["×"] })
-              ]
-            }),
-            // Body Slot (Scrollable)
-            A.Div({ tw: "flex-1 p-4 overflow-y-auto" }, { default: slots.body || slots.default }),
-            // Footer Slot
-            slots.footer ? A.Div({ tw: "p-4 border-t flex justify-end gap-2" }, { default: slots.footer }) : null
+            A.Span({
+              class: C("inline-block h-4 w-4 transform rounded-full bg-white transition", checked ? "translate-x-5" : "translate-x-1")
+            })
           ]
+        }),
+        label
+      ]
+    });
+  });
+
+  Comp.mole.define("Checkbox", (A,s,app,p={},sl={}) => {
+    const checked = !!p.checked;
+    const id = p.id || `chk-${Math.random().toString(36).slice(2,8)}`;
+    return A.Label({ class: C("inline-flex items-center gap-2 cursor-pointer", p.class), for: id }, {
+      default: [
+        A.Input(Object.assign({
+          id,
+          type: "checkbox",
+          checked,
+          class: C("h-4 w-4 rounded border", p.inputClass)
+        }, p, {
+          onChange: (e) => {
+            if (isFn(p.onInput)) p.onInput(e);
+            if (isFn(p.onChange)) p.onChange(e.target.checked);
+          }
+        })),
+        p.label ? A.Span({ class: C("text-sm", p.labelClass) }, { default: [p.label] }) : null,
+        sl.default || null
+      ]
+    });
+  });
+
+  Comp.mole.define("Radio", (A,s,app,p={},sl={}) => {
+    const checked = !!p.checked;
+    const id = p.id || `rad-${Math.random().toString(36).slice(2,8)}`;
+    return A.Label({ class: C("inline-flex items-center gap-2 cursor-pointer", p.class), for: id }, {
+      default: [
+        A.Input(Object.assign({
+          id,
+          type: "radio",
+          checked,
+          name: p.name,
+          class: C("h-4 w-4 rounded-full border", p.inputClass)
+        }, p, {
+          onChange: (e) => {
+            if (isFn(p.onInput)) p.onInput(e);
+            if (isFn(p.onChange)) p.onChange(e.target.value ?? true);
+          }
+        })),
+        p.label ? A.Span({ class: C("text-sm", p.labelClass) }, { default: [p.label] }) : null,
+        sl.default || null
+      ]
+    });
+  });
+
+  Comp.mole.define("Badge", (A,s,app,p={},sl={}) =>
+    A.Span({ class: C("inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold", p.class), ...TW(p.tw||"") }, sl)
+  );
+
+  Comp.mole.define("Chip", (A,s,app,p={},sl={}) =>
+    A.Span({
+      class: C("inline-flex items-center gap-2 rounded-2xl border px-3 py-1 text-sm", p.class),
+      ...TW(p.tw || (p.active ? "border-indigo-500 bg-indigo-50" : "border-slate-200"))
+    }, sl)
+  );
+
+  Comp.mole.define("Pill", (A,s,app,p={},sl={}) =>
+    A.Span({ class: C("inline-flex items-center rounded-full px-3 py-1 text-xs", p.class), ...TW(p.tw||"bg-slate-900 text-white") }, sl)
+  );
+
+  Comp.mole.define("Avatar", (A,s,app,p={},sl={}) => {
+    const size = p.size === 'lg' ? 48 : p.size === 'sm' ? 28 : 36;
+    const style = Object.assign({
+      width: `${size}px`,
+      height: `${size}px`,
+      borderRadius: "999px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: p.src ? "transparent" : "#e2e8f0",
+      color: "#1e293b",
+      fontWeight: 600
+    }, p.style || {});
+    const content = p.src
+      ? A.Img({ src: p.src, alt: p.alt || "", style: { width: "100%", height: "100%", borderRadius: "999px", objectFit: "cover" } })
+      : (p.initials ? p.initials : (p.name ? String(p.name).trim().slice(0,2).toUpperCase() : "?"));
+    return A.Div(Object.assign({ class: C("overflow-hidden", p.class), style }, p.attrs || {}), { default: [content] });
+  });
+
+  Comp.mole.define("Kbd", (A,s,app,p={},sl={}) =>
+    A.Kbd({ class: C("rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold uppercase", p.class), ...TW(p.tw||"") }, sl)
+  );
+
+  Comp.mole.define("Progress", (A,s,app,p={},sl={}) => {
+    const value = Math.min(100, Math.max(0, +p.value || 0));
+    return A.Div({ class: C("w-full overflow-hidden rounded-full bg-slate-200", p.class), style: Object.assign({ height: p.height || "8px" }, p.style || {}) }, {
+      default: [
+        A.Div({
+          style: Object.assign({ width: `${value}%`, height: "100%", background: p.color || "linear-gradient(90deg,#6366f1,#22d3ee)" }, p.barStyle || {})
         })
       ]
     });
   });
-  
-  Comp.mole.define("Tabs", (A,s,app,p={},sl={})=>{
-    const activeId = p.value;
-    const slots = A.Atoms.pack(sl);
-    const tabHeaders = (p.items || []).map(item =>
-      A.Button({
-        tw: C("px-4 py-2 font-semibold border-b-2", activeId === item.id ? "border-indigo-500 text-indigo-600" : "border-transparent text-slate-500 hover:border-slate-300"),
-        onClick: () => isFn(p.onChange) && p.onChange(item.id)
-      }, { default: [item.title] })
-    );
-    
-    const activeContent = slots[activeId] || [];
 
-    return A.Div({ class: p.class }, { default: [
-      A.Div({ tw: "flex items-center border-b" }, { default: tabHeaders }),
-      A.Div({ tw: "p-4" }, { default: activeContent })
-    ]});
+  Comp.mole.define("Meter", (A,s,app,p={},sl={}) => {
+    const value = Math.min(1, Math.max(0, +p.value || 0));
+    const pct = Math.round(value * 100);
+    return A.Div({ class: C("flex items-center gap-2", p.class) }, {
+      default: [
+        A.Div({ class: "flex-1 overflow-hidden rounded-full bg-slate-200", style: { height: p.height || "8px" } }, {
+          default: [A.Div({ style: { width: `${pct}%`, height: "100%", background: p.color || "#10b981" } })]
+        }),
+        A.Span({ class: C("text-xs font-semibold", p.labelClass) }, { default: [`${pct}%`] })
+      ]
+    });
   });
+
+  Comp.mole.define("MoneyInput", (A,s,app,p={},sl={}) => {
+    const currencyUtil = Comp.util.get && Comp.util.get("Currency");
+    const locale = p.locale || (app?.env?.get?.().locale) || "en";
+    const currency = p.currency || p.currencyCode || "USD";
+    const digits = Number.isFinite(p.minimumFractionDigits) ? p.minimumFractionDigits : 2;
+    const symbol = p.currencySymbol || (currencyUtil && currencyUtil.symbol ? currencyUtil.symbol(currency, locale) : currency);
+    const rawValue = p.value == null ? "" : String(p.value);
+    const handleInput = (e) => {
+      if (isFn(p.onInput)) return p.onInput(e);
+      const val = currencyUtil ? currencyUtil.parse(e.target.value, { locale }) : parseFloat(e.target.value);
+      if (isFn(p.onChange)) p.onChange(Number.isFinite(val) ? val : 0);
+    };
+    const handleBlur = (e) => {
+      if (p.formatOnBlur === false) return;
+      if (!currencyUtil) return;
+      const parsed = currencyUtil.parse(e.target.value, { locale });
+      const formatted = currencyUtil.format(parsed, { currency, locale, minimumFractionDigits: digits, maximumFractionDigits: p.maximumFractionDigits ?? digits });
+      e.target.value = formatted;
+      if (isFn(p.onChange)) p.onChange(parsed);
+    };
+    return A.Div({ class: C("relative", p.class) }, {
+      default: [
+        A.Span({ class: "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500" }, { default: [symbol] }),
+        A.Input(Object.assign({
+          type: "text",
+          inputmode: "decimal",
+          value: rawValue,
+          class: C("w-full rounded-xl border px-3 py-2 pl-9", p.inputClass),
+          onInput: handleInput,
+          onBlur: handleBlur
+        }, TW(p.inputTw || "border-slate-300 f:ring-2 f:ring-indigo-500"), p.attrs || {}))
+      ]
+    });
+  });
+
+  Comp.mole.define("PhoneInput", (A,s,app,p={},sl={}) => {
+    const phoneUtil = Comp.util.get && Comp.util.get("Phone");
+    const locale = p.locale || (app?.env?.get?.().locale) || "en";
+    const country = p.country || "EG";
+    const handleInput = (e) => {
+      if (isFn(p.onInput)) p.onInput(e);
+      if (isFn(p.onChange)) {
+        const normalized = phoneUtil && phoneUtil.normalize ? phoneUtil.normalize(e.target.value) : String(e.target.value || "");
+        p.onChange(normalized);
+      }
+    };
+    const handleBlur = (e) => {
+      if (phoneUtil && phoneUtil.format) {
+        e.target.value = phoneUtil.format(e.target.value, { locale, country });
+      }
+    };
+    return A.Div({ class: C("relative", p.class) }, {
+      default: [
+        p.prefix ? A.Span({ class: "absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500" }, { default: [p.prefix] }) : null,
+        A.Input(Object.assign({
+          type: "tel",
+          inputmode: "tel",
+          value: p.value || "",
+          class: C("w-full rounded-xl border px-3 py-2", p.prefix ? "pl-10" : "", p.inputClass),
+          onInput: handleInput,
+          onBlur: handleBlur
+        }, TW(p.inputTw || "border-slate-300 f:ring-2 f:ring-indigo-500"), p.attrs || {}))
+      ]
+    });
+  });
+
+  Comp.mole.define("TimeInput", (A,s,app,p={},sl={}) =>
+    A.Input(Object.assign({
+      type: "time",
+      value: p.value || "",
+      step: p.step || 60,
+      class: C("w-full rounded-xl border px-3 py-2", p.class),
+      onInput: (e) => {
+        if (isFn(p.onInput)) p.onInput(e);
+        if (isFn(p.onChange)) p.onChange(e.target.value);
+      }
+    }, TW(p.tw || "border-slate-300 f:ring-2 f:ring-indigo-500"), p.attrs || {}))
+  );
+
+  // --- بعد تعريف TagInput ---
+
   Comp.mole.define("DescriptionList", (A,s,app,p={},sl={})=>{
     return A.Dl({ class: C("space-y-2", p.class) }, {
       default: (p.items || []).map(item =>
@@ -2881,6 +3062,420 @@ function create() {
         ]})
       )
     });
+  });
+
+  // ============== Layout & overlay surfaces ==============
+
+  Comp.tissue.define("Panel", (A,s,app,p={},sl={})=>{
+    const slots = asSlots(sl);
+    const segments = [];
+    if (slots.header) {
+      segments.push(A.Div({ style: Object.assign({ padding: "18px 22px", borderBottom: "1px solid rgba(148,163,184,0.18)", fontWeight: 600, fontSize: "14px", color: "#1e293b" }, p.headerStyle || {}) }, { default: toArr(slots.header) }));
+    }
+    segments.push(A.Div({ style: Object.assign({ padding: "22px", flex: "1 1 auto" }, p.bodyStyle || {}) }, { default: toArr(slots.body || slots.default) }));
+    if (slots.footer) {
+      segments.push(A.Div({ style: Object.assign({ padding: "18px 22px", borderTop: "1px solid rgba(148,163,184,0.14)", display: "flex", justifyContent: p.footerAlign || "flex-end", gap: "12px" }, p.footerStyle || {}) }, { default: toArr(slots.footer) }));
+    }
+    return A.Div({ class: C("mishkah-panel", p.class), style: Object.assign({ background: "#ffffff", borderRadius: "20px", border: "1px solid rgba(148,163,184,0.2)", boxShadow: "0 22px 44px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }, p.style || {}) }, { default: segments });
+  });
+
+  Comp.tissue.define("Card", (A,s,app,p={},sl={})=>{
+    const slots = asSlots(sl);
+    const segments = [];
+    if (slots.header) {
+      segments.push(A.Div({ style: Object.assign({ padding: "18px 22px", borderBottom: "1px solid rgba(148,163,184,0.16)", fontWeight: 600, fontSize: "15px", color: "#0f172a" }, p.headerStyle || {}) }, { default: toArr(slots.header) }));
+    }
+    segments.push(A.Div({ style: Object.assign({ padding: "22px", flex: "1 1 auto" }, p.bodyStyle || {}) }, { default: toArr(slots.body || slots.default) }));
+    if (slots.footer) {
+      segments.push(A.Div({ style: Object.assign({ padding: "18px 22px", borderTop: "1px solid rgba(148,163,184,0.12)", display: "flex", justifyContent: p.footerAlign || "flex-end", gap: "12px" }, p.footerStyle || {}) }, { default: toArr(slots.footer) }));
+    }
+    return A.Div({ class: C("mishkah-card", p.class), style: Object.assign({ background: "#ffffff", borderRadius: "24px", border: "1px solid rgba(226,232,240,0.8)", boxShadow: "0 24px 48px rgba(15,23,42,0.12)", display: "flex", flexDirection: "column" }, p.style || {}) }, { default: segments });
+  });
+
+  Comp.tissue.define("FormRow", (A,s,app,p={},sl={})=>{
+    const slots = asSlots(sl);
+    const description = slots.description || p.description;
+    const error = slots.error || p.error;
+    const aside = slots.aside || null;
+    return A.Div({ class: C("mishkah-form-row", p.class), style: Object.assign({ display: "flex", flexDirection: "column", gap: "6px" }, p.style || {}) }, {
+      default: [
+        p.label ? A.Label({ for: p.for, class: C("text-sm font-medium", p.labelClass), style: Object.assign({ color: "#1e293b" }, p.labelStyle || {}) }, { default: [p.label] }) : null,
+        A.Div({ style: Object.assign({ display: "flex", alignItems: p.align || "stretch", gap: "12px" }, p.rowStyle || {}) }, {
+          default: [
+            A.Div({ style: Object.assign({ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "6px" }, p.controlStyle || {}) }, { default: toArr(slots.control || slots.default) }),
+            aside ? A.Div({ style: Object.assign({ minWidth: "120px" }, p.asideStyle || {}) }, { default: toArr(aside) }) : null
+          ]
+        }),
+        description ? A.Span({ class: C("text-xs", p.descriptionClass), style: Object.assign({ color: "#64748b" }, p.descriptionStyle || {}) }, { default: toArr(description) }) : null,
+        error ? A.Span({ class: C("text-xs", p.errorClass), style: Object.assign({ color: "#dc2626", fontWeight: 600 }, p.errorStyle || {}) }, { default: toArr(error) }) : null
+      ]
+    });
+  });
+
+  Comp.tissue.define("ScrollArea", (A,s,app,p={},sl={})=>{
+    return A.Div({ class: C("mishkah-scroll-area", p.class), style: Object.assign({ position: "relative" }, p.style || {}) }, {
+      default: [
+        A.Div({ class: C("mishkah-scroll-area__viewport", p.viewportClass), style: Object.assign({ overflowY: "auto", maxHeight: p.maxHeight || "100%", paddingRight: p.paddingRight || "8px" }, p.viewportStyle || {}), onScroll: p.onScroll }, { default: toArr(sl.default || sl.content) })
+      ]
+    });
+  });
+
+  Comp.tissue.define("Tabs", (A,s,app,p={},sl={})=>{
+    const items = toArr(p.items || []);
+    if (!items.length) return A.Div({ class: p.class }, { default: [] });
+    const value = p.value != null ? p.value : items[0].id;
+    const variant = p.variant || "line";
+    const align = p.align || "start";
+    const slots = asSlots(sl);
+    const headerStyle = Object.assign({ display: "flex", gap: "8px", alignItems: "center", justifyContent: align === "center" ? "center" : align === "end" ? "flex-end" : "flex-start" }, p.headerStyle || {});
+    const tabs = items.map((item) => {
+      const active = value === item.id;
+      const style = Object.assign({
+        padding: "10px 18px",
+        borderRadius: variant === "line" ? "0" : "999px",
+        borderBottom: variant === "line" ? (active ? "2px solid #4f46e5" : "2px solid transparent") : undefined,
+        background: variant === "pill" ? (active ? "#4f46e5" : "#e2e8f0") : variant === "contained" ? (active ? "#ffffff" : "#f1f5f9") : "transparent",
+        color: active ? (variant === "pill" ? "#ffffff" : "#1e293b") : "#475569",
+        fontWeight: 600,
+        fontSize: "14px",
+        border: variant === "contained" && active ? "1px solid rgba(79,70,229,0.25)" : "1px solid transparent",
+        boxShadow: variant === "contained" && active ? "0 16px 32px rgba(79,70,229,0.18)" : "none",
+        cursor: "pointer",
+        transition: "all 0.18s ease"
+      }, item.style || {});
+      const props = { type: "button", style, class: C("mishkah-tab-btn", item.class) };
+      if (isFn(p.onChange)) {
+        props.onClick = () => p.onChange(item.id, item);
+      } else if (p.command || p['data-onchange']) {
+        props['data-onclick'] = p.command || p['data-onchange'];
+        props['data-tab'] = item.id;
+      }
+      const label = item.title || item.label || item.name || item.id;
+      return A.Button(props, { default: [
+        item.icon ? A.Span({ style: Object.assign({ marginInlineEnd: "8px", display: "inline-flex", alignItems: "center" }, item.iconStyle || {}) }, { default: [item.icon] }) : null,
+        label
+      ]});
+    });
+    const body = slots[value] || slots.default || [];
+    return A.Div({ class: C("mishkah-tabs", p.class), style: Object.assign({ display: "flex", flexDirection: "column", gap: "16px" }, p.style || {}) }, {
+      default: [
+        A.Div({ style: headerStyle }, { default: tabs }),
+        A.Div({ class: C("mishkah-tabs__body", p.bodyClass), style: Object.assign({ minHeight: p.minHeight || "auto" }, p.bodyStyle || {}) }, { default: toArr(body) })
+      ]
+    });
+  });
+
+  Comp.tissue.define("Steps", (A,s,app,p={},sl={})=>{
+    const steps = toArr(p.items || []);
+    const current = Number.isFinite(p.current) ? p.current : 0;
+    return A.Div({ class: C("mishkah-steps", p.class), style: Object.assign({ display: "flex", gap: "18px", flexWrap: "wrap" }, p.style || {}) }, {
+      default: steps.map((step, idx) => {
+        const done = idx < current;
+        const active = idx === current;
+        const circleStyle = Object.assign({
+          width: "34px",
+          height: "34px",
+          borderRadius: "999px",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 600,
+          color: done || active ? "#ffffff" : "#475569",
+          background: done ? "#0ea5e9" : active ? "#4f46e5" : "#e2e8f0"
+        }, step.circleStyle || {});
+        return A.Div({ key: step.id || idx, style: { display: "flex", alignItems: "center", gap: "12px" } }, {
+          default: [
+            A.Div({ style: circleStyle }, { default: [step.step || idx + 1] }),
+            A.Div({ style: { display: "flex", flexDirection: "column", minWidth: "120px" } }, {
+              default: [
+                A.Span({ style: Object.assign({ fontWeight: 600, fontSize: "14px", color: "#0f172a" }, step.titleStyle || {}) }, { default: [step.title || step.label || `Step ${idx + 1}`] }),
+                step.description ? A.Span({ style: Object.assign({ fontSize: "12px", color: "#64748b" }, step.descriptionStyle || {}) }, { default: [step.description] }) : null
+              ]
+            }),
+            idx < steps.length - 1 ? A.Div({ style: { height: "1px", width: p.connectorWidth || "46px", background: "#cbd5f5" } }) : null
+          ]
+        });
+      })
+    });
+  });
+
+  const MODAL_WIDTHS = { sm: "min(95vw,420px)", md: "min(95vw,560px)", lg: "min(95vw,720px)", xl: "min(95vw,960px)" };
+
+  Comp.tissue.define("Modal", (A,s,app,p={},sl={})=>{
+    if (!p.open) return null;
+    const slots = asSlots(sl);
+    const closeOnOutside = p.closeOnOutside !== false;
+    const closeOnEsc = p.closeOnEsc !== false;
+    const width = MODAL_WIDTHS[p.size] || MODAL_WIDTHS.md;
+    const close = (reason) => { if (isFn(p.onClose)) p.onClose(reason); };
+    let releaseTrap = null;
+    const onKey = (e) => {
+      if (e.key === "Escape" && closeOnEsc) {
+        e.preventDefault();
+        close("esc");
+      }
+    };
+    return A.Div({
+      role: "presentation",
+      class: C("mishkah-modal-backdrop", p.backdropClass),
+      style: Object.assign({ position: "fixed", inset: "0", padding: "24px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.55)", zIndex: p.zIndex || 1100 }, p.backdropStyle || {}),
+      onClick: (e) => { if (closeOnOutside && e.target === e.currentTarget) close("outside"); },
+      onMounted: (el) => {
+        document.body.classList.add("mishkah-no-scroll");
+        if (closeOnEsc) document.addEventListener("keydown", onKey);
+        const panel = el.querySelector('[data-modal-panel]');
+        const trap = Comp.util.get && Comp.util.get("FocusTrap");
+        if (panel && trap && trap.trap) {
+          releaseTrap = trap.trap(panel, { restoreFocus: true });
+        }
+        if (isFn(p.onOpen)) p.onOpen({ el, panel });
+      },
+      onUnmounted: () => {
+        document.body.classList.remove("mishkah-no-scroll");
+        if (closeOnEsc) document.removeEventListener("keydown", onKey);
+        if (releaseTrap) {
+          try { releaseTrap(); } catch (_) {}
+          releaseTrap = null;
+        }
+        if (isFn(p.onAfterClose)) p.onAfterClose();
+      }
+    }, {
+      default: [
+        A.Div({
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": p.title ? (p.labelId || `${p.id || "modal"}-title`) : undefined,
+          class: C("mishkah-modal-panel", p.class),
+          style: Object.assign({ width: "100%", maxWidth: width, maxHeight: "90vh", background: "#ffffff", borderRadius: "24px", boxShadow: "0 32px 64px rgba(15,23,42,0.25)", overflow: "hidden", display: "flex", flexDirection: "column" }, p.panelStyle || {}),
+          'data-modal-panel': "",
+          onClick: (e) => e.stopPropagation()
+        }, {
+          default: [
+            (slots.header || p.title) ? A.Div({ class: C("mishkah-modal-header", p.headerClass), style: Object.assign({ padding: "22px 26px", borderBottom: "1px solid rgba(148,163,184,0.18)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }, p.headerStyle || {}) }, {
+              default: slots.header ? toArr(slots.header) : [
+                A.H3({ id: p.labelId || `${p.id || "modal"}-title`, style: Object.assign({ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "#0f172a" }, p.titleStyle || {}) }, { default: [p.title] }),
+                p.dismissable === false ? null : A.Button({ type: "button", style: Object.assign({ border: "none", background: "transparent", fontSize: "24px", lineHeight: 1, color: "#94a3b8", cursor: "pointer" }, p.closeStyle || {}), 'aria-label': t("ui.close", { fallback: "Close" }, app), onClick: () => close("close") }, { default: ["×"] })
+              ]
+            }) : null,
+            A.Div({ class: C("mishkah-modal-body", p.bodyClass), style: Object.assign({ padding: "26px", overflowY: "auto", flex: "1 1 auto" }, p.bodyStyle || {}) }, { default: toArr(slots.body || slots.default) }),
+            slots.footer ? A.Div({ class: C("mishkah-modal-footer", p.footerClass), style: Object.assign({ padding: "20px 26px", borderTop: "1px solid rgba(148,163,184,0.16)", display: "flex", justifyContent: p.footerAlign || "flex-end", gap: "12px" }, p.footerStyle || {}) }, { default: toArr(slots.footer) }) : null
+          ]
+        })
+      ]
+    });
+  });
+
+  Comp.tissue.define("Sheet", (A,s,app,p={},sl={})=>{
+    if (!p.open) return null;
+    const side = p.side || "end";
+    const closeOnOutside = p.closeOnOutside !== false;
+    const closeOnEsc = p.closeOnEsc !== false;
+    const close = (reason) => { if (isFn(p.onClose)) p.onClose(reason); };
+    const isHorizontal = side === "start" || side === "end";
+    const size = isHorizontal ? (p.width || "420px") : (p.height || "60vh");
+    let releaseTrap = null;
+    const onKey = (e) => {
+      if (e.key === "Escape" && closeOnEsc) {
+        e.preventDefault();
+        close("esc");
+      }
+    };
+    const placementStyle = side === "start" ? { justifyContent: "flex-start", alignItems: "stretch" }
+      : side === "end" ? { justifyContent: "flex-end", alignItems: "stretch" }
+      : side === "top" ? { justifyContent: "center", alignItems: "flex-start" }
+      : { justifyContent: "center", alignItems: "flex-end" };
+    const slots = asSlots(sl);
+    return A.Div({
+      role: "presentation",
+      style: Object.assign({ position: "fixed", inset: "0", background: "rgba(15,23,42,0.45)", display: "flex", zIndex: p.zIndex || 1080, padding: "24px" }, placementStyle, p.backdropStyle || {}),
+      onClick: (e) => { if (closeOnOutside && e.target === e.currentTarget) close("outside"); },
+      onMounted: (el) => {
+        document.body.classList.add("mishkah-no-scroll");
+        if (closeOnEsc) document.addEventListener("keydown", onKey);
+        const panel = el.querySelector('[data-sheet-panel]');
+        const trap = Comp.util.get && Comp.util.get("FocusTrap");
+        if (panel && trap && trap.trap) {
+          releaseTrap = trap.trap(panel, { restoreFocus: true });
+        }
+        if (isFn(p.onOpen)) p.onOpen({ el, panel });
+      },
+      onUnmounted: () => {
+        document.body.classList.remove("mishkah-no-scroll");
+        if (closeOnEsc) document.removeEventListener("keydown", onKey);
+        if (releaseTrap) { try { releaseTrap(); } catch (_) {} releaseTrap = null; }
+        if (isFn(p.onAfterClose)) p.onAfterClose();
+      }
+    }, {
+      default: [
+        A.Div({
+          role: "dialog",
+          class: C("mishkah-sheet-panel", p.class),
+          style: Object.assign({
+            width: isHorizontal ? size : "min(720px, 96vw)",
+            height: isHorizontal ? "100%" : size,
+            maxWidth: "96vw",
+            maxHeight: "96vh",
+            background: "#ffffff",
+            borderRadius: side === "start" ? "0 24px 24px 0" : side === "end" ? "24px 0 0 24px" : side === "top" ? "24px 24px 16px 16px" : "16px 16px 24px 24px",
+            boxShadow: "0 32px 64px rgba(15,23,42,0.22)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            transform: "translate3d(0,0,0)",
+            transition: "transform 0.24s ease"
+          }, p.panelStyle || {}),
+          'data-sheet-panel': "",
+          onClick: (e) => e.stopPropagation()
+        }, {
+          default: [
+            slots.header ? A.Div({ style: Object.assign({ padding: "20px 24px", borderBottom: "1px solid rgba(148,163,184,0.18)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }, p.headerStyle || {}) }, { default: toArr(slots.header) }) : null,
+            A.Div({ style: Object.assign({ padding: "22px", overflowY: "auto", flex: "1 1 auto" }, p.bodyStyle || {}) }, { default: toArr(slots.body || slots.default) }),
+            slots.footer ? A.Div({ style: Object.assign({ padding: "20px 24px", borderTop: "1px solid rgba(148,163,184,0.14)", display: "flex", justifyContent: p.footerAlign || "flex-end", gap: "12px" }, p.footerStyle || {}) }, { default: toArr(slots.footer) }) : null
+          ]
+        })
+      ]
+    });
+  });
+
+  Comp.tissue.define("ConfirmDialog", (A,s,app,p={},sl={})=>{
+    const body = sl.body || sl.default || [p.message];
+    const confirmLabel = p.confirmLabel || t("ui.confirm", { fallback: "Confirm" }, app);
+    const cancelLabel = p.cancelLabel || t("ui.cancel", { fallback: "Cancel" }, app);
+    return Comp.call("Modal", {
+      open: p.open,
+      title: p.title || t("ui.confirm", { fallback: "Confirm" }, app),
+      size: p.size || "sm",
+      closeOnOutside: p.closeOnOutside,
+      closeOnEsc: p.closeOnEsc,
+      onClose: p.onClose,
+      dismissable: p.dismissable,
+      bodyClass: C("space-y-3", p.bodyClass)
+    }, {
+      body,
+      footer: [
+        Comp.call("Button", Object.assign({ text: cancelLabel, variant: "ghost" }, p.cancelProps || {}, p.cancelCommand ? { 'data-onclick': p.cancelCommand } : {}, p.onCancel ? { onClick: () => p.onCancel() } : {})),
+        Comp.call("Button", Object.assign({ text: confirmLabel }, p.confirmProps || {}, p.confirmIntent ? { intent: p.confirmIntent } : {}, p.confirmCommand ? { 'data-onclick': p.confirmCommand } : {}, p.onConfirm ? { onClick: () => p.onConfirm() } : {}))
+      ]
+    });
+  });
+
+  const TOAST_COLORS = { neutral: "#1e293b", info: "#2563eb", success: "#047857", warning: "#b45309", danger: "#b91c1c" };
+
+  Comp.tissue.define("Toast", (A,s,app,p={},sl={})=>{
+    const tone = TOAST_COLORS[p.intent || "neutral"] || TOAST_COLORS.neutral;
+    const content = sl.default || (p.message ? [p.message] : []);
+    const closeProps = {};
+    if (p.dismissCommand) closeProps['data-onclick'] = p.dismissCommand;
+    if (p.dismissCommand && p.id != null) closeProps['data-toast-id'] = p.id;
+    if (isFn(p.onClose)) closeProps.onClick = (e) => { e.preventDefault(); p.onClose(); };
+    return A.Div({ class: C("mishkah-toast", p.class), style: Object.assign({ background: tone, color: "#ffffff", borderRadius: "18px", padding: "16px 20px", minWidth: "220px", maxWidth: "360px", boxShadow: "0 24px 48px rgba(15,23,42,0.25)", display: "flex", alignItems: "flex-start", gap: "12px", pointerEvents: "auto" }, p.style || {}) }, {
+      default: [
+        p.icon ? A.Span({ style: { fontSize: "18px", lineHeight: 1 } }, { default: [p.icon] }) : null,
+        A.Div({ style: { flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "4px" } }, {
+          default: [
+            p.title ? A.Div({ style: { fontWeight: 600, fontSize: "14px" } }, { default: [p.title] }) : null,
+            content.length ? A.Div({ style: { fontSize: "13px", lineHeight: 1.45 } }, { default: toArr(content) }) : null
+          ]
+        }),
+        (p.dismissCommand || isFn(p.onClose)) ? A.Button(Object.assign({ type: "button", style: { border: "none", background: "transparent", color: "inherit", fontSize: "16px", cursor: "pointer" }, 'aria-label': t("ui.close", { fallback: "Close" }, app) }, closeProps), { default: ["×"] }) : null
+      ]
+    });
+  });
+
+  Comp.tissue.define("ToastStack", (A,s,app,p={},sl={})=>{
+    const items = toArr(p.items || []);
+    const position = p.position || "top-end";
+    const style = Object.assign({ position: "fixed", zIndex: p.zIndex || 1300, display: "flex", flexDirection: "column", gap: "12px", pointerEvents: "none" },
+      position === "top-start" ? { top: "24px", left: "24px", alignItems: "flex-start" }
+        : position === "bottom-start" ? { bottom: "24px", left: "24px", alignItems: "flex-start" }
+        : position === "bottom-end" ? { bottom: "24px", right: "24px", alignItems: "flex-end" }
+        : { top: "24px", right: "24px", alignItems: "flex-end" },
+      p.style || {});
+    return A.Div({ class: C("mishkah-toast-stack", p.class), style }, {
+      default: items.map((toast, idx) => {
+        const props = Object.assign({}, toast, { key: toast.id || idx, style: Object.assign({ pointerEvents: "auto" }, toast.style || {}) });
+        const slots = toast.slots || (toast.description ? { default: [toast.description] } : {});
+        return Comp.call("Toast", props, slots);
+      })
+    });
+  });
+
+  Comp.tissue.define("Portal", (A,s,app,p={},sl={})=>{
+    const target = p.target || "mishkah-portal-root";
+    const mountClass = p.mountClass || p.class || "";
+    const slots = asSlots(sl);
+    return A.Div({ style: { display: "contents" }, onMounted: (placeholder) => {
+      const util = Comp.util.get && Comp.util.get("PortalRoot");
+      const root = util && util.ensure ? util.ensure(target) : (function(){ let el = document.getElementById(target); if(!el){ el=document.createElement('div'); el.id=target; document.body.appendChild(el); } return el; })();
+      const mount = document.createElement('div');
+      if (mountClass) mount.className = mountClass;
+      placeholder.__portal_mount = mount;
+      root.appendChild(mount);
+      const render = () => {
+        const frag = document.createDocumentFragment();
+        const nodes = toArr(slots.default);
+        for (const child of nodes) {
+          if (child && typeof child === 'object' && child.__A && window.Mishkah?.Atoms?.toNode) {
+            frag.appendChild(window.Mishkah.Atoms.toNode(child));
+          } else {
+            frag.appendChild(document.createTextNode(child == null ? '' : String(child)));
+          }
+        }
+        mount.replaceChildren(frag);
+      };
+      render();
+    }, onUnmounted: (placeholder) => {
+      const mount = placeholder.__portal_mount;
+      if (mount && mount.parentNode) mount.parentNode.removeChild(mount);
+      delete placeholder.__portal_mount;
+    } }, { default: [] });
+  });
+
+  Comp.tissue.define("Popover", (A,s,app,p={},sl={})=>{
+    if (!p.open) return null;
+    const slots = asSlots(sl);
+    const portalTarget = p.portalTarget || "mishkah-popovers";
+    const placement = p.placement || "bottom";
+    const align = p.align || "start";
+    const closeOnOutside = p.closeOnOutside !== false;
+    const close = (reason) => { if (isFn(p.onClose)) p.onClose(reason); };
+    const content = slots.default || [];
+    return Comp.call("Portal", { target: portalTarget, mountClass: C("mishkah-popover-host", p.hostClass) }, {
+      default: [
+        A.Div({
+          class: C("mishkah-popover", p.class),
+          style: Object.assign({ position: "fixed", minWidth: p.minWidth || "220px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 20px 40px rgba(15,23,42,0.15)", border: "1px solid rgba(148,163,184,0.2)", padding: "16px", zIndex: p.zIndex || 1200 }, p.style || {}),
+          onMounted: (el) => {
+            const anchor = typeof p.anchor === 'string' ? document.querySelector(p.anchor) : (p.anchor || (p.anchorId ? document.getElementById(p.anchorId) : null));
+            if (anchor && U.computePlacement) {
+              const pos = U.computePlacement(anchor, el, { placement, align, offset: p.offset });
+              if (pos && pos.style) Object.assign(el.style, pos.style);
+            }
+            if (closeOnOutside) {
+              el.__mishkah_offClick = U.onOutsideClick ? U.onOutsideClick(el, () => close("outside")) : null;
+            }
+          },
+          onUnmounted: (el) => {
+            if (el.__mishkah_offClick) el.__mishkah_offClick();
+          }
+        }, { default: toArr(content) })
+      ]
+    });
+  });
+
+  Comp.tissue.define("Tooltip", (A,s,app,p={},sl={})=>{
+    if (!p.open) return null;
+    const slots = asSlots(sl);
+    return Comp.call("Popover", Object.assign({
+      open: true,
+      anchor: p.anchor,
+      anchorId: p.anchorId,
+      placement: p.placement || "top",
+      align: p.align || "center",
+      closeOnOutside: false,
+      portalTarget: p.portalTarget || "mishkah-tooltips",
+      style: Object.assign({ background: "#0f172a", color: "#ffffff", fontSize: "12px", padding: "6px 10px", borderRadius: "12px", boxShadow: "0 12px 24px rgba(15,23,42,0.2)" }, p.style || {})
+    }, p), { default: slots.default || [p.label || p.text] });
   });
   Comp.mole.define("NumberPad", (A,s,app,p={},sl={})=>{
     let buffer = String(p.value || "");
@@ -3408,6 +4003,216 @@ function create() {
       return oldToSpec? oldToSpec(json,state): json;
     }
   }
+
+  const FocusTrap = {
+    trap(root, opts = {}) {
+      if (!root) return () => {};
+      const prev = document.activeElement;
+      const getFocusable = () => (U.getFocusables ? U.getFocusables(root) : Array.from(root.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(el => !el.hasAttribute('aria-hidden')));
+      const focusables = getFocusable();
+      if (opts.initialFocus) {
+        const target = typeof opts.initialFocus === 'string' ? root.querySelector(opts.initialFocus) : opts.initialFocus;
+        if (target && target.focus) target.focus();
+      } else if (focusables.length && focusables[0].focus) {
+        focusables[0].focus();
+      }
+      const handler = (e) => {
+        if (e.key !== 'Tab') return;
+        const list = getFocusable();
+        if (!list.length) return;
+        const first = list[0];
+        const last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last && last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first && first.focus();
+        }
+      };
+      root.addEventListener('keydown', handler);
+      return () => {
+        root.removeEventListener('keydown', handler);
+        if (opts.restoreFocus !== false && prev && prev.focus) {
+          try { prev.focus(); } catch (_) {}
+        }
+      };
+    },
+    focusFirst(root) {
+      if (!root) return false;
+      if (U.focusFirst) return U.focusFirst(root);
+      const focusables = Array.from(root.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      if (focusables.length && focusables[0].focus) { focusables[0].focus(); return true; }
+      return false;
+    },
+    onOutsideClick(root, cb) {
+      return U.onOutsideClick ? U.onOutsideClick(root, cb) : () => {};
+    }
+  };
+
+  const PortalRoot = {
+    ensure(id = 'mishkah-portal-root') {
+      let el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = id;
+        el.dataset.portalRoot = 'true';
+        document.body.appendChild(el);
+      }
+      return el;
+    },
+    clear(id) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    },
+    mount(id, node) {
+      const root = this.ensure(id);
+      if (node) root.appendChild(node);
+      return () => {
+        if (node && node.parentNode === root) root.removeChild(node);
+      };
+    }
+  };
+
+  const CurrencyUtil = {
+    symbol(currency = 'USD', locale = 'en') {
+      try {
+        const parts = new Intl.NumberFormat(locale, { style: 'currency', currency }).formatToParts(0);
+        const token = parts.find(part => part.type === 'currency');
+        return token ? token.value : currency;
+      } catch (_) {
+        return currency;
+      }
+    },
+    format(value, options = {}) {
+      if (value == null || value === '') return '';
+      const locale = options.locale || 'en';
+      const currency = options.currency || 'USD';
+      const minimumFractionDigits = options.minimumFractionDigits != null ? options.minimumFractionDigits : 2;
+      const maximumFractionDigits = options.maximumFractionDigits != null ? options.maximumFractionDigits : minimumFractionDigits;
+      try {
+        return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits, maximumFractionDigits }).format(value);
+      } catch (_) {
+        const num = Number(value);
+        return Number.isFinite(num) ? num.toFixed(minimumFractionDigits) : String(value);
+      }
+    },
+    parse(input, options = {}) {
+      if (input == null) return 0;
+      const locale = options.locale || 'en';
+      const raw = String(input).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/[\s\u00a0]/g, '');
+      const decimal = locale.startsWith('fr') || locale.startsWith('ar') ? ',' : '.';
+      let cleaned = normalized.replace(new RegExp(`[^0-9${decimal}-]`, 'g'), '');
+      if (decimal === ',') cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+      const num = parseFloat(cleaned);
+      return Number.isNaN(num) ? 0 : num;
+    }
+  };
+
+  const PhoneUtil = {
+    normalize(value) {
+      return String(value || '').replace(/[^0-9+]/g, '');
+    },
+    format(value, { country } = {}) {
+      const raw = this.normalize(value);
+      if (!raw) return '';
+      if (raw.startsWith('+')) {
+        return raw.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d{0,4})/, (_, c, a, b, rest) => rest ? `${c} ${a} ${b} ${rest}` : `${c} ${a} ${b}`);
+      }
+      if (raw.length === 11) {
+        return raw.replace(/(\d{3})(\d{3})(\d{5})/, '$1 $2 $3');
+      }
+      if (raw.length === 10) {
+        return raw.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+      }
+      return raw;
+    }
+  };
+
+  const Hotkeys = (() => {
+    const registry = new Map();
+    let installed = false;
+    const normalize = combo => String(combo || '').trim().toLowerCase();
+    const parse = combo => normalize(combo).split('+').map(part => part.trim()).filter(Boolean);
+    function match(e, parts) {
+      let main = null;
+      let needAlt = false, needShift = false, needCtrl = false, needMeta = false, needMod = false;
+      for (const part of parts) {
+        if (part === 'alt') { needAlt = true; continue; }
+        if (part === 'shift') { needShift = true; continue; }
+        if (part === 'ctrl' || part === 'control') { needCtrl = true; continue; }
+        if (part === 'meta' || part === 'cmd' || part === 'command') { needMeta = true; continue; }
+        if (part === 'mod') { needMod = true; continue; }
+        main = part;
+      }
+      const key = (e.key || '').toLowerCase();
+      const eventKey = key === ' ' ? 'space' : key;
+      if (main && main !== eventKey) return false;
+      if (needAlt && !e.altKey) return false;
+      if (needShift && !e.shiftKey) return false;
+      if (needCtrl && !e.ctrlKey) return false;
+      if (needMeta && !e.metaKey) return false;
+      if (needMod && !(e.metaKey || e.ctrlKey)) return false;
+      if (e.altKey && !needAlt) return false;
+      if (e.shiftKey && !needShift) return false;
+      if (e.ctrlKey && !needCtrl && !needMod) return false;
+      if (e.metaKey && !needMeta && !needMod) return false;
+      return true;
+    }
+    function handle(e) {
+      registry.forEach(set => {
+        set.forEach(entry => {
+          if (match(e, entry.parts)) {
+            if (entry.options.preventDefault !== false) e.preventDefault();
+            if (entry.options.stopPropagation) e.stopPropagation();
+            try { entry.handler(e); } catch (err) { console.error('[Mishkah.Hotkeys]', err); }
+          }
+        });
+      });
+    }
+    function install() {
+      if (installed) return;
+      installed = true;
+      document.addEventListener('keydown', handle, true);
+    }
+    function uninstallIfIdle() {
+      if (!installed) return;
+      if (registry.size === 0) {
+        document.removeEventListener('keydown', handle, true);
+        installed = false;
+      }
+    }
+    function register(combo, handler, options = {}) {
+      if (!combo || !isFn(handler)) return () => {};
+      const norm = normalize(combo);
+      const entry = { combo: norm, handler, options, parts: parse(combo) };
+      if (!registry.has(norm)) registry.set(norm, new Set());
+      registry.get(norm).add(entry);
+      install();
+      return () => {
+        const set = registry.get(norm);
+        if (set) {
+          set.delete(entry);
+          if (!set.size) registry.delete(norm);
+        }
+        uninstallIfIdle();
+      };
+    }
+    function clear() {
+      registry.clear();
+      uninstallIfIdle();
+    }
+    return { register, clear, active: () => Array.from(registry.keys()) };
+  })();
+
+  Comp.util.register('FocusTrap', FocusTrap);
+  Comp.util.register('PortalRoot', PortalRoot);
+  Comp.util.register('Currency', CurrencyUtil);
+  Comp.util.register('Phone', PhoneUtil);
+  Comp.util.register('Hotkeys', Hotkeys);
 
   console.info("[Mishkah.Comp] Loaded components (v5): Icon, Button, Input, SelectBase, Spinner, Skeleton, NumberInput, PasswordInput, TagInput, AsyncSelect, MultiSelect, AutocompleteTable, DatePicker, DateRange, FileUpload, ContextMenu, SplitterH, EmptyState, PageHeader, NavMenu, DataTable, DataTablePro, CommandPalette, ReportTool.");
   M.Comp.mole.POSRest = {}; // Create the namespace
