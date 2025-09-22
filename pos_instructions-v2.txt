@@ -311,5 +311,168 @@ ui: {
 
 ---
 
-**تم.** هذا هو المخطط المرجعي المُحدَّث. عند الموافقة، نتابع مباشرة بالدفعة التالية من التنفيذ (Modifiers/Notes/Return) وفق هذا المستند.
+يجب أن يكون لديك ثلاث ملفات قم بمحاولة الاستفادة من ملف  mishkah-v5.js يجب عليك قبل البدأ بمكونات المطعم ان تنظر في مكونات مكتبة مشكاة و أن تقلها بكل المكونات العامة التي يمكن اعادة استخدامها في أي web app قادم لا تضع في pos-comp.js أي مكونات عامة فقط المكونات المتخصصة و حاول أن تكون المكونات المتخصصة ليست مبنية على html أو حاول أن تكون كلها مبني على Comp أخرى من المكتبة لا تلجأ إلى Atoms إلا في أديق الحدود الفكرة الأن أننا نريد أن ننظر في مكونات المكتبة الموجودة و نطورها لتكون جيدة و معيارية و احترافية و نعيد استخدامها لو أن أي مكون موجود وضعيف يمكننا دعمه و تطويه و إن كان قوي فلنستخدمه و إن لم يكن موجود فلننشأه عليك بمراجعة مكونات المكتبة أولا قبل البدأ في مكوانات المطع و لنتخيل و نحلل ما هي المكونات التي تنقصنا لنبني عليها pos ثم نبنيها أولا هذا سيجعل الكود أصغر بكثير و اكثر احترافية في pos-comp.js حاول الالتزام بمعايير DSL
+pos.html pos-comp.js pos.js  فلتكتب لي قائمة المكونات الصغيرة التي سنركب منها المكونات المتخصصة و كل مكون عام يمكننا استخدامه في أweb app
+=
+---
+# 📦 Mishkah v5 — General Component Catalog
+
+> هدف الوثيقة: تحديد **المكوّنات العامة الصغيرة** (Atoms/Molecules/Utilities) القابلة لإعادة الاستخدام في **كل تطبيق ويب** مبني على Mishkah v5، لتكون الأساس الذي تُركَّب منه المكوّنات المتخصصة (مثل POS).
+
+---
+
+## 0) اتفاقيات عامة
+
+- **المساحة الاسمية**: `Mishkah.Comp`
+  - `Comp.mole.*` للمكوّنات الصغيرة (زر، حقل، كبسولة…)
+  - `Comp.tissue.*` للمركّبة (Card، List، Modal، Form Row…)
+- **الدوال المساعدة**: كل مكوّن يقبل `tw`، ويدعم RTL/Dark تلقائيًا عبر twcss.
+- **المعلمات المشتركة** (`props` القياسية حيث ينطبق):
+  - `size: 'xs|sm|md|lg'`، `variant: 'solid|soft|outline|ghost|link'`
+  - `intent: 'neutral|primary|success|warning|danger'`
+  - `iconLeft`, `iconRight` (Unicode/SVG)
+  - `loading`, `disabled`, `hotkey?: string`, `aria?: Record<string,string>`
+- **الأحداث**: تفويض عبر `data-on*` فقط. أمثلة: `data-onclick="cmd"`, `data-oninput="cmd"`.
+- **إمكانية الوصول**: كل عنصر تفاعلي يراعي focus، roles، وأسماء ARIA المناسبة.
+- **الأداء**: ميزانية زمنية لكل Region؛ القوائم الثقيلة تدعم virtualization.
+
+---
+
+## 1) أساسيات تفاعلية (Atoms)
+
+### 1.1 Buttons
+- **Comp.mole.Button**: زر عام بكل المتغيرات المذكورة أعلاه.
+- **Comp.mole.IconButton**: زر أيقونة دائرية/مربعة مع Tooltip.
+- **Comp.mole.Segmented**: مجموعة أزرار متبادلة (Tabs خفيفة).
+
+### 1.2 Inputs
+- **Comp.mole.Input**: نصي أحادي السطر مع `prefix/suffix`, `clearable`.
+- **Comp.mole.NumberInput**: أرقام صحيحة/عشرية مع قيود `min|max|step`.
+- **Comp.mole.MoneyInput**: يغلّف NumberInput مع تنسيق العملة.
+- **Comp.mole.PasswordInput**: إظهار/إخفاء.
+- **Comp.mole.Textarea**: ملاحظات متعددة الأسطر.
+- **Comp.mole.Switch**: تشغيل/إيقاف.
+- **Comp.mole.Checkbox**, **Comp.mole.Radio**.
+
+### 1.3 Picks & Selects
+- **Comp.mole.SelectBase**: قائمة منسدلة أساسية.
+- **Comp.mole.AsyncSelect**: جلب بيانات ديناميكي.
+- **Comp.mole.MultiSelect**: اختيار متعدد بكبسولات.
+- **Comp.mole.TagInput**: إدخال وسوم.
+- **Comp.mole.DatePicker**، **Comp.mole.DateRange**.
+- **Comp.mole.TimeInput**: وقت (ساعة/دقيقة) مع مفاتيح سريعة.
+- **Comp.mole.PhoneInput**، **Comp.mole.EmailInput**.
+
+### 1.4 Display micro
+- **Comp.mole.Badge**، **Comp.mole.Chip**، **Comp.mole.Pill**.
+- **Comp.mole.Avatar** (حرف/صورة)، **Comp.mole.Kbd** (اختصارات).
+- **Comp.mole.Icon** (Unicode/SVG)، **Comp.mole.Spinner**, **Comp.mole.Skeleton**.
+- **Comp.mole.Progress**، **Comp.mole.Meter**.
+
+---
+
+## 2) أسطح وتخطيطات (Molecules)
+
+### 2.1 Surfaces
+- **Comp.tissue.Card**: عنوان/محتوى/أقدام، متغيرات intent.
+- **Comp.tissue.Panel**: حاوية محايدة بأطراف قابلة للتخصيص.
+- **Comp.tissue.Toolbar**: شريط أدوات أفقي، يدعم الالتفاف Responsive.
+- **Comp.tissue.FormRow**: تسمية + حقل + ملاحظة/خطأ.
+
+### 2.2 Layout
+- **Comp.tissue.Stack** (عمودي/أفقي)، **Comp.tissue.Grid** (12 عمودًا)، **Comp.tissue.SplitterH**.
+- **Comp.tissue.ScrollArea**: تمرير داخل لوحة مع ظلال حواف.
+- **Comp.tissue.Container**: أقصى عرض + حواف داخلية.
+
+### 2.3 Navigation
+- **Comp.tissue.Tabs**: علامات تبويب (line/contained/pill).
+- **Comp.tissue.Breadcrumbs**.
+- **Comp.tissue.Steps**: خطوات عملية.
+- **Comp.tissue.NavMenu**: قائمة تنقل جانبية/عليا.
+- **Comp.tissue.CommandPalette**: بحث الأوامر مع اختصارات.
+
+### 2.4 Overlays
+- **Comp.tissue.Modal**: حوار قياسي (زر إغلاق، ESC، ضغط خارج، focus-trap، أحجام).
+- **Comp.tissue.Sheet**: Drawer من الحافة (start|end|bottom|top).
+- **Comp.tissue.Popover**، **Comp.tissue.Tooltip**، **Comp.tissue.ContextMenu**.
+- **Comp.tissue.Portal**: جذر نقل DOM للألواح/الحوارات.
+
+### 2.5 Data Display
+- **Comp.tissue.List**: قائمة بسيطة/افتراضية (virtualized) مع ItemTemplate.
+- **Comp.tissue.DataTable**: جدول مع فرز/بحث/ترقيم.
+- **Comp.tissue.DataTablePro**: أعمدة قابلة للتخصيص، خلايا قوالب، اختيار متعدد.
+- **Comp.tissue.Stat**: بطاقات إحصاءات صغيرة.
+- **Comp.tissue.EmptyState**: حالة لا بيانات.
+
+### 2.6 Feedback
+- **Comp.tissue.Toast**: رسائل عابرة (Success/Warning/Error/Info).
+- **Comp.tissue.Alert**: تنبيه ثابت داخل المحتوى.
+- **Comp.tissue.ConfirmDialog**: حوار تأكيد قياسي.
+
+---
+
+## 3) أدوات (Utilities)
+
+- **Comp.util.Hotkeys**: ربط اختصارات عالمية وإظهار `?` للمساعدة.
+- **Comp.util.FocusTrap**: حصر تركيز داخل Overlay.
+- **Comp.util.VisuallyHidden**: نص مخفي للوصولية.
+- **Comp.util.PortalRoot**: تركيب جذور Overlays في نهاية الوثيقة.
+- **Comp.util.Form**: ربط حقول بنمط موحّد + التحقق + رسائل.
+- **Comp.util.Currency**: تنسيق عملات حسب locale، قناع إدخال.
+- **Comp.util.Phone**: تنسيق دولي (قناع + تحقق).
+
+---
+
+## 4) خريطة استخدام في POS (أمثلة تركيب)
+
+- **OrderHeader** (متخصص) = Toolbar + Segmented + Button/IconButton + Popover.
+- **OrderLineRow** = Card(Row) + Badge + IconButton + Segmented + Popover.
+- **NumpadInteger** = Panel + Grid + Button/IconButton + Kbd.
+- **ModifiersSheet** = Sheet + Tabs + List + Chip/Badge + ConfirmDialog.
+- **TablesModule** = Panel + Tabs + Grid + Card + Popover + ConfirmDialog + DataTablePro.
+- **PaymentsSheet** = Sheet + FormRow + MoneyInput + Segmented + DataTable + Toast.
+- **ReportsPanel** = Toolbar + AsyncSelect + DateRange + DataTablePro + CommandPalette.
+
+---
+
+## 5) الحالة الحالية والفراغات المقترحة
+
+- موجودة: Button, Input, SelectBase, Spinner, Skeleton, NumberInput, PasswordInput, TagInput, AsyncSelect, MultiSelect, DatePicker, DateRange, ContextMenu, SplitterH, EmptyState, PageHeader, NavMenu, DataTable, DataTablePro, CommandPalette, ReportTool.
+- **نقترح إضافة/تعزيز**:
+  - Molecules: Modal, Sheet, Popover, Tooltip, ConfirmDialog, FormRow, Panel, Card, ScrollArea, Tabs, Steps, Portal.
+  - Atoms: MoneyInput, PhoneInput, TimeInput, Textarea, Switch, Checkbox, Radio, Badge/Chip/Pill, Progress/Meter, Avatar, Kbd.
+  - Utilities: FocusTrap, PortalRoot, Currency/Phone utils، Hotkeys.
+
+---
+
+## 6) معايير الاندماج في DSL
+
+- كل مكوّن يعرِّف **props واضحة** + **Slots** (`default`, `header`, `footer`…) مع دعم `tw`.
+- الأحداث تُعلن كأسماء أوامر جاهزة للاستخدام (`data-onclick="…"`).
+- المكوّنات المتخصصة (POS) تُبنى **فوق** هذه المكوّنات فقط، ولا تستخدم Atoms مباشرة إلا للضرورة القصوى.
+
+---
+
+## 7) أولويات التنفيذ (3 مكوّنات/دفعة)
+
+1) **Modal**, **Sheet**, **ConfirmDialog**  → لتثبيت معايير Overlays.
+2) **FormRow**, **MoneyInput**, **PhoneInput** → جودة إدخال البيانات.
+3) **Tabs**, **Popover**, **Tooltip** → تحكّم وسياق غني.
+4) **Card**, **Panel**, **ScrollArea** → أسطح نظيفة.
+5) **Toast**, **Steps**, **Progress** → تغذية راجعة واضحة.
+6) **Portal**, **FocusTrap**, **Hotkeys** → بنية تحتية صلبة.
+
+---
+
+## 8) معايير القبول العامة للمكوّنات
+
+- دعم كامل RTL/Dark و i18n.
+- A11y: roles/aria/labels/tabIndex + مفاتيح ESC/Enter/Space حيث يلزم.
+- أداء: لا تتجاوز الميزانية في المناطق الساخنة، ودعم virtualization حيث المنطقي.
+- API ثابتة: `size/variant/intent` موحّدة على المكوّنات.
+- Slots مرنة: `header|default|footer|actions`.
+
+---
+
+**ملاحظة تنفيذية**: بعد تثبيت هذه الحزمة العامة في `mishkah-v5.js` (أو ملف `mishkah-comp-core.js`)، نلتزم في `pos-comp.js` ببناء مكوّنات المطعم المتخصصة حصريًا فوقها لضمان صغر الكود واتساق التجربة عبر كل المشاريع.
 
