@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mishkah POS</title>
+  <style>
+    :root {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f1f5f9;
+    }
+    #app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #pos-header {
+      padding: 24px;
+    }
+    .main-shell {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 24px;
+      padding: 0 24px 24px 24px;
+      box-sizing: border-box;
+    }
+    footer#footer-bar {
+      padding: 0 24px 24px 24px;
+    }
+    @media (max-width: 1024px) {
+      .main-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+    .pos-menu-panel, .pos-order-panel, .pos-footer-bar, .pos-header {
+      backdrop-filter: blur(6px);
+    }
+    .mishkah-no-scroll {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header id="pos-header"></header>
+    <main class="main-shell">
+      <section id="menu-panel"></section>
+      <aside id="order-panel"></aside>
+    </main>
+    <footer id="footer-bar"></footer>
+  </div>
+  <div id="modals-root"></div>
+  <div id="toasts-root"></div>
+  <script src="mishkah-v5.js"></script>
+  <script src="mock-data.js"></script>
+  <script src="pos-comp.js"></script>
+  <script src="pos.js"></script>
+</body>
+</html>
