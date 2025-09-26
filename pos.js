@@ -283,12 +283,19 @@
       truth.mark("pos-header");
     },
     "env.toggleLocale": ({ env, truth }) => {
+      let next;
+      let nextDir;
       truth.produce((state) => {
-        const next = state.env.locale === "ar" ? "en" : "ar";
+        next = state.env.locale === "ar" ? "en" : "ar";
+        nextDir = next === "ar" ? "rtl" : "ltr";
         state.env.locale = next;
-        state.env.dir = next === "ar" ? "rtl" : "ltr";
+        state.env.dir = nextDir;
         env.setLocale(next);
       });
+      if (typeof document !== "undefined") {
+        document.documentElement.setAttribute("dir", nextDir);
+        document.documentElement.setAttribute("lang", next);
+      }
       truth.rebuildAll();
     },
     "session.logout": ({ truth }) => {

@@ -218,14 +218,22 @@
 
   C.define("POSViewport", (A, s, app) => {
     const dir = s.env?.dir || document?.documentElement?.dir || "ltr";
+    const isRTL = dir === "rtl";
+    const gridTemplateAreas = isRTL
+      ? `'header header' 'menu order' 'menu footer'`
+      : `'header header' 'order menu' 'footer menu'`;
+    const gridTemplateColumns = isRTL
+      ? "minmax(0, 7fr) minmax(320px, 3fr)"
+      : "minmax(320px, 3fr) minmax(0, 7fr)";
+
     return A.Div({
       style: {
         height: "100vh",
         width: "100vw",
         display: "grid",
-        gridTemplateAreas: `'header header' 'order menu' 'footer menu'`,
+        gridTemplateAreas,
         gridTemplateRows: "64px 1fr 88px",
-        gridTemplateColumns: "minmax(320px, 3fr) minmax(0, 7fr)",
+        gridTemplateColumns,
         direction: dir,
         background: "var(--bg-page)",
         overflow: "hidden"
@@ -462,28 +470,37 @@
 
   C.define("POSOrderPanel", (A, s, app) => {
     const order = s.order;
+    const dir = s.env?.dir || document?.documentElement?.dir || "ltr";
+    const isRTL = dir === "rtl";
+    const borderKey = isRTL ? "borderInlineStart" : "borderInlineEnd";
+
+    const baseStyle = {
+      gridArea: "order",
+      background: "var(--bg-surface)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    };
+    baseStyle[borderKey] = "1px solid var(--border-default)";
+
     if (!order) {
       return A.Div({
-        style: {
-          gridArea: "order",
-          borderInlineEnd: "1px solid var(--border-default)",
-          background: "var(--bg-surface)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center"
-        }
+        style: baseStyle
       }, { default: [app.call("EmptyState", { title: app.i18n.t("ui.no_active_order") })] });
     }
 
+    const style = {
+      gridArea: "order",
+      display: "flex",
+      flexDirection: "column",
+      background: "var(--bg-surface)",
+      height: "100%"
+    };
+    style[borderKey] = "1px solid var(--border-default)";
+
     return A.Div({
-      style: {
-        gridArea: "order",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--bg-surface)",
-        borderInlineEnd: "1px solid var(--border-default)",
-        height: "100%"
-      }
+      style,
+      class: "order-panel"
     }, {
       default: [
         app.call("POSOrderHeader", { order }),
