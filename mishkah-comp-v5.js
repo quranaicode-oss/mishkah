@@ -27,6 +27,11 @@
   const range = (n, start=1) => Array.from({length:n}, (_,i)=> i+start);
   const asSlots = (slots)=> slots && isObject(slots) ? slots : { default: toArray(slots && slots.default ? slots.default : slots) };
 
+  const isArr = isArray;
+  const isObj = isObject;
+  const isFn = isFunction;
+  const isStr = isStringLike;
+
   // CSS Tokens from Theme (variables)
   // نستخدم var(...) مباشرة لتسهيل التبديل بين الثيمات
   const TOK = {
@@ -2670,6 +2675,527 @@ Comp.define("EmptyState", (A, s, app, p = {}, sl = {}) =>
     }
   )
 );
+
+// ==== SearchBar (CSS Vars) ====
+Comp.define("SearchBar", (A, s, app, p = {}, sl = {}) => {
+  const slots = asSlots(sl);
+  const value = p.value ?? "";
+  const chips = Array.isArray(p.chips) ? p.chips : [];
+  const placeholder = p.placeholder || t("ui.search", { fallback: "Search..." }, app);
+
+  return A.Div(
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px"
+      }
+    },
+    {
+      default: [
+        A.Div(
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              borderRadius: "12px",
+              border: "1px solid var(--border-default)",
+              padding: "8px 12px",
+              background: "var(--bg-surface)"
+            }
+          },
+          {
+            default: [
+              A.Span(
+                {
+                  style: {
+                    fontSize: "16px",
+                    color: "var(--text-subtle)"
+                  }
+                },
+                { default: [p.icon || "🔍"] }
+              ),
+              A.Input({
+                type: "search",
+                value,
+                placeholder,
+                "data-oninput": p.onInput || p.onchange || "search.input",
+                style: {
+                  flex: "1 1 auto",
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  fontSize: "16px",
+                  color: "var(--text-default)"
+                }
+              }),
+              value
+                ? A.Button({
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    "data-onclick": p.onClear || "search.clear",
+                    style: {
+                      padding: "4px",
+                      minWidth: "auto"
+                    }
+                  }, { default: [p.clearLabel || "×"] })
+                : null,
+              ...(slots.trailing || [])
+            ]
+          }
+        ),
+        chips.length
+          ? A.Div(
+              {
+                style: {
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "6px"
+                }
+              },
+              {
+                default: chips.map((chip) =>
+                  A.Div(
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        borderRadius: "999px",
+                        padding: "4px 10px",
+                        background: chip.tone === "neutral" ? "var(--bg-ui)" : "var(--primary-soft)",
+                        color: chip.tone === "neutral" ? "var(--text-default)" : "var(--primary)",
+                        fontSize: "14px",
+                        fontWeight: 500
+                      }
+                    },
+                    {
+                      default: [
+                        chip.icon ? A.Span({}, { default: [chip.icon] }) : null,
+                        A.Span({}, { default: [chip.label || chip.text || ""] }),
+                        chip.removable
+                          ? A.Button({
+                              type: "button",
+                              variant: "ghost",
+                              size: "sm",
+                              "data-onclick": chip.onRemove || p.onRemoveChip || "search.removeChip",
+                              "data-chip-id": chip.id,
+                              style: {
+                                padding: "2px",
+                                minWidth: "auto",
+                                color: "inherit"
+                              }
+                            }, { default: [chip.removeLabel || "×"] })
+                          : null
+                      ]
+                    }
+                  )
+                )
+              }
+            )
+          : null
+      ]
+    }
+  );
+});
+
+// ==== NumpadInteger (POS Utility) ====
+Comp.define("NumpadInteger", (A, s, app, p = {}, sl = {}) => {
+  const slots = asSlots(sl);
+  const tLabel = (key, fallback) => t(key, { fallback }, app);
+  const min = Number.isFinite(Number(p.min)) ? Number(p.min) : 0;
+  const max = Number.isFinite(Number(p.max)) ? Number(p.max) : Number.MAX_SAFE_INTEGER;
+  const rawValue = Number(p.value ?? min);
+  const value = Math.max(min, Math.min(max, Number.isFinite(rawValue) ? Math.round(rawValue) : min));
+  const keys = isArr(p.keys) && p.keys.length ? p.keys : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+  const keyButton = (label, extra = {}) =>
+    A.Button(
+      {
+        type: "button",
+        style: {
+          height: "64px",
+          borderRadius: "16px",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-default)",
+          fontSize: "24px",
+          fontWeight: 600,
+          color: "var(--text-default)",
+          cursor: "pointer",
+          transition: "var(--transition-default)",
+          ...extra.style
+        },
+        ...extra
+      },
+      { default: [label] }
+    );
+
+  return A.Div(
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px",
+        padding: "20px",
+        minWidth: "320px",
+        borderRadius: "20px",
+        border: "1px solid var(--border-default)",
+        background: "var(--bg-surface)"
+      }
+    },
+    {
+      default: [
+        A.Div(
+          {
+            style: {
+              textAlign: "center",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "var(--text-default)"
+            }
+          },
+          { default: [p.title || tLabel("ui.enterQuantity", "Enter Quantity")] }
+        ),
+        A.Div(
+          {
+            style: {
+              textAlign: "center",
+              fontSize: "32px",
+              fontWeight: 700,
+              color: "var(--primary)",
+              padding: "16px",
+              borderRadius: "12px",
+              border: "2px solid var(--primary)",
+              background: "var(--bg-page)"
+            }
+          },
+          { default: [String(value)] }
+        ),
+        A.Div(
+          {
+            style: {
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "12px"
+            }
+          },
+          {
+            default: [
+              ...keys.map((key) =>
+                keyButton(key, {
+                  "data-onclick": p.onInputCommand || "numpad.integer.input",
+                  "data-key": key
+                })
+              ),
+              keyButton(p.clearLabel || tLabel("ui.clear", "Clear"), {
+                style: { gridColumn: "span 1" },
+                "data-onclick": p.onClearCommand || "numpad.integer.clear"
+              }),
+              keyButton(p.confirmLabel || tLabel("ui.confirm", "OK"), {
+                style: { gridColumn: "span 2", background: "var(--primary)", color: "var(--text-on-primary, #ffffff)" },
+                "data-onclick": p.onConfirmCommand || "numpad.integer.confirm"
+              })
+            ]
+          }
+        ),
+        ...(slots.default || [])
+      ]
+    }
+  );
+});
+
+// ==== NumpadDecimal (POS Utility) ====
+Comp.define("NumpadDecimal", (A, s, app, p = {}, sl = {}) => {
+  const slots = asSlots(sl);
+  const tLabel = (key, fallback) => t(key, { fallback }, app);
+  const min = Number.isFinite(Number(p.min)) ? Number(p.min) : 0;
+  const max = Number.isFinite(Number(p.max)) ? Number(p.max) : 999999.99;
+  const rawValue = Number(p.value ?? min);
+  const decimalsRaw = Number(p.decimals);
+  const decimals = Number.isFinite(decimalsRaw) ? Math.max(0, Math.min(4, Math.trunc(decimalsRaw))) : 2;
+  const value = Math.max(min, Math.min(max, Number.isFinite(rawValue) ? rawValue : min));
+  const keys = isArr(p.keys) && p.keys.length ? p.keys : ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
+
+  const keyButton = (label, extra = {}) =>
+    A.Button(
+      {
+        type: "button",
+        style: {
+          height: "64px",
+          borderRadius: "16px",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-default)",
+          fontSize: "24px",
+          fontWeight: 600,
+          color: "var(--text-default)",
+          cursor: "pointer",
+          transition: "var(--transition-default)",
+          ...extra.style
+        },
+        ...extra
+      },
+      { default: [label] }
+    );
+
+  return A.Div(
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px",
+        padding: "20px",
+        minWidth: "320px",
+        borderRadius: "20px",
+        border: "1px solid var(--border-default)",
+        background: "var(--bg-surface)"
+      }
+    },
+    {
+      default: [
+        A.Div(
+          {
+            style: {
+              textAlign: "center",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "var(--text-default)"
+            }
+          },
+          { default: [p.title || tLabel("ui.enterAmount", "Enter Amount")] }
+        ),
+        A.Div(
+          {
+            style: {
+              textAlign: "center",
+              fontSize: "32px",
+              fontWeight: 700,
+              color: "var(--primary)",
+              padding: "16px",
+              borderRadius: "12px",
+              border: "2px solid var(--primary)",
+              background: "var(--bg-page)"
+            }
+          },
+          { default: [value.toFixed(decimals)] }
+        ),
+        A.Div(
+          {
+            style: {
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "12px"
+            }
+          },
+          {
+            default: [
+              ...keys.map((key) =>
+                keyButton(key, {
+                  "data-onclick": p.onInputCommand || "numpad.decimal.input",
+                  "data-key": key
+                })
+              ),
+              keyButton(p.clearLabel || tLabel("ui.clear", "Clear"), {
+                style: { gridColumn: "span 1" },
+                "data-onclick": p.onClearCommand || "numpad.decimal.clear"
+              }),
+              keyButton(p.confirmLabel || tLabel("ui.confirm", "OK"), {
+                style: { gridColumn: "span 2", background: "var(--primary)", color: "var(--text-on-primary, #ffffff)" },
+                "data-onclick": p.onConfirmCommand || "numpad.decimal.confirm"
+              })
+            ]
+          }
+        ),
+        ...(slots.default || [])
+      ]
+    }
+  );
+});
+
+// ==== PinPrompt (POS Utility) ====
+Comp.define("PinPrompt", (A, s, app, p = {}, sl = {}) => {
+  const slots = asSlots(sl);
+  const tLabel = (key, fallback) => t(key, { fallback }, app);
+  const reason = p.reason || "general";
+  const attempts = Number.isFinite(Number(p.attempts)) ? Number(p.attempts) : 3;
+  const currentAttempt = Math.min(Number.isFinite(Number(p.currentAttempt)) ? Number(p.currentAttempt) : 1, attempts);
+  const digitsRaw = Number(p.digits ?? p.slots);
+  const digits = Number.isFinite(digitsRaw) ? Math.max(1, Math.min(8, Math.trunc(digitsRaw))) : 4;
+  const pin = String(p.pin || "").slice(0, digits);
+  const error = p.error || null;
+
+  const reasons = {
+    delete_line: tLabel("ui.deleteItem", "Delete Item"),
+    bill_discount: tLabel("ui.billDiscount", "Bill Discount"),
+    returns: tLabel("ui.returns", "Returns"),
+    refund: tLabel("ui.refund", "Refund"),
+    general: tLabel("ui.enterPin", "Enter PIN")
+  };
+
+  return A.Div(
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px",
+        padding: "20px",
+        minWidth: "320px",
+        borderRadius: "20px",
+        border: "1px solid var(--border-default)",
+        background: "var(--bg-surface)"
+      }
+    },
+    {
+      default: [
+        A.Div(
+          {
+            style: {
+              textAlign: "center",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "var(--text-default)"
+            }
+          },
+          { default: [reasons[reason] || reasons.general] }
+        ),
+        A.Div(
+          {
+            style: {
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "12px",
+              height: "48px"
+            }
+          },
+          {
+            default: range(digits, 0).map((idx) =>
+              A.Div(
+                {
+                  style: {
+                    width: "40px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border-default)",
+                    background: "var(--bg-surface)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "24px"
+                  }
+                },
+                { default: [pin.length > idx ? "●" : ""] }
+              )
+            )
+          }
+        ),
+        error
+          ? A.Div(
+              {
+                style: {
+                  borderRadius: "10px",
+                  padding: "8px 12px",
+                  fontSize: "14px",
+                  color: "var(--danger)",
+                  background: "var(--danger-soft)",
+                  textAlign: "center"
+                }
+              },
+              { default: [error] }
+            )
+          : null,
+        A.Div(
+          {
+            style: {
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "12px"
+            }
+          },
+          {
+            default: [
+              ...range(9, 1).map((i) =>
+                A.Button({
+                  type: "button",
+                  "data-onclick": p.onInputCommand || "pin.input",
+                  "data-key": String(i),
+                  style: {
+                    height: "64px",
+                    borderRadius: "16px",
+                    background: "var(--bg-surface)",
+                    border: "1px solid var(--border-default)",
+                    fontSize: "24px",
+                    fontWeight: 600,
+                    color: "var(--text-default)"
+                  }
+                }, { default: [String(i)] })
+              ),
+              A.Button({
+                type: "button",
+                "data-onclick": p.onClearCommand || "pin.clear",
+                style: {
+                  height: "64px",
+                  borderRadius: "16px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-default)",
+                  fontSize: "18px",
+                  fontWeight: 600,
+                  color: "var(--text-default)"
+                }
+              }, { default: [p.clearLabel || tLabel("ui.clear", "Clear")] }),
+              A.Button({
+                type: "button",
+                "data-onclick": p.onInputCommand || "pin.input",
+                "data-key": "0",
+                style: {
+                  height: "64px",
+                  borderRadius: "16px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-default)",
+                  fontSize: "24px",
+                  fontWeight: 600,
+                  color: "var(--text-default)"
+                }
+              }, { default: ["0"] }),
+              A.Button({
+                type: "button",
+                intent: "success",
+                "data-onclick": p.onConfirmCommand || "pin.confirm",
+                style: {
+                  height: "64px",
+                  borderRadius: "16px",
+                  background: "var(--primary)",
+                  border: "1px solid var(--primary)",
+                  fontSize: "18px",
+                  fontWeight: 600,
+                  color: "var(--text-on-primary, #ffffff)"
+                }
+              }, { default: [p.confirmLabel || tLabel("ui.confirm", "OK")] })
+            ]
+          }
+        ),
+        slots.footer
+          ? A.Div({ style: { marginTop: "4px" } }, { default: slots.footer })
+          : null,
+        A.Div(
+          {
+            style: {
+              fontSize: "12px",
+              color: "var(--text-subtle)",
+              textAlign: "center"
+            }
+          },
+          {
+            default: [
+              t("ui.pin_attempt", { fallback: `Attempt ${currentAttempt}/${attempts}` }, app)
+            ]
+          }
+        )
+      ]
+    }
+  );
+});
 
 // ==== PageHeader (CSS Vars) ====
 Comp.define("PageHeader", (A, s, app, p = {}, sl = {}) =>
