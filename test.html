@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mishkah v5 - The Professional Theming Example</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        :root {
+            /* --☀️ الوضع الفاتح -- */
+            --bg-default: rgb(249 250 251); /* gray-50 */
+            --text-default: rgb(17 24 39);   /* gray-900 */
+            --text-subtle: rgb(55 65 81);    /* gray-700 */
+            --surface: rgb(255 255 255);     /* white */
+            --ui-element-bg: rgb(229 231 235); /* gray-200 */
+            --primary: rgb(37 99 235);       /* blue-600 */
+        }
+
+        .dark {
+            /* --🌙 الوضع المظلم -- */
+            --bg-default: rgb(17 24 39);      /* gray-900 */
+            --text-default: rgb(243 244 246); /* gray-100 */
+            --text-subtle: rgb(209 213 219);  /* gray-300 */
+            --surface: rgb(31 41 55);       /* gray-800 */
+            --ui-element-bg: rgb(55 65 81);   /* gray-700 */
+            --primary: rgb(96 165 250);      /* blue-400 */
+        }
+        
+        body { 
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease; 
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': 'var(--primary)',
+                        'default': 'var(--text-default)',
+                        'subtle': 'var(--text-subtle)',
+                        'surface': 'var(--surface)',
+                        'ui-bg': 'var(--ui-element-bg)',
+                        'page-bg': 'var(--bg-default)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-page-bg text-default">
+
+    <div id="app"></div>
+
+    <script src="./mishkah-utils-v5.js"></script>
+    <script src="./mishkah-dsl-v5.js"></script>
+    <script src="./mishkah-comp-v5.js"></script>
+    <script src="./mishkah-core-v5.js"></script>
+
+    <script>
+        const { Core, Atoms: A, Comp: C, utils: U } = window.Mishkah;
+
+        // --- ✅ الخطوة 3: تبسيط الكلاسات في المكونات ---
+        C.define('Header', (A, state, app) => {
+            const { i18n } = app;
+            return A.Div({
+                uniqueKey: 'main-header',
+                tw: 'p-4 bg-surface shadow-md flex justify-between items-center'
+            }, {
+                default: [
+                    A.h1({ tw: 'text-2xl font-bold text-primary' }, { default: [i18n.t('app_title')] }),
+                    A.Div({ tw: 'flex gap-2' }, {
+                        default: [
+                            A.Button({ 'data-onclick': 'toggleTheme', tw: 'px-3 py-2 bg-ui-bg rounded-lg' }, { 
+                                default: [i18n.t('toggle_theme')] 
+                            }),
+                            A.Button({ 'data-onclick': 'switchLanguage', tw: 'px-3 py-2 bg-ui-bg rounded-lg' }, { 
+                                default: [i18n.t('switch_language')] 
+                            })
+                        ]
+                    })
+                ]
+            });
+        });
+
+        C.define('InfoCard', (A, state, app, props) => {
+            const { i18n } = app;
+            return A.Div({
+                tw: 'bg-surface p-6 rounded-xl shadow-lg'
+            }, {
+                default: [
+                    A.h2({ tw: 'text-xl font-bold mb-2' }, { default: [i18n.t('welcome_card_title')] }),
+                    A.p({ tw: 'text-subtle' }, { default: [i18n.t('welcome_card_content')] })
+                ]
+            });
+        });
+        
+        C.define('AppRoot', (A, state, app) => {
+            return A.Div({ uniqueKey: 'app-root' }, {
+                default: [
+                    C.call('Header'),
+                    A.Main({ tw: 'p-8' }, { default: [ C.call('InfoCard') ] })
+                ]
+            });
+        });
+
+        // --- كود مشكاة يبقى كما هو بدون تغيير ---
+  // --- إنشاء التطبيق ---
+        const app = Core.createApp({
+            mount: '#app',
+            rootComponent: 'AppRoot',
+            
+            locale: 'ar',
+            dir: 'auto',
+            theme: 'auto',
+            persistEnv: true,
+
+            dictionaries: {
+                app_title: { en: 'Mishkah v5 Demo', ar: 'عرض مشكاة الإصدار 5' },
+                toggle_theme: { en: 'Toggle Theme', ar: 'تغيير الثيم' },
+                switch_language: { en: 'العربية', ar: 'English' },
+                welcome_card_title: { en: 'Welcome!', ar: 'أهلاً بك!' },
+                welcome_card_content: {
+                    en: 'This is a complete example demonstrating the interactive environment of Mishkah...',
+                    ar: 'هذا مثال متكامل يوضح البيئة التفاعلية لمشكاة، بما في ذلك تبديل اللغة والثيم...'
+                }
+            },
+            
+            initial: {},
+
+            commands: {
+                toggleTheme: ({ env }) => {
+                    env.toggleTheme();
+                },
+                switchLanguage: ({ truth, env }) => {
+                    const newLocale = env.get().locale === 'ar' ? 'en' : 'ar';
+                    env.setLocale(newLocale);
+                }
+            }
+        });
+        </script>
+
+</body>
+</html>
