@@ -1,67 +1,51 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>POS — نظام إدارة المطاعم الاحترافي (Mishkah v5)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mishkah POS v5</title>
+  <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: { extend: {} }
+    };
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./mishkah-theme-v5.css" />
   <style>
-    :root{
-      --c-bg:#0f172a;           /* slate-900 */
-      --c-card:#0b1220;         /* deep dark */
-      --c-soft:#111827;         /* slate-800 */
-      --c-text:#e5e7eb;         /* slate-200 */
-      --c-muted:#94a3b8;        /* slate-400 */
-      --c-primary:#22c55e;      /* emerald-500 */
-      --c-danger:#ef4444;       /* red-500 */
-      --c-accent:#2563eb;       /* blue-600 */
+    :root {
+      color-scheme: light;
     }
-    html[data-theme="light"]{
-      --c-bg:#f8fafc;           /* slate-50 */
-      --c-card:#ffffff;
-      --c-soft:#f1f5f9;         /* slate-100 */
-      --c-text:#0f172a;         /* slate-900 */
-      --c-muted:#64748b;        /* slate-500 */
-      --c-primary:#16a34a;      /* green-600 */
-      --c-danger:#dc2626;       /* red-600 */
-      --c-accent:#2563eb;       /* blue-600 */
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg-page);
+      color: var(--text-default);
+      font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
     }
-    body{ background:var(--c-bg); color:var(--c-text); }
-    .card{ background:var(--c-card); border:1px solid rgba(148,163,184,.15); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); }
-    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.65rem 1rem; border-radius:12px; font-weight:700; border:1px solid transparent; transition:.15s ease; }
-    .btn-primary{ background:var(--c-primary); color:#fff; }
-    .btn-ghost{ background:transparent; color:var(--c-text); border-color:rgba(148,163,184,.25); }
-    .btn-danger{ background:var(--c-danger); color:#fff; }
-    .btn:hover{ transform:translateY(-1px); opacity:.95 }
-    .chip{ background:var(--c-soft); color:var(--c-text); border:1px solid rgba(148,163,184,.15); padding:.35rem .75rem; border-radius:999px; font-weight:600 }
-    .kbd{ font-feature-settings:"ss01" on; background:var(--c-soft); padding:.15rem .45rem; border-radius:.5rem; border:1px solid rgba(148,163,184,.25); color:var(--c-text); }
-    .scroll-y{ overflow-y:auto }
-
-    /* Print — 80mm thermal */
-    @media print{
-      @page{ size:80mm auto; margin:6mm }
-      body{ background:#fff; color:#000 }
-      #app, #hdr, #layout, #modals{ display:none !important }
-      #printer{ display:block !important }
+    #app {
+      min-height: 100%;
+    }
+    .no-scrollbar {
+      scrollbar-width: none;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
     }
   </style>
 </head>
-<body class="min-h-screen">
-  <div id="app" class="h-screen w-screen p-3 grid grid-rows-[auto,1fr] gap-3">
-    <header id="hdr"></header>
-    <main id="layout" class="grid grid-cols-12 gap-3 overflow-hidden">
-      <section id="menu-panel" class="col-span-12 xl:col-span-7 2xl:col-span-8 h-full"></section>
-      <aside id="order-panel" class="col-span-12 xl:col-span-5 2xl:col-span-4 h-full"></aside>
-    </main>
-    <div id="modals"></div>
-    <div id="printer" class="hidden"></div>
-  </div>
+<body>
+  <div id="app"></div>
 
-  <!-- Core & App -->
-  <script src="mishkah-v5.js"></script>
-  <!-- optional: seed data (ignored if IndexedDB already filled) -->
-  <script src="mock-data.js" defer></script>
-  <script src="pos-comp.js" defer></script>
-  <script src="pos.js" defer></script>
+  <script src="./mishkah-utils-v5.js"></script>
+  <script src="./mishkah-engines-v5.js"></script>
+  <script src="./mishkah-dsl-v5.js"></script>
+  <script src="./mishkah-comp-v5.js"></script>
+  <script src="./mishkah-core-v5.js"></script>
+
+  <script src="./pos-mock-data.js"></script>
+  <script src="./pos-comp.js"></script>
+  <script src="./pos.js"></script>
 </body>
 </html>

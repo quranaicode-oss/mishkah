@@ -1,304 +1,1900 @@
-(function(w){
+(function (window) {
   "use strict";
-  const M = w.Mishkah; if(!M||!M.Comp||!M.Atoms){ console.error("Mishkah Comp/Atoms required"); return }
-  const { Comp, Atoms:A } = M;
 
-  // =============== 1) Base Molecules (reusable) ===============
-  // Button
-  if(!Comp.mole.Button){
-    Comp.mole.define("Button", (A, s, app, p)=> A.Button({
-      ...p,
-      tw: (p.tw||"") + " btn " + (p.variant==="ghost"?"btn-ghost":"btn-primary")
-    }, { default: [p.text||"زر"] }));
-  }
+  const M = window.Mishkah || {};
+  const C = M.Comp;
+  const U = (M.utils) || {};
+  if (!C || !window.Mishkah || !window.Mishkah.Atoms) return;
 
-  // Badge/Chip
-  if(!Comp.mole.Badge){
-    Comp.mole.define("Badge", (A, s, app, p)=> A.Span({
-      ...p,
-      tw: (p.tw||"") + " chip text-sm"
-    }, { default: [p.text||"●"] }));
-  }
+  const cx = (...classes) => classes.filter(Boolean).join(" ");
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-  // DescriptionList
-  if(!Comp.mole.DescriptionList){
-    Comp.mole.define("DescriptionList", (A, s, app, p)=>{
-      const items = p.items||[];
-      return A.Dl({ tw:"space-y-2" }, { default: items.flatMap(it=>[
-        A.Div({ tw:"flex items-center justify-between text-sm" },{
-          default:[ A.Dt({ tw:"text-slate-400" },{default:[it.term||""]}), A.Dd({ tw:"font-semibold" },{default:[it.details||""]}) ]
+  C.define("POSRoot", (A, s, app) => {
+    const stage = s.ui.stage;
+    if (stage === "login") {
+      return app.call("POSLoginScreen", { uniqueKey: "login-screen" });
+    }
+    if (stage === "shift-setup") {
+      return app.call("POSShiftSetup", { uniqueKey: "shift-setup" });
+    }
+    return app.call("POSViewport", { uniqueKey: "pos-root" });
+  });
+
+  C.define("POSLoginScreen", (A, s, app) => {
+    const login = s.ui.login;
+    const pinLength = clamp((login.pin || "").length, 0, 6);
+
+    return A.Div({
+      style: {
+        position: "fixed",
+        inset: 0,
+        background: "var(--bg-page)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "32px",
+        padding: "24px"
+      }
+    }, {
+      default: [
+        A.Div({ style: { textAlign: "center", maxWidth: "360px" } }, {
+          default: [
+            A.H1({ style: { fontSize: "2rem", marginBottom: "8px", fontWeight: 700 } }, {
+              default: [app.i18n.t("ui.welcome")] }),
+            A.P({ style: { fontSize: "1rem", color: "var(--text-subtle)" } }, {
+              default: [app.i18n.t("ui.enter_pin")] })
+          ]
+        }),
+        A.Div({
+          style: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "12px",
+            direction: "ltr"
+          }
+        }, {
+          default: Array.from({ length: 4 }).map((_, idx) =>
+            A.Div({
+              style: {
+                width: "56px",
+                height: "68px",
+                borderRadius: "20px",
+                border: "1px solid var(--border-default)",
+                background: "var(--bg-surface)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "32px",
+                fontWeight: 600
+              }
+            }, { default: [idx < pinLength ? "●" : ""] })
+          )
+        }),
+        login.error ? A.Div({
+          style: {
+            minWidth: "240px",
+            borderRadius: "16px",
+            padding: "12px 16px",
+            background: "rgba(239,68,68,0.12)",
+            color: "var(--danger)",
+            textAlign: "center",
+            fontWeight: 600
+          }
+        }, { default: [login.error] }) : null,
+        app.call("POSPinPad", {
+          keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "⌫"],
+          confirmLabel: app.i18n.t("ui.login"),
+          confirmCommand: "auth.pinSubmit",
+          keyCommand: "auth.pinKey",
+          clearCommand: "auth.pinClear"
         })
-      ])})
+      ]
     });
-  }
+  });
 
-  // Segmented Control (Tabs)
-  if(!Comp.mole.Segmented){
-    Comp.mole.define("Segmented", (A, s, app, p)=>{
-      const { value, options=[], name } = p;
-      return A.Div({ tw:"inline-flex bg-[var(--c-soft)] p-1 rounded-xl border border-white/10" },{
-        default: options.map(opt => A.Button({
-          tw: `px-3 py-1 rounded-lg text-sm font-bold ${value===opt.value? 'bg-[var(--c-primary)] text-white':'text-slate-300'}`,
-          "data-onclick": p.onChange, "data-value": opt.value, name
-        }, { default:[opt.label] }))
-      })
-    })
-  }
+  C.define("POSPinPad", (A, s, app, p = {}) => {
+    const keys = p.keys || ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "⌫"];
+    const layout = [];
+    keys.forEach((key) => {
+      layout.push(app.call("Button", {
+        text: key,
+        size: "lg",
+        variant: "ghost",
+        style: {
+          height: "64px",
+          fontSize: "24px",
+          borderRadius: "18px"
+        },
+        "data-onclick": p.keyCommand,
+        "data-key": key
+      }));
+    });
 
-  // Emoji icon helper
-  const I = (emoji, tw="") => A.Span({ tw: `select-none ${tw}` }, { default: [emoji] });
+    const buttonsRow = [];
+    if (p.clearCommand) {
+      buttonsRow.push(app.call("Button", {
+        text: app.i18n.t("ui.clear"),
+        variant: "outline",
+        style: { height: "56px", borderRadius: "18px" },
+        "data-onclick": p.clearCommand
+      }));
+    }
+    if (p.confirmCommand) {
+      buttonsRow.push(app.call("Button", {
+        text: p.confirmLabel || app.i18n.t("ui.confirm"),
+        intent: "success",
+        style: { height: "56px", borderRadius: "18px", fontSize: "18px", fontWeight: 600 },
+        "data-onclick": p.confirmCommand
+      }));
+    }
 
-  // Currency helper
-  const cur = (s,n)=> new Intl.NumberFormat(s.meta?.locale||'ar-EG', { style:'currency', currency:s.meta?.currency||'EGP' }).format(+n||0);
-  const langOf = s => String(s.meta?.locale||'ar').toLowerCase().startsWith('ar')? 'ar' : 'en';
-  const T = {
-    ar:{ search:'ابحث عن صنف...', dine_in:'صالة', takeaway:'سفري', delivery:'توصيل', new_order:'جديد', in_preparation:'تحت التجهيز', prepared:'جاهز', delivered:'تم التسليم', paid:'مدفوع', tables:'الطاولات', reports:'التقارير', startShift:'بدء وردية', endShift:'إنهاء وردية', shift:'وردية', login:'تسجيل دخول', logout:'تسجيل خروج', categories:'التصنيفات', subtotal:'المجموع', discounts:'خصومات', service:'خدمة', deliveryFee:'توصيل', vat:'ضريبة', total:'الإجمالي', save:'حفظ مؤقت', settle:'تحصيل وطباعة', addPayLine:'إضافة دفعة', splitBill:'تقسيم الدفع', modifiers:'التعديلات', qty:'كمية', remove:'حذف', note:'ملاحظة', customer:'العميل', driver:'السائق', billDiscount:'خصم الفاتورة', lock:'حجز', unlock:'فك الحجز', reservation:'حجز', tablesAssign:'ربط الطاولات', pickedTables:'الطاولات المحددة', seats:'مقاعد', capacity:'سعة' },
-    en:{ search:'Search item...', dine_in:'Dine‑in', takeaway:'Takeaway', delivery:'Delivery', new_order:'New', in_preparation:'In prep', prepared:'Prepared', delivered:'Delivered', paid:'Paid', tables:'Tables', reports:'Reports', startShift:'Start Shift', endShift:'End Shift', shift:'Shift', login:'Login', logout:'Logout', categories:'Categories', subtotal:'Subtotal', discounts:'Discounts', service:'Service', deliveryFee:'Delivery', vat:'VAT', total:'Grand total', save:'Save', settle:'Settle & Print', addPayLine:'Add Payment', splitBill:'Split bill', modifiers:'Modifiers', qty:'Qty', remove:'Remove', note:'Note', customer:'Customer', driver:'Driver', billDiscount:'Bill discount', lock:'Lock', unlock:'Unlock', reservation:'Reservation', tablesAssign:'Assign Tables', pickedTables:'Picked Tables', seats:'Seats', capacity:'Capacity' }
+    return A.Div({
+      style: {
+        width: "min(360px, 90vw)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px"
+      }
+    }, {
+      default: [
+        A.Div({
+          style: {
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: "12px"
+          }
+        }, { default: layout }),
+        buttonsRow.length ? A.Div({
+          style: {
+            display: "grid",
+            gridTemplateColumns: `repeat(${buttonsRow.length}, minmax(0, 1fr))`,
+            gap: "12px"
+          }
+        }, { default: buttonsRow }) : null
+      ]
+    });
+  });
+
+  C.define("POSShiftSetup", (A, s, app) => {
+    const cashier = s.session.cashier;
+    const openingFloat = s.ui.shift.openingFloat ?? "";
+    return A.Div({
+      style: {
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--bg-page)",
+        padding: "24px"
+      }
+    }, {
+      default: [
+        app.call("Panel", {
+          style: { width: "min(440px, 95vw)" }
+        }, {
+          header: [app.i18n.t("ui.open_shift")],
+          body: [
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "12px" } }, {
+              default: [
+                A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                  default: [
+                    A.Span({ style: { color: "var(--text-subtle)", fontSize: "14px" } }, {
+                      default: [app.i18n.t("ui.cashier")]
+                    }),
+                    A.Strong({ style: { fontSize: "18px" } }, { default: [cashier ? cashier.full_name : "—"] })
+                  ]
+                }),
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.opening_float")] }),
+                    app.call("Input", {
+                      type: "number",
+                      min: "0",
+                      step: "0.01",
+                      value: openingFloat,
+                      placeholder: "0.00",
+                      "data-oninput": "shift.updateOpeningFloat"
+                    })
+                  ]
+                })
+              ]
+            })
+          ],
+          footer: [
+            app.call("Button", {
+              text: app.i18n.t("ui.open_shift"),
+              intent: "success",
+              style: { minWidth: "140px", height: "48px" },
+              "data-onclick": "shift.open"
+            })
+          ]
+        })
+      ]
+    });
+  });
+
+  C.define("POSViewport", (A, s, app) => {
+    const dir = s.env?.dir || document?.documentElement?.dir || "ltr";
+    const isRTL = dir === "rtl";
+    const gridTemplateAreas = isRTL
+      ? `'header header' 'menu order' 'menu footer'`
+      : `'header header' 'order menu' 'footer menu'`;
+    const gridTemplateColumns = isRTL
+      ? "minmax(0, 1fr) clamp(320px, 34vw, 420px)"
+      : "clamp(320px, 34vw, 420px) minmax(0, 1fr)";
+
+    return A.Div({
+      style: {
+        height: "100vh",
+        width: "100vw",
+        display: "grid",
+        gridTemplateAreas,
+        gridTemplateRows: "64px 1fr 88px",
+        gridTemplateColumns,
+        direction: dir,
+
+        gridTemplateAreas: `'header header' 'menu order' 'footer order'`,
+        gridTemplateRows: "64px 1fr 88px",
+        gridTemplateColumns: "minmax(0, 1fr) clamp(320px, 34vw, 420px)",
+        background: "var(--bg-page)",
+        overflow: "hidden"
+      }
+    }, {
+      default: [
+        app.call("POSTopBar", { uniqueKey: "pos-header" }),
+        app.call("POSMenuPanel", { uniqueKey: "menu-panel" }),
+        app.call("POSOrderPanel", { uniqueKey: "order-panel" }),
+        app.call("POSFooterBar", { uniqueKey: "footer-bar" }),
+        app.call("POSModalsRoot", { uniqueKey: "modals-root" }),
+        app.call("POSToastsRoot", { uniqueKey: "toasts-root" })
+      ]
+    });
+  });
+
+  C.define("POSTopBar", (A, s, app) => {
+    const shift = s.session.shift;
+    const cashier = s.session.cashier;
+    const locale = s.env.locale;
+    const shiftLabel = shift
+      ? `${app.i18n.t("ui.shift")} #${shift.id}`
+      : app.i18n.t("ui.no_shift");
+
+    return A.Header({
+      style: {
+        gridArea: "header",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px",
+        borderBottom: "1px solid var(--border-default)",
+        background: "var(--bg-surface)",
+        boxShadow: "0 1px 0 rgba(15,23,42,0.04)"
+      }
+    }, {
+      default: [
+        A.Div({ style: { display: "flex", alignItems: "center", gap: "16px" } }, {
+          default: [
+            A.Div({ style: { fontSize: "22px", fontWeight: 700, color: "var(--primary)" } }, { default: ["Mishkah POS"] }),
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "2px" } }, {
+              default: [
+                A.Strong({ style: { fontSize: "16px" } }, {
+                  default: [cashier ? cashier.full_name : app.i18n.t("ui.cashier")]
+                }),
+                A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, { default: [shiftLabel] })
+              ]
+            })
+          ]
+        }),
+        A.Div({ style: { display: "flex", alignItems: "center", gap: "8px" } }, {
+          default: [
+            app.call("Button", {
+              text: app.i18n.t("ui.tables"),
+              variant: "outline",
+              size: "sm",
+              "data-onclick": "view.showTables"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.reservations"),
+              variant: "outline",
+              size: "sm",
+              "data-onclick": "view.showReservations"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.returns"),
+              variant: "outline",
+              size: "sm",
+              "data-onclick": "returns.open"
+            }),
+            app.call("Button", {
+
+              text: app.i18n.t("ui.reports"),
+              variant: "outline",
+              size: "sm",
+              "data-onclick": "view.showReports"
+            }),
+            app.call("Button", {
+              text: "🎨",
+              variant: "ghost",
+              size: "sm",
+              title: app.i18n.t("ui.theme"),
+              "data-onclick": "env.toggleTheme"
+            }),
+            app.call("Button", {
+              text: locale === "ar" ? "EN" : "AR",
+              variant: "ghost",
+              size: "sm",
+              title: app.i18n.t("ui.language"),
+              "data-onclick": "env.toggleLocale"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.logout"),
+              intent: "danger",
+              variant: "ghost",
+              size: "sm",
+              "data-onclick": "session.logout"
+            })
+          ]
+        })
+      ]
+    });
+  });
+
+  const filterMenuItems = (state) => {
+    const locale = state.env.locale || "ar";
+    const search = (state.ui.menu.search || "").trim().toLowerCase();
+    const activeCategory = state.ui.menu.category || "all";
+    return state.catalog.items.filter((item) => {
+      const matchCategory = activeCategory === "all" || item.category === activeCategory;
+      if (!matchCategory) return false;
+      if (!search) return true;
+      const translation = (item.translations && (item.translations[locale] || item.translations.en)) || {};
+      const name = (translation.name || "").toLowerCase();
+      return name.includes(search);
+    });
   };
-  const t = (s,k)=> (T[langOf(s)][k]||k);
 
-  // =============== 2) POS reusable blocks ===============
-  const POS = M.Comp.mole.POS || (M.Comp.mole.POS = {});
+  C.define("POSMenuPanel", (A, s, app) => {
+    const categories = s.catalog.categories || [];
+    const locale = s.env.locale || "ar";
+    const activeCategory = s.ui.menu.category || "all";
+    const filteredItems = filterMenuItems(s);
 
-  POS.ItemCard = ({ item, state }) => {
-    const name = item.translations?.[langOf(state)]?.name || (`#${item.id}`);
-    return A.Button({
-      tw:"card h-full text-start p-2 hover:ring-2 ring-emerald-500 transition transform hover:-translate-y-0.5",
-      "data-onclick":"addToOrder", "data-id": item.id
-    }, { default:[
-      A.Div({ tw:"aspect-[4/3] w-full overflow-hidden rounded-xl mb-2 bg-[var(--c-soft)]" }, { default:[
-        item.image ? A.Img({ src:item.image, alt:name, tw:"w-full h-full object-cover" }) : I('🍔','text-5xl flex h-full items-center justify-center')
-      ]}),
-      A.Div({ tw:"font-semibold" }, { default:[ name ] }),
-      A.Div({ tw:"text-sm text-slate-400" }, { default:[ cur(state, item.price) ] })
-    ]})
-  }
+    return A.Div({
+      style: {
+        gridArea: "menu",
+        display: "flex",
+        flexDirection: "column",
+        padding: "16px 20px",
+        gap: "16px",
+        overflow: "hidden"
+      }
+    }, {
+      default: [
+        app.call("SearchBar", {
+          value: s.ui.menu.search || "",
+          placeholder: app.i18n.t("ui.search_placeholder"),
+          onInput: "menu.search",
+          onClear: "menu.clearSearch"
+        A.Div({ style: { display: "flex", gap: "8px" } }, {
+          default: [
+            app.call("Input", {
+              placeholder: app.i18n.t("ui.search_placeholder"),
+              value: s.ui.menu.search || "",
+              "data-oninput": "menu.search",
+              style: { flex: "1 1 auto" }
+            })
+          ]
+        }),
+        A.Div({
+          class: "no-scrollbar",
+          style: {
+            display: "flex",
+            gap: "8px",
+            overflowX: "auto",
+            paddingBottom: "4px"
+          }
+        }, {
+          default: categories.map((cat) => {
+            const translation = (cat.translations && (cat.translations[locale] || cat.translations.en)) || {};
+            const isActive = activeCategory === cat.id;
+            return A.Button({
+              type: "button",
+              "data-onclick": "menu.selectCategory",
+              "data-category-id": cat.id,
+              style: {
+                borderRadius: "999px",
+                border: `1px solid ${isActive ? "var(--primary)" : "var(--border-default)"}`,
+                background: isActive ? "var(--primary-soft, rgba(99,102,241,0.12))" : "var(--bg-surface)",
+                color: isActive ? "var(--primary)" : "var(--text-default)",
+                padding: "8px 14px",
+                fontWeight: isActive ? 600 : 500,
+                whiteSpace: "nowrap"
+              }
+            }, { default: [translation.name || cat.id] });
+          })
+        }),
+        A.Div({
+          class: "no-scrollbar",
+          style: {
+            flex: "1 1 auto",
+            overflowY: "auto"
+          }
+        }, {
+          default: filteredItems.length ? A.Div({
+            style: {
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: "16px",
+              paddingBottom: "16px"
+            }
+          }, {
+            default: filteredItems.map((item) => app.call("POSMenuCard", { item }))
+          }) : app.call("EmptyState", {
+            title: app.i18n.t("ui.empty_menu_title"),
+            text: app.i18n.t("ui.empty_menu_hint")
+          })
+        })
+      ]
+    });
+  });
 
-  POS.OrderLine = ({ line, state }) => A.Div({
-    tw:"py-2 px-2 flex items-center gap-3 border-b border-white/10 hover:bg-white/5 cursor-pointer",
-    "data-onclick":"openLineActions", "data-id": line.uid
-  }, { default:[
-    A.Div({ tw:"flex-1" }, { default:[
-      A.Div({ tw:"font-semibold" }, { default:[ line.name ] }),
-      ...(line.selectedModifiers||[]).map(m => A.Div({ tw:"text-xs text-emerald-400 ps-2" }, { default:[`+ ${m.name} (${cur(state, m.price||0)})`] })),
-      (line.note ? A.Div({ tw:"text-xs text-amber-400 ps-2" }, { default:[`📝 ${line.note}`] }) : null)
-    ]}),
-    A.Div({ tw:"font-semibold" }, { default:[`× ${line.qty}`] }),
-    A.Div({ tw:"w-24 text-right font-bold" }, { default:[ cur(state, line.total) ] }),
-    A.Button({ tw:"btn-ghost !p-2 text-red-400", "data-onclick":"confirmDeleteOpen", "data-id":line.uid }, { default:["🗑️"] })
-  ]});
+  C.define("POSMenuCard", (A, s, app, p) => {
+    const item = p.item;
+    const locale = s.env.locale || "ar";
+    const translation = (item.translations && (item.translations[locale] || item.translations.en)) || {};
+    const helpers = app.helpers || {};
+    const formatCurrency = helpers.formatCurrency || ((v) => v.toFixed(2));
+    return A.Div({
+      "data-onclick": "order.addItem",
+      "data-item-id": item.id,
+      style: {
+        cursor: "pointer",
+        borderRadius: "20px",
+        overflow: "hidden",
+        border: "1px solid var(--border-default)",
+        background: "var(--bg-surface)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "220px",
+        boxShadow: "0 12px 24px -18px rgba(15,23,42,0.4)"
+      }
+    }, {
+      default: [
+        item.image ? A.Img({
+          src: item.image,
+          alt: translation.name || "",
+          style: {
+            width: "100%",
+            height: "120px",
+            objectFit: "cover"
+          }
+        }) : null,
+        A.Div({
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            padding: "12px"
+          }
+        }, {
+          default: [
+            A.Strong({ style: { fontSize: "15px", minHeight: "40px", display: "block" } }, { default: [translation.name || "—"] }),
+            translation.description ? A.P({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, {
+              default: [translation.description]
+            }) : null,
+            A.Div({ style: { marginTop: "auto", textAlign: "end", fontWeight: 700, color: "var(--primary)" } }, {
+              default: [formatCurrency(item.price, { currency: s.settings.currency })]
+            })
+          ]
+        })
+      ]
+    });
+  });
 
-  POS.OrderTotals = ({ totals, state }) => A.Div({ tw:"mt-auto space-y-2" }, { default:[
-    Comp.call("DescriptionList", { items:[
-      { term:t(state,'subtotal'), details:cur(state, totals.subtotal) },
-      { term:t(state,'discounts'), details:cur(state, totals.discount) },
-      { term:t(state,'service'), details:cur(state, totals.service) },
-      { term:t(state,'deliveryFee'), details:cur(state, totals.deliveryFee) },
-      { term:t(state,'vat'), details:cur(state, totals.vat) }
-    ]}),
-    A.Div({ tw:"flex justify-between items-center text-xl font-extrabold border-t border-white/10 pt-3" }, { default:[
-      A.Span({}, { default:[ t(state,'total') ] }), A.Span({}, { default:[ cur(state, totals.total) ] })
-    ]})
-  ]});
+  C.define("POSOrderPanel", (A, s, app) => {
+    const order = s.order;
+    const dir = s.env?.dir || document?.documentElement?.dir || "ltr";
+    const isRTL = dir === "rtl";
+    const borderKey = isRTL ? "borderInlineStart" : "borderInlineEnd";
 
-  POS.TableCard = ({ tbl, state }) => {
-    const badge = tbl.status==='reserved' ? '🟡' : (tbl.status==='occupied'?'🔴':'🟢');
-    return A.Button({
-      tw:"card p-3 text-start hover:ring-2 ring-blue-500",
-      "data-onclick":"pickTableToggle", "data-id": tbl.id
-    }, { default:[
-      A.Div({ tw:"flex items-center justify-between" }, { default:[
-        A.Div({ tw:"font-bold" }, { default:[`#${tbl.number||tbl.id}`] }),
-        A.Span({ tw:"text-xl" }, { default:[badge] })
-      ]}),
-      A.Div({ tw:"text-sm text-slate-400 mt-1" }, { default:[ `${t(state,'capacity')}: ${tbl.capacity||4}` ] }),
-      (tbl.activeOrderIds?.length ? A.Div({ tw:"text-xs mt-1 text-emerald-400" }, { default:[`🧾 ${tbl.activeOrderIds.length} orders`] }) : null)
-    ]})
-  }
+    const baseStyle = {
+      gridArea: "order",
+      background: "var(--bg-surface)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    };
+    baseStyle[borderKey] = "1px solid var(--border-default)";
 
-  // =============== 3) Regions (pure build) ===============
-  const UI = {};
-
-  UI.header = (s) => {
-    const emp = s.session.employee, sh = s.session.shift;
-    const cats = [{id:'all',name:'الكل'}, ...s.catalog.categories];
-    return A.Div({ tw:"card p-3 flex items-center gap-3 justify-between" }, { default:[
-      A.Div({ tw:"flex items-center gap-2" }, { default:[
-        A.Button({ tw:"btn-ghost", "data-onclick":"toggleTheme" }, { default:["🌓"] }),
-        A.Button({ tw:"btn-ghost", "data-onclick":"toggleLang" }, { default:["🌐"] }),
-        A.Div({ tw:"chip" }, { default:[ emp? `🪪 ${emp.name}` : 'غير مسجل' ] }),
-        A.Div({ tw:"chip" }, { default:[ sh? `⌚ ${new Date(sh.startedAt).toLocaleTimeString()}` : t(s,'startShift') ] })
-      ]}),
-      A.Div({ tw:"flex-1 flex items-center gap-2" }, { default:[
-        A.Input({ id:"search", placeholder:t(s,'search'), value: s.ui.search||'', tw:"w-full px-4 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10", "data-oninput":"onSearch" }),
-        A.Div({ tw:"hidden lg:flex items-center gap-2" }, { default: cats.map(c=> A.Button({
-          tw:`chip ${s.ui.activeCategory===c.id?'!bg-[var(--c-primary)] !text-white':''}`,
-          "data-onclick":"setCategory", "data-id": c.id
-        }, { default:[ c.name||c.title || `#${c.id}` ] })) })
-      ]}),
-      A.Div({ tw:"flex items-center gap-2" }, { default:[
-        A.Button({ tw:"btn-ghost", "data-onclick":"openTables" }, { default:["🍽️ ", t(s,'tables')] }),
-        A.Button({ tw:"btn-ghost", "data-onclick":"showReports" }, { default:["📊 ", t(s,'reports')] }),
-        A.Button({ tw: sh?"btn-danger":"btn-primary", "data-onclick": sh?"endShift":"startShift" }, { default:[ sh? t(s,'endShift') : t(s,'startShift') ] })
-      ]})
-    ]})
-  }
-
-  UI.menu = (s) => {
-    const q = (s.ui.search||'').trim().toLowerCase();
-    const cat = s.ui.activeCategory||'all';
-    const items = (s.catalog.items||[]).filter(it => (cat==='all'||it.categoryId===cat) && (!q || (it.searchText||'').includes(q) || (it.translations?.ar?.name||'').includes(q) || (it.translations?.en?.name||'').toLowerCase().includes(q)));
-    return A.Div({ tw:"card h-full p-3 flex flex-col" }, { default:[
-      A.Div({ tw:"grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 scroll-y" }, { default: items.map(item => POS.ItemCard({ item, state:s })) })
-    ]})
-  }
-
-  UI.order = (s) => {
-    const o = s.order, totals = s.orderTotals;
-    return A.Div({ tw:"card h-full p-3 flex flex-col" }, { default:[
-      // Order type / customer / tables row
-      A.Div({ tw:"flex items-center gap-2 mb-2" }, { default:[
-        Comp.call('Segmented', { name:'otype', value:o.type, onChange:'setOrderType', options:[
-          { value:'dine_in', label:`🍽️ ${t(s,'dine_in')}` },
-          { value:'takeaway', label:`🥡 ${t(s,'takeaway')}` },
-          { value:'delivery', label:`🚚 ${t(s,'delivery')}` },
-        ]}),
-        (o.type==='dine_in' ? A.Button({ tw:"btn-ghost", "data-onclick":"openTablesAssign" }, { default:["🍽️ ", t(s,'tablesAssign')] }) : null),
-        (o.type!=='dine_in' ? A.Input({ id:'custName', placeholder:t(s,'customer'), value:o.customer?.name||'', tw:"px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10", "data-onchange":"syncCustomer" }) : null),
-        (o.type==='delivery' ? A.Input({ id:'custPhone', placeholder:'📞', value:o.customer?.phone||'', tw:"w-40 px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10", "data-onchange":"syncCustomer" }) : null)
-      ]}),
-
-      // Lines
-      A.Div({ tw:"flex-1 scroll-y divide-y divide-white/5" }, { default: (o.items||[]).map(li => POS.OrderLine({ line: li, state: s })) }),
-
-      // Totals
-      POS.OrderTotals({ totals, state:s }),
-
-      // Actions
-      A.Div({ tw:"flex items-center gap-2 pt-3" }, { default:[
-        A.Button({ tw:"btn-ghost", "data-onclick":"openBillDiscount" }, { default:["🏷️ ", t(s,'billDiscount')] }),
-        A.Div({ tw:"ms-auto" }),
-        A.Button({ tw:"btn-ghost", "data-onclick":"saveOrder" }, { default:["💾 ", t(s,'save')] }),
-        A.Button({ tw:"btn-primary", "data-onclick":"openSplitPay" }, { default:["💳 ", t(s,'splitBill')] }),
-        A.Button({ tw:"btn-primary", "data-onclick":"settleAndPrint" }, { default:["🧾 ", t(s,'settle')] })
-      ]})
-    ]})
-  }
-
-  // =============== 4) Modals region ===============
-  UI.modals = (s) => {
-    const m = s.ui.modal; if(!m) return A.Fragment();
-    const closeBtn = A.Button({ tw:"btn-ghost", "data-onclick":"closeModal" }, { default:["✖"] });
-
-    // Qty modal
-    if(m?.type==='qty'){
-      const li = m.line;
-      return A.Div({ class:"modal-backdrop" }, { default:[
-        A.Div({ tw:"card w-[min(420px,92vw)] p-4 space-y-3" }, { default:[
-          A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:[ t(s,'qty')+': '+li.name ] }), closeBtn ] }),
-          A.Input({ id:'qtyInput', type:'number', value: li.qty, min:1, tw:"w-full text-2xl text-center px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10", "data-oninput":"syncQty" }),
-          A.Div({ tw:"grid grid-cols-3 gap-2" }, { default:[..."1234567890"].map(ch=> A.Button({ tw:"btn-ghost", "data-onclick":"qtyKey", "data-ch": ch }, { default:[ch] })) })
-        ]})
-      ]})
+    if (!order) {
+      return A.Div({
+        style: baseStyle
+      }, { default: [app.call("EmptyState", { title: app.i18n.t("ui.no_active_order") })] });
     }
 
-    // Modifiers modal
-    if(m?.type==='modifiers'){
-      const li = m.line, mods = m.mods || [];
-      return A.Div({ class:"modal-backdrop" }, { default:[
-        A.Div({ tw:"card w-[min(680px,96vw)] p-4 space-y-3" }, { default:[
-          A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:[`🧩 ${t(s,'modifiers')} — ${li.name}`] }), closeBtn ] }),
-          A.Div({ tw:"grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[50vh] scroll-y" }, { default: mods.map(md => A.Button({
-            tw:`chip flex items-center justify-between ${li.selectedModifiers?.some(x=>x.id===md.id)?'!bg-emerald-600 !text-white':''}`,
-            "data-onclick":"toggleModifier", "data-id": md.id
-          }, { default:[ A.Span({}, { default:[ md.name ] }), A.Span({ tw:"text-sm" }, { default:[ cur(s, md.price||0) ] }) ] })) })
-        ]})
-      ]})
+    const style = {
+      gridArea: "order",
+      display: "flex",
+      flexDirection: "column",
+      background: "var(--bg-surface)",
+      height: "100%"
+    };
+    style[borderKey] = "1px solid var(--border-default)";
+
+    return A.Div({
+      style,
+      class: "order-panel"
+
+    if (!order) {
+      return A.Div({
+        style: {
+          gridArea: "order",
+          borderLeft: "1px solid var(--border-default)",
+          background: "var(--bg-surface)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }
+      }, { default: [app.call("EmptyState", { title: app.i18n.t("ui.no_active_order") })] });
     }
 
-    // Tables assign modal
-    if(m?.type==='tables'){
-      const picked = new Set((s.order.tableIds||[]));
-      return A.Div({ class:"modal-backdrop" }, { default:[
-        A.Div({ tw:"card w-[min(920px,98vw)] p-4 space-y-3" }, { default:[
-          A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:["🍽️ ", t(s,'tablesAssign')] }), closeBtn ] }),
-          A.Div({ tw:"grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[52vh] scroll-y" }, { default:(s.tables||[]).map(tbl=> POS.TableCard({ tbl, state:s })) }),
-          A.Div({ tw:"flex items-center justify-between" }, { default:[
-            A.Div({ tw:"text-sm text-slate-400" }, { default:[`${t(s,'pickedTables')}: ${Array.from(picked).join(', ')||'—'}`] }),
-            A.Div({ tw:"flex items-center gap-2" }, { default:[
-              A.Button({ tw:"btn-ghost", "data-onclick":"createReservationOpen" }, { default:["🔒 ", t(s,'reservation')] }),
-              A.Button({ tw:"btn-primary", "data-onclick":"applyTablesAssign" }, { default:["✅ ", t(s,'tablesAssign')] })
-            ]})
-          ]})
-        ]})
-      ]})
+    return A.Div({
+      style: {
+        gridArea: "order",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-surface)",
+        borderLeft: "1px solid var(--border-default)",
+        height: "100%"
+      }
+    }, {
+      default: [
+        app.call("POSOrderHeader", { order }),
+        app.call("POSOrderLines", { order }),
+        order.lines.length ? app.call("POSOrderTotals", { order }) : null
+      ]
+    });
+  });
+
+  C.define("POSOrderHeader", (A, s, app, p) => {
+    const order = p.order;
+    const locale = s.env.locale || "ar";
+    const tableNames = (order.tableIds || []).map((tableId) => {
+      const table = s.tables.find((t) => t.id === tableId);
+      return table ? table.name : tableId;
+    });
+
+    const typeItems = [
+      { id: "dine_in", label: app.i18n.t("ui.dine_in") },
+      { id: "takeaway", label: app.i18n.t("ui.takeaway") },
+      { id: "delivery", label: app.i18n.t("ui.delivery") }
+    ];
+
+    return A.Div({
+      style: {
+        padding: "16px",
+        borderBottom: "1px solid var(--border-default)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px"
+      }
+    }, {
+      default: [
+        A.Div({ style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, {
+          default: [
+            A.Div({ style: { fontWeight: 700 } }, { default: [app.i18n.t("ui.current_order")] }),
+            tableNames.length ? A.Div({
+              style: {
+                display: "inline-flex",
+                gap: "8px",
+                alignItems: "center"
+              }
+            }, {
+              default: [
+                A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, { default: [app.i18n.t("ui.table")] }),
+                A.Span({ style: { fontWeight: 600 } }, { default: [tableNames.join(", ")] })
+              ]
+            }) : null
+          ]
+        }),
+        A.Div({ style: { display: "flex", gap: "8px" } }, {
+          default: typeItems.map((item) => A.Button({
+            type: "button",
+            "data-onclick": "order.setType",
+            "data-type": item.id,
+            style: {
+              flex: "1 1 auto",
+              padding: "10px 12px",
+              borderRadius: "14px",
+              border: `1px solid ${order.type === item.id ? "var(--primary)" : "var(--border-default)"}`,
+              background: order.type === item.id ? "var(--primary-soft, rgba(99,102,241,0.16))" : "var(--bg-page)",
+              fontWeight: order.type === item.id ? 600 : 500
+            }
+          }, { default: [item.label] }))
+        })
+      ]
+    });
+  });
+
+  C.define("POSOrderLines", (A, s, app, p) => {
+    const order = p.order;
+    if (!order.lines.length) {
+      return A.Div({
+        class: "no-scrollbar",
+        style: {
+          flex: "1 1 auto",
+          overflowY: "auto",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "24px"
+        }
+      }, { default: [app.call("EmptyState", { title: app.i18n.t("ui.empty_order"), text: app.i18n.t("ui.empty_order_hint") })] });
     }
 
-    // Split payments
-    if(m?.type==='split'){
-      const pay = m.payments||[];
-      return A.Div({ class:"modal-backdrop" }, { default:[
-        A.Div({ tw:"card w-[min(620px,96vw)] p-4 space-y-3" }, { default:[
-          A.Div({ tw:"flex items-center justify-between" }, { default:[ A.Div({ tw:"font-bold" }, { default:["💳 ", t(s,'splitBill')] }), closeBtn ] }),
-          A.Div({ tw:"space-y-2" }, { default:[
-            ...pay.map((p,i)=> A.Div({ tw:"flex items-center gap-2" }, { default:[
-              A.Select({ "data-onchange":"changePayMethod", "data-i": i, 'data-value': p.method, tw:"px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10" }, { default:[
-                A.Option({ value:'cash' }, { default:['💵 Cash'] }),
-                A.Option({ value:'card' }, { default:['💳 Card'] }),
-                A.Option({ value:'wallet' }, { default:['📱 Wallet'] })
-              ]}),
-              A.Input({ type:'number', step:'0.01', value:p.amount, 'data-oninput':'changePayAmount', 'data-i':i, tw:"w-36 px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10" })
-            ]})),
-            A.Button({ tw:"btn-ghost", "data-onclick":"addPayLine" }, { default:["➕ ", t(s,'addPayLine')] })
-          ]}),
-          A.Div({ tw:"flex items-center justify-end gap-2" }, { default:[
-            A.Button({ tw:"btn-primary", "data-onclick":"confirmSplit" }, { default:["✅ ", t(s,'settle')] })
-          ]})
-        ]})
-      ]})
+    return A.Div({
+      class: "no-scrollbar",
+      style: {
+        flex: "1 1 auto",
+        overflowY: "auto",
+        padding: "12px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px"
+      }
+    }, {
+      default: order.lines.map((line) => app.call("POSOrderLine", { line }))
+    });
+  });
+
+  C.define("POSOrderLine", (A, s, app, p) => {
+    const line = p.line;
+    const helpers = app.helpers || {};
+    const formatCurrency = helpers.formatCurrency || ((v) => v.toFixed(2));
+    const discountLabel = line.discount && line.discount.type
+      ? (line.discount.type === "percent"
+        ? `${line.discount.value}%`
+        : formatCurrency(line.discount.value))
+      : null;
+
+
+    return A.Div({
+      style: {
+        borderRadius: "16px",
+        border: "1px solid var(--border-default)",
+        padding: "12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: "12px",
+        background: "var(--bg-page)"
+      }
+    }, {
+      default: [
+        A.Div({
+          style: {
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "8px"
+          }
+        }, {
+          default: [
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+              default: [
+                A.Div({ style: { display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between" } }, {
+                  default: [
+                    A.Strong({}, { default: [line.name] }),
+                    A.Span({ style: { fontWeight: 700, color: "var(--primary)" } }, { default: [formatCurrency(line.total)] })
+                  ]
+                }),
+                line.notes ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, { default: [line.notes] }) : null,
+                line.modifiers && line.modifiers.length ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                  default: [line.modifiers.join(", ")]
+                }) : null,
+                discountLabel ? A.Div({ style: { fontSize: "12px", color: "var(--warning, #f59e0b)", fontWeight: 600 } }, {
+                  default: [`${app.i18n.t("ui.discount")}: ${discountLabel}`]
+                }) : null
+              ]
+            }),
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-end" } }, {
+              default: [
+                app.call("Button", {
+                  text: "⋯",
+                  variant: "ghost",
+                  size: "xs",
+                  style: { borderRadius: "10px", width: "32px", height: "32px" },
+                  "data-onclick": "order.openLineActions",
+                  "data-line-id": line.id
+                })
+              ]
+            })
+          ]
+        }),
+        A.Div({ style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" } }, {
+        A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" } }, {
+              default: [
+                A.Strong({}, { default: [line.name] }),
+                A.Span({ style: { fontWeight: 700, color: "var(--primary)" } }, { default: [formatCurrency(line.total)] })
+              ]
+            }),
+            line.notes ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, { default: [line.notes] }) : null,
+            line.modifiers && line.modifiers.length ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+              default: [line.modifiers.join(", ")]
+            }) : null
+          ]
+        }),
+        A.Div({ style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" } }, {
+          default: [
+            A.Div({ style: { display: "inline-flex", alignItems: "center", gap: "6px" } }, {
+              default: [
+                app.call("Button", {
+                  text: "−",
+                  variant: "ghost",
+                  size: "sm",
+                  style: { minWidth: "36px", height: "36px", borderRadius: "12px" },
+                  "data-onclick": "order.decrementLine",
+                  "data-line-id": line.id
+                }),
+                A.Button({
+                  type: "button",
+                  "data-onclick": "order.openQtyNumpad",
+                  "data-line-id": line.id,
+                  style: {
+                    minWidth: "48px",
+                    height: "36px",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border-default)",
+                    background: "var(--bg-surface)",
+                    fontWeight: 700
+                  }
+                }, { default: [line.qty] }),
+
+                A.Span({ style: { minWidth: "32px", textAlign: "center", fontWeight: 600 } }, { default: [line.qty] }),
+                app.call("Button", {
+                  text: "+",
+                  variant: "ghost",
+                  size: "sm",
+                  style: { minWidth: "36px", height: "36px", borderRadius: "12px" },
+                  "data-onclick": "order.incrementLine",
+                  "data-line-id": line.id
+                })
+              ]
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.remove"),
+              variant: "ghost",
+              intent: "danger",
+              size: "xs",
+              "data-onclick": "order.requestRemoveLine",
+
+              "data-onclick": "order.removeLine",
+              "data-line-id": line.id
+            })
+          ]
+        })
+      ]
+    });
+  });
+
+  C.define("POSOrderTotals", (A, s, app, p) => {
+    const order = p.order;
+    const totals = order.totals;
+    const helpers = app.helpers || {};
+    const f = helpers.formatCurrency || ((v) => v.toFixed(2));
+    return A.Div({
+      style: {
+        borderTop: "1px solid var(--border-default)",
+        padding: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px"
+      }
+    }, {
+      default: [
+        A.Div({ style: { display: "flex", justifyContent: "space-between", fontSize: "14px", color: "var(--text-subtle)" } }, {
+          default: [A.Span({}, { default: [app.i18n.t("ui.subtotal")] }), A.Span({}, { default: [f(totals.subtotal)] })]
+        }),
+        A.Div({ style: { display: "flex", justifyContent: "space-between", fontSize: "14px", color: "var(--text-subtle)" } }, {
+          default: [A.Span({}, { default: [app.i18n.t("ui.service")] }), A.Span({}, { default: [f(totals.service)] })]
+        }),
+        A.Div({ style: { display: "flex", justifyContent: "space-between", fontSize: "14px", color: "var(--text-subtle)" } }, {
+          default: [A.Span({}, { default: [app.i18n.t("ui.vat")] }), A.Span({}, { default: [f(totals.vat)] })]
+        }),
+        A.Div({
+          style: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontWeight: 700,
+            fontSize: "20px",
+            marginTop: "8px"
+          }
+        }, {
+          default: [A.Span({}, { default: [app.i18n.t("ui.total")] }), A.Span({}, { default: [f(totals.total)] })]
+        })
+      ]
+    });
+  });
+
+  C.define("POSFooterBar", (A, s, app) => {
+    const order = s.order;
+    const helpers = app.helpers || {};
+    const f = helpers.formatCurrency || ((v) => v.toFixed(2));
+    const splits = s.payments.splits || [];
+    const paid = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+    const total = order ? order.totals.total : 0;
+    const remaining = Math.max(0, total - paid);
+
+    return A.Div({
+      style: {
+        gridArea: "footer",
+        background: "var(--bg-surface)",
+        borderTop: "1px solid var(--border-default)",
+        display: "grid",
+        gridTemplateColumns: "1fr clamp(240px, 30vw, 360px)",
+        alignItems: "center",
+        padding: "0 20px"
+      }
+    }, {
+      default: [
+        A.Div({ style: { display: "flex", alignItems: "center", gap: "18px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "2px" } }, {
+              default: [
+                A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, { default: [app.i18n.t("ui.total")] }),
+                A.Strong({ style: { fontSize: "20px" } }, { default: [f(total)] })
+              ]
+            }),
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "2px" } }, {
+              default: [
+                A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, { default: [app.i18n.t("ui.remaining")] }),
+                A.Strong({ style: { fontSize: "20px", color: remaining === 0 ? "var(--success)" : "var(--danger)" } }, {
+                  default: [f(remaining)]
+                })
+              ]
+            })
+          ]
+        }),
+        A.Div({ style: { display: "flex", justifyContent: "flex-end", gap: "12px" } }, {
+          default: [
+            app.call("Button", {
+              text: app.i18n.t("ui.clear_order"),
+              variant: "ghost",
+              size: "sm",
+              "data-onclick": "order.clear"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.park_order"),
+              variant: "outline",
+              size: "sm",
+              "data-onclick": "order.park"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.settle_pay"),
+              intent: "success",
+              size: "lg",
+              style: { minWidth: "160px", height: "52px", fontSize: "18px" },
+              "data-onclick": "payments.open"
+            })
+          ]
+        })
+      ]
+    });
+  });
+
+  C.define("POSModalsRoot", (A, s, app) => {
+    const active = s.ui.overlays.active;
+    return A.Div({
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 1200,
+        pointerEvents: active ? "auto" : "none"
+      }
+    }, {
+      default: [
+        app.call("POSTablesModal", { open: active === "tables" }),
+        app.call("POSReservationsModal", { open: active === "reservations" }),
+        app.call("POSReturnsModal", { open: active === "returns" }),
+        app.call("POSLineActionsSheet", { open: active === "line-actions" }),
+        app.call("POSLineNotesModal", { open: active === "line-notes" }),
+        app.call("POSLineModifiersModal", { open: active === "line-modifiers" }),
+        app.call("POSLineDiscountModal", { open: active === "line-discount" }),
+        app.call("POSQtyNumpadModal", { open: active === "numpad" }),
+        app.call("POSPinPromptModal", { open: active === "pin" }),
+
+        app.call("POSPaymentsSheet", { open: active === "payments" }),
+        app.call("POSReportsSheet", { open: active === "reports" }),
+        app.call("POSShiftSummaryModal", { open: active === "shift-summary" })
+      ]
+    });
+  });
+
+  C.define("POSLineActionsSheet", (A, s, app, p) => {
+    if (!p.open) return null;
+    const payload = s.ui.overlays.payload || {};
+    const lineId = payload.lineId;
+    const order = s.order;
+    const line = order && order.lines ? order.lines.find((ln) => ln.id === lineId) : null;
+    if (!line) {
+      return app.call("Sheet", {
+        open: true,
+        title: app.i18n.t("ui.line_actions"),
+        size: "sm",
+        onClose: () => app.dispatch("order.closeLineActions")
+      }, { body: [app.call("EmptyState", { title: app.i18n.t("ui.no_active_order") })] });
+    }
+    const actions = [
+      { id: "modifiers", label: app.i18n.t("ui.line_modifiers"), command: "order.editModifiers" },
+      { id: "notes", label: app.i18n.t("ui.line_notes"), command: "order.editNotes" },
+      { id: "discount", label: app.i18n.t("ui.line_discount"), command: "order.editDiscount" },
+      { id: "delete", label: app.i18n.t("ui.delete_line"), command: "order.requestRemoveLine" }
+    ];
+    return app.call("Sheet", {
+      open: true,
+      title: line.name,
+      size: "sm",
+      onClose: () => app.dispatch("order.closeLineActions")
+    }, {
+      body: [
+        A.Div({ style: { display: "flex", flexDirection: "column", gap: "12px" } }, {
+          default: actions.map((action) => app.call("Button", {
+            text: action.label,
+            intent: action.id === "delete" ? "danger" : "neutral",
+            variant: "outline",
+            size: "md",
+            "data-onclick": action.command,
+            "data-line-id": line.id
+          }))
+        })
+      ]
+    });
+  });
+
+  C.define("POSLineNotesModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const payload = s.ui.overlays.payload || {};
+    const lineId = payload.lineId;
+    const order = s.order;
+    const line = order && order.lines ? order.lines.find((ln) => ln.id === lineId) : null;
+    const draft = s.ui.forms?.notes ?? "";
+    return app.call("Modal", {
+      open: true,
+      size: "md",
+      title: line ? `${line.name} — ${app.i18n.t("ui.line_notes")}` : app.i18n.t("ui.line_notes"),
+      onClose: () => app.dispatch("order.closeLineActions")
+    }, {
+      body: [
+        A.Label({ style: { display: "flex", flexDirection: "column", gap: "8px" } }, {
+          default: [
+            A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.notes_placeholder")] }),
+            A.Textarea({
+              value: draft,
+              rows: 6,
+              style: {
+                resize: "vertical",
+                borderRadius: "12px",
+                border: "1px solid var(--border-default)",
+                padding: "12px",
+                fontSize: "14px"
+              },
+              "data-oninput": "order.updateNotesDraft"
+            })
+          ]
+        })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.cancel"),
+          variant: "ghost",
+          size: "sm",
+          "data-onclick": "order.closeLineActions"
+        }),
+        app.call("Button", {
+          text: app.i18n.t("ui.save"),
+          intent: "success",
+          size: "sm",
+          "data-onclick": "order.saveNotes",
+          "data-line-id": lineId
+        })
+      ]
+    });
+  });
+
+  C.define("POSLineModifiersModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const payload = s.ui.overlays.payload || {};
+    const lineId = payload.lineId;
+    const modifiers = s.modifiers || {};
+    const order = s.order;
+    const line = order && order.lines ? order.lines.find((ln) => ln.id === lineId) : null;
+    const selectedAddOns = new Set((s.ui.forms?.modifiers && s.ui.forms.modifiers.addOns) || []);
+    const selectedRemovals = new Set((s.ui.forms?.modifiers && s.ui.forms.modifiers.removals) || []);
+    return app.call("Modal", {
+      open: true,
+      size: "lg",
+      title: line ? `${line.name} — ${app.i18n.t("ui.line_modifiers")}` : app.i18n.t("ui.line_modifiers"),
+      onClose: () => app.dispatch("order.closeLineActions")
+    }, {
+      body: [
+        A.Div({ style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "8px" } }, {
+              default: [
+                A.Strong({}, { default: [app.i18n.t("ui.add_ons")] }),
+                ...(modifiers["add-ons"] || []).map((mod) => A.Label({
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    padding: "8px 12px",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border-default)"
+                  }
+                }, {
+                  default: [
+                    A.Span({}, { default: [mod.name?.[s.env.locale || "ar"] || mod.name?.en || mod.id] }),
+                    A.Div({ style: { display: "flex", alignItems: "center", gap: "8px" } }, {
+                      default: [
+                        A.Span({ style: { color: "var(--primary)" } }, { default: [`+${mod.price_change.toFixed(2)}`] }),
+                        A.Input({
+                          type: "checkbox",
+                          checked: selectedAddOns.has(String(mod.id)),
+                          "data-onchange": "order.toggleModifier",
+                          "data-kind": "addOns",
+                          "data-modifier-id": mod.id
+                        })
+                      ]
+                    })
+                  ]
+                }))
+              ]
+            }),
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "8px" } }, {
+              default: [
+                A.Strong({}, { default: [app.i18n.t("ui.removals")] }),
+                ...(modifiers.removals || []).map((mod) => A.Label({
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    padding: "8px 12px",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border-default)"
+                  }
+                }, {
+                  default: [
+                    A.Span({}, { default: [mod.name?.[s.env.locale || "ar"] || mod.name?.en || mod.id] }),
+                    A.Input({
+                      type: "checkbox",
+                      checked: selectedRemovals.has(String(mod.id)),
+                      "data-onchange": "order.toggleModifier",
+                      "data-kind": "removals",
+                      "data-modifier-id": mod.id
+                    })
+                  ]
+                }))
+              ]
+            })
+          ]
+        })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.cancel"),
+          variant: "ghost",
+          size: "sm",
+          "data-onclick": "order.closeLineActions"
+        }),
+        app.call("Button", {
+          text: app.i18n.t("ui.save"),
+          intent: "success",
+          size: "sm",
+          "data-onclick": "order.saveModifiers",
+          "data-line-id": lineId
+        })
+      ]
+    });
+  });
+
+  C.define("POSLineDiscountModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const payload = s.ui.overlays.payload || {};
+    const lineId = payload.lineId;
+    const form = s.ui.forms?.discount || { type: "percent", value: "" };
+    return app.call("Modal", {
+      open: true,
+      size: "sm",
+      title: app.i18n.t("ui.line_discount"),
+      onClose: () => app.dispatch("order.closeLineActions")
+    }, {
+      body: [
+        A.Div({ style: { display: "flex", flexDirection: "column", gap: "12px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", gap: "8px" } }, {
+              default: [
+                app.call("Button", {
+                  text: app.i18n.t("ui.percent"),
+                  variant: form.type === "percent" ? "solid" : "outline",
+                  size: "sm",
+                  "data-onclick": "order.setDiscountType",
+                  "data-type": "percent"
+                }),
+                app.call("Button", {
+                  text: app.i18n.t("ui.amount"),
+                  variant: form.type === "amount" ? "solid" : "outline",
+                  size: "sm",
+                  "data-onclick": "order.setDiscountType",
+                  "data-type": "amount"
+                })
+              ]
+            }),
+            A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+              default: [
+                A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.value")] }),
+                A.Input({
+                  type: "number",
+                  step: form.type === "percent" ? "1" : "0.01",
+                  min: "0",
+                  value: form.value,
+                  "data-oninput": "order.updateDiscountValue"
+                })
+              ]
+            })
+          ]
+        })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.cancel"),
+          variant: "ghost",
+          size: "sm",
+          "data-onclick": "order.closeLineActions"
+        }),
+        app.call("Button", {
+          text: app.i18n.t("ui.apply"),
+          intent: "success",
+          size: "sm",
+          "data-onclick": "order.applyDiscount",
+          "data-line-id": lineId
+        })
+      ]
+    });
+  });
+
+  C.define("POSQtyNumpadModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const payload = s.ui.overlays.payload || {};
+    const lineId = payload.lineId;
+    const numpad = s.ui.forms?.numpad || { value: 1 };
+    return app.call("Modal", {
+      open: true,
+      size: "sm",
+      title: app.i18n.t("ui.enterQuantity"),
+      onClose: () => app.dispatch("order.closeLineActions")
+    }, {
+      body: [
+        app.call("NumpadInteger", {
+          value: numpad.value || 1,
+          min: 1,
+          max: 999,
+          onInputCommand: "order.numpadInput",
+          onClearCommand: "order.numpadClear",
+          onConfirmCommand: "order.numpadConfirm",
+          confirmLabel: app.i18n.t("ui.confirm")
+        })
+      ]
+    });
+  });
+
+  C.define("POSPinPromptModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const prompt = s.ui.pinPrompt || {};
+    return app.call("Modal", {
+      open: true,
+      size: "sm",
+      title: app.i18n.t("ui.security_pin"),
+      onClose: () => app.dispatch("security.dismissPin")
+    }, {
+      body: [
+        app.call("PinPrompt", {
+          reason: prompt.reason,
+          attempts: prompt.attempts || 3,
+          currentAttempt: (prompt.currentAttempt || 0) + 1,
+          pin: prompt.pin || "",
+          error: prompt.error,
+          onInputCommand: "security.pinKey",
+          onClearCommand: "security.pinClear",
+          onConfirmCommand: "security.pinConfirm"
+        })
+      ]
+    });
+  });
+
+  C.define("POSReturnsModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const returnsState = s.ui.returns || {};
+    const stage = returnsState.stage || "list";
+    const completed = s.completedOrders || [];
+    const helpers = app.helpers || {};
+    const f = helpers.formatCurrency || ((v) => v.toFixed(2));
+
+    if (stage === "summary") {
+      return app.call("Modal", {
+        open: true,
+        size: "md",
+        title: app.i18n.t("ui.returns"),
+        onClose: () => app.dispatch("returns.close")
+      }, {
+        body: [
+          app.call("EmptyState", {
+            icon: "✅",
+            title: app.i18n.t("ui.return_created"),
+            text: app.i18n.t("ui.return_created_hint")
+          })
+        ],
+        footer: [
+          app.call("Button", {
+            text: app.i18n.t("ui.done"),
+            intent: "success",
+            "data-onclick": "returns.close"
+          })
+        ]
+      });
     }
 
-    // Reports (orders list + filters)
-    if(m?.type==='reports'){
-      const rs = s.reports||{ orders:[], filters:{} };
-      return A.Div({ class:"modal-backdrop" }, { default:[
-        A.Div({ tw:"card w-[min(1080px,98vw)] p-4 space-y-3" }, { default:[
-          A.Div({ tw:"flex items-center justify-between" }, { default:[
-            A.Div({ tw:"font-bold" }, { default:["📊 ", t(s,'reports')] }),
-            closeBtn
-          ]}),
-          A.Div({ tw:"flex items-center gap-2" }, { default:[
-            A.Select({ 'data-onchange':'setReportStatus', 'data-value': rs.filters?.status||'' , tw:"px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10" },{ default:[
-              A.Option({ value:'' },{ default:['🔎 كل الحالات'] }),
-              A.Option({ value:'new_order' },{ default:[t(s,'new_order')] }),
-              A.Option({ value:'in_preparation' },{ default:[t(s,'in_preparation')] }),
-              A.Option({ value:'prepared' },{ default:[t(s,'prepared')] }),
-              A.Option({ value:'delivered' },{ default:[t(s,'delivered')] }),
-              A.Option({ value:'paid' },{ default:[t(s,'paid')] })
-            ]}),
-            A.Input({ placeholder:'ابحث برقم/اسم', value:rs.filters?.query||'', 'data-oninput':'setReportQuery', tw:"flex-1 px-3 py-2 rounded-xl bg-[var(--c-soft)] border border-white/10" })
-          ]}),
-          A.Div({ tw:"max-h-[60vh] scroll-y" }, { default:[
-            A.Table({ tw:"w-full text-sm" }, { default:[
-              A.Thead({}, { default:[ A.Tr({}, { default:[ 'رقم','النوع','الحالة','الطاولات','العميل','الإجمالي','الكاشير' ].map(h=> A.Th({ tw:"text-start py-2" },{ default:[h] })) ]) ] }),
-              A.Tbody({}, { default:(rs.orders||[]).map(o=> A.Tr({ tw:"border-t border-white/10 cursor-pointer hover:bg-white/5", "data-onclick":"openReportOrder", "data-id":o.id }, { default:[
-                A.Td({ tw:"py-1" }, { default:[o.id] }),
-                A.Td({}, { default:[o.type] }),
-                A.Td({}, { default:[o.status] }),
-                A.Td({}, { default:[(o.tableIds||[]).join(', ')] }),
-                A.Td({}, { default:[ o.type==='delivery' ? (o.customer?.name||'—') : (o.customer?.name||'عميل نقدي') ] }),
-                A.Td({}, { default:[ cur(s, o.totals?.total||o.total||0) ] }),
-                A.Td({}, { default:[ o.cashierName || '—' ] })
-              ]})) })
-            ]})
-          ]})
-        ]})
-      ]})
+    if (stage === "list") {
+      return app.call("Modal", {
+        open: true,
+        size: "xl",
+        title: app.i18n.t("ui.returns"),
+        onClose: () => app.dispatch("returns.close")
+      }, {
+        body: [
+          completed.length ? A.Div({
+            class: "no-scrollbar",
+            style: {
+              maxHeight: "70vh",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px"
+            }
+          }, {
+            default: completed.map((order) => A.Div({
+              style: {
+                borderRadius: "16px",
+                border: "1px solid var(--border-default)",
+                padding: "12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }
+            }, {
+              default: [
+                A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                  default: [
+                    A.Strong({}, { default: [`#${order.id}`] }),
+                    A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                      default: [new Date(order.closedAt || order.createdAt).toLocaleString()]
+                    }),
+                    A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                      default: [`${order.lines.length} ${app.i18n.t("ui.items")}`]
+                    })
+                  ]
+                }),
+                app.call("Button", {
+                  text: app.i18n.t("ui.start_return"),
+                  variant: "outline",
+                  size: "sm",
+                  "data-onclick": "returns.selectOrder",
+                  "data-order-id": order.id
+                })
+              ]
+            }))
+          }) : app.call("EmptyState", {
+            icon: "📄",
+            title: app.i18n.t("ui.no_completed_orders"),
+            text: app.i18n.t("ui.no_completed_orders_hint")
+          })
+        ]
+      });
     }
 
-    return A.Fragment();
-  }
+    const items = returnsState.items || [];
+    const total = items.reduce((sum, item) => sum + (item.selectedQty || 0) * (item.unitPrice || 0), 0);
+    return app.call("Modal", {
+      open: true,
+      size: "xl",
+      title: app.i18n.t("ui.returns") + (returnsState.sourceOrderId ? ` — #${returnsState.sourceOrderId}` : ""),
+      onClose: () => app.dispatch("returns.close")
+    }, {
+      body: [
+        A.Div({
+          class: "no-scrollbar",
+          style: { maxHeight: "60vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }
+        }, {
+          default: items.map((item) => A.Div({
+            style: {
+              borderRadius: "16px",
+              border: "1px solid var(--border-default)",
+              padding: "12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }
+          }, {
+            default: [
+              A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                default: [
+                  A.Strong({}, { default: [item.name] }),
+                  A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                    default: [`${app.i18n.t("ui.available")}: ${item.availableQty}`]
+                  })
+                ]
+              }),
+              A.Div({ style: { display: "flex", alignItems: "center", gap: "8px" } }, {
+                default: [
+                  app.call("Button", {
+                    text: "−",
+                    variant: "ghost",
+                    size: "sm",
+                    "data-onclick": "returns.adjustQty",
+                    "data-item-id": item.lineId,
+                    "data-direction": "dec"
+                  }),
+                  A.Span({ style: { minWidth: "32px", textAlign: "center", fontWeight: 600 } }, {
+                    default: [item.selectedQty || 0]
+                  }),
+                  app.call("Button", {
+                    text: "+",
+                    variant: "ghost",
+                    size: "sm",
+                    "data-onclick": "returns.adjustQty",
+                    "data-item-id": item.lineId,
+                    "data-direction": "inc"
+                  })
+                ]
+              })
+            ]
+          }))
+        })
+      ],
+      footer: [
+        A.Div({ style: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" } }, {
+          default: [
+            A.Strong({}, { default: [`${app.i18n.t("ui.total")}: ${f(total)}`] }),
+            app.call("Button", {
+              text: app.i18n.t("ui.create_return"),
+              intent: "success",
+              disabled: total <= 0,
+              "data-onclick": "returns.submit"
+            })
+          ]
+        })
+      ]
+    });
+  });
 
-  // =============== 5) Public API ===============
-  w.POS_UI = UI; // expose builders
-})();
+  C.define("POSReservationsModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const reservationsUi = s.ui.reservations || {};
+    const stage = reservationsUi.stage || "list";
+    const form = reservationsUi.form || {};
+    const tables = s.tables || [];
+    const helpers = app.helpers || {};
+
+    if (stage === "list") {
+      return app.call("Modal", {
+        open: true,
+        size: "xl",
+        title: app.i18n.t("ui.reservations"),
+        onClose: () => app.dispatch("view.closeOverlay")
+      }, {
+        body: [
+          s.reservations && s.reservations.length ? A.Div({
+            class: "no-scrollbar",
+            style: { maxHeight: "70vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }
+          }, {
+            default: s.reservations.map((resv) => A.Div({
+              style: {
+                borderRadius: "16px",
+                border: "1px solid var(--border-default)",
+                padding: "12px",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "12px"
+              }
+            }, {
+              default: [
+                A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                  default: [
+                    A.Strong({}, { default: [resv.customerName] }),
+                    A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                      default: [`${resv.partySize} ${app.i18n.t("ui.guests")}`]
+                    }),
+                    A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                      default: [new Date(resv.startTime).toLocaleString()]
+                    }),
+                    A.Span({ style: { fontSize: "12px", color: "var(--primary)" } }, {
+                      default: [resv.tableIds.map((id) => tables.find((t) => t.id === id)?.name || id).join(", ")]
+                    })
+                  ]
+                }),
+                app.call("Button", {
+                  text: app.i18n.t("ui.cancel_reservation"),
+                  intent: "danger",
+                  variant: "ghost",
+                  size: "sm",
+                  "data-onclick": "reservations.cancel",
+                  "data-reservation-id": resv.id
+                })
+              ]
+            }))
+          }) : app.call("EmptyState", {
+            icon: "📅",
+            title: app.i18n.t("ui.no_reservations"),
+            text: app.i18n.t("ui.no_reservations_hint")
+          })
+        ],
+        footer: [
+          app.call("Button", {
+            text: app.i18n.t("ui.new_reservation"),
+            intent: "primary",
+            "data-onclick": "reservations.startForm"
+          })
+        ]
+      });
+    }
+
+    const selectedTables = new Set(form.tableIds || []);
+    return app.call("Modal", {
+      open: true,
+      size: "xl",
+      title: app.i18n.t("ui.new_reservation"),
+      onClose: () => app.dispatch("reservations.abort")
+    }, {
+      body: [
+        A.Div({ style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "12px" } }, {
+              default: [
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.customer_name")] }),
+                    A.Input({
+                      type: "text",
+                      value: form.customerName || "",
+                      "data-oninput": "reservations.updateField",
+                      "data-field": "customerName"
+                    })
+                  ]
+                }),
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.phone")] }),
+                    A.Input({
+                      type: "tel",
+                      value: form.phone || "",
+                      "data-oninput": "reservations.updateField",
+                      "data-field": "phone"
+                    })
+                  ]
+                }),
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.party_size")] }),
+                    A.Input({
+                      type: "number",
+                      min: "1",
+                      value: form.partySize || "",
+                      "data-oninput": "reservations.updateField",
+                      "data-field": "partySize"
+                    })
+                  ]
+                }),
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.start_time")] }),
+                    A.Input({
+                      type: "datetime-local",
+                      value: form.startTime || "",
+                      "data-oninput": "reservations.updateField",
+                      "data-field": "startTime"
+                    })
+                  ]
+                }),
+                A.Label({ style: { display: "flex", flexDirection: "column", gap: "6px" } }, {
+                  default: [
+                    A.Span({ style: { fontWeight: 600 } }, { default: [app.i18n.t("ui.notes")] }),
+                    A.Textarea({
+                      value: form.notes || "",
+                      rows: 4,
+                      "data-oninput": "reservations.updateField",
+                      "data-field": "notes"
+                    })
+                  ]
+                })
+              ]
+            }),
+            A.Div({ style: { display: "flex", flexDirection: "column", gap: "12px" } }, {
+              default: [
+                A.Strong({}, { default: [app.i18n.t("ui.select_tables")] }),
+                A.Div({ style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "8px" } }, {
+                  default: tables.map((table) => {
+                    const disabled = table.status === "occupied" || table.status === "offline";
+                    const active = selectedTables.has(table.id);
+                    return A.Button({
+                      type: "button",
+                      disabled,
+                      style: {
+                        borderRadius: "12px",
+                        padding: "10px",
+                        border: `1px solid ${active ? "var(--primary)" : "var(--border-default)"}`,
+                        background: active ? "var(--primary-soft)" : "var(--bg-page)"
+                      },
+                      "data-onclick": "reservations.toggleTable",
+                      "data-table-id": table.id
+                    }, {
+                      default: [
+                        A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                          default: [
+                            A.Strong({}, { default: [table.name] }),
+                            A.Span({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+                              default: [`${table.seats} ${app.i18n.t("ui.seats")}`]
+                            })
+                          ]
+                        })
+                      ]
+                    });
+                  })
+                })
+              ]
+            })
+          ]
+        })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.cancel"),
+          variant: "ghost",
+          "data-onclick": "reservations.abort"
+        }),
+        app.call("Button", {
+          text: app.i18n.t("ui.save"),
+          intent: "success",
+          "data-onclick": "reservations.submit"
+        })
+      ]
+    });
+  });
+
+
+ 
+  C.define("POSTablesModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    return app.call("Modal", {
+      open: true,
+      size: "lg",
+      title: app.i18n.t("ui.tables"),
+      onClose: () => app.dispatch("view.closeOverlay")
+    }, {
+      body: [
+        A.Div({
+          class: "no-scrollbar",
+          style: {
+            maxHeight: "70vh",
+            overflowY: "auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+            gap: "12px"
+          }
+        }, {
+          default: (s.tables || []).map((table) => app.call("POSTableCard", { table }))
+        })
+      ]
+    });
+  });
+
+  C.define("POSTableCard", (A, s, app, p) => {
+    const table = p.table;
+    const statusColors = {
+      available: "var(--success)",
+      occupied: "var(--danger)",
+      reserved: "var(--warning, #f59e0b)",
+      offline: "#4b5563"
+    };
+    const badgeColor = statusColors[table.status] || "var(--text-default)";
+    return A.Div({
+      "data-onclick": "tables.attach",
+      "data-table-id": table.id,
+      style: {
+        borderRadius: "16px",
+        border: `2px solid ${badgeColor}`,
+        background: "var(--bg-surface)",
+        padding: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        cursor: "pointer"
+      }
+    }, {
+      default: [
+        A.Strong({ style: { fontSize: "18px" } }, { default: [table.name] }),
+        A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, {
+          default: [`${table.seats} ${app.i18n.t("ui.seats")}`]
+        }),
+        A.Span({ style: { fontSize: "12px", color: badgeColor } }, { default: [app.i18n.t(`ui.table_status_${table.status}`)] })
+      ]
+    });
+  });
+
+  C.define("POSPaymentsSheet", (A, s, app, p) => {
+    if (!p.open) return null;
+    const helpers = app.helpers || {};
+    const f = helpers.formatCurrency || ((v) => v.toFixed(2));
+    const order = s.order;
+    const total = order ? order.totals.total : 0;
+    const splits = s.payments.splits || [];
+    const paid = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+    const due = Math.max(0, total - paid);
+
+    return app.call("Sheet", {
+      open: true,
+      side: "end",
+      title: app.i18n.t("ui.settle_pay"),
+      size: "md",
+      onClose: () => app.dispatch("payments.close")
+    }, {
+      body: [
+        A.Div({ style: { display: "flex", flexDirection: "column", gap: "16px" } }, {
+          default: [
+            A.Div({ style: { textAlign: "center" } }, {
+              default: [
+                A.Span({ style: { display: "block", color: "var(--text-subtle)" } }, { default: [app.i18n.t("ui.total")] }),
+                A.Strong({ style: { fontSize: "28px" } }, { default: [f(total)] }),
+                A.Span({ style: { display: "block", marginTop: "8px", color: due === 0 ? "var(--success)" : "var(--danger)" } }, {
+                  default: [due === 0 ? app.i18n.t("ui.paid_in_full") : `${app.i18n.t("ui.remaining")}: ${f(due)}`]
+                })
+              ]
+            }),
+            app.call("POSPaymentMethods", { current: s.payments.method || "cash" }),
+            app.call("POSPaymentAmountPad", {
+              buffer: s.payments.buffer || "0",
+              confirmDisabled: due === 0,
+              due
+            }),
+            splits.length ? A.Div({ style: { borderTop: "1px solid var(--border-default)", paddingTop: "12px" } }, {
+              default: [
+                A.Div({ style: { fontWeight: 600, marginBottom: "8px" } }, { default: [app.i18n.t("ui.splits")] }),
+                A.Div({ style: { display: "flex", flexDirection: "column", gap: "8px" } }, {
+                  default: splits.map((split) => A.Div({
+                    style: {
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      borderRadius: "12px",
+                      background: "var(--bg-page)",
+                      padding: "8px 12px"
+                    }
+                  }, {
+                    default: [
+                      A.Span({}, { default: [app.i18n.t(`ui.pay_method_${split.method}`)] }),
+                      A.Div({ style: { display: "flex", gap: "8px", alignItems: "center" } }, {
+                        default: [
+                          A.Strong({}, { default: [f(split.amount)] }),
+                          app.call("Button", {
+                            text: app.i18n.t("ui.remove"),
+                            variant: "ghost",
+                            size: "xs",
+                            "data-onclick": "payments.removeSplit",
+                            "data-split-id": split.id
+                          })
+                        ]
+                      })
+                    ]
+                  }))
+                })
+              ]
+            }) : null
+          ]
+        })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.complete_payment"),
+          intent: "success",
+          disabled: due > 0,
+          "data-onclick": "payments.complete"
+        })
+      ]
+    });
+  });
+
+  C.define("POSPaymentMethods", (A, s, app, p) => {
+    const methods = [
+      { id: "cash", label: app.i18n.t("ui.cash") },
+      { id: "card", label: app.i18n.t("ui.card") },
+      { id: "wallet", label: app.i18n.t("ui.wallet") }
+    ];
+    return A.Div({
+      style: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+        gap: "8px"
+      }
+    }, {
+      default: methods.map((method) => A.Button({
+        type: "button",
+        "data-onclick": "payments.setMethod",
+        "data-method": method.id,
+        style: {
+          borderRadius: "14px",
+          border: `1px solid ${p.current === method.id ? "var(--primary)" : "var(--border-default)"}`,
+          padding: "10px",
+          background: p.current === method.id ? "var(--primary-soft, rgba(99,102,241,0.18))" : "var(--bg-page)"
+        }
+      }, { default: [method.label] }))
+    });
+  });
+
+  C.define("POSPaymentAmountPad", (A, s, app, p) => {
+    const buffer = p.buffer || "0";
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "⌫"];
+    return A.Div({
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px"
+      }
+    }, {
+      default: [
+        A.Div({
+          style: {
+            borderRadius: "16px",
+            border: "1px solid var(--border-default)",
+            padding: "12px",
+            fontSize: "24px",
+            textAlign: "center",
+            background: "var(--bg-page)",
+            fontWeight: 600
+          }
+        }, { default: [buffer] }),
+        A.Div({
+          style: {
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: "8px"
+          }
+        }, {
+          default: keys.map((key) => app.call("Button", {
+            text: key,
+            variant: "ghost",
+            style: { height: "52px", borderRadius: "16px", fontSize: "18px" },
+            "data-onclick": "payments.key",
+            "data-key": key
+          }))
+        }),
+        A.Div({ style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" } }, {
+          default: [
+            app.call("Button", {
+              text: app.i18n.t("ui.clear"),
+              variant: "outline",
+              "data-onclick": "payments.clearBuffer"
+            }),
+            app.call("Button", {
+              text: app.i18n.t("ui.add_split"),
+              intent: "primary",
+              disabled: p.due <= 0,
+              "data-onclick": "payments.addSplit"
+            })
+          ]
+        })
+      ]
+    });
+  });
+
+  C.define("POSShiftSummaryModal", (A, s, app, p) => {
+    if (!p.open) return null;
+    const shift = s.session.shift;
+    const helpers = app.helpers || {};
+    const f = helpers.formatCurrency || ((v) => v.toFixed(2));
+    return app.call("Modal", {
+      open: true,
+      size: "sm",
+      title: app.i18n.t("ui.shift_summary"),
+      onClose: () => app.dispatch("view.closeOverlay")
+    }, {
+      body: [
+        shift ? app.call("DescriptionList", {
+          items: [
+            { term: app.i18n.t("ui.shift"), details: `#${shift.id}` },
+            { term: app.i18n.t("ui.start_time"), details: shift.startedAt || "—" },
+            { term: app.i18n.t("ui.opening_float"), details: f(shift.openingFloat || 0) },
+            { term: app.i18n.t("ui.orders_count"), details: (shift.orderIds || []).length }
+          ]
+        }) : app.call("EmptyState", { title: app.i18n.t("ui.no_shift") })
+      ],
+      footer: [
+        app.call("Button", {
+          text: app.i18n.t("ui.close_shift"),
+          intent: "danger",
+          "data-onclick": "shift.close"
+        })
+      ]
+    });
+  });
+
+  C.define("POSReportsSheet", (A, s, app, p) => {
+    if (!p.open) return null;
+    return app.call("Sheet", {
+      open: true,
+      side: "start",
+      size: "lg",
+      title: app.i18n.t("ui.reports"),
+      onClose: () => app.dispatch("view.closeOverlay")
+    }, {
+      body: [
+        app.call("EmptyState", { title: app.i18n.t("ui.reports_placeholder"), text: app.i18n.t("ui.reports_placeholder_hint") })
+      ]
+    });
+  });
+
+  C.define("POSToastsRoot", (A, s, app) => {
+    const toasts = s.ui.toasts || [];
+    if (!toasts.length) return null;
+    return A.Div({
+      style: {
+        position: "fixed",
+        insetInlineEnd: "20px",
+        insetBlockStart: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        zIndex: 1500
+      }
+    }, {
+      default: toasts.map((toast) => A.Div({
+        style: {
+          borderRadius: "14px",
+          background: "var(--bg-surface)",
+          boxShadow: "0 12px 24px -16px rgba(15,23,42,0.32)",
+          padding: "12px 16px",
+          minWidth: "240px",
+          borderInlineStart: `4px solid ${toast.intent === "success" ? "var(--success)" : toast.intent === "danger" ? "var(--danger)" : "var(--primary)"}`
+        }
+      }, {
+        default: [
+          A.Div({ style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" } }, {
+            default: [
+              A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+                default: [
+                  toast.title ? A.Strong({}, { default: [toast.title] }) : null,
+                  toast.message ? A.Span({ style: { color: "var(--text-subtle)", fontSize: "12px" } }, { default: [toast.message] }) : null
+                ]
+              }),
+              app.call("Button", {
+                text: "×",
+                variant: "ghost",
+                size: "xs",
+                "data-onclick": "ui.dismissToast",
+                "data-toast-id": toast.id
+              })
+            ]
+          })
+        ]
+      }))
+    });
+  });
+
+})(window);
