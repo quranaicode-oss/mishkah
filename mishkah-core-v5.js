@@ -737,6 +737,17 @@
     createMessenger,
     utils: { now, asArray, createRing, basicSanitize },
   };
+  if (typeof window !== "undefined" && window.dispatchEvent) {
+    try {
+      window.dispatchEvent(new CustomEvent("mishkah:core-ready", { detail: { version: "v5" } }));
+    } catch (error) {
+      const event = window.document && window.document.createEvent ? window.document.createEvent("Event") : null;
+      if (event && event.initEvent) {
+        event.initEvent("mishkah:core-ready", false, false);
+        window.dispatchEvent(event);
+      }
+    }
+  }
 })(window);
 
 // ————————————————————————————————————————————————————————————————
