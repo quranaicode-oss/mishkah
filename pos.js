@@ -693,6 +693,14 @@
       truth.mark("menu-panel");
     },
     "order.addItem": ({ truth }, event, el) => {
+      if (event && event.type === "keydown") {
+        const key = event.key;
+        const activationKeys = ["Enter", " ", "Space", "Spacebar"];
+        if (!activationKeys.includes(key)) {
+          return;
+        }
+        if (event.preventDefault) event.preventDefault();
+      }
       const target = el || (event && event.target && event.target.closest && event.target.closest("[data-item-id]"));
       if (!target) return;
       const itemId = target.getAttribute("data-item-id");

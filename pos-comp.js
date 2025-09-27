@@ -497,34 +497,12 @@
     const helpers = app.helpers || {};
     const formatCurrency = helpers.formatCurrency || ((v) => v.toFixed(2));
 
-    const triggerAddItem = (event, originEl) => {
-      if (!event) return;
-      let targetEl = originEl;
-      if (targetEl && targetEl.closest) targetEl = targetEl.closest("[data-item-id]");
-      if (!targetEl && event.target && event.target.closest) {
-        targetEl = event.target.closest("[data-item-id]");
-      }
-      app.dispatch("order.addItem", event, targetEl || originEl || event.target);
-    };
-
-    const handleCardClick = (event) => {
-      triggerAddItem(event, event.currentTarget || event.target);
-    };
-
-    const handleCardKeyDown = (event) => {
-      const key = event.key;
-      const isActivationKey = key === "Enter" || key === " " || key === "Spacebar" || key === "Space";
-      if (!isActivationKey) return;
-      event.preventDefault();
-      triggerAddItem(event, event.currentTarget || event.target);
-    };
-
     return A.Div({
       "data-item-id": item.id,
       role: "button",
       tabIndex: 0,
-      onClick: handleCardClick,
-      onKeyDown: handleCardKeyDown,
+      "data-onclick": "order.addItem",
+      "data-onkeydown": "order.addItem",
       style: {
         cursor: "pointer",
         borderRadius: "20px",
