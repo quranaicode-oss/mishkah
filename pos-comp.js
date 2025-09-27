@@ -267,11 +267,11 @@
     const dir = s.env?.dir || document?.documentElement?.dir || "ltr";
     const isRTL = dir === "rtl";
     const gridTemplateAreas = isRTL
-      ? `'header header' 'menu order' 'menu footer'`
-      : `'header header' 'order menu' 'footer menu'`;
+      ? `'header header' 'order menu' 'footer menu'`
+      : `'header header' 'menu order' 'menu footer'`;
     const gridTemplateColumns = isRTL
-      ? "minmax(0, 1fr) clamp(320px, 34vw, 420px)"
-      : "clamp(320px, 34vw, 420px) minmax(0, 1fr)";
+      ? "clamp(320px, 34vw, 420px) minmax(0, 1fr)"
+      : "minmax(0, 1fr) clamp(320px, 34vw, 420px)";
 
     return A.Div({
       style: {
@@ -496,10 +496,35 @@
     const translation = (item.translations && (item.translations[locale] || item.translations.en)) || {};
     const helpers = app.helpers || {};
     const formatCurrency = helpers.formatCurrency || ((v) => v.toFixed(2));
-    
+
+    const triggerAddItem = (event, originEl) => {
+      if (!event) return;
+      let targetEl = originEl;
+      if (targetEl && targetEl.closest) targetEl = targetEl.closest("[data-item-id]");
+      if (!targetEl && event.target && event.target.closest) {
+        targetEl = event.target.closest("[data-item-id]");
+      }
+      app.dispatch("order.addItem", event, targetEl || originEl || event.target);
+    };
+
+    const handleCardClick = (event) => {
+      triggerAddItem(event, event.currentTarget || event.target);
+    };
+
+    const handleCardKeyDown = (event) => {
+      const key = event.key;
+      const isActivationKey = key === "Enter" || key === " " || key === "Spacebar" || key === "Space";
+      if (!isActivationKey) return;
+      event.preventDefault();
+      triggerAddItem(event, event.currentTarget || event.target);
+    };
+
     return A.Div({
-      "data-onclick": "order.addItem",
       "data-item-id": item.id,
+      role: "button",
+      tabIndex: 0,
+      onClick: handleCardClick,
+      onKeyDown: handleCardKeyDown,
       style: {
         cursor: "pointer",
         borderRadius: "20px",
