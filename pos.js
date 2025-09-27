@@ -168,6 +168,146 @@
     pushToast(truth, { title: "POS", message: translateKey(key, locale), intent });
   }
 
+  function calculateShiftSummary(state, shift) {
+    const summary = {
+      openingFloat: round(Number(shift?.openingFloat || 0)),
+      ordersCount: 0,
+      totalSales: 0,
+      totalsByType: { dine_in: 0, takeaway: 0, delivery: 0 },
+      paymentsByMethod: { cash: 0, card: 0, wallet: 0 },
+      paymentsTotal: 0,
+      returnsTotal: 0,
+      netSales: 0,
+      cashExpected: 0
+    };
+
+    if (!shift) {
+      return summary;
+    }
+
+    const orderIds = new Set((shift.orderIds || []).map((id) => String(id)));
+    const orders = (state.completedOrders || []).filter((order) => orderIds.has(String(order.id)));
+    summary.ordersCount = orders.length;
+
+    orders.forEach((order) => {
+      const total = Number(order?.totals?.total || 0);
+      const typeKey = order.type === "delivery" ? "delivery" : order.type === "takeaway" ? "takeaway" : "dine_in";
+      summary.totalSales += total;
+      summary.totalsByType[typeKey] = (summary.totalsByType[typeKey] || 0) + total;
+      (order.payments || []).forEach((split) => {
+        const method = (split.method || "cash").toLowerCase();
+        const amount = Number(split.amount || 0);
+        summary.paymentsByMethod[method] = (summary.paymentsByMethod[method] || 0) + amount;
+        summary.paymentsTotal += amount;
+      });
+    });
+
+    const returns = (state.returnsHistory || []).filter((ret) => orderIds.has(String(ret.orderId)));
+    summary.returnsTotal = returns.reduce((acc, ret) => acc + Number(ret.total || 0), 0);
+
+    summary.totalSales = round(summary.totalSales);
+    summary.paymentsTotal = round(summary.paymentsTotal);
+    summary.returnsTotal = round(summary.returnsTotal);
+    summary.netSales = round(summary.totalSales - summary.returnsTotal);
+    summary.totalsByType = {
+      dine_in: round(summary.totalsByType.dine_in || 0),
+      takeaway: round(summary.totalsByType.takeaway || 0),
+      delivery: round(summary.totalsByType.delivery || 0)
+    };
+    const normalizedPayments = {};
+    Object.keys(summary.paymentsByMethod).forEach((method) => {
+      normalizedPayments[method] = round(summary.paymentsByMethod[method] || 0);
+    });
+    summary.paymentsByMethod = normalizedPayments;
+    const cashCollected = summary.paymentsByMethod.cash || 0;
+    summary.cashExpected = round(summary.openingFloat + cashCollected - summary.returnsTotal);
+
+    return summary;
+  }
+
+  const shiftPersistence = createShiftPersistence();
+
+  function createShiftPersistence() {
+    if (!utils || !utils.IndexedDBX) {
+      return null;
+    }
+
+    try {
+      const store = new utils.IndexedDBX({
+        name: "mishkah-pos-shifts",
+        version: 1,
+        schema: {
+          stores: {
+            shifts: { keyPath: "id" },
+            meta: { keyPath: "key" }
+          }
+        }
+      });
+      let ready;
+      const ensure = async () => {
+        if (!ready) {
+          ready = store.open().then(() => store.ensureSchema()).catch((error) => {
+            console.warn("[POS] IndexedDB setup failed", error);
+            throw error;
+          });
+        }
+        await ready;
+        return store;
+      };
+      const keepCashier = (cashier) => (cashier ? { id: cashier.id, full_name: cashier.full_name, role: cashier.role } : null);
+      return {
+        async loadActive() {
+          try {
+            const db = await ensure();
+            const meta = await db.get("meta", "active");
+            if (!meta || !meta.shiftId) return null;
+            const shift = await db.get("shifts", meta.shiftId);
+            if (!shift || shift.closedAt) {
+              await db.delete("meta", "active");
+              return null;
+            }
+            return { shift, cashier: meta.cashier || shift.cashier || null };
+          } catch (error) {
+            console.warn("[POS] Failed to load persisted shift", error);
+            return null;
+          }
+        },
+        async setActive(shift, cashier) {
+          try {
+            const db = await ensure();
+            const record = { ...shift, cashier: keepCashier(cashier) };
+            await db.put("shifts", record);
+            await db.put("meta", { key: "active", shiftId: shift.id, cashier: keepCashier(cashier) });
+          } catch (error) {
+            console.warn("[POS] Failed to persist active shift", error);
+          }
+        },
+        async finalize(shift, cashier, summary) {
+          try {
+            const db = await ensure();
+            const record = { ...shift, cashier: keepCashier(cashier), summary: summary || null };
+            record.closedAt = record.closedAt || new Date().toISOString();
+            await db.put("shifts", record);
+            await db.delete("meta", "active");
+          } catch (error) {
+            console.warn("[POS] Failed to finalize shift", error);
+          }
+        },
+        async clear() {
+          try {
+            const db = await ensure();
+            await db.delete("meta", "active");
+          } catch (error) {
+            console.warn("[POS] Failed to clear persisted shift", error);
+          }
+        }
+      };
+    } catch (error) {
+      console.warn("[POS] IndexedDB unavailable", error);
+      return null;
+    }
+  }
+
   const initialState = {
     env: {
       locale: "ar",
@@ -175,7 +315,7 @@
       theme: "light"
     },
     ui: {
-      stage: "login",
+      stage: "loading",
       login: { pin: "", error: null },
       shift: { openingFloat: "" },
       menu: { category: "all", search: "" },
@@ -230,6 +370,7 @@
       welcome: { ar: "مرحباً بك", en: "Welcome" },
       enter_pin: { ar: "أدخل رقم التعريف الشخصي", en: "Enter access PIN" },
       login: { ar: "تسجيل الدخول", en: "Login" },
+      loading: { ar: "جاري التحميل…", en: "Loading…" },
       confirm: { ar: "تأكيد", en: "Confirm" },
       clear: { ar: "مسح", en: "Clear" },
       open_shift: { ar: "فتح الوردية", en: "Open shift" },
@@ -258,6 +399,8 @@
       vat: { ar: "القيمة المضافة", en: "VAT" },
       total: { ar: "الإجمالي النهائي", en: "Grand total" },
       remaining: { ar: "المتبقي", en: "Remaining" },
+      amount_due: { ar: "المبلغ المستحق", en: "Amount due" },
+      amount_entered: { ar: "المبلغ المدخل", en: "Entered amount" },
       clear_order: { ar: "إلغاء الطلب", en: "Clear order" },
       park_order: { ar: "تعليق الطلب", en: "Park order" },
       settle_pay: { ar: "تحصيل الدفع", en: "Settle payment" },
@@ -278,9 +421,11 @@
       add_split: { ar: "إضافة دفعة", en: "Add split" },
       complete_payment: { ar: "إتمام الدفع", en: "Complete payment" },
       shift_summary: { ar: "ملخص الوردية", en: "Shift summary" },
+      view_summary: { ar: "عرض الملخص", en: "View summary" },
       start_time: { ar: "وقت البدء", en: "Start time" },
       orders_count: { ar: "عدد الطلبات", en: "Orders count" },
       close_shift: { ar: "إغلاق الوردية", en: "Close shift" },
+      close_shift_confirm: { ar: "تأكيد إغلاق الوردية", en: "Confirm shift close" },
       reports_placeholder: { ar: "التقارير قريباً", en: "Reports coming soon" },
       reports_placeholder_hint: { ar: "سيتم إطلاق لوحة التقارير في الإصدارات المقبلة.", en: "A detailed reporting workspace will arrive soon." },
       payment_completed: { ar: "تم إغلاق الطلب", en: "Order settled" },
@@ -288,6 +433,9 @@
       tables_attached: { ar: "تم ربط الطاولة", en: "Table linked" },
       payment_added: { ar: "تمت إضافة الدفعة", en: "Split added" },
       payment_removed: { ar: "تم حذف الدفعة", en: "Split removed" },
+      payment_breakdown: { ar: "تفاصيل طرق الدفع", en: "Payment breakdown" },
+      payments_total: { ar: "إجمالي المدفوعات", en: "Total payments" },
+      select_payment_method: { ar: "اختر طريقة الدفع", en: "Choose payment method" },
       discount: { ar: "خصم", en: "Discount" },
       line_actions: { ar: "إجراءات البند", en: "Line actions" },
       line_modifiers: { ar: "التخصيصات", en: "Modifiers" },
@@ -328,7 +476,13 @@
       select_tables: { ar: "اختر الطاولات", en: "Select tables" },
       guests: { ar: "ضيوف", en: "guests" },
       available_tables: { ar: "طاولات متاحة", en: "Available tables" },
-      reservation_created: { ar: "تم حفظ الحجز", en: "Reservation saved" }
+      reservation_created: { ar: "تم حفظ الحجز", en: "Reservation saved" },
+      gross_sales: { ar: "إجمالي المبيعات", en: "Gross sales" },
+      net_sales: { ar: "صافي المبيعات", en: "Net sales" },
+      orders_breakdown: { ar: "تفاصيل أنواع الطلبات", en: "Order types" },
+      returns_total: { ar: "إجمالي المرتجعات", en: "Total returns" },
+      cash_drawer_expected: { ar: "الرصيد المتوقع في الدرج", en: "Expected cash in drawer" },
+      back: { ar: "رجوع", en: "Back" }
     }
   };
 
@@ -381,14 +535,19 @@
       });
     },
     "shift.open": ({ truth }) => {
+      let snapshot = null;
+      let cashierInfo = null;
       truth.produce((state) => {
         const openingFloat = Number.parseFloat(state.ui.shift.openingFloat || "0") || 0;
         state.session.shift = {
           id: new Date().toISOString().slice(11, 19).replace(/[:.]/g, ""),
           startedAt: new Date().toISOString(),
           openingFloat: round(openingFloat),
-          orderIds: []
+          orderIds: [],
+          cashierId: state.session.cashier ? state.session.cashier.id : null
         };
+        snapshot = clone(state.session.shift);
+        cashierInfo = clone(state.session.cashier);
         state.ui.stage = "pos";
         state.ui.overlays.active = null;
         state.order = createOrder("dine_in");
@@ -396,21 +555,47 @@
         state.payments.buffer = "0";
       });
       truth.rebuildAll();
+      if (shiftPersistence && snapshot) {
+        Promise.resolve(shiftPersistence.setActive(snapshot, cashierInfo)).catch((error) => {
+          console.warn("[POS] Unable to persist open shift", error);
+        });
+      }
+    },
+    "shift.showSummary": ({ truth }, event, el) => {
+      truth.produce((state) => {
+        if (!state.session.shift) return;
+        const mode = el && el.getAttribute ? el.getAttribute("data-intent") || "view" : "view";
+        state.ui.overlays.active = "shift-summary";
+        state.ui.overlays.payload = { mode };
+      });
+      truth.mark("modals-root");
     },
     "shift.close": ({ truth }) => {
+      let closedShift = null;
+      let cashierInfo = null;
+      let summary = null;
       truth.produce((state) => {
         if (state.session.shift) {
           state.completedOrders = state.completedOrders || [];
           state.session.shift.closedAt = new Date().toISOString();
+          summary = calculateShiftSummary(state, state.session.shift);
+          closedShift = clone(state.session.shift);
         }
+        cashierInfo = clone(state.session.cashier);
         state.session.shift = null;
         state.order = null;
         state.ui.stage = "shift-setup";
         state.ui.overlays.active = null;
+        state.ui.overlays.payload = null;
         state.payments.splits = [];
         state.payments.buffer = "0";
       });
       truth.mark("app-root");
+      if (shiftPersistence && closedShift) {
+        Promise.resolve(shiftPersistence.finalize(closedShift, cashierInfo, summary)).catch((error) => {
+          console.warn("[POS] Unable to finalize shift", error);
+        });
+      }
     },
     "env.toggleTheme": ({ env, truth }) => {
       env.toggleTheme();
@@ -448,6 +633,11 @@
         state.ui.login.error = null;
       });
       truth.rebuildAll();
+      if (shiftPersistence) {
+        Promise.resolve(shiftPersistence.clear()).catch((error) => {
+          console.warn("[POS] Unable to clear persisted session", error);
+        });
+      }
     },
     "view.showTables": ({ truth }) => {
       truth.produce((state) => {
@@ -1258,7 +1448,44 @@
       const state = app.truth.get();
       const symbol = (state.settings.currency && state.settings.currency[state.env.locale]) || state.settings.currency?.en || "EGP";
       return `${symbol} ${amount.toFixed(2)}`.trim();
+    },
+    computeShiftSummary(state, shift) {
+      return calculateShiftSummary(state, shift);
     }
   };
+
+  if (shiftPersistence) {
+    shiftPersistence
+      .loadActive()
+      .then((record) => {
+        app.truth.produce((state) => {
+          if (record && record.shift) {
+            state.session.shift = record.shift;
+            state.session.cashier = record.cashier || state.session.cashier;
+            state.ui.stage = "pos";
+            state.ui.overlays.active = null;
+            state.ui.overlays.payload = null;
+            state.order = createOrder(record.shift.type || "dine_in");
+            state.payments.splits = [];
+            state.payments.buffer = "0";
+          } else if (state.ui.stage === "loading") {
+            state.ui.stage = "login";
+          }
+        });
+        app.truth.mark("app-root");
+      })
+      .catch((error) => {
+        console.warn("[POS] Failed to restore persisted shift", error);
+        app.truth.produce((state) => {
+          if (state.ui.stage === "loading") state.ui.stage = "login";
+        });
+        app.truth.mark("app-root");
+      });
+  } else {
+    app.truth.produce((state) => {
+      if (state.ui.stage === "loading") state.ui.stage = "login";
+    });
+    app.truth.mark("app-root");
+  }
 
 })(window);

@@ -4097,5 +4097,17 @@ Comp.define("ReportTool", (A, s, app, p = {}, sl = {}) => {
   Comp.util.register('Hotkeys', Hotkeys);
   
   M.Comp = Comp;
+  if (window && window.dispatchEvent) {
+    try {
+      window.dispatchEvent(new CustomEvent("mishkah:comp-ready", { detail: { version: "v5" } }));
+    } catch (error) {
+      const doc = typeof document !== "undefined" ? document : null;
+      const event = doc && doc.createEvent ? doc.createEvent("Event") : null;
+      if (event && event.initEvent) {
+        event.initEvent("mishkah:comp-ready", false, false);
+        window.dispatchEvent(event);
+      }
+    }
+  }
 
 })(window);
