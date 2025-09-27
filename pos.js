@@ -70,6 +70,9 @@
 
   function computeTotals(lines, settings, state) {
     const subtotal = round((lines || []).reduce((acc, line) => acc + computeLinePricing(line, state), 0));
+
+  function computeTotals(lines, settings) {
+    const subtotal = round((lines || []).reduce((acc, line) => acc + round((line.price || 0) * (line.qty || 0)), 0));
     const serviceRate = settings.service_charge_rate || 0;
     const taxRate = settings.tax_rate || 0;
     const service = round(subtotal * serviceRate);
@@ -123,6 +126,7 @@
     }
     return { marks: [] };
   }
+
 
   function ensureOrder(state, type) {
     if (!state.order) {
@@ -190,6 +194,8 @@
       pinPrompt: { reason: null, pin: "", error: null, attempts: 0, allowedRoles: [], payload: null },
       returns: { stage: "list", sourceOrderId: null, items: [] },
       reservations: { stage: "list", form: {} }
+
+      toasts: []
     },
     session: {
       cashier: null,
@@ -218,6 +224,11 @@
     parkedOrders: [],
     completedOrders: [],
     returnsHistory: [],
+
+    reservations: clone(db.reservations) || [],
+    order: null,
+    parkedOrders: [],
+    completedOrders: [],
     payments: {
       method: "cash",
       buffer: "0",
@@ -329,6 +340,9 @@
       guests: { ar: "ضيوف", en: "guests" },
       available_tables: { ar: "طاولات متاحة", en: "Available tables" },
       reservation_created: { ar: "تم حفظ الحجز", en: "Reservation saved" }
+
+      payment_removed: { ar: "تم حذف الدفعة", en: "Split removed" }
+
     }
   };
 
@@ -434,6 +448,13 @@
         document.documentElement.setAttribute("dir", nextDir);
         document.documentElement.setAttribute("lang", next);
       }
+
+      truth.produce((state) => {
+        const next = state.env.locale === "ar" ? "en" : "ar";
+        state.env.locale = next;
+        state.env.dir = next === "ar" ? "rtl" : "ltr";
+        env.setLocale(next);
+      });
       truth.rebuildAll();
     },
     "session.logout": ({ truth }) => {
@@ -464,6 +485,7 @@
         state.ui.overlays.active = "reservations";
         state.ui.overlays.payload = null;
         state.ui.reservations.stage = "list";
+
       });
       truth.mark("modals-root");
     },
@@ -472,6 +494,7 @@
         if (state.ui.stage !== "pos") return;
         state.ui.overlays.active = "reports";
         state.ui.overlays.payload = null;
+
       });
       truth.mark("modals-root");
     },
@@ -495,6 +518,7 @@
       });
       truth.mark("menu-panel");
     },
+
     "menu.selectCategory": ({ truth }, event, el) => {
       const categoryId = el.getAttribute("data-category-id") || "all";
       truth.produce((state) => {
@@ -518,6 +542,10 @@
         if (existing) {
           existing.qty += 1;
           computeLinePricing(existing, state);
+        const existing = order.lines.find((line) => !line.modifiers?.length && String(line.itemId) === String(item.id));
+        if (existing) {
+          existing.qty += 1;
+          existing.total = round(existing.price * existing.qty);
         } else {
           const translation = translateItem(item, locale);
           order.lines.push({
@@ -535,6 +563,11 @@
           });
         }
         recalcOrder(state);
+
+            notes: ""
+          });
+        }
+        order.totals = computeTotals(order.lines, state.settings);
       });
       truth.mark(["order-panel", "footer-bar"]);
     },
@@ -547,6 +580,9 @@
         line.qty += 1;
         computeLinePricing(line, state);
         state.order.totals = computeTotals(state.order.lines, state.settings, state);
+
+        line.total = round(line.price * line.qty);
+        state.order.totals = computeTotals(state.order.lines, state.settings);
       });
       truth.mark(["order-panel", "footer-bar"]);
     },
@@ -565,6 +601,10 @@
           computeLinePricing(line, state);
         }
         state.order.totals = computeTotals(lines, state.settings, state);
+
+          line.total = round(line.price * line.qty);
+        }
+        state.order.totals = computeTotals(lines, state.settings);
       });
       truth.mark(["order-panel", "footer-bar"]);
     },
@@ -577,6 +617,8 @@
         if (index >= 0) {
           lines.splice(index, 1);
           state.order.totals = computeTotals(lines, state.settings, state);
+
+          state.order.totals = computeTotals(lines, state.settings);
         }
       });
       truth.mark(["order-panel", "footer-bar"]);
@@ -808,6 +850,7 @@
       });
       truth.mark(["order-panel", "footer-bar", "modals-root"]);
     },
+
     "order.setType": ({ truth }, event, el) => {
       const type = el.getAttribute("data-type") || "dine_in";
       truth.produce((state) => {
@@ -1032,6 +1075,7 @@
       });
       truth.mark("modals-root");
     },
+
     "tables.attach": ({ truth }, event, el) => {
       const tableId = el.getAttribute("data-table-id");
       truth.produce((state) => {
@@ -1150,6 +1194,7 @@
           line.removals = line.removals || [];
           line.unitPrice = line.unitPrice || line.price;
         });
+
         state.completedOrders = state.completedOrders || [];
         state.completedOrders.push(snapshot);
         if (state.session.shift) {
@@ -1228,6 +1273,7 @@
       });
       truth.mark("modals-root");
     },
+
     "ui.dismissToast": ({ truth }, event, el) => {
       const toastId = el.getAttribute("data-toast-id");
       truth.produce((state) => {

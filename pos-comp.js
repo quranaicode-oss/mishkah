@@ -235,6 +235,10 @@
         gridTemplateRows: "64px 1fr 88px",
         gridTemplateColumns,
         direction: dir,
+
+        gridTemplateAreas: `'header header' 'menu order' 'footer order'`,
+        gridTemplateRows: "64px 1fr 88px",
+        gridTemplateColumns: "minmax(0, 1fr) clamp(320px, 34vw, 420px)",
         background: "var(--bg-page)",
         overflow: "hidden"
       }
@@ -305,6 +309,7 @@
               "data-onclick": "returns.open"
             }),
             app.call("Button", {
+
               text: app.i18n.t("ui.reports"),
               variant: "outline",
               size: "sm",
@@ -373,6 +378,15 @@
           placeholder: app.i18n.t("ui.search_placeholder"),
           onInput: "menu.search",
           onClear: "menu.clearSearch"
+        A.Div({ style: { display: "flex", gap: "8px" } }, {
+          default: [
+            app.call("Input", {
+              placeholder: app.i18n.t("ui.search_placeholder"),
+              value: s.ui.menu.search || "",
+              "data-oninput": "menu.search",
+              style: { flex: "1 1 auto" }
+            })
+          ]
         }),
         A.Div({
           class: "no-scrollbar",
@@ -513,6 +527,29 @@
     return A.Div({
       style,
       class: "order-panel"
+
+    if (!order) {
+      return A.Div({
+        style: {
+          gridArea: "order",
+          borderLeft: "1px solid var(--border-default)",
+          background: "var(--bg-surface)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }
+      }, { default: [app.call("EmptyState", { title: app.i18n.t("ui.no_active_order") })] });
+    }
+
+    return A.Div({
+      style: {
+        gridArea: "order",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-surface)",
+        borderLeft: "1px solid var(--border-default)",
+        height: "100%"
+      }
     }, {
       default: [
         app.call("POSOrderHeader", { order }),
@@ -623,6 +660,7 @@
         : formatCurrency(line.discount.value))
       : null;
 
+
     return A.Div({
       style: {
         borderRadius: "16px",
@@ -631,6 +669,9 @@
         display: "flex",
         flexDirection: "column",
         gap: "10px",
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: "12px",
         background: "var(--bg-page)"
       }
     }, {
@@ -676,6 +717,21 @@
           ]
         }),
         A.Div({ style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" } }, {
+        A.Div({ style: { display: "flex", flexDirection: "column", gap: "4px" } }, {
+          default: [
+            A.Div({ style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" } }, {
+              default: [
+                A.Strong({}, { default: [line.name] }),
+                A.Span({ style: { fontWeight: 700, color: "var(--primary)" } }, { default: [formatCurrency(line.total)] })
+              ]
+            }),
+            line.notes ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, { default: [line.notes] }) : null,
+            line.modifiers && line.modifiers.length ? A.Div({ style: { fontSize: "12px", color: "var(--text-subtle)" } }, {
+              default: [line.modifiers.join(", ")]
+            }) : null
+          ]
+        }),
+        A.Div({ style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" } }, {
           default: [
             A.Div({ style: { display: "inline-flex", alignItems: "center", gap: "6px" } }, {
               default: [
@@ -700,6 +756,8 @@
                     fontWeight: 700
                   }
                 }, { default: [line.qty] }),
+
+                A.Span({ style: { minWidth: "32px", textAlign: "center", fontWeight: 600 } }, { default: [line.qty] }),
                 app.call("Button", {
                   text: "+",
                   variant: "ghost",
@@ -716,6 +774,8 @@
               intent: "danger",
               size: "xs",
               "data-onclick": "order.requestRemoveLine",
+
+              "data-onclick": "order.removeLine",
               "data-line-id": line.id
             })
           ]
@@ -850,6 +910,7 @@
         app.call("POSLineDiscountModal", { open: active === "line-discount" }),
         app.call("POSQtyNumpadModal", { open: active === "numpad" }),
         app.call("POSPinPromptModal", { open: active === "pin" }),
+
         app.call("POSPaymentsSheet", { open: active === "payments" }),
         app.call("POSReportsSheet", { open: active === "reports" }),
         app.call("POSShiftSummaryModal", { open: active === "shift-summary" })
@@ -1519,6 +1580,7 @@
   });
 
 
+ 
   C.define("POSTablesModal", (A, s, app, p) => {
     if (!p.open) return null;
     return app.call("Modal", {
