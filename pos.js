@@ -1442,6 +1442,11 @@
     rootComponent: "POSRoot",
     initial: initialState,
     commands,
+    commandAliases: {
+      additemtocart: "order.addItem",
+      "order.additemtocart": "order.addItem",
+      "menu.additemtocart": "order.addItem"
+    },
     locale: initialState.env.locale,
     dir: initialState.env.dir,
     theme: initialState.env.theme,
