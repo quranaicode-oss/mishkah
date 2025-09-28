@@ -170,6 +170,27 @@
     let helpersRef = opts.helpers || {};
     const coreContext = { truth, guardian, auditor, engine, env, A, i18n: env.i18n, helpers: helpersRef, sanitizeHTML };
     const commands = opts.commands || {};
+    const aliasMap = new Map();
+    if (opts.commandAliases && typeof opts.commandAliases === 'object') {
+      for (const [alias, target] of Object.entries(opts.commandAliases)) {
+        if (!alias || typeof target !== 'string') continue;
+        const aliasKey = String(alias).trim();
+        if (!aliasKey) continue;
+        const canonicalTarget = String(target).trim();
+        if (!canonicalTarget) continue;
+        aliasMap.set(aliasKey, canonicalTarget);
+        aliasMap.set(aliasKey.toLowerCase(), canonicalTarget);
+      }
+    }
+    function resolveCommandName(rawName) {
+      const name = String(rawName || '').trim();
+      if (!name) return { name: '', aliasUsed: false };
+      if (commands[name]) return { name, aliasUsed: false };
+      const lower = name.toLowerCase();
+      const target = aliasMap.get(name) || aliasMap.get(lower);
+      if (target && commands[target]) return { name: target, aliasUsed: true };
+      return { name, aliasUsed: false };
+    }
     const warnOnceMissingCommand = new Set();
     const ownerStack = [];
     function smartMarkOrRebuild(targets, mode = 'patch') {
@@ -189,8 +210,23 @@
       }
     }
     function dispatch(name, e, el) {
-      const cmd = commands[name];
-      const ctx = { truth, guardian, auditor, engine, env, A, i18n: env.i18n, helpers: helpersRef, call: enhancedCall, dispatch };
+      const { name: resolvedName, aliasUsed } = resolveCommandName(name);
+      const cmd = commands[resolvedName];
+      const ctx = {
+        truth,
+        guardian,
+        auditor,
+        engine,
+        env,
+        A,
+        i18n: env.i18n,
+        helpers: helpersRef,
+        call: enhancedCall,
+        dispatch,
+        commandName: resolvedName,
+        originalCommandName: name,
+        commandAliasUsed: aliasUsed,
+      };
       ctx.api = {
         mark: (sel) => smartMarkOrRebuild(sel, 'patch'),
         rebuild: (sel) => smartMarkOrRebuild(sel, 'rebuild'),
@@ -199,7 +235,18 @@
         groups: () => engine.getKeys().groups,
         keyOf: (node = el) => { const o = node && node.closest ? node.closest('[data-m-k]') : null; return o ? o.getAttribute('data-m-k') : null; },
       };
-      try { if (!cmd) { if (!warnOnceMissingCommand.has(name)) { warnOnceMissingCommand.add(name); console.warn(`[Mishkah.Core] Command "${name}" is not defined. Available commands: ${Object.keys(commands).join(', ') || '(none)'}`); } } else { cmd(ctx, e, el); } } catch (err) { console.error(`[Mishkah.Core] Command "${name}" threw:`, err); }
+      try {
+        if (!cmd) {
+          if (!warnOnceMissingCommand.has(name)) {
+            warnOnceMissingCommand.add(name);
+            console.warn(`[Mishkah.Core] Command "${name}" is not defined. Available commands: ${Object.keys(commands).join(', ') || '(none)'}`);
+          }
+        } else {
+          cmd(ctx, e, el);
+        }
+      } catch (err) {
+        console.error(`[Mishkah.Core] Command "${resolvedName || name}" threw:`, err);
+      }
       const toMark = el && el.getAttribute && el.getAttribute('data-mark');
       if (toMark) smartMarkOrRebuild(toMark, 'patch');
       const toRebuild = el && el.getAttribute && el.getAttribute('data-rebuild');
