@@ -58,7 +58,34 @@
           table_rename:'تعديل الاسم', table_delete:'حذف الطاولة', table_status_change:'تغيير الحالة', table_status_inactive:'معطلة',
           table_status_active:'متاحة', table_status_reserved:'محجوزة', table_status_maintenance:'صيانة', table_manage_hint:'اضغط على أي طاولة للإسناد أو استخدم أدوات الإدارة.',
           table_multi_orders:'طلبات متعددة', print_profile:'ملف الطباعة', table_confirm_unlock:'هل تريد فك قفل الطاولة؟',
-          table_confirm_remove:'هل تريد حذف هذه الطاولة؟', table_confirm_release:'هل تريد فك ارتباط الطلب بالطاولة؟'
+          table_confirm_remove:'هل تريد حذف هذه الطاولة؟', table_confirm_release:'هل تريد فك ارتباط الطلب بالطاولة؟',
+          tables_filter_all:'الكل', tables_filter_free:'متاحة', tables_filter_single:'مقفلة (طلب واحد)', tables_filter_multi:'مقفلة (متعددة)',
+          tables_filter_maintenance:'صيانة', tables_search_placeholder:'ابحث باسم أو رقم الطاولة', tables_details:'تفاصيل الطاولة',
+          tables_zone:'منطقة', tables_capacity:'سعة', tables_state_active:'متاحة', tables_state_disactive:'معطلة',
+          tables_state_maintenance:'صيانة', tables_state_free:'حرة', tables_state_single:'طلب واحد', tables_state_multi:'طلبات متعددة',
+          tables_unlock_all:'فك الجميع', tables_unlock_single:'فك عن هذا الطلب', tables_assign_to_order:'إسناد للطلب الحالي',
+          tables_remove_from_order:'إزالة من الطلب الحالي', tables_orders_badge:'طلبات', tables_reservations_badge:'حجوزات',
+          tables_actions:'إجراءات الطاولة', tables_longpress_hint:'اضغط مطولًا لعرض التفاصيل', tables_count_label:'إجمالي الطاولات',
+          reservations:'الحجوزات', reservations_manage:'إدارة الحجوزات', reservations_filter_all:'الكل', reservations_filter_booked:'محجوز',
+          reservations_filter_seated:'تم الجلوس', reservations_filter_completed:'منتهٍ', reservations_filter_cancelled:'ملغي',
+          reservations_filter_noshow:'لم يحضر', reservations_new:'حجز جديد', reservations_edit:'تعديل الحجز', reservations_customer:'اسم العميل',
+          reservations_phone:'الهاتف', reservations_party_size:'عدد الأفراد', reservations_time:'وقت الحجز', reservations_hold_until:'الانتظار حتى',
+          reservations_tables:'الطاولات المرتبطة', reservations_note:'ملاحظات', reservations_status:'الحالة',
+          reservations_status_booked:'محجوز', reservations_status_seated:'تم الجلوس', reservations_status_no_show:'لم يحضر',
+          reservations_status_cancelled:'ملغي', reservations_status_completed:'مكتمل', reservations_convert:'وصل العميل',
+          reservations_no_show:'لم يحضر', reservations_cancel_action:'إلغاء', reservations_save:'حفظ الحجز',
+          reservations_conflict:'يوجد تعارض في الوقت المحدد مع طاولة أخرى.', reservations_conflict_maintenance:'أحد الطاولات في صيانة، يرجى اختيار طاولة مختلفة.',
+          reservations_conflict_lock:'الطاولة مرتبطة بطلب آخر.', reservations_tables_required:'اختر طاولة واحدة على الأقل',
+          reservations_list_empty:'لا توجد حجوزات في هذا النطاق الزمني.', reservations_hold_label:'سيتم الاحتفاظ حتى',
+          tables_manage_log:'سجل التعديلات', print_doc_customer:'إيصال عميل', print_doc_summary:'ملخص الطلب', print_doc_kitchen:'إرسال للمطبخ',
+          print_preview:'معاينة', print_send:'إرسال للطابعة', print_save_profile:'حفظ الإعدادات', print_header_store:'اسم المتجر',
+          print_header_address:'العنوان', print_header_phone:'الهاتف', print_footer_thanks:'شكرًا لزيارتكم!',
+          print_footer_policy:'سياسة الاستبدال خلال 24 ساعة مع الإيصال.', print_footer_feedback:'شاركنا رأيك',
+          print_payments:'المدفوعات', print_change_due:'المتبقي للعميل', print_size_label:'مقاس الطباعة',
+          print_printer_default:'الطابعة الافتراضية', print_auto_send:'إرسال مباشر للطابعة الحرارية', print_show_preview:'عرض المعاينة قبل الطباعة',
+          orders_queue:'الطلبات المفتوحة', orders_queue_hint:'الطلبات المعلقة/المفتوحة', orders_queue_empty:'لا توجد طلبات في الانتظار.',
+          orders_queue_open:'فتح الطلب', orders_queue_status_open:'مفتوح', orders_queue_status_held:'معلّق',
+          tables_bulk_activate:'تفعيل', tables_bulk_maintenance:'وضع صيانة'
         },
         toast:{
           item_added:'تمت إضافة الصنف', quantity_updated:'تم تحديث الكمية', cart_cleared:'تم مسح الطلب',
@@ -77,7 +104,10 @@
           table_added:'تم إنشاء طاولة جديدة', table_inactive_assign:'لا يمكن اختيار طاولة معطلة',
           table_sessions_cleared:'تم فك ارتباط الطلب بالطاولة', print_size_switched:'تم تحديث مقاس الطباعة',
           table_invalid_seats:'رجاء إدخال عدد مقاعد صالح', table_name_required:'يجب إدخال اسم للطاولة',
-          table_has_sessions:'لا يمكن حذف طاولة عليها طلبات'
+          table_has_sessions:'لا يمكن حذف طاولة عليها طلبات', table_state_updated:'تم تحديث حالة الطاولة',
+          table_unlock_partial:'تم فك قفل الطاولة للطلب المحدد', reservation_created:'تم إنشاء الحجز', reservation_updated:'تم تحديث الحجز',
+          reservation_cancelled:'تم إلغاء الحجز', reservation_converted:'تم تحويل الحجز إلى طلب', reservation_no_show:'تم وسم الحجز بعدم الحضور',
+          print_profile_saved:'تم حفظ إعدادات الطباعة', print_sent:'تم إرسال أمر الطباعة'
         }
       },
       en:{
@@ -102,7 +132,34 @@
           table_status_change:'Change status', table_status_inactive:'Inactive', table_status_active:'Available',
           table_status_reserved:'Reserved', table_status_maintenance:'Maintenance', table_manage_hint:'Tap a table to assign it or use the tools below.',
           table_multi_orders:'Multi orders', print_profile:'Print profile', table_confirm_unlock:'Unlock this table?',
-          table_confirm_remove:'Remove this table?', table_confirm_release:'Unlink the order from the table?'
+          table_confirm_remove:'Remove this table?', table_confirm_release:'Unlink the order from the table?',
+          tables_filter_all:'All', tables_filter_free:'Free', tables_filter_single:'Locked (single)', tables_filter_multi:'Locked (multi)',
+          tables_filter_maintenance:'Maintenance', tables_search_placeholder:'Search by table name or number', tables_details:'Table details',
+          tables_zone:'Zone', tables_capacity:'Capacity', tables_state_active:'Active', tables_state_disactive:'Inactive',
+          tables_state_maintenance:'Maintenance', tables_state_free:'Free', tables_state_single:'Single lock', tables_state_multi:'Multi lock',
+          tables_unlock_all:'Unlock all', tables_unlock_single:'Unlock current order', tables_assign_to_order:'Assign to current order',
+          tables_remove_from_order:'Remove from this order', tables_orders_badge:'Orders', tables_reservations_badge:'Reservations',
+          tables_actions:'Table actions', tables_longpress_hint:'Long press to view details', tables_count_label:'Total tables',
+          reservations:'Reservations', reservations_manage:'Manage reservations', reservations_filter_all:'All', reservations_filter_booked:'Booked',
+          reservations_filter_seated:'Seated', reservations_filter_completed:'Completed', reservations_filter_cancelled:'Cancelled',
+          reservations_filter_noshow:'No-show', reservations_new:'New reservation', reservations_edit:'Edit reservation', reservations_customer:'Customer name',
+          reservations_phone:'Phone', reservations_party_size:'Party size', reservations_time:'Reservation time', reservations_hold_until:'Hold until',
+          reservations_tables:'Linked tables', reservations_note:'Notes', reservations_status:'Status',
+          reservations_status_booked:'Booked', reservations_status_seated:'Seated', reservations_status_no_show:'No-show',
+          reservations_status_cancelled:'Cancelled', reservations_status_completed:'Completed', reservations_convert:'Guest arrived',
+          reservations_no_show:'Mark no-show', reservations_cancel_action:'Cancel', reservations_save:'Save reservation',
+          reservations_conflict:'Conflict detected with selected tables.', reservations_conflict_maintenance:'One of the tables is under maintenance.',
+          reservations_conflict_lock:'Table currently locked by another order.', reservations_tables_required:'Select at least one table',
+          reservations_list_empty:'No reservations for this time range.', reservations_hold_label:'Hold until',
+          tables_manage_log:'Audit trail', print_doc_customer:'Customer receipt', print_doc_summary:'Order summary', print_doc_kitchen:'Kitchen chit',
+          print_preview:'Preview', print_send:'Send to printer', print_save_profile:'Save settings', print_header_store:'Store name',
+          print_header_address:'Address', print_header_phone:'Phone', print_footer_thanks:'Thanks for visiting!',
+          print_footer_policy:'Exchange within 24h with receipt.', print_footer_feedback:'Share your feedback',
+          print_payments:'Payments', print_change_due:'Change due', print_size_label:'Print size',
+          print_printer_default:'Default printer', print_auto_send:'Auto send to thermal printer', print_show_preview:'Show preview before printing',
+          orders_queue:'Open orders', orders_queue_hint:'Held / open orders in progress', orders_queue_empty:'No orders waiting.',
+          orders_queue_open:'Open order', orders_queue_status_open:'Open', orders_queue_status_held:'Held',
+          tables_bulk_activate:'Activate', tables_bulk_maintenance:'Mark maintenance'
         },
         toast:{
           item_added:'Item added to cart', quantity_updated:'Quantity updated', cart_cleared:'Cart cleared',
@@ -121,7 +178,10 @@
           table_added:'New table added', table_inactive_assign:'Inactive tables cannot be assigned',
           table_sessions_cleared:'Order unlinked from table', print_size_switched:'Print size updated',
           table_invalid_seats:'Please enter a valid seat count', table_name_required:'Table name is required',
-          table_has_sessions:'Cannot remove a table with linked orders'
+          table_has_sessions:'Cannot remove a table with linked orders', table_state_updated:'Table state updated',
+          table_unlock_partial:'Table unlocked for the selected order', reservation_created:'Reservation created', reservation_updated:'Reservation updated',
+          reservation_cancelled:'Reservation cancelled', reservation_converted:'Reservation converted to order', reservation_no_show:'Reservation marked as no-show',
+          print_profile_saved:'Print profile saved', print_sent:'Print job sent'
         }
       }
     };
@@ -209,6 +269,29 @@
       } catch(_){
         return new Date(ts).toLocaleTimeString();
       }
+    }
+
+    function formatDateTime(ts, lang, options){
+      if(!ts) return '';
+      try{
+        const locale = lang === 'ar' ? 'ar-EG' : 'en-GB';
+        const formatter = new Intl.DateTimeFormat(locale, options || { hour:'2-digit', minute:'2-digit' });
+        return formatter.format(new Date(ts));
+      } catch(_){
+        return new Date(ts).toLocaleString();
+      }
+    }
+
+    function toInputDateTime(ts){
+      if(!ts) return '';
+      const date = new Date(ts);
+      const pad = (v)=> String(v).padStart(2, '0');
+      const year = date.getFullYear();
+      const month = pad(date.getMonth() + 1);
+      const day = pad(date.getDate());
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     const hasIndexedDB = typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
@@ -382,28 +465,69 @@
     const tables = baseTables.map((tbl, idx)=>({
       id: tbl.id || `T${idx+1}`,
       name: tbl.name || `طاولة ${idx+1}`,
-      seats: tbl.seats || 4,
-      status: tbl.status || 'available',
-      locked: Boolean(tbl.locked),
-      lockedBy: tbl.lockedBy || null,
-      sessions: Array.isArray(tbl.sessions)
-        ? tbl.sessions.slice()
-        : (tbl.orderId ? [tbl.orderId] : []),
-      notes: tbl.notes || ''
+      capacity: tbl.seats || tbl.capacity || 4,
+      zone: tbl.zone || '',
+      displayOrder: typeof tbl.displayOrder === 'number' ? tbl.displayOrder : idx + 1,
+      state: tbl.state || (tbl.status === 'inactive' ? 'disactive' : tbl.status === 'maintenance' ? 'maintenance' : 'active'),
+      note: tbl.note || tbl.notes || ''
     }));
     while(tables.length < 20){
       const nextIndex = tables.length + 1;
       tables.push({
         id:`T${nextIndex}`,
         name:`طاولة ${nextIndex}`,
-        seats:4,
-        status:'available',
-        locked:false,
-        lockedBy:null,
-        sessions:[],
-        notes:''
+        capacity:4,
+        zone:'',
+        displayOrder: nextIndex,
+        state:'active',
+        note:''
       });
     }
+    tables.sort((a,b)=> (a.displayOrder||0) - (b.displayOrder||0));
+
+    const tableLocks = Array.isArray(MOCK.tableLocks) ? MOCK.tableLocks.map(lock=>({
+      id: lock.id || `lock-${Math.random().toString(36).slice(2,8)}`,
+      tableId: lock.tableId,
+      orderId: lock.orderId || null,
+      reservationId: lock.reservationId || null,
+      lockedBy: lock.lockedBy || 'system',
+      lockedAt: lock.lockedAt ? new Date(lock.lockedAt).getTime() : Date.now(),
+      source: lock.source || 'pos',
+      active: lock.active !== false
+    })) : [];
+
+    const ordersQueue = Array.isArray(MOCK.orders) ? MOCK.orders.map(order=>({
+      id: order.id,
+      status: order.status || 'open',
+      tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
+      guests: order.guests || 0,
+      createdAt: order.createdAt ? new Date(order.createdAt).getTime() : Date.now(),
+      updatedAt: order.updatedAt ? new Date(order.updatedAt).getTime() : Date.now(),
+      totals: order.totals || {}
+    })) : [];
+
+    const reservations = Array.isArray(MOCK.reservations) ? MOCK.reservations.map(res=>({
+      id: res.id || `res-${Math.random().toString(36).slice(2,6)}`,
+      customerName: res.customerName || '',
+      phone: res.phone || '',
+      partySize: res.partySize || 2,
+      scheduledAt: res.scheduledAt ? new Date(res.scheduledAt).getTime() : Date.now(),
+      holdUntil: res.holdUntil ? new Date(res.holdUntil).getTime() : null,
+      tableIds: Array.isArray(res.tableIds) ? res.tableIds.slice() : [],
+      status: res.status || 'booked',
+      note: res.note || '',
+      createdAt: res.createdAt ? new Date(res.createdAt).getTime() : Date.now()
+    })) : [];
+
+    const auditTrail = Array.isArray(MOCK.auditEvents) ? MOCK.auditEvents.map(evt=>({
+      id: evt.id || `audit-${Math.random().toString(36).slice(2,8)}`,
+      userId: evt.userId || 'system',
+      action: evt.action || 'unknown',
+      refType: evt.refType || 'table',
+      refId: evt.refId || '',
+      at: evt.at ? new Date(evt.at).getTime() : Date.now(),
+      meta: evt.meta || {}
+    })) : [];
     const employees = MOCK.employees || [];
     const cashier = employees[0] || { full_name:'أحمد محمود', role:'cashier' };
 
@@ -439,14 +563,20 @@
         },
         order:{
           id: generateOrderId(),
+          status:'open',
           type:'dine_in',
-          tableId:null,
-          table:null,
-          guests:0,
+          tableIds:[],
+          guests:2,
           lines:[],
-          totals: initialTotals
+          totals: initialTotals,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         },
         tables,
+        tableLocks,
+        reservations,
+        ordersQueue,
+        auditTrail,
         payments:{
           methods:[
             { id:'cash', icon:'💵', label:{ ar:'نقدي', en:'Cash' } },
@@ -457,7 +587,14 @@
           activeMethod:'cash',
           split:[]
         },
-        print:{ size:'thermal_80' },
+        print:{
+          size:'thermal_80',
+          docType:'customer',
+          profiles:{
+            customer:{ size:'thermal_80', defaultPrinter:'Thermal-80', autoSend:true, preview:false },
+            kitchen:{ size:'a5', defaultPrinter:'Kitchen-A5', autoSend:false, preview:true }
+          }
+        },
         reports:{
           salesToday:12430,
           ordersCount:58,
@@ -466,10 +603,12 @@
         }
       },
       ui:{
-        modals:{ tables:false, payments:false, reports:false },
+        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false },
         drawers:{},
         paymentDraft:{ amount:'' },
-        tablesView:'assign'
+        tables:{ view:'assign', filter:'all', search:'', details:null },
+        reservations:{ filter:'today', status:'all', editing:null, form:null },
+        print:{ docType:'customer', size:'thermal_80', showPreview:false }
       }
     };
 
@@ -524,9 +663,12 @@
         right:[
           ThemeSwitch(db),
           LangSwitch(db),
+          UI.Button({ attrs:{ gkey:'pos:tables:open', title:t.ui.tables }, variant:'ghost', size:'sm' }, ['🪑']),
+          UI.Button({ attrs:{ gkey:'pos:reservations:open', title:t.ui.reservations }, variant:'ghost', size:'sm' }, ['📅']),
+          UI.Button({ attrs:{ gkey:'pos:orders:open', title:t.ui.orders_queue }, variant:'ghost', size:'sm' }, ['🧾']),
           UI.Badge({ text:`${t.ui.shift}: ${user.shift}`, leading:'🕑', variant:'badge/ghost' }),
           UI.Badge({ text:`${t.ui.cashier}: ${user.name}`, leading:'👤', variant:'badge/ghost' }),
-          UI.Button({ attrs:{ gkey:'pos:session:logout' }, variant:'ghost', size:'sm' }, ['🚪'])
+          UI.Button({ attrs:{ gkey:'pos:session:logout', title:'Logout' }, variant:'ghost', size:'sm' }, ['🚪'])
         ]
       });
     }
@@ -666,6 +808,66 @@
       ]);
     }
 
+    function CartFooter(db){
+      const t = getTexts(db);
+      return D.Containers.Div({ attrs:{ class: tw`shrink-0 border-t border-[var(--border)] bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-4 py-3 rounded-[var(--radius)] shadow-[var(--shadow)] flex flex-col gap-3` }}, [
+        TotalsSection(db),
+        UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+          UI.Button({ attrs:{ gkey:'pos:order:discount', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.discount_action]),
+          UI.Button({ attrs:{ gkey:'pos:order:note', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.notes]),
+          UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.new_order]),
+          UI.Button({ attrs:{ gkey:'pos:order:clear' }, variant:'ghost', size:'sm' }, [t.ui.clear])
+        ])
+      ]);
+    }
+
+    function computeTableRuntime(db){
+      const tables = db.data.tables || [];
+      const locks = (db.data.tableLocks || []).filter(lock=> lock.active !== false);
+      const reservations = db.data.reservations || [];
+      const currentOrderId = db.data.order?.id;
+      return tables.map(table=>{
+        const activeLocks = locks.filter(lock=> lock.tableId === table.id);
+        const orderLocks = activeLocks.filter(lock=> lock.orderId);
+        const reservationLocks = activeLocks.filter(lock=> lock.reservationId);
+        const lockState = table.state !== 'active'
+          ? table.state
+          : activeLocks.length === 0
+            ? 'free'
+            : activeLocks.length === 1
+              ? 'single'
+              : 'multi';
+        const reservationRefs = reservationLocks.map(lock=> reservations.find(res=> res.id === lock.reservationId)).filter(Boolean);
+        return {
+          ...table,
+          lockState,
+          activeLocks,
+          orderLocks,
+          reservationLocks,
+          reservationRefs,
+          isCurrentOrder: orderLocks.some(lock=> lock.orderId === currentOrderId)
+        };
+      });
+    }
+
+    function tableStateLabel(t, runtime){
+      if(runtime.state === 'disactive') return t.ui.tables_state_disactive;
+      if(runtime.state === 'maintenance') return t.ui.tables_state_maintenance;
+      if(runtime.lockState === 'free') return t.ui.tables_state_free;
+      if(runtime.lockState === 'single') return t.ui.tables_state_single;
+      if(runtime.lockState === 'multi') return t.ui.tables_state_multi;
+      return t.ui.tables_state_active;
+    }
+
+    function tablePalette(runtime){
+      if(runtime.state === 'disactive') return 'border-zinc-700 bg-zinc-800/40 text-zinc-400';
+      if(runtime.state === 'maintenance') return 'border-amber-500/40 bg-amber-500/10 text-amber-400';
+      if(runtime.lockState === 'free') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400';
+      if(runtime.lockState === 'single') return 'border-sky-500/40 bg-sky-500/10 text-sky-400';
+      if(runtime.lockState === 'multi') return 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-400';
+      return 'border-[var(--border)] bg-[var(--surface-1)]';
+    }
+
     function PaymentSummary(db){
       const t = getTexts(db);
       const split = db.data.payments.split || [];
@@ -702,6 +904,10 @@
     function OrderColumn(db){
       const t = getTexts(db);
       const order = db.data.order;
+      const assignedTables = (order.tableIds || []).map(tableId=>{
+        const table = (db.data.tables || []).find(tbl=> tbl.id === tableId);
+        return { id: tableId, name: table?.name || tableId };
+      });
       const serviceSegments = ORDER_TYPES.map(type=>({
         id: type.id,
         label: `${type.icon} ${localize(type.label, db.env.lang)}`,
@@ -715,30 +921,36 @@
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
               D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
               order.type === 'dine_in'
-                ? UI.HStack({ attrs:{ class: tw`items-center gap-1` }}, [
-                    D.Text.Span({}, [`${t.ui.tables}: ${order.table ? order.table.name : t.ui.select_table}`]),
-                    order.tableId
-                      ? UI.Button({ attrs:{ gkey:'pos:order:table:release', class: tw`h-7 w-7`, title:t.ui.table_unlock }, variant:'ghost', size:'sm' }, ['🔓'])
-                      : null
-                  ].filter(Boolean))
+                ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
+                    assignedTables.length
+                      ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
+                          UI.Button({
+                            attrs:{
+                              gkey:'pos:order:table:remove',
+                              'data-table-id':table.id,
+                              class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
+                            },
+                            variant:'ghost',
+                            size:'sm'
+                          }, [`🪑 ${table.name}`, '✕'])
+                        ))
+                      : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
+                    UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
+                  ])
                 : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
               D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
             ]),
-            UI.ScrollArea({
-              attrs:{ class: tw`flex-1 overflow-auto pr-2` },
-              children:[
-                order.lines && order.lines.length
-                  ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
-                  : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
-              ]
-            }),
-            TotalsSection(db),
-            UI.HStack({ attrs:{ class: tw`gap-2` }}, [
-              UI.Button({ attrs:{ gkey:'pos:order:discount', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.discount_action]),
-              UI.Button({ attrs:{ gkey:'pos:order:note', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.notes]),
-              UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.new_order]),
-              UI.Button({ attrs:{ gkey:'pos:order:clear' }, variant:'ghost', size:'sm' }, [t.ui.clear])
-            ])
+            D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0` }}, [
+              UI.ScrollArea({
+                attrs:{ class: tw`flex h-full flex-1 overflow-auto pr-2` },
+                children:[
+                  order.lines && order.lines.length
+                    ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
+                    : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
+                ]
+              })
+            ]),
+            CartFooter(db)
           ])
         }),
         PaymentSummary(db),
@@ -761,7 +973,7 @@
         { id:'a4', label:`🗒️ ${t.ui.a4}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a4' } }
       ];
       const printSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 items-stretch` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_profile]),
+        D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_size_label]),
         UI.Segmented({ items: printOptions, activeId: db.data.print?.size || 'thermal_80' })
       ]);
       return UI.Footerbar({
@@ -781,15 +993,203 @@
     function TablesModal(db){
       const t = getTexts(db);
       if(!db.ui.modals.tables) return null;
-      const tablesList = db.data.tables || [];
-      const view = db.ui.tablesView || 'assign';
-      const statusMap = {
-        available:{ icon:'🟢', tone:'online', label:t.ui.table_available },
-        occupied:{ icon:'🟠', tone:'idle', label:t.ui.table_occupied },
-        reserved:{ icon:'🔵', tone:'idle', label:t.ui.table_reserved },
-        maintenance:{ icon:'⚫', tone:'offline', label:t.ui.table_maintenance },
-        inactive:{ icon:'⬛', tone:'offline', label:t.ui.table_status_inactive }
-      };
+      const runtimeTables = computeTableRuntime(db);
+      const tablesUI = db.ui.tables || {};
+      const view = tablesUI.view || 'assign';
+      const filter = tablesUI.filter || 'all';
+      const searchTerm = (tablesUI.search || '').trim().toLowerCase();
+
+      const counts = runtimeTables.reduce((acc, table)=>{
+        acc.all += table.state === 'disactive' ? 0 : 1;
+        if(table.state === 'maintenance') acc.maintenance += 1;
+        if(table.state === 'active'){
+          if(table.lockState === 'free') acc.free += 1;
+          if(table.lockState === 'single') acc.single += 1;
+          if(table.lockState === 'multi') acc.multi += 1;
+        }
+        return acc;
+      }, { all:0, free:0, single:0, multi:0, maintenance:0 });
+
+      const filterItems = [
+        { id:'all', label:`${t.ui.tables_filter_all} (${counts.all})` },
+        { id:'free', label:`${t.ui.tables_filter_free} (${counts.free})` },
+        { id:'single', label:`${t.ui.tables_filter_single} (${counts.single})` },
+        { id:'multi', label:`${t.ui.tables_filter_multi} (${counts.multi})` },
+        { id:'maintenance', label:`${t.ui.tables_filter_maintenance} (${counts.maintenance})` }
+      ].map(item=> ({
+        ...item,
+        attrs:{ gkey:'pos:tables:filter', 'data-tables-filter':item.id }
+      }));
+
+      function createTableCard(runtime){
+        const palette = tablePalette(runtime);
+        const stateLabel = tableStateLabel(t, runtime);
+        const ordersCount = runtime.orderLocks.length;
+        const reservationsCount = runtime.reservationRefs.length;
+        const chips = [];
+        if(ordersCount){ chips.push(UI.Badge({ text:`${ordersCount} ${t.ui.tables_orders_badge}`, variant:'badge/ghost' })); }
+        if(reservationsCount){ chips.push(UI.Badge({ text:`${reservationsCount} ${t.ui.tables_reservations_badge}`, variant:'badge/ghost' })); }
+        if(runtime.isCurrentOrder){ chips.push(UI.Badge({ text:t.ui.table_locked, variant:'badge' })); }
+        return D.Containers.Div({
+          attrs:{
+            class: tw`group relative flex min-h-[160px] flex-col justify-between gap-3 rounded-3xl border-2 p-4 transition hover:shadow-[var(--shadow)] ${palette}`,
+            gkey:'pos:tables:card:tap',
+            'data-table-id': runtime.id
+          }
+        }, [
+          D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-2` }}, [
+            D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+              D.Text.Strong({ attrs:{ class: tw`text-lg font-semibold` }}, [runtime.name || runtime.id]),
+              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
+              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
+              D.Text.Span({ attrs:{ class: tw`text-xs font-medium` }}, [stateLabel])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-2` }}, [
+              chips.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap justify-end gap-1` }}, chips) : null,
+              UI.Button({ attrs:{ gkey:'pos:tables:details', 'data-table-id':runtime.id, class: tw`rounded-full` }, variant:'ghost', size:'sm' }, ['⋯'])
+            ].filter(Boolean))
+          ]),
+          runtime.note
+            ? D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`📝 ${runtime.note}`])
+            : D.Text.Span({ attrs:{ class: tw`text-[11px] opacity-60` }}, [t.ui.tables_longpress_hint])
+        ]);
+      }
+
+      function createDetailsPanel(){
+        if(!tablesUI.details) return null;
+        const runtime = runtimeTables.find(tbl=> tbl.id === tablesUI.details);
+        if(!runtime) return null;
+        const orderMap = new Map();
+        orderMap.set(db.data.order.id, { ...db.data.order });
+        (db.data.ordersQueue || []).forEach(ord=> orderMap.set(ord.id, ord));
+        const lang = db.env.lang;
+        const ordersList = runtime.orderLocks.length
+          ? UI.List({
+              children: runtime.orderLocks.map(lock=>{
+                const order = orderMap.get(lock.orderId) || { id: lock.orderId, status:'open' };
+                return UI.ListItem({
+                  leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
+                  content:[
+                    D.Text.Strong({}, [`${t.ui.order_id} ${order.id}`]),
+                    D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [formatDateTime(order.updatedAt || lock.lockedAt, lang, { hour:'2-digit', minute:'2-digit' })])
+                  ],
+                  trailing:[
+                    UI.Button({ attrs:{ gkey:'pos:tables:unlock-order', 'data-table-id':runtime.id, 'data-order-id':order.id }, variant:'ghost', size:'sm' }, ['🔓'])
+                  ]
+                });
+              })
+            })
+          : UI.EmptyState({ icon:'🧾', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint });
+
+        const reservationsList = runtime.reservationRefs.length
+          ? UI.List({
+              children: runtime.reservationRefs.map(res=> UI.ListItem({
+                leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['📅']),
+                content:[
+                  D.Text.Strong({}, [res.customerName || res.id]),
+                  D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${formatDateTime(res.scheduledAt, lang, { hour:'2-digit', minute:'2-digit' })} • ${res.partySize} ${t.ui.guests}`])
+                ],
+                trailing:[
+                  UI.Badge({ text: localize(t.ui[`reservations_status_${res.status}`] || res.status, lang === 'ar' ? 'ar' : 'en'), variant:'badge/ghost' })
+                ]
+              }))
+            })
+          : null;
+
+        return UI.Card({
+          title: `${t.ui.tables_details} — ${runtime.name || runtime.id}`,
+          description: t.ui.tables_actions,
+          content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-3 text-sm ${token('muted')}` }}, [
+              D.Text.Span({}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
+              D.Text.Span({}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
+              D.Text.Span({}, [tableStateLabel(t, runtime)])
+            ]),
+            ordersList,
+            reservationsList,
+            UI.HStack({ attrs:{ class: tw`justify-end gap-2` }}, [
+              UI.Button({ attrs:{ gkey:'pos:tables:unlock-all', 'data-table-id':runtime.id }, variant:'ghost', size:'sm' }, [t.ui.tables_unlock_all]),
+              UI.Button({ attrs:{ gkey:'pos:tables:details-close' }, variant:'ghost', size:'sm' }, [t.ui.close])
+            ])
+          ])
+        });
+      }
+
+      const assignables = runtimeTables
+        .filter(table=> table.state !== 'disactive')
+        .filter(table=>{
+          if(!searchTerm) return true;
+          const term = searchTerm.toLowerCase();
+          return (table.name || '').toLowerCase().includes(term) || (table.id || '').toLowerCase().includes(term) || (table.zone || '').toLowerCase().includes(term);
+        })
+        .filter(table=>{
+          if(filter === 'free') return table.state === 'active' && table.lockState === 'free';
+          if(filter === 'single') return table.lockState === 'single';
+          if(filter === 'multi') return table.lockState === 'multi';
+          if(filter === 'maintenance') return table.state === 'maintenance';
+          return true;
+        });
+
+      const assignView = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.SearchBar({
+          value: tablesUI.search || '',
+          placeholder: t.ui.tables_search_placeholder,
+          onInput:'pos:tables:search'
+        }),
+        UI.ChipGroup({ items: filterItems, activeId: filter }),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 text-xs ${token('muted')}` }}, [
+          D.Text.Span({}, [`${t.ui.tables_count_label}: ${assignables.length}`])
+        ]),
+        assignables.length
+          ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3` }}, assignables.map(createTableCard))
+          : UI.EmptyState({ icon:'🪑', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint }),
+        createDetailsPanel()
+      ].filter(Boolean));
+
+      const manageRows = runtimeTables
+        .slice()
+        .sort((a,b)=> (a.displayOrder||0) - (b.displayOrder||0))
+        .map(table=> UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🪑']),
+          content:[
+            D.Text.Strong({}, [table.name || table.id]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.tables_zone}: ${table.zone || '—'}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.tables_capacity}: ${table.capacity}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [tableStateLabel(t, table)])
+          ],
+          trailing:[
+            UI.Button({ attrs:{ gkey:'pos:tables:rename', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['✏️']),
+            UI.Button({ attrs:{ gkey:'pos:tables:capacity', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['👥']),
+            UI.Button({ attrs:{ gkey:'pos:tables:zone', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['📍']),
+            UI.Button({ attrs:{ gkey:'pos:tables:state', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['♻️']),
+            UI.Button({ attrs:{ gkey:'pos:tables:remove', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['🗑️'])
+          ],
+          attrs:{ class: tw`cursor-default` }
+        }));
+
+      const auditEntries = (db.data.auditTrail || []).slice().sort((a,b)=> b.at - a.at).slice(0,6).map(entry=>
+        UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['📝']),
+          content:[
+            D.Text.Strong({}, [`${entry.action} → ${entry.refId}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [formatDateTime(entry.at, db.env.lang, { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' })])
+          ],
+          trailing:[ D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [entry.userId]) ]
+        })
+      );
+
+      const manageView = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+          UI.Button({ attrs:{ gkey:'pos:tables:add' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.table_add}`]),
+          D.Containers.Div({ attrs:{ class: tw`flex gap-2` }}, [
+            UI.Button({ attrs:{ gkey:'pos:tables:bulk', 'data-bulk-action':'activate' }, variant:'ghost', size:'sm' }, [t.ui.tables_bulk_activate]),
+            UI.Button({ attrs:{ gkey:'pos:tables:bulk', 'data-bulk-action':'maintenance' }, variant:'ghost', size:'sm' }, [t.ui.tables_bulk_maintenance])
+          ])
+        ]),
+        UI.ScrollArea({ attrs:{ class: tw`max-h-[40vh] space-y-2` }, children: manageRows }),
+        auditEntries.length ? UI.Card({ title:t.ui.tables_manage_log, content: UI.List({ children:auditEntries }) }) : null
+      ].filter(Boolean));
+
       const viewSelector = UI.Segmented({
         items:[
           { id:'assign', label:t.ui.tables_assign, attrs:{ gkey:'pos:tables:view', 'data-tables-view':'assign' } },
@@ -798,75 +1198,270 @@
         activeId:view
       });
 
-      const assignTables = tablesList.filter(table=> table.status !== 'inactive');
-      const assignList = assignTables.length
-        ? UI.ScrollArea({
-            attrs:{ class: tw`max-h-[50vh] w-full space-y-2` },
-            children: assignTables.map(table=>{
-              const meta = statusMap[table.status] || statusMap.available;
-              const ordersCount = (table.sessions || []).length;
-              return UI.ListItem({
-                leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, [meta.icon]),
-                content:[
-                  D.Text.Strong({}, [table.name || table.id]),
-                  D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.guests}: ${table.seats}`]),
-                  meta.label ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta.label]) : null,
-                  ordersCount ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.table_sessions}: ${ordersCount}`]) : null,
-                  table.locked ? D.Text.Span({ attrs:{ class: tw`text-xs text-amber-500` }}, [`🔒 ${t.ui.table_locked}`]) : null
-                ].filter(Boolean),
-                trailing:[
-                  ordersCount ? UI.Badge({ text:`${ordersCount}`, leading:'🧾', variant:'badge/ghost' }) : null,
-                  UI.Button({ attrs:{ gkey:'pos:tables:lock-toggle', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, [table.locked ? '🔓' : '🔒'])
-                ].filter(Boolean),
-                attrs:{ gkey:'pos:tables:select', 'data-table-id':table.id }
-              });
-            })
-          })
-        : UI.EmptyState({ icon:'🪑', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint });
-
-      const manageList = UI.ScrollArea({
-        attrs:{ class: tw`max-h-[50vh] w-full space-y-2` },
-        children: tablesList.map(table=>{
-          const meta = statusMap[table.status] || statusMap.available;
-          return UI.ListItem({
-            leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, [meta.icon]),
-            content:[
-              D.Text.Strong({}, [table.name || table.id]),
-              D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.guests}: ${table.seats}`]),
-              meta.label ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta.label]) : null
-            ].filter(Boolean),
-            trailing:[
-              UI.Button({ attrs:{ gkey:'pos:tables:rename', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['✏️']),
-              UI.Button({ attrs:{ gkey:'pos:tables:seats', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['👥']),
-              UI.Button({ attrs:{ gkey:'pos:tables:status', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['♻️']),
-              UI.Button({ attrs:{ gkey:'pos:tables:remove', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['🗑️'])
-            ],
-            attrs:{ class: tw`cursor-default` }
-          });
-        })
-      });
-
-      const manageTools = D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-        UI.HStack({ attrs:{ class: tw`justify-between` }}, [
-          D.Text.Span({ attrs:{ class: tw`${token('muted')} text-sm` }}, [t.ui.table_manage_hint]),
-          UI.Button({ attrs:{ gkey:'pos:tables:add', 'data-prevent-select':'true' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.table_add}`])
-        ]),
-        manageList
-      ]);
-
-      const modalBody = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
-        viewSelector,
-        view === 'assign' ? assignList : manageTools
-      ]);
-
       return UI.Modal({
         open:true,
         title:t.ui.tables,
         description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
-        content: modalBody,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          viewSelector,
+          view === 'assign' ? assignView : manageView
+        ]),
         actions:[
           UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
         ]
+      });
+    }
+
+    function PrintModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.print) return null;
+      const order = db.data.order || {};
+      const docType = db.ui.print?.docType || db.data.print?.docType || 'customer';
+      const selectedSize = db.ui.print?.size || db.data.print?.size || 'thermal_80';
+      const profile = (db.data.print?.profiles || {})[docType] || {};
+      const tablesNames = (order.tableIds || []).map(id=>{
+        const table = (db.data.tables || []).find(tbl=> tbl.id === id);
+        return table?.name || id;
+      });
+      const lang = db.env.lang;
+      const due = order.totals?.due || 0;
+      const subtotal = order.totals?.subtotal || 0;
+      const payments = db.data.payments.split || [];
+
+      const docTypes = [
+        { id:'customer', label:t.ui.print_doc_customer },
+        { id:'summary', label:t.ui.print_doc_summary },
+        { id:'kitchen', label:t.ui.print_doc_kitchen }
+      ];
+
+      const sizeOptions = [
+        { id:'thermal_80', label:t.ui.thermal_80 },
+        { id:'a5', label:t.ui.a5 },
+        { id:'a4', label:t.ui.a4 }
+      ];
+
+      const previewLines = (order.lines || []).map(line=> UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [
+        D.Text.Span({}, [`${localize(line.name, lang)} × ${line.qty}`]),
+        UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) })
+      ]));
+
+      const currentDocLabel = docTypes.find(dt=> dt.id === docType)?.label || t.ui.print_doc_customer;
+      const preview = UI.Card({
+        title: `${t.ui.print_preview} — ${currentDocLabel}`,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-xs leading-5` }}, [
+          D.Text.Strong({}, ['Mishkah Restaurant']),
+          D.Text.Span({}, [`${t.ui.print_header_address}: 12 Nile Street`]),
+          D.Text.Span({}, [`${t.ui.print_header_phone}: 0100000000`]),
+          UI.Divider(),
+          D.Text.Span({}, [`${t.ui.order_id} ${order.id || '—'}`]),
+          D.Text.Span({}, [`${t.ui.guests}: ${order.guests || 0}`]),
+          tablesNames.length ? D.Text.Span({}, [`${t.ui.tables}: ${tablesNames.join(', ')}`]) : null,
+          D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })]),
+          UI.Divider(),
+          previewLines.length ? D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, previewLines) : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.cart_empty]),
+          UI.Divider(),
+          UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [t.ui.subtotal]), UI.PriceText({ amount: subtotal, currency:getCurrency(db), locale:getLocale(db) }) ]),
+          UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [t.ui.vat]), UI.PriceText({ amount: order.totals?.vat || 0, currency:getCurrency(db), locale:getLocale(db) }) ]),
+          UI.HStack({ attrs:{ class: tw`justify-between text-sm font-semibold` }}, [ D.Text.Span({}, [t.ui.total]), UI.PriceText({ amount: due, currency:getCurrency(db), locale:getLocale(db) }) ]),
+          payments.length ? UI.Divider() : null,
+          payments.length ? D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, payments.map(pay=>{
+            const method = (db.data.payments.methods || []).find(m=> m.id === pay.method);
+            const label = method ? `${method.icon} ${localize(method.label, lang)}` : pay.method;
+            return UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [label]), UI.PriceText({ amount: pay.amount, currency:getCurrency(db), locale:getLocale(db) }) ]);
+          })) : null,
+          UI.Divider(),
+          D.Text.Span({ attrs:{ class: tw`text-center text-xs` }}, [t.ui.print_footer_thanks]),
+          D.Text.Span({ attrs:{ class: tw`text-center text-[11px] opacity-70` }}, [t.ui.print_footer_policy]),
+          D.Text.Span({ attrs:{ class: tw`text-center text-[11px] opacity-70` }}, [`${t.ui.print_footer_feedback} • QR`])
+        ].filter(Boolean))
+      });
+
+      const modalContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.Segmented({
+          items: docTypes.map(dt=>({ id: dt.id, label: dt.label, attrs:{ gkey:'pos:print:doc', 'data-doc-type':dt.id } })),
+          activeId: docType
+        }),
+        UI.Segmented({
+          items: sizeOptions.map(opt=>({ id: opt.id, label: opt.label, attrs:{ gkey:'pos:print:size', 'data-print-size':opt.id } })),
+          activeId: selectedSize
+        }),
+        UI.Field({
+          label: t.ui.print_printer_default,
+          control: UI.Input({ attrs:{ value: profile.defaultPrinter || '', placeholder:'Printer name', gkey:'pos:print:printer' } })
+        }),
+        UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
+          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
+          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview])
+        ]),
+        preview
+      ]);
+
+      return UI.Modal({
+        open:true,
+        title: t.ui.print,
+        description: t.ui.print_profile,
+        content: modalContent,
+        actions:[
+          UI.Button({ attrs:{ gkey:'pos:print:save', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.print_save_profile]),
+          UI.Button({ attrs:{ gkey:'pos:print:send', class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.print_send]),
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function ReservationsModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.reservations) return null;
+      const reservations = db.data.reservations || [];
+      const tables = db.data.tables || [];
+      const uiState = db.ui.reservations || {};
+      const statusFilter = uiState.status || 'all';
+      const rangeFilter = uiState.filter || 'today';
+      const formState = uiState.form || null;
+      const lang = db.env.lang;
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+
+      function inRange(res){
+        if(rangeFilter === 'today') return res.scheduledAt >= startOfToday && res.scheduledAt < endOfToday;
+        if(rangeFilter === 'upcoming') return res.scheduledAt >= endOfToday;
+        if(rangeFilter === 'past') return res.scheduledAt < startOfToday;
+        return true;
+      }
+
+      const filtered = reservations
+        .filter(res=> statusFilter === 'all' ? true : res.status === statusFilter)
+        .filter(inRange)
+        .sort((a,b)=> a.scheduledAt - b.scheduledAt);
+
+      const rangeItems = [
+        { id:'today', label:t.ui.reservations_manage },
+        { id:'upcoming', label:'⏭️' },
+        { id:'all', label:t.ui.reservations_filter_all }
+      ].map(item=>({ ...item, attrs:{ gkey:'pos:reservations:range', 'data-reservation-range':item.id } }));
+
+      const statusItems = [
+        { id:'all', label:t.ui.reservations_filter_all },
+        { id:'booked', label:t.ui.reservations_filter_booked },
+        { id:'seated', label:t.ui.reservations_filter_seated },
+        { id:'completed', label:t.ui.reservations_filter_completed },
+        { id:'cancelled', label:t.ui.reservations_filter_cancelled },
+        { id:'no-show', label:t.ui.reservations_filter_noshow }
+      ].map(item=>({ ...item, attrs:{ gkey:'pos:reservations:status', 'data-reservation-status':item.id } }));
+
+      const formTables = tables.filter(tbl=> tbl.state === 'active');
+      const selectedTables = new Set(Array.isArray(formState?.tableIds) ? formState.tableIds : []);
+
+      const formCard = formState ? UI.Card({
+        title: formState.id ? t.ui.reservations_edit : t.ui.reservations_new,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          UI.Field({ label:t.ui.reservations_customer, control: UI.Input({ attrs:{ value: formState.customerName || '', gkey:'pos:reservations:form', 'data-field':'customerName', placeholder:t.ui.reservations_customer } }) }),
+          UI.Field({ label:t.ui.reservations_phone, control: UI.Input({ attrs:{ value: formState.phone || '', gkey:'pos:reservations:form', 'data-field':'phone', placeholder:'010...' } }) }),
+          UI.Field({ label:t.ui.reservations_party_size, control: UI.Input({ attrs:{ value: formState.partySize || 2, type:'number', min:'1', gkey:'pos:reservations:form', 'data-field':'partySize' } }) }),
+          UI.Field({ label:t.ui.reservations_time, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.scheduledAt), gkey:'pos:reservations:form', 'data-field':'scheduledAt' } }) }),
+          UI.Field({ label:t.ui.reservations_hold_until, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.holdUntil), gkey:'pos:reservations:form', 'data-field':'holdUntil' } }) }),
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [t.ui.reservations_tables]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, formTables.map(tbl=> UI.Button({
+              attrs:{
+                gkey:'pos:reservations:form:table',
+                'data-table-id':tbl.id,
+                class: tw`rounded-full px-3 py-1 text-sm ${selectedTables.has(tbl.id) ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'bg-[var(--surface-2)]'}`
+              },
+              variant:'ghost',
+              size:'sm'
+            }, [`🪑 ${tbl.name}`])) )
+          ]),
+          UI.Field({ label:t.ui.reservations_note, control: UI.Textarea({ attrs:{ value: formState.note || '', rows:'2', gkey:'pos:reservations:form', 'data-field':'note' } }) })
+        ]),
+        footer: UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+          UI.Button({ attrs:{ gkey:'pos:reservations:save', class: tw`flex-1` }, variant:'solid', size:'sm' }, [t.ui.reservations_save]),
+          UI.Button({ attrs:{ gkey:'pos:reservations:cancel-edit', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ])
+      }) : null;
+
+      const listCards = filtered.length ? filtered.map(res=>{
+        const tableBadges = res.tableIds.map(id=>{
+          const table = tables.find(tbl=> tbl.id === id);
+          return UI.Badge({ text: table?.name || id, variant:'badge/ghost' });
+        });
+        return UI.Card({
+          title: `${res.customerName} — ${res.partySize} ${t.ui.guests}`,
+          description: `${formatDateTime(res.scheduledAt, lang, { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' })} • ${res.phone || ''}`,
+          content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-sm` }}, [
+            tableBadges.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-1` }}, tableBadges) : null,
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.reservations_hold_label}: ${res.holdUntil ? formatDateTime(res.holdUntil, lang, { hour:'2-digit', minute:'2-digit' }) : '—'}`])
+          ].filter(Boolean)),
+          footer: UI.HStack({ attrs:{ class: tw`flex-wrap gap-2` }}, [
+            UI.Badge({ text: t.ui[`reservations_status_${res.status}`] || res.status, variant:'badge/ghost' }),
+            UI.Button({ attrs:{ gkey:'pos:reservations:edit', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, ['✏️']),
+            UI.Button({ attrs:{ gkey:'pos:reservations:convert', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_convert]),
+            UI.Button({ attrs:{ gkey:'pos:reservations:noshow', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_no_show]),
+            UI.Button({ attrs:{ gkey:'pos:reservations:cancel', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_cancel_action])
+          ])
+        });
+      }) : [UI.EmptyState({ icon:'📅', title:t.ui.reservations, description:t.ui.reservations_list_empty })];
+
+      return UI.Modal({
+        open:true,
+        title:t.ui.reservations,
+        description:t.ui.reservations_manage,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+            UI.Segmented({ items: rangeItems, activeId: rangeFilter }),
+            UI.Button({ attrs:{ gkey:'pos:reservations:new' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.reservations_new}`])
+          ]),
+          UI.ChipGroup({ items: statusItems, activeId: statusFilter }),
+          formCard,
+          D.Containers.Div({ attrs:{ class: tw`space-y-3 max-h-[60vh] overflow-auto pr-1` }}, listCards)
+        ].filter(Boolean)),
+        actions:[
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function OrdersQueueDrawer(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.orders) return null;
+      const orders = [db.data.order, ...(db.data.ordersQueue || [])].filter(Boolean).reduce((acc, order)=>{
+        if(acc.some(o=> o.id === order.id)) return acc;
+        acc.push(order);
+        return acc;
+      }, []);
+      const lang = db.env.lang;
+      const items = orders.map(order=>{
+        const tablesNames = (order.tableIds || []).map(id=>{
+          const table = (db.data.tables || []).find(tbl=> tbl.id === id);
+          return table?.name || id;
+        }).join(', ');
+        const status = order.status || 'open';
+        const statusLabel = status === 'held' ? t.ui.orders_queue_status_held : t.ui.orders_queue_status_open;
+        return UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
+          content:[
+            D.Text.Strong({}, [order.id]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${statusLabel} • ${formatDateTime(order.updatedAt || order.createdAt, lang, { hour:'2-digit', minute:'2-digit' })}`]),
+            tablesNames ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [tablesNames]) : null
+          ].filter(Boolean),
+          trailing:[
+            UI.PriceText({ amount: order.totals?.due || 0, currency:getCurrency(db), locale:getLocale(db) }),
+            UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])
+          ]
+        });
+      });
+      return UI.Drawer({
+        open:true,
+        side:'end',
+        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+          D.Text.Strong({}, [t.ui.orders_queue]),
+          UI.Button({ attrs:{ gkey:'pos:orders:toggle' }, variant:'ghost', size:'sm' }, ['×'])
+        ]),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.orders_queue_hint]),
+          items.length ? UI.List({ children: items }) : UI.EmptyState({ icon:'🧾', title:t.ui.orders_queue_empty })
+        ])
       });
     }
 
@@ -937,8 +1532,11 @@
         ]),
         overlays:[
           TablesModal(db),
+          ReservationsModal(db),
+          PrintModal(db),
           PaymentsSheet(db),
           ReportsDrawer(db),
+          OrdersQueueDrawer(db),
           db.ui?.toasts ? UI.ToastHost({ toasts: db.ui.toasts }) : null
         ].filter(Boolean)
       });
@@ -1202,7 +1800,8 @@
               ...s,
               data:{
                 ...data,
-                order:{ ...order, id: generateOrderId(), lines:[], totals }
+                order:{ ...order, id: generateOrderId(), lines:[], totals, tableIds:[] },
+                tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
               }
             };
           });
@@ -1218,50 +1817,27 @@
           UI.pushToast(ctx, { title:t.toast.discount_stub, icon:'💡' });
         }
       },
-      'pos.order.table.release':{
+      'pos.order.table.remove':{
         on:['click'],
-        gkeys:['pos:order:table:release'],
+        gkeys:['pos:order:table:remove'],
         handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
           const state = ctx.getState();
           const t = getTexts(state);
           const order = state.data.order || {};
-          if(!order.tableId) return;
           if(!window.confirm(t.ui.table_confirm_release)) return;
-          ctx.setState(s=>{
-            const data = s.data || {};
-            const orderState = data.order || {};
-            const orderId = orderState.id;
-            const tableId = orderState.tableId;
-            const updatedTables = (data.tables || []).map(tbl=>{
-              if(tbl.id !== tableId) return tbl;
-              const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
-              const wasLockedByOrder = tbl.lockedBy === orderId;
-              const nextStatus = nextSessions.length ? tbl.status : (tbl.status === 'occupied' ? 'available' : tbl.status);
-              return {
-                ...tbl,
-                sessions: nextSessions,
-                locked: wasLockedByOrder ? false : tbl.locked,
-                lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
-                status: nextStatus
-              };
-            });
-            const nextOrder = {
-              ...orderState,
-              tableId:null,
-              table:null
-            };
-            nextOrder.totals = calculateTotals(nextOrder.lines || [], data.settings || {}, nextOrder.type || 'dine_in');
-            return {
-              ...s,
-              data:{
-                ...data,
-                tables: updatedTables,
-                order: nextOrder
-              }
-            };
-          });
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() },
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock)
+            }
+          }));
           ctx.rebuild();
-          UI.pushToast(ctx, { title:t.toast.table_sessions_cleared, icon:'🔓' });
+          UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
         }
       },
       'pos.order.note':{
@@ -1384,11 +1960,11 @@
         on:['click'],
         gkeys:['pos:order:print'],
         handler:(e,ctx)=>{
-          const state = ctx.getState();
-          const t = getTexts(state);
-          const size = state.data.print?.size || 'thermal_80';
-          const sizeLabel = size === 'a5' ? t.ui.a5 : size === 'a4' ? t.ui.a4 : t.ui.thermal_80;
-          UI.pushToast(ctx, { title:t.toast.print_stub, message:`${t.ui.print_size}: ${sizeLabel}`, icon:'🖨️' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:true }, print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' } }
+          }));
+          ctx.rebuild();
         }
       },
       'pos.print.size':{
@@ -1403,11 +1979,369 @@
             data:{
               ...s.data,
               print:{ ...(s.data.print || {}), size }
-            }
+            },
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), size } }
           }));
           ctx.rebuild();
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.print_size_switched, icon:'🖨️' });
+        }
+      },
+      'pos.print.doc':{
+        on:['click'],
+        gkeys:['pos:print:doc'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-doc-type]');
+          if(!btn) return;
+          const doc = btn.getAttribute('data-doc-type') || 'customer';
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), docType:doc } },
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), docType:doc } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.printer':{
+        on:['input','change'],
+        gkeys:['pos:print:printer'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          ctx.setState(s=>{
+            const existingProfiles = { ...(s.data.print?.profiles || {}) };
+            const currentProfile = { ...(existingProfiles[docType] || {}) };
+            currentProfile.defaultPrinter = value;
+            existingProfiles[docType] = currentProfile;
+            return {
+              ...s,
+              data:{
+                ...s.data,
+                print:{ ...(s.data.print || {}), profiles: existingProfiles }
+              }
+            };
+          });
+        }
+      },
+      'pos.print.toggle':{
+        on:['click'],
+        gkeys:['pos:print:toggle'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-print-toggle]');
+          if(!btn) return;
+          const key = btn.getAttribute('data-print-toggle');
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          ctx.setState(s=>{
+            const profiles = { ...(s.data.print?.profiles || {}) };
+            const profile = { ...(profiles[docType] || {}) };
+            profile[key] = !profile[key];
+            profiles[docType] = profile;
+            return {
+              ...s,
+              data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), profiles } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.print.save':{
+        on:['click'],
+        gkeys:['pos:print:save'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.print_profile_saved, icon:'💾' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.send':{
+        on:['click'],
+        gkeys:['pos:print:send'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.print_sent, icon:'🖨️' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.open':{
+        on:['click'],
+        gkeys:['pos:reservations:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null }, modals:{ ...(s.ui?.modals || {}), reservations:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.new':{
+        on:['click'],
+        gkeys:['pos:reservations:new'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              reservations:{
+                ...(s.ui?.reservations || {}),
+                editing:'new',
+                form:{ id:null, customerName:'', phone:'', partySize:2, scheduledAt:Date.now(), holdUntil:Date.now()+3600000, tableIds:[], note:'' }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.range':{
+        on:['click'],
+        gkeys:['pos:reservations:range'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-range]');
+          if(!btn) return;
+          const range = btn.getAttribute('data-reservation-range') || 'today';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), filter:range } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.status':{
+        on:['click'],
+        gkeys:['pos:reservations:status'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-status]');
+          if(!btn) return;
+          const status = btn.getAttribute('data-reservation-status') || 'all';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), status } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.form':{
+        on:['input','change'],
+        gkeys:['pos:reservations:form'],
+        handler:(e,ctx)=>{
+          const field = e.target.getAttribute('data-field');
+          if(!field) return;
+          const valueRaw = e.target.value;
+          ctx.setState(s=>{
+            const form = { ...(s.ui?.reservations?.form || {}) };
+            let value = valueRaw;
+            if(field === 'partySize') value = parseInt(valueRaw || '0', 10) || 0;
+            if(field === 'scheduledAt' || field === 'holdUntil') value = valueRaw ? new Date(valueRaw).getTime() : null;
+            form[field] = value;
+            return { ...s, ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), form } } };
+          });
+        }
+      },
+      'pos.reservations.form:table':{
+        on:['click'],
+        gkeys:['pos:reservations:form:table'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>{
+            const form = { ...(s.ui?.reservations?.form || { tableIds:[] }) };
+            const set = new Set(form.tableIds || []);
+            if(set.has(tableId)) set.delete(tableId); else set.add(tableId);
+            form.tableIds = Array.from(set);
+            return { ...s, ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), form } } };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.cancel-edit':{
+        on:['click'],
+        gkeys:['pos:reservations:cancel-edit'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.save':{
+        on:['click'],
+        gkeys:['pos:reservations:save'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const form = state.ui?.reservations?.form;
+          if(!form) return;
+          if(!form.tableIds || !form.tableIds.length){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, message:t.ui.reservations_tables_required, icon:'⚠️' });
+            return;
+          }
+          const tables = state.data.tables || [];
+          for(const id of form.tableIds){
+            const table = tables.find(tbl=> tbl.id === id);
+            if(table && table.state === 'maintenance'){
+              UI.pushToast(ctx, { title:t.toast.table_state_updated, message:t.ui.reservations_conflict_maintenance, icon:'🛠️' });
+              return;
+            }
+          }
+          const reservations = state.data.reservations || [];
+          const windowMs = 90 * 60 * 1000;
+          const conflicts = reservations.some(res=>{
+            if(res.id === form.id) return false;
+            if(['cancelled','completed','no-show'].includes(res.status)) return false;
+            if(!res.tableIds?.some(id=> form.tableIds.includes(id))) return false;
+            return Math.abs((res.scheduledAt || 0) - (form.scheduledAt || Date.now())) < windowMs;
+          });
+          if(conflicts){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.reservations_conflict, icon:'⚠️' });
+            return;
+          }
+          const tableLocks = state.data.tableLocks || [];
+          const lockConflict = tableLocks.some(lock=> lock.active && form.tableIds.includes(lock.tableId) && lock.orderId && lock.orderId !== state.data.order?.id);
+          if(lockConflict){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.reservations_conflict_lock, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>{
+            const reservations = s.data.reservations || [];
+            const isEdit = !!form.id;
+            const reservationId = form.id || `res-${Date.now().toString(36)}`;
+            const payload = { id:reservationId, customerName:form.customerName, phone:form.phone, partySize:form.partySize, scheduledAt:form.scheduledAt || Date.now(), holdUntil:form.holdUntil || null, tableIds:form.tableIds.slice(), status: form.status || 'booked', note:form.note || '', createdAt: form.createdAt || Date.now() };
+            const nextReservations = isEdit ? reservations.map(res=> res.id === reservationId ? payload : res) : reservations.concat(payload);
+            return {
+              ...s,
+              data:{ ...(s.data || {}), reservations: nextReservations },
+              ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title: form.id ? t.toast.reservation_updated : t.toast.reservation_created, icon:'📅' });
+        }
+      },
+      'pos.reservations.edit':{
+        on:['click'],
+        gkeys:['pos:reservations:edit'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const reservation = (state.data.reservations || []).find(res=> res.id === resId);
+          if(!reservation) return;
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:resId, form:{ ...reservation } } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.convert':{
+        on:['click'],
+        gkeys:['pos:reservations:convert'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const reservation = (state.data.reservations || []).find(res=> res.id === resId);
+          if(!reservation) return;
+          const newOrder = { id: generateOrderId(), status:'open', tableIds: reservation.tableIds.slice(), guests: reservation.partySize, createdAt: Date.now(), updatedAt: Date.now(), totals:{ due:0 } };
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              ordersQueue:[ newOrder, ...(s.data.ordersQueue || []) ],
+              reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'seated' } : res),
+              tableLocks:[...(s.data.tableLocks || []), ...reservation.tableIds.map(id=> ({ id:`lock-${Date.now().toString(36)}-${id}`, tableId:id, orderId:newOrder.id, lockedBy:s.data.user?.id || 'pos-user', lockedAt:Date.now(), source:'reservation-convert', active:true }))]
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_converted, icon:'🍽️' });
+        }
+      },
+      'pos.reservations.noshow':{
+        on:['click'],
+        gkeys:['pos:reservations:noshow'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'no-show' } : res) }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_no_show, icon:'⏰' });
+        }
+      },
+      'pos.reservations.cancel':{
+        on:['click'],
+        gkeys:['pos:reservations:cancel'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'cancelled' } : res) }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_cancelled, icon:'🚫' });
+        }
+      },
+      'pos.orders.open':{
+        on:['click'],
+        gkeys:['pos:orders:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.toggle':{
+        on:['click'],
+        gkeys:['pos:orders:toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.open-order':{
+        on:['click'],
+        gkeys:['pos:orders:open-order'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-order-id]');
+          if(!btn) return;
+          const orderId = btn.getAttribute('data-order-id');
+          const state = ctx.getState();
+          const order = [state.data.order, ...(state.data.ordersQueue || [])].find(ord=> ord && ord.id === orderId);
+          if(!order) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), order:{ ...(s.data.order || {}), ...order } },
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
+          }));
+          ctx.rebuild();
         }
       },
       'pos.tables.open':{
@@ -1416,87 +2350,13 @@
         handler:(e,ctx)=>{
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), tablesView:'assign', modals:{ ...(s.ui?.modals || {}), tables:true } }
+            ui:{
+              ...(s.ui || {}),
+              tables:{ view:'assign', filter:'all', search:'', details:null },
+              modals:{ ...(s.ui?.modals || {}), tables:true }
+            }
           }));
           ctx.rebuild();
-        }
-      },
-      'pos.tables.select':{
-        on:['click'],
-        gkeys:['pos:tables:select'],
-        handler:(e,ctx)=>{
-          if(e.target.closest('[data-prevent-select="true"]')) return;
-          const btn = e.target.closest('[data-table-id]');
-          if(!btn) return;
-          const tableId = btn.getAttribute('data-table-id');
-          const state = ctx.getState();
-          const t = getTexts(state);
-          const tables = state.data.tables || [];
-          const tableIndex = tables.findIndex(tbl=> tbl.id === tableId);
-          if(tableIndex < 0) return;
-          const table = tables[tableIndex];
-          if(table.status === 'inactive'){
-            UI.pushToast(ctx, { title:t.toast.table_inactive_assign, icon:'🚫' });
-            return;
-          }
-          const order = state.data.order || {};
-          if(table.locked && table.lockedBy && table.lockedBy !== order.id){
-            UI.pushToast(ctx, { title:t.toast.table_locked_other, icon:'🔒' });
-            return;
-          }
-          const currentTableId = order.tableId;
-          ctx.setState(s=>{
-            const data = s.data || {};
-            const orderState = data.order || {};
-            const orderId = orderState.id;
-            const updatedTables = (data.tables || []).map(tbl=>{
-              if(tbl.id === tableId){
-                const sessions = new Set(tbl.sessions || []);
-                sessions.add(orderId);
-                const nextSessions = Array.from(sessions);
-                let lockedBy = tbl.lockedBy;
-                if(tbl.locked && !lockedBy) lockedBy = orderId;
-                const nextStatus = 'occupied';
-                return { ...tbl, sessions: nextSessions, lockedBy, status: nextStatus };
-              }
-              if(tbl.id === currentTableId){
-                const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
-                const wasLockedByOrder = tbl.lockedBy === orderId;
-                const resetStatus = !nextSessions.length && tbl.status === 'occupied' ? 'available' : (nextSessions.length ? tbl.status : tbl.status === 'inactive' ? 'inactive' : tbl.status);
-                return {
-                  ...tbl,
-                  sessions: nextSessions,
-                  locked: wasLockedByOrder ? false : tbl.locked,
-                  lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
-                  status: nextSessions.length ? tbl.status : resetStatus
-                };
-              }
-              const cleanedSessions = (tbl.sessions || []).filter(id=> id !== orderId);
-              if(cleanedSessions.length !== (tbl.sessions || []).length){
-                const resetStatus = !cleanedSessions.length && tbl.status === 'occupied' ? 'available' : tbl.status;
-                return { ...tbl, sessions: cleanedSessions, status: resetStatus };
-              }
-              return tbl;
-            });
-            const selectedTable = updatedTables.find(tbl=> tbl.id === tableId) || null;
-            const nextOrder = {
-              ...orderState,
-              tableId: selectedTable ? selectedTable.id : null,
-              table: selectedTable ? { id:selectedTable.id, name:selectedTable.name, status:selectedTable.status } : null
-            };
-            nextOrder.totals = calculateTotals(nextOrder.lines || [], data.settings || {}, nextOrder.type || 'dine_in');
-            return {
-              ...s,
-              data:{
-                ...data,
-                tables: updatedTables,
-                order: nextOrder
-              },
-              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), tables:false } }
-            };
-          });
-          ctx.rebuild();
-          UI.pushToast(ctx, { title:t.toast.table_assigned, icon:'🪑' });
         }
       },
       'pos.tables.view':{
@@ -1508,51 +2368,155 @@
           const view = btn.getAttribute('data-tables-view') || 'assign';
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), tablesView:view }
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), view } }
           }));
           ctx.rebuild();
         }
       },
-      'pos.tables.lock-toggle':{
+      'pos.tables.filter':{
         on:['click'],
-        gkeys:['pos:tables:lock-toggle'],
+        gkeys:['pos:tables:filter'],
         handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tables-filter]');
+          if(!btn) return;
+          const filter = btn.getAttribute('data-tables-filter') || 'all';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), filter } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.search':{
+        on:['input','change'],
+        gkeys:['pos:tables:search'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), search:value } }
+          }));
+        }
+      },
+      'pos.tables.details':{
+        on:['click'],
+        gkeys:['pos:tables:details'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:tableId } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.details-close':{
+        on:['click'],
+        gkeys:['pos:tables:details-close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:null } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.card.tap':{
+        on:['click'],
+        gkeys:['pos:tables:card:tap'],
+        handler:(e,ctx)=>{
+          if(e.target.closest('[data-prevent-select="true"]')) return;
           const btn = e.target.closest('[data-table-id]');
           if(!btn) return;
           const tableId = btn.getAttribute('data-table-id');
           const state = ctx.getState();
           const t = getTexts(state);
-          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
-          if(!table) return;
-          const shouldLock = !table.locked;
-          if(!shouldLock){
-            if(!window.confirm(t.ui.table_confirm_unlock)) return;
+          const runtimeTables = computeTableRuntime(state);
+          const runtime = runtimeTables.find(tbl=> tbl.id === tableId);
+          if(!runtime) return;
+          if(runtime.state === 'maintenance'){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.table_status_maintenance, icon:'🛠️' });
+            return;
           }
-          const lockWithOrder = shouldLock && Boolean(state.data.order?.id);
-          ctx.setState(s=>{
-            const data = s.data || {};
-            const order = data.order || {};
-            const updatedTables = (data.tables || []).map(tbl=>{
-              if(tbl.id !== tableId) return tbl;
-              if(shouldLock){
-                const sessions = new Set(tbl.sessions || []);
-                if(order.id) sessions.add(order.id);
-                return {
-                  ...tbl,
-                  locked:true,
-                  lockedBy: order.id || tbl.lockedBy || null,
-                  sessions: Array.from(sessions)
-                };
-              }
-              return { ...tbl, locked:false, lockedBy:null };
-            });
-            return {
+          if(runtime.state === 'disactive'){
+            UI.pushToast(ctx, { title:t.toast.table_inactive_assign, icon:'🚫' });
+            return;
+          }
+          const order = state.data.order || {};
+          if(order.type !== 'dine_in'){
+            UI.pushToast(ctx, { title:t.toast.table_assigned, message:t.ui.service_type, icon:'ℹ️' });
+            return;
+          }
+          const currentTables = new Set(order.tableIds || []);
+          const isAssigned = currentTables.has(tableId);
+          if(isAssigned){
+            if(!window.confirm(t.ui.table_confirm_release)) return;
+            ctx.setState(s=>({
               ...s,
-              data:{ ...data, tables: updatedTables }
-            };
-          });
+              data:{
+                ...s.data,
+                tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock),
+                order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() }
+              }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
+            return;
+          }
+          if(runtime.lockState !== 'free' && !runtime.isCurrentOrder){
+            if(!window.confirm(t.toast.table_locked_other)) return;
+          }
+          if(currentTables.size && !window.confirm(t.ui.table_multi_orders)) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:[...(s.data.tableLocks || []), { id:`lock-${Date.now().toString(36)}`, tableId, orderId: order.id, lockedBy: s.data.user?.id || 'pos-user', lockedAt: Date.now(), source:'pos', active:true }],
+              order:{ ...(s.data.order || {}), tableIds:Array.from(new Set([...(s.data.order?.tableIds || []), tableId])), updatedAt: Date.now() }
+            }
+          }));
           ctx.rebuild();
-          UI.pushToast(ctx, { title: shouldLock && lockWithOrder ? t.toast.table_locked_now : shouldLock ? t.toast.table_updated : t.toast.table_unlocked, icon: shouldLock ? '🔒' : '🔓' });
+          UI.pushToast(ctx, { title:t.toast.table_locked_now, icon:'🔒' });
+        }
+      },
+      'pos.tables.unlock-order':{
+        on:['click'],
+        gkeys:['pos:tables:unlock-order'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const orderId = btn.getAttribute('data-order-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === orderId ? { ...lock, active:false } : lock)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_unlock_partial, icon:'🔓' });
+        }
+      },
+      'pos.tables.unlock-all':{
+        on:['click'],
+        gkeys:['pos:tables:unlock-all'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId ? { ...lock, active:false } : lock)
+            }
+          }));
+          ctx.rebuild();
         }
       },
       'pos.tables.add':{
@@ -1561,30 +2525,18 @@
         handler:(e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
-          const suggestedName = `${t.ui.tables} ${(state.data.tables || []).length + 1}`;
-          const nameInput = window.prompt(t.ui.table_add, suggestedName);
-          if(nameInput == null) return;
-          const name = nameInput.trim();
+          const nextIndex = (state.data.tables || []).length + 1;
+          const defaultName = `${t.ui.tables} ${nextIndex}`;
+          const name = window.prompt(t.ui.table_add, defaultName);
           if(!name){
             UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
             return;
           }
-          const seatsInput = window.prompt(t.ui.guests, '4');
-          if(seatsInput == null) return;
-          const seats = parseInt(seatsInput, 10);
-          if(!Number.isFinite(seats) || seats <= 0){
-            UI.pushToast(ctx, { title:t.toast.table_invalid_seats, icon:'⚠️' });
-            return;
-          }
-          const id = `T${Date.now().toString(36).toUpperCase()}`;
           ctx.setState(s=>({
             ...s,
             data:{
               ...s.data,
-              tables:[
-                ...(s.data.tables || []),
-                { id, name, seats, status:'available', locked:false, lockedBy:null, sessions:[], notes:'' }
-              ]
+              tables:[...(s.data.tables || []), { id:`T${Date.now().toString(36)}`, name, capacity:4, zone:'', state:'active', displayOrder: nextIndex, note:'' }]
             }
           }));
           ctx.rebuild();
@@ -1602,9 +2554,7 @@
           const t = getTexts(state);
           const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
           if(!table) return;
-          const nextNameInput = window.prompt(t.ui.table_rename, table.name || table.id);
-          if(nextNameInput == null) return;
-          const nextName = nextNameInput.trim();
+          const nextName = window.prompt(t.ui.table_rename, table.name || table.id);
           if(!nextName){
             UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
             return;
@@ -1613,16 +2563,17 @@
             ...s,
             data:{
               ...s.data,
-              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, name: nextName } : tbl)
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, name: nextName } : tbl),
+              auditTrail:[...(s.data.auditTrail || []), { id:`audit-${Date.now().toString(36)}`, userId:s.data.user?.id || 'pos-user', action:'table.rename', refType:'table', refId:tableId, at:Date.now(), meta:{ name:nextName } }]
             }
           }));
           ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_updated, icon:'✏️' });
         }
       },
-      'pos.tables.seats':{
+      'pos.tables.capacity':{
         on:['click'],
-        gkeys:['pos:tables:seats'],
+        gkeys:['pos:tables:capacity'],
         handler:(e,ctx)=>{
           const btn = e.target.closest('[data-table-id]');
           if(!btn) return;
@@ -1631,10 +2582,10 @@
           const t = getTexts(state);
           const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
           if(!table) return;
-          const seatsInput = window.prompt(t.ui.guests, String(table.seats || 4));
-          if(seatsInput == null) return;
-          const seats = parseInt(seatsInput, 10);
-          if(!Number.isFinite(seats) || seats <= 0){
+          const input = window.prompt(t.ui.tables_capacity, String(table.capacity || 4));
+          if(input == null) return;
+          const capacity = parseInt(input, 10);
+          if(!Number.isFinite(capacity) || capacity <= 0){
             UI.pushToast(ctx, { title:t.toast.table_invalid_seats, icon:'⚠️' });
             return;
           }
@@ -1642,40 +2593,63 @@
             ...s,
             data:{
               ...s.data,
-              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, seats } : tbl)
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, capacity } : tbl)
             }
           }));
           ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_updated, icon:'👥' });
         }
       },
-      'pos.tables.status':{
+      'pos.tables.zone':{
         on:['click'],
-        gkeys:['pos:tables:status'],
+        gkeys:['pos:tables:zone'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const zone = window.prompt('Zone', table.zone || '');
+          if(zone == null) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, zone } : tbl)
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.state':{
+        on:['click'],
+        gkeys:['pos:tables:state'],
         handler:(e,ctx)=>{
           const btn = e.target.closest('[data-table-id]');
           if(!btn) return;
           const tableId = btn.getAttribute('data-table-id');
           const state = ctx.getState();
           const t = getTexts(state);
-          const statuses = ['available','reserved','occupied','maintenance','inactive'];
+          const orderLocks = (state.data.tableLocks || []).filter(lock=> lock.tableId === tableId && lock.active);
           ctx.setState(s=>({
             ...s,
             data:{
               ...s.data,
               tables:(s.data.tables || []).map(tbl=>{
                 if(tbl.id !== tableId) return tbl;
-                const currentIndex = statuses.indexOf(tbl.status);
-                const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-                const nextSessions = nextStatus === 'inactive' ? [] : (tbl.sessions || []);
-                const nextLocked = nextStatus === 'inactive' ? false : tbl.locked;
-                const nextLockedBy = nextStatus === 'inactive' ? null : tbl.lockedBy;
-                return { ...tbl, status: nextStatus, sessions: nextSessions, locked: nextLocked, lockedBy: nextLockedBy };
+                const cycle = ['active','maintenance','disactive'];
+                const currentIndex = cycle.indexOf(tbl.state || 'active');
+                const nextState = cycle[(currentIndex + 1) % cycle.length];
+                if(nextState !== 'active' && orderLocks.length){
+                  return tbl;
+                }
+                return { ...tbl, state: nextState };
               })
             }
           }));
           ctx.rebuild();
-          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'♻️' });
+          UI.pushToast(ctx, { title:t.toast.table_state_updated, icon:'♻️' });
         }
       },
       'pos.tables.remove':{
@@ -1687,9 +2661,8 @@
           const tableId = btn.getAttribute('data-table-id');
           const state = ctx.getState();
           const t = getTexts(state);
-          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
-          if(!table) return;
-          if((table.sessions || []).length){
+          const locks = (state.data.tableLocks || []).filter(lock=> lock.tableId === tableId && lock.active);
+          if(locks.length){
             UI.pushToast(ctx, { title:t.toast.table_has_sessions, icon:'⚠️' });
             return;
           }
@@ -1705,12 +2678,22 @@
           UI.pushToast(ctx, { title:t.toast.table_removed, icon:'🗑️' });
         }
       },
-      'pos.tables.merge':{
+      'pos.tables.bulk':{
         on:['click'],
-        gkeys:['pos:tables:merge'],
+        gkeys:['pos:tables:bulk'],
         handler:(e,ctx)=>{
-          const t = getTexts(ctx.getState());
-          UI.pushToast(ctx, { title:t.toast.merge_stub, icon:'🔗' });
+          const btn = e.target.closest('[data-bulk-action]');
+          if(!btn) return;
+          const action = btn.getAttribute('data-bulk-action');
+          ctx.setState(s=>{
+            const tables = (s.data.tables || []).map(tbl=>{
+              if(action === 'activate') return { ...tbl, state:'active' };
+              if(action === 'maintenance') return { ...tbl, state:'maintenance' };
+              return tbl;
+            });
+            return { ...s, data:{ ...(s.data || {}), tables } };
+          });
+          ctx.rebuild();
         }
       },
       'pos.payments.open':{
