@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <title>مشكاة — تبويبات + لعبة الأمثال</title>
+
+  <!-- نفس أسلوب test-ui.html -->
+  <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+
+  <script src="./mishkah-ui.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+  (function(){
+    const M = Mishkah, U = M.utils, UI = M.UI, D = M.DSL;
+    const { tw } = U.twcss;
+    const { makeLangLookup } = U.lang;
+
+    /* ===================== i18n ===================== */
+    const dict = {
+      'app.title'   : { ar:'مشكاة — تبويبات + لعبة الأمثال', en:'Mishkah — Tabs + Proverbs Game' },
+      'nav.about'   : { ar:'عن مشكاة (Markdown)', en:'About Mishkah (Markdown)' },
+      'nav.counter' : { ar:'العداد', en:'Counter' },
+      'nav.game'    : { ar:'لعبة الأمثال', en:'Proverbs Game' },
+      'counter.title':{ ar:'عداد بسيط', en:'Simple Counter' },
+      'counter.reset':{ ar:'إعادة', en:'Reset' },
+      'game.title'  : { ar:'لعبة الأمثال و الحكم', en:'Proverbs & Wisdom Game' },
+      'game.music'  : { ar:'موسيقى', en:'Music' },
+      'game.timer'  : { ar:'تايمر', en:'Timer' },
+      'game.seconds': { ar:'ث', en:'s' },
+      'game.start'  : { ar:'ابدأ اللعبة', en:'Start Game' },
+      'game.new'    : { ar:'مثل جديد', en:'New Proverb' },
+      'game.tries'  : { ar:'عدد المحاولات', en:'Tries Left' },
+      'game.hint'   : { ar:'التلميح', en:'Hint' },
+      'game.win'    : { ar:'ربحت! 🎉', en:'You won! 🎉' },
+      'game.lose'   : { ar:'للأسف خسرت 🙈', en:'You lost 🙈' }
+    };
+
+    /* ===================== Markdown (AR/EN) ===================== */
+    const md_ar = [
+      '# بسم الله الرحمن الرحيم: فلسفة ومعمارية مشكاة',
+      'مشكاة إطار عمل بواجهة DSL لكتابة الواجهات بشكل منظم ونظيف.',
+      '- الجسد (VDOM+DSL)، - الإيمان (database)، - العمل (orders).',
+      'يوفر i18n، وإدارة head، وطبقة UI مبسطة، مع twcss tokens.'
+    ].join('\n\n');
+
+    const md_en = [
+      '# Mishkah: Philosophy & Architecture',
+      'A DSL-first UI framework: clean, structured, minimal.',
+      '- Body (VDOM+DSL), - Faith/State (database), - Deeds (orders).',
+      'Includes i18n, head manager, and UI tokens over twcss.'
+    ].join('\n\n');
+
+    /* ===================== Game Data ===================== */
+    const PROVERBS = [
+      { t:"رجع بخفي حنين", h:"مثل عربي يدل خيبة الأمل" },
+      { t:"الي اختشوا ماتوا", h:"مثل مصري عن تبدل الأخلاق" },
+      { t:"اقلب القدرة على فمها تطلع البنت لامها", h:"البنت تُشبه أمها" },
+      { t:"ابنك على ما تربيه و جوزك على ما تعوديه", h:"السلوك يؤثر على تعامل الابن والزوج" },
+      { t:"ما حك جلدك مثل ظفرك", h:"اعتماد المرء على نفسه أفضل" },
+      { t:"خير الكلام ما قل ودل", h:"الإيجاز أفضل" },
+      { t:"الخبر الي انهرده بفلوس بكرة يبقى ببلاش", h:"الأخبار ستتفشى قريبًا" },
+      { t:"من طلب العلا سهر الليالي", h:"الاجتهاد طريق النجاح" },
+      { t:"الي بيشيل قربة مخرومة بتخر على راسه", h:"إهمالك يضرك أولًا" },
+      { t:"ادي العيش لخبازه ولو كل نصه", h:"أعطِ الصنعة لأهلها" },
+      { t:"لا تؤجل عمل اليوم إلى الغد", h:"خطر التسويف" },
+      { t:"الوقت كالسيف ان لم تقطعه قطعك", h:"أهمية الوقت" }
+    ];
+	
+    const AR_ALPHA = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
+    const norm = (ch)=> String(ch).replace(/[أإآ]/g,'ا');
+
+    /* ===================== Database ===================== */
+    const database = {
+      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      i18n:{ lang:'ar', fallback:'en', dict },
+      data:{
+        activeTab: 'about',
+        md:{ ar: md_ar, en: md_en },
+        counter: 0,
+        game:{
+          musicOn: true,
+          timerOn: true,
+          timerSec: 35,
+          timeLeft: 0,
+          triesMax: 5,
+          triesLeft: 5,
+          audioList: [
+            { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' },
+            { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' },
+            { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' }
+          ],
+          audioIdx: 0,
+          proverb: null,
+          guessed: {},
+          intervalId: null,
+          status: 'idle' // idle | running | won | lost
+        }
+      },
+      ui:{ modalOpen:false, drawerOpen:false, toasts:[] }
+    };
+
+    /* ===================== Components ===================== */
+    function HeaderBar(db){
+      const { TL } = makeLangLookup(db);
+      return UI.Toolbar({
+        left:[ D.Text.Span({ attrs:{ class: tw`text-lg font-bold` }}, [TL('app.title')]) ],
+        right:[
+          UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
+          UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
+          UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
+        ]
+      });
+    }
+
+    function Sidebar(db){
+      const { TL } = makeLangLookup(db);
+      const route = db.data.activeTab;
+      const NavBtn = (id,label,icon)=>{
+        const active = route===id;
+        return UI.Button({
+          attrs:{ gkey:`route:${id}`, class:tw`${active?'bg-[var(--accent)]':''} w-full justify-start text-start` },
+          variant:'ghost', size:'sm'
+        }, [`${icon} `, TL(label)]);
+      };
+      return D.Containers.Nav({ attrs:{ class: tw`p-3 space-y-2` }}, [
+        NavBtn('about','nav.about','📖'),
+        NavBtn('counter','nav.counter','🔢'),
+        NavBtn('game','nav.game','🎮')
+      ]);
+    }
+
+    function AboutPanel(db){
+      const lang = db.env.lang || 'ar';
+      const content = lang==='ar' ? db.data.md.ar : db.data.md.en;
+      return UI.Card({
+        title: makeLangLookup(db).TL('nav.about'),
+        content: U.UDM({ content, className: tw`prose prose-invert max-w-none` })
+      });
+    }
+
+    function CounterPanel(db){
+      const { TL } = makeLangLookup(db);
+      return UI.Card({
+        title: TL('counter.title'),
+        content: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-center gap-3` }}, [
+          UI.Button({ attrs:{ gkey:'counter:dec' }, variant:'soft', size:'sm' }, ['−']),
+          D.Text.Span({ attrs:{ class: tw`text-2xl font-bold` }}, [String(db.data.counter)]),
+          UI.Button({ attrs:{ gkey:'counter:inc' }, variant:'soft', size:'sm' }, ['+']),
+          UI.Button({ attrs:{ gkey:'counter:reset', class:tw`ms-4` }, variant:'ghost', size:'sm' }, [TL('counter.reset')]),
+        ])
+      });
+    }
+
+    function GamePanel(db){
+      const { TL } = makeLangLookup(db);
+      const g = db.data.game;
+
+      const top = UI.Card({
+        content: D.Containers.Div({ attrs:{ class: tw`grid md:grid-cols-3 gap-3` }}, [
+          UI.Card({ variant:'card/soft-1', content:
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 p-3` }}, [
+              UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
+              D.Text.Span({}, [TL('game.music')]),
+              UI.Select({ attrs:{ gkey:'game:music:select' },
+                options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
+            ])
+          }),
+          UI.Card({ variant:'card/soft-1', content:
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 p-3` }}, [
+              UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
+              D.Text.Span({}, [TL('game.timer')]),
+              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:70px', gkey:'game:timer:value' } }),
+              D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+            ])
+          }),
+          UI.Card({ variant:'card/soft-1', content:
+            D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between p-3` }}, [
+              UI.Button({ attrs:{ gkey:'game:start' }, variant:'destructive', size:'md' },
+                [g.status==='running' ? TL('game.new') : TL('game.start')]),
+              D.Text.Span({ attrs:{ class: tw`text-xl font-bold text-[var(--primary)]` }}, [
+                g.timerOn ? String(g.timeLeft||g.timerSec)+' '+TL('game.seconds') : '—'
+              ])
+            ])
+          }),
+        ])
+      });
+
+      const hearts = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }},
+        Array.from({length:g.triesMax}, (_,i)=>{
+          const full = i < g.triesLeft;
+          return D.Text.Span(
+		  {      attrs:{ key:'heart-'+i, class: tw`text-4xl ${full?'':'opacity-40'} drop-shadow` } // ← الحجم 4xl + ظل لطيف
+}
+		  
+, [full?'❤️':'💔']);
+        })
+      );
+
+      const pv = g.proverb?.t || '';
+      const boxes = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-1 mt-2` }}, pv.split('').map((raw,idx)=>{
+        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-5` }});
+        const show = g.guessed[norm(raw)];
+        return D.Containers.Div({ attrs:{ key:'bx'+idx, class: tw`w-10 h-12 grid place-items-center rounded border border-[var(--border)] bg-[var(--surface-2)] text-xl font-bold` }}, [ show ? raw : '' ]);
+      }));
+
+      const letters = D.Containers.Div({ attrs:{ class: tw`grid grid-cols-8 md:grid-cols-12 gap-1` }}, AR_ALPHA.map((L,i)=>
+        UI.Button({ attrs:{ key:'L'+i, gkey:'game:guess', 'data-ch':L, disabled: g.status!=='running' || !!g.guessed[L] }, variant:'soft', size:'sm' }, [L])
+      ));
+
+      const result =
+        g.status==='won'  ? TL('game.win')  :
+        g.status==='lost' ? TL('game.lose') : '';
+
+      const audioNode = g.musicOn
+        ? D.Media.Audio({ attrs:{ controls:true, src: g.audioList[g.audioIdx].url, class: tw`w-full` } })
+        : null;
+
+      return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+        top,
+        UI.Card({ content:
+          D.Containers.Div({ attrs:{ class: tw`grid md:grid-cols-[1fr,160px] gap-3` }}, [
+            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [ hearts, boxes, UI.Divider(), letters ]),
+            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+              result ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg` }}, [result]) }) : null,
+              g.proverb ? UI.Card({ variant:'card/soft-2', content:
+                D.Containers.Div({ attrs:{ class: tw`p-2` }}, [
+                  D.Text.Strong({}, [makeLangLookup(db).TL('game.hint'), ': ']),
+                  D.Text.Span({}, [g.proverb.h])
+                ])
+              }) : null,
+              audioNode
+            ].filter(Boolean))
+          ])
+        })
+      ]);
+    }
+
+    function MainContent(db){
+      const tab = db.data.activeTab;
+      if (tab==='about')   return AboutPanel(db);
+      if (tab==='counter') return CounterPanel(db);
+      if (tab==='game')    return GamePanel(db);
+      return AboutPanel(db);
+    }
+
+    /* ===================== Body ===================== */
+    Mishkah.app.setBody(function(db,h){
+      db.head = { title: makeLangLookup(db).TL('app.title') }; // يطبقه ctx.rebuild تلقائياً
+      return UI.AppRoot({
+        shell: D.Containers.Div({ attrs:{ class: tw`min-h-screen flex flex-col` }}, [
+          HeaderBar(db),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-1` }}, [
+            D.Containers.Aside({ attrs:{ class: tw`w-[240px] border-s` }}, [ Sidebar(db) ]),
+            D.Containers.Main({ attrs:{ class: tw`flex-1 p-4` }}, [ MainContent(db) ])
+          ])
+        ])
+      });
+    });
+
+    /* ===================== App + Auto (CDN/Fonts/Orders) ===================== */
+    const app = Mishkah.app.createApp(database, {});
+    const twx = U.twcss.auto(database, app); // يشغّل التحميل التلقائي + أوامر lang/theme:contentReference[oaicite:2]{index=2}
+
+    /* ===================== Orders (تصحيح: ctx.getState/ctx.setState) ===================== */
+    const orders = {
+      // Routing
+      'route:about'  :{ on:['click'], gkeys:['route:about'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'about'  }}); ctx.rebuild(); }},
+      'route:counter':{ on:['click'], gkeys:['route:counter'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
+      'route:game'   :{ on:['click'], gkeys:['route:game'],    handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
+
+      // Counter
+      'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
+      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-1 }}); ctx.rebuild(); }},
+      'counter:reset':{ on:['click'], gkeys:['counter:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:0 }}); ctx.rebuild(); }},
+
+      // Game toggles
+      'game:music:toggle':{ on:['change'], gkeys:['game:music:toggle'], handler:(e,ctx)=>{
+        const s=ctx.getState(); const g=s.data.game; ctx.setState({...s, data:{...s.data, game:{...g, musicOn: !!e.target.checked }}}); ctx.rebuild();
+      }},
+      'game:music:select':{ on:['change'], gkeys:['game:music:select'], handler:(e,ctx)=>{
+        const s=ctx.getState(); const g=s.data.game; const idx=Math.max(0,parseInt(e.target.value,10)||0);
+        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx }}}); ctx.rebuild();
+      }},
+      'game:timer:toggle':{ on:['change'], gkeys:['game:timer:toggle'], handler:(e,ctx)=>{
+        const s=ctx.getState(); const g=s.data.game; const on=!!e.target.checked; if(!on && g.intervalId) clearInterval(g.intervalId);
+        ctx.setState({...s, data:{...s.data, game:{...g, timerOn: on }}}); ctx.rebuild();
+      }},
+      'game:timer:value':{ on:['input','change'], gkeys:['game:timer:value'], handler:(e,ctx)=>{
+        const s=ctx.getState(); const g=s.data.game; const v=Math.max(5, parseInt(e.target.value,10)||g.timerSec);
+        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v }}}); ctx.rebuild();
+      }},
+
+      // Start / New game
+      'game:start':{ on:['click'], gkeys:['game:start'], handler:(e,ctx)=>{
+        const s0=ctx.getState(); const g0=s0.data.game; if (g0.intervalId) try{ clearInterval(g0.intervalId) }catch(_){}
+        const pv = PROVERBS[Math.floor(Math.random()*PROVERBS.length)];
+        const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft:g0.timerSec, intervalId:null };
+        ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild();
+
+        if (g1.timerOn) {
+          const iid = setInterval(()=>{
+            const s=ctx.getState(); const g=s.data.game; if (g.status!=='running') { clearInterval(iid); return; }
+            let timeLeft = (g.timeLeft||g.timerSec) - 1;
+            let triesLeft = g.triesLeft; let status = g.status;
+            if (timeLeft<=0) { timeLeft=g.timerSec; triesLeft=Math.max(0, triesLeft-1); if (triesLeft===0){ status='lost'; clearInterval(iid); } }
+            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status } }}); ctx.rebuild();
+          }, 1000);
+          const s1=ctx.getState(); const g2=s1.data.game;
+          ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.rebuild();
+        }
+      }},
+
+      // Guess
+      'game:guess':{ on:['click'], gkeys:['game:guess'], handler:(e,ctx)=>{
+        const btn = e.target.closest && e.target.closest('[data-ch]'); if (!btn) return;
+        const L = btn.getAttribute('data-ch'); if (!L) return;
+        const s=ctx.getState(); const g=s.data.game; if (g.status!=='running' || !g.proverb) return;
+
+        const guessed = { ...g.guessed, [L]: true };
+        const target = g.proverb.t;
+        const has = target.split('').some(raw => norm(raw)===L);
+
+        let triesLeft = g.triesLeft, status = g.status;
+        if (!has) { triesLeft=Math.max(0, triesLeft-1); if (triesLeft===0){ status='lost'; if (g.intervalId) clearInterval(g.intervalId); } }
+        else {
+          const letters = new Set(target.split('').map(norm).filter(x=>x.trim()!=='' && x!==' '));
+          const all = Array.from(letters).every(k => guessed[k]); if (all){ status='won'; if (g.intervalId) clearInterval(g.intervalId); }
+        }
+
+        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, guessed, triesLeft, status,
+          timeLeft: g.timerOn ? g.timeLeft : 0
+        }}}); ctx.rebuild();
+      }}
+    };
+
+    // دمج الأوامر: أوامرنا + أوامر UI + أوامر الـauto (lang/theme)
+    app.setOrders({ ...orders, ...UI.orders, ...twx.orders }); /* test-ui style */  // :contentReference[oaicite:3]{index=3}
+
+    // Mount
+    app.mount('#app');
+  })();
+  </script>
+</body>
+</html>
