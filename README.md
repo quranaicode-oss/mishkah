@@ -2,11 +2,12 @@
 
 # Mishkah.js — إطار عمل النور والنظام
 
-*بنية برمجية (Software Architecture) ذات 7 أركان مستوحاة من سنن الكون*
+*بنية برمجية (Software Architecture) ذات 7 أركان مستوحاة من أفضل الممارسات البرمجية*
 
 | Build Status | Version | License |
 | :---: | :---: | :---: |
-|  |  |  |
+| [![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USER/REPO/actions/workflows/ci.yml) | [![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/USER/REPO/releases/tag/v1.0.0) | [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) |
+
 
 -----
 
@@ -77,6 +78,17 @@ h.Containers.Div(
 ### 7\. أدوات المطور (`Devtools`): يوم الحساب للمكونات
 
 نظام متطور للبصيرة والمحاسبة. يجمع بيانات الرقيب (`Auditor`) بمرور الوقت ويصدر "حكمًا" على المكونات، مصنفًا إياها إلى "جنة" (عالية الجودة) أو "نار" (تحتاج لإعادة صياغة)، مما يقدم بصيرة واضحة عن جودة عمل المطورين.
+-----
+
+### الترخيص والمساهمة
+
+**رخصة المشروع (License)**
+"مشكاة" مفتوحة المصدر بالكامل تحت رخصة **MIT**. هذا يعني أنه يمكنك استخدامها، تعديلها، وتوزيعها بحرية تامة، سواء في مشاريع شخصية أو تجارية، بشرط واحد وهو الإبقاء على ذكر المصدر الأصلي وحقوق النشر.
+
+**دعوة للمساهمة**
+إن "مشكاة" ليست مجرد كود، بل هي فكرة. وإن كنت قد اقتنعت بهذه الفكرة، فإن مساهمتك ليست مجرد خيار، بل هي جزء من إتمام هذا النور. فالأفكار العظيمة لا تكتمل بجهد فردي، بل بعمل جماعي لتصير كوكبًا دريًا يضيء للجميع.
+
+نرحب بكل مساهمة، سواء كانت بالكود، أو بالتوثيق، أو حتى بنشر الفكرة لمن حولك.
 
 -----
 
@@ -88,7 +100,8 @@ h.Containers.Div(
 
 | Build Status | Version | License |
 | :---: | :---: | :---: |
-|  |  |  |
+| [![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USER/REPO/actions/workflows/ci.yml) | [![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/USER/REPO/releases/tag/v1.0.0) | [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) |
+
 
 -----
 
@@ -153,4 +166,18 @@ This system monitors the quality of your code in runtime. It logs performance me
 
 ### 7\. The Devtools: The Judgment Engine
 
+
 An advanced system for insight and accountability. It aggregates data from the Auditor over time and renders a "judgment" on components, classifying them as "Heaven" (high-quality, reusable) or "Hell" (needs refactoring). This provides clear, actionable insights into code quality and developer performance.
+
+
+-----
+
+### License & Contribution
+
+**License**
+Mishkah is fully open-source under the **MIT License**. This means you are free to use, modify, and distribute it for any purpose, personal or commercial, with the single condition of including the original copyright notice.
+
+**A Call to Contribute**
+Mishkah is more than just code; it's an idea. If this idea resonates with you, then your contribution is not just an option—it's part of completing this light. Great ideas do not reach their full potential through individual effort, but through collective work, becoming a "brilliant star" that illuminates the way for all.
+
+We welcome all forms of contribution, whether through code, documentation, or simply by spreading the word.
