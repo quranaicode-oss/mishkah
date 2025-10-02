@@ -194,7 +194,7 @@
                   variant:'card/soft-2',
                   content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
                     D.Containers.Div({ attrs:{ class: tw`aspect-square overflow-hidden rounded-[var(--radius)] bg-[var(--surface-2)]` }}, [
-                      item.image ? D.Containers.Img({ attrs:{ src:item.image, alt:item.name, class: tw`w-full h-full object-cover` }}) :
+                      item.image ? D.Media.Img({ attrs:{ src:item.image, alt:item.name, class: tw`w-full h-full object-cover` }}) :
                         D.Containers.Div({ attrs:{ class: tw`w-full h-full grid place-items-center text-3xl` }}, ['🍽️'])
                     ]),
                     D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
@@ -360,7 +360,7 @@
             activeId: db.data.payments.methods[0]?.id
           }),
           UI.Button({ attrs:{ gkey:'pos:payments:capture', class: tw`w-full` }, variant:'solid', size:'md' }, ['تأكيد الدفع'])
-        ])
+        ])https://github.com/quranaicode-oss/mishkah/blob/main/pos.html
       });
     }
 
