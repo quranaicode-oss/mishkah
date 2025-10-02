@@ -14,6 +14,8 @@ def({
   'divider':        'h-px bg-[var(--border)]',
   'ring-base':      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
   'scrollarea':     'overflow-auto [scrollbar-gutter:stable] pr-2',
+  'split':          'flex items-center justify-between gap-2',
+  'muted':          'text-[var(--muted-foreground)]',
 
   // buttons
   'btn':            'inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius)] text-sm font-medium transition-colors ring-base disabled:opacity-50 disabled:pointer-events-none',
@@ -27,6 +29,13 @@ def({
   'btn/destructive':'bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:bg-[color-mix(in oklab,var(--destructive) 88%, black)]',
   'btn/icon': 'w-10 h-10 p-0 aspect-square',
   'btn/with-icon': 'gap-2',
+
+  // badges & chips
+  'badge':          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)]',
+  'badge/ghost':    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-transparent text-[var(--muted-foreground)] border border-[var(--border)]',
+  'chip':           'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm transition-colors cursor-pointer bg-[var(--surface-1)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
+  'chip/active':    'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow)]',
+  'pill':           'inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs text-[var(--muted-foreground)]',
 
   // card / panels
   'card':           'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
@@ -59,6 +68,28 @@ def({
   // drawer
   'drawer/side':    'fixed inset-y-0 w-[280px] border-s bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
   'drawer/body':    'p-4 h-full flex flex-col gap-2',
+
+  // list
+  'list':           'flex flex-col gap-2',
+  'list/item':      'flex items-start gap-3 rounded-[var(--radius)] border border-transparent bg-[var(--surface-1)] px-3 py-2 transition hover:border-[var(--border)]',
+  'list/item-leading': 'flex items-center justify-center rounded-[var(--radius)] bg-[var(--surface-2)] text-xl w-10 h-10',
+  'list/item-content': 'flex flex-col gap-1 text-sm',
+  'list/item-trailing': 'ms-auto flex items-center gap-2 text-sm',
+
+  // empty state
+  'empty':          'flex flex-col items-center justify-center gap-2 text-center py-12 text-[var(--muted-foreground)]',
+
+  // support
+  'badge/status':   'inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full',
+  'status/online':  'bg-emerald-500/15 text-emerald-500',
+  'status/offline': 'bg-rose-500/15 text-rose-400',
+  'status/idle':    'bg-amber-500/15 text-amber-500',
+  'stat/card':      'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-4 flex flex-col gap-3',
+  'stat/value':     'text-2xl font-semibold text-[var(--primary)]',
+  'scroll-panel':   'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] flex flex-col overflow-hidden',
+  'scroll-panel/head': 'px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-2',
+  'scroll-panel/body': 'flex-1 min-h-0',
+  'scroll-panel/footer': 'px-4 py-3 border-t border-[var(--border)]',
 
   // toast
   'toast/host':     'fixed z-50 bottom-3 inset-x-0 px-3',
@@ -122,6 +153,108 @@ UI.Field = ({ id, label, control, helper }) =>
     control,
     helper && h.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [helper])
   ]);
+
+UI.Badge = ({ attrs={}, variant='badge', leading, trailing, text })=>{
+  const parts = [];
+  if (leading) parts.push(h.Text.Span({}, [leading]));
+  if (text) parts.push(typeof text==='string'? text: text);
+  if (trailing) parts.push(h.Text.Span({}, [trailing]));
+  return h.Text.Span({ attrs: withClass(attrs, token(variant)||token('badge')) }, parts);
+};
+
+UI.Chip = ({ label, active=false, attrs={} })=>{
+  const cls = cx(token('chip'), active? token('chip/active'): '');
+  return h.Forms.Button({ attrs: withClass({ type:'button', ...(attrs||{}) }, cls) }, [label]);
+};
+
+UI.ChipGroup = ({ items=[], activeId, attrs={} })=>
+  h.Containers.Div({ attrs: withClass(attrs, tw`flex flex-wrap gap-2`) },
+    items.map((it)=> UI.Chip({
+      label: it.label,
+      active: it.id===activeId,
+      attrs:{ ...(it.attrs||{}), gkey: it.gkey, 'data-chip-id':it.id }
+    }))
+  );
+
+UI.ScrollArea = ({ attrs={}, children=[] })=>
+  h.Containers.Div({ attrs: withClass(attrs, token('scrollarea')) }, children);
+
+UI.SearchBar = ({ value='', placeholder='', attrs={}, gkeySubmit, onInput, leading='🔍', trailing=[] })=>{
+  const inputAttrs = withClass({
+    type:'search',
+    placeholder,
+    value,
+    gkey:onInput
+  }, tw`bg-transparent border-0 focus:outline-none focus:ring-0 flex-1 text-sm`);
+  const formAttrs = withClass(attrs||{}, tw`flex items-center gap-2 rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 shadow-sm`);
+  if(gkeySubmit) formAttrs.gkey = gkeySubmit;
+  return h.Forms.Form({ attrs: formAttrs }, [
+    leading && h.Text.Span({ attrs:{ class: tw`text-lg opacity-60` }}, [leading]),
+    h.Inputs.Input({ attrs: inputAttrs }),
+    ...(trailing||[])
+  ]);
+};
+
+UI.EmptyState = ({ icon='✨', title, description, actions=[] })=>
+  h.Containers.Div({ attrs:{ class: tw`${token('empty')}` }}, [
+    icon && h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]),
+    title && h.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, [title]),
+    description && h.Text.P({ attrs:{ class: tw`${token('muted')} max-w-sm` }}, [description]),
+    actions && actions.length ? h.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 justify-center pt-2` }}, actions) : null
+  ].filter(Boolean));
+
+UI.List = ({ attrs={}, children=[] })=>
+  h.Containers.Div({ attrs: withClass(attrs, token('list')) }, children);
+
+UI.ListItem = ({ leading, content, trailing, attrs={} })=>
+  h.Containers.Div({ attrs: withClass(attrs, token('list/item')) }, [
+    leading && h.Containers.Div({ attrs:{ class: tw`${token('list/item-leading')}` }}, [leading]),
+    h.Containers.Div({ attrs:{ class: tw`${token('list/item-content')}` }}, toChildren(content)),
+    trailing && h.Containers.Div({ attrs:{ class: tw`${token('list/item-trailing')}` }}, toChildren(trailing))
+  ].filter(Boolean));
+
+function toChildren(node){
+  if(node==null) return [];
+  return Array.isArray(node)? node: [node];
+}
+
+UI.QtyStepper = ({ value=1, gkeyDec, gkeyInc, gkeyEdit, size='sm', dataId })=>
+  h.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 bg-[var(--surface-2)] rounded-full px-1 py-1` }}, [
+    UI.Button({ attrs:{ gkey:gkeyDec, 'data-line-id':dataId, class: tw`w-8 h-8` }, size }, ['−']),
+    h.Forms.Button({ attrs:{ type:'button', gkey:gkeyEdit, 'data-line-id':dataId, class: tw`min-w-[48px] text-center text-sm font-semibold` }}, [String(value)]),
+    UI.Button({ attrs:{ gkey:gkeyInc, 'data-line-id':dataId, class: tw`w-8 h-8` }, size }, ['+'])
+  ]);
+
+UI.PriceText = ({ amount=0, currency, locale })=>{
+  let formatted = amount;
+  try {
+    const opts = currency ? { style:'currency', currency } : { style:'decimal', minimumFractionDigits:2, maximumFractionDigits:2 };
+    formatted = new Intl.NumberFormat(locale || document.documentElement.lang || 'ar', opts).format(Number(amount)||0);
+  } catch(_) {
+    formatted = (Number(amount)||0).toFixed(2);
+    if(currency) formatted += ' ' + currency;
+  }
+  return h.Text.Span({ attrs:{ class: tw`font-semibold` }}, [formatted]);
+};
+
+UI.Segmented = ({ items=[], activeId, attrs={} })=>
+  h.Containers.Div({ attrs: withClass(attrs, tw`inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] p-1`) },
+    items.map(it=>{
+      const active = it.id===activeId;
+      return UI.Button({
+        attrs:{ ...(it.attrs||{}), gkey: it.gkey, 'data-segment-id':it.id, class: tw`${active? token('chip/active'): ''}` },
+        variant: active? 'solid': 'ghost', size:'sm'
+      }, [it.label]);
+    })
+  );
+
+UI.StatCard = ({ title, value, meta, footer })=>
+  h.Containers.Div({ attrs:{ class: tw`${token('stat/card')}` }}, [
+    title && h.Text.Span({ attrs:{ class: tw`text-sm ${token('muted')}` }}, [title]),
+    value && h.Text.Span({ attrs:{ class: tw`${token('stat/value')}` }}, [value]),
+    meta && h.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta]),
+    footer && h.Containers.Div({ attrs:{ class: tw`pt-2 border-t border-dashed border-[var(--border)] mt-2 text-xs flex items-center gap-2` }}, footer)
+  ].filter(Boolean));
 
 UI.Tabs = ({ items=[], activeId, gkey='ui:tabs:select' })=>{
   const header = h.Containers.Div({ attrs:{ class: tw`${token('tabs/row')}` }}, items.map(it=>{
@@ -244,8 +377,59 @@ const ORDERS = {
   'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); ctx.rebuild(); } }
 };
 
+const NOOP = ()=>{};
+const POS_ORDERS = {
+  'pos.menu.search':        { on:['input','change'], gkeys:['pos:menu:search'], handler:NOOP },
+  'pos.menu.category':      { on:['click'], gkeys:['pos:menu:category'], handler:NOOP },
+  'pos.menu.add':           { on:['click'], gkeys:['pos:menu:add'], handler:NOOP },
+  'pos.menu.favorite':      { on:['click'], gkeys:['pos:menu:favorite'], handler:NOOP },
+  'pos.menu.load-more':     { on:['click'], gkeys:['pos:menu:load-more'], handler:NOOP },
+
+  'pos.order.line.inc':     { on:['click'], gkeys:['pos:order:line:inc'], handler:NOOP },
+  'pos.order.line.dec':     { on:['click'], gkeys:['pos:order:line:dec'], handler:NOOP },
+  'pos.order.line.qty':     { on:['click'], gkeys:['pos:order:line:qty'], handler:NOOP },
+  'pos.order.line.actions': { on:['click'], gkeys:['pos:order:line:actions'], handler:NOOP },
+  'pos.order.clear':        { on:['click'], gkeys:['pos:order:clear'], handler:NOOP },
+  'pos.order.discount':     { on:['click'], gkeys:['pos:order:discount'], handler:NOOP },
+  'pos.order.note':         { on:['click'], gkeys:['pos:order:note'], handler:NOOP },
+  'pos.order.save':         { on:['click'], gkeys:['pos:order:save'], handler:NOOP },
+  'pos.order.print':        { on:['click'], gkeys:['pos:order:print'], handler:NOOP },
+
+  'pos.tables.open':        { on:['click'], gkeys:['pos:tables:open'], handler:NOOP },
+  'pos.tables.select':      { on:['click'], gkeys:['pos:tables:select'], handler:NOOP },
+  'pos.tables.merge':       { on:['click'], gkeys:['pos:tables:merge'], handler:NOOP },
+  'pos.tables.release':     { on:['click'], gkeys:['pos:tables:release'], handler:NOOP },
+
+  'pos.payments.open':      { on:['click'], gkeys:['pos:payments:open'], handler:NOOP },
+  'pos.payments.method':    { on:['click'], gkeys:['pos:payments:method'], handler:NOOP },
+  'pos.payments.capture':   { on:['click'], gkeys:['pos:payments:capture'], handler:NOOP },
+  'pos.payments.split':     { on:['click'], gkeys:['pos:payments:split'], handler:NOOP },
+  'pos.payments.close':     { on:['click'], gkeys:['pos:payments:close'], handler:NOOP },
+
+  'pos.returns.open':       { on:['click'], gkeys:['pos:returns:open'], handler:NOOP },
+  'pos.returns.add':        { on:['click'], gkeys:['pos:returns:add'], handler:NOOP },
+
+  'pos.reports.toggle':     { on:['click'], gkeys:['pos:reports:toggle'], handler:NOOP },
+  'pos.reports.filter':     { on:['change'], gkeys:['pos:reports:filter'], handler:NOOP },
+  'pos.reports.export':     { on:['click'], gkeys:['pos:reports:export'], handler:NOOP },
+
+  'pos.indexeddb.sync':     { on:['click'], gkeys:['pos:indexeddb:sync'], handler:NOOP },
+  'pos.indexeddb.flush':    { on:['click'], gkeys:['pos:indexeddb:flush'], handler:NOOP },
+
+  'pos.kds.connect':        { on:['click'], gkeys:['pos:kds:connect'], handler:NOOP },
+  'pos.kds.retry':          { on:['click'], gkeys:['pos:kds:retry'], handler:NOOP },
+  'pos.kds.preview':        { on:['click'], gkeys:['pos:kds:preview'], handler:NOOP },
+
+  'pos.shift.start':       { on:['click'], gkeys:['pos:shift:start'], handler:NOOP },
+  'pos.shift.end':         { on:['click'], gkeys:['pos:shift:end'], handler:NOOP },
+  'pos.session.logout':    { on:['click'], gkeys:['pos:session:logout'], handler:NOOP },
+
+  'pos.shortcuts.help':    { on:['click'], gkeys:['pos:shortcuts:help'], handler:NOOP }
+};
+
 M.UI = UI;
-M.UI.orders = ORDERS;
+M.UI.orders = Object.assign({}, ORDERS, POS_ORDERS);
+M.UI.posOrders = POS_ORDERS;
 
 })(window);
 //markdown
