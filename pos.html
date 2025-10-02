@@ -1227,6 +1227,15 @@
       const due = order.totals?.due || 0;
       const subtotal = order.totals?.subtotal || 0;
       const payments = db.data.payments.split || [];
+      const totalPaid = payments.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
+      const changeDue = Math.max(0, round(totalPaid - due));
+      const totalsRows = [
+        { label:t.ui.subtotal, value: subtotal },
+        order.totals?.service ? { label:t.ui.service, value: order.totals.service } : null,
+        { label:t.ui.vat, value: order.totals?.vat || 0 },
+        order.totals?.deliveryFee ? { label:t.ui.delivery_fee, value: order.totals.deliveryFee } : null,
+        order.totals?.discount ? { label:t.ui.discount, value: order.totals.discount } : null
+      ].filter(Boolean);
 
       const docTypes = [
         { id:'customer', label:t.ui.print_doc_customer },
@@ -1240,40 +1249,71 @@
         { id:'a4', label:t.ui.a4 }
       ];
 
-      const previewLines = (order.lines || []).map(line=> UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [
+      const previewLines = (order.lines || []).map(line=> UI.HStack({ attrs:{ class: tw`justify-between text-[13px] leading-6` }}, [
         D.Text.Span({}, [`${localize(line.name, lang)} × ${line.qty}`]),
         UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) })
       ]));
 
       const currentDocLabel = docTypes.find(dt=> dt.id === docType)?.label || t.ui.print_doc_customer;
-      const preview = UI.Card({
-        title: `${t.ui.print_preview} — ${currentDocLabel}`,
-        content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-xs leading-5` }}, [
-          D.Text.Strong({}, ['Mishkah Restaurant']),
-          D.Text.Span({}, [`${t.ui.print_header_address}: 12 Nile Street`]),
-          D.Text.Span({}, [`${t.ui.print_header_phone}: 0100000000`]),
-          UI.Divider(),
+      const paymentsList = payments.length
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-1 text-[13px] pt-2` }}, payments.map(pay=>{
+            const method = (db.data.payments.methods || []).find(m=> m.id === pay.method);
+            const label = method ? `${method.icon} ${localize(method.label, lang)}` : pay.method;
+            return D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+              D.Text.Span({}, [label]),
+              UI.PriceText({ amount: pay.amount, currency:getCurrency(db), locale:getLocale(db) })
+            ]);
+          }))
+        : null;
+
+      const previewReceipt = D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[360px] rounded-2xl border border-dashed border-neutral-300 bg-white text-neutral-900 shadow-[0_24px_60px_rgba(15,23,42,0.16)] px-6 py-6 dark:bg-white dark:text-neutral-900` }}, [
+        D.Containers.Div({ attrs:{ class: tw`space-y-1 text-center` }}, [
+          D.Text.Strong({ attrs:{ class: tw`text-base font-semibold tracking-wide` }}, ['Mishkah Restaurant']),
+          D.Text.Span({ attrs:{ class: tw`text-[12px] text-neutral-500` }}, [`${t.ui.print_header_address}: 12 Nile Street`]),
+          D.Text.Span({ attrs:{ class: tw`text-[12px] text-neutral-500` }}, [`${t.ui.print_header_phone}: 0100000000`])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        D.Containers.Div({ attrs:{ class: tw`space-y-1 text-[13px] leading-6` }}, [
           D.Text.Span({}, [`${t.ui.order_id} ${order.id || '—'}`]),
           D.Text.Span({}, [`${t.ui.guests}: ${order.guests || 0}`]),
           tablesNames.length ? D.Text.Span({}, [`${t.ui.tables}: ${tablesNames.join(', ')}`]) : null,
-          D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })]),
-          UI.Divider(),
-          previewLines.length ? D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, previewLines) : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.cart_empty]),
-          UI.Divider(),
-          UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [t.ui.subtotal]), UI.PriceText({ amount: subtotal, currency:getCurrency(db), locale:getLocale(db) }) ]),
-          UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [t.ui.vat]), UI.PriceText({ amount: order.totals?.vat || 0, currency:getCurrency(db), locale:getLocale(db) }) ]),
-          UI.HStack({ attrs:{ class: tw`justify-between text-sm font-semibold` }}, [ D.Text.Span({}, [t.ui.total]), UI.PriceText({ amount: due, currency:getCurrency(db), locale:getLocale(db) }) ]),
-          payments.length ? UI.Divider() : null,
-          payments.length ? D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, payments.map(pay=>{
-            const method = (db.data.payments.methods || []).find(m=> m.id === pay.method);
-            const label = method ? `${method.icon} ${localize(method.label, lang)}` : pay.method;
-            return UI.HStack({ attrs:{ class: tw`justify-between text-xs` }}, [ D.Text.Span({}, [label]), UI.PriceText({ amount: pay.amount, currency:getCurrency(db), locale:getLocale(db) }) ]);
-          })) : null,
-          UI.Divider(),
-          D.Text.Span({ attrs:{ class: tw`text-center text-xs` }}, [t.ui.print_footer_thanks]),
-          D.Text.Span({ attrs:{ class: tw`text-center text-[11px] opacity-70` }}, [t.ui.print_footer_policy]),
-          D.Text.Span({ attrs:{ class: tw`text-center text-[11px] opacity-70` }}, [`${t.ui.print_footer_feedback} • QR`])
-        ].filter(Boolean))
+          D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })])
+        ].filter(Boolean)),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        previewLines.length
+          ? D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, previewLines)
+          : D.Text.Span({ attrs:{ class: tw`block text-center text-[13px] text-neutral-400` }}, [t.ui.cart_empty]),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        D.Containers.Div({ attrs:{ class: tw`space-y-2 text-[13px]` }}, [
+          ...totalsRows.map(row=> D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [row.label]),
+            UI.PriceText({ amount: row.value, currency:getCurrency(db), locale:getLocale(db) })
+          ])),
+          D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between text-[14px] font-semibold` }}, [
+            D.Text.Span({}, [t.ui.total]),
+            UI.PriceText({ amount: due, currency:getCurrency(db), locale:getLocale(db) })
+          ]),
+          payments.length ? D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [t.ui.paid]),
+            UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
+          ]) : null,
+          payments.length ? D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [t.ui.print_change_due]),
+            UI.PriceText({ amount: changeDue, currency:getCurrency(db), locale:getLocale(db) })
+          ]) : null,
+          paymentsList
+        ].filter(Boolean)),
+        D.Containers.Div({ attrs:{ class: tw`mt-6 space-y-1 text-center text-[12px] text-neutral-500` }}, [
+          D.Text.Span({}, [t.ui.print_footer_thanks]),
+          D.Text.Span({}, [t.ui.print_footer_policy]),
+          D.Text.Span({}, [`${t.ui.print_footer_feedback} • QR`])
+        ])
+      ]);
+
+      const preview = UI.Card({
+        variant:'card/soft-2',
+        title: `${t.ui.print_preview} — ${currentDocLabel}`,
+        content: previewReceipt
       });
 
       const modalContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -1545,7 +1585,46 @@
     const app = M.app.createApp(posState, {});
     const auto = U.twcss.auto(posState, app, { pageScaffold:true });
 
+    function closeActiveModals(ctx){
+      const state = ctx.getState();
+      const modalsState = state.ui?.modals || {};
+      const anyOpen = Object.values(modalsState).some(Boolean) || !!state.ui?.modalOpen;
+      if(!anyOpen) return false;
+      ctx.setState(s=>{
+        const current = { ...(s.ui?.modals || {}) };
+        Object.keys(current).forEach(key=>{
+          current[key] = false;
+        });
+        return {
+          ...s,
+          ui:{ ...(s.ui || {}), modalOpen:false, modals: current }
+        };
+      });
+      ctx.rebuild();
+      return true;
+    }
+
     const posOrders = {
+      'ui.modal.close':{
+        on:['click'],
+        gkeys:['ui:modal:close'],
+        handler:(e,ctx)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          closeActiveModals(ctx);
+        }
+      },
+      'ui.modal.escape':{
+        on:['keydown'],
+        handler:(e,ctx)=>{
+          if(e.key !== 'Escape') return;
+          const closed = closeActiveModals(ctx);
+          if(closed){
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      },
       'pos.menu.search':{
         on:['input','change'],
         gkeys:['pos:menu:search'],

@@ -13,7 +13,7 @@ def({
   'vstack':         'flex flex-col gap-2',
   'divider':        'h-px bg-[var(--border)]',
   'ring-base':      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
-  'scrollarea':     'overflow-auto [scrollbar-gutter:stable] pr-2',
+  'scrollarea':     'overflow-y-auto overscroll-contain [scrollbar-gutter:stable] pr-2',
   'split':          'flex items-center justify-between gap-2',
   'muted':          'text-[var(--muted-foreground)]',
 
@@ -56,9 +56,12 @@ def({
   'label':          'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
 
   // overlay
-  'modal-root':     'fixed inset-0 z-50 grid place-items-center',
-  'backdrop':       'absolute inset-0 bg-black/60 backdrop-blur-sm',
-  'modal-card':     'relative z-10 w-[min(560px,92vw)] card',
+  'modal-root':     'fixed inset-0 z-50 grid place-items-center px-4 py-8 sm:py-12 overflow-y-auto',
+  'backdrop':       'absolute inset-0 bg-black/70 backdrop-blur-sm',
+  'modal-card':     'relative z-10 w-[min(680px,94vw)] max-h-[90vh] card flex flex-col overflow-hidden shadow-[0_20px_40px_-20px_rgba(0,0,0,0.45)]',
+  'modal/header':   'flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--card) 96%, transparent)]',
+  'modal/body':     'flex-1 overflow-y-auto px-6 py-4',
+  'modal/footer':   'flex flex-col sm:flex-row gap-2 px-6 py-4 border-t border-[var(--border)] bg-[color-mix(in oklab,var(--card) 96%, transparent)]',
 
   // tabs
   'tabs/row':       'flex items-center gap-2 flex-wrap',
@@ -306,16 +309,43 @@ UI.Drawer = ({ open=false, side='start', header, content })=>{
 
 UI.Modal = ({ open=false, title, description, content, actions=[] })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
-  return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}` }}, [
+  const uid = Math.random().toString(36).slice(2,8);
+  const titleId = title ? `modal-${uid}-title` : undefined;
+  const descriptionId = description ? `modal-${uid}-desc` : undefined;
+  const closeBtn = h.Forms.Button({
+    attrs: withClass({
+      type:'button',
+      gkey:'ui:modal:close',
+      'aria-label':'Close dialog'
+    }, cx(token('btn'), token('btn/ghost'), token('btn/icon')))
+  }, ['✕']);
+  const headerContent = [];
+  if(title || description){
+    headerContent.push(
+      h.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+        title && h.Text.H3({ attrs:{ id:titleId, class: tw`${token('card/title')}` }}, [title]),
+        description && h.Text.P({ attrs:{ id:descriptionId, class: tw`${token('card/desc')}` }}, [description])
+      ].filter(Boolean))
+    );
+  } else {
+    headerContent.push(h.Containers.Div({ attrs:{ class: tw`flex-1` }}, []));
+  }
+  headerContent.push(closeBtn);
+  const actionNodes = (actions||[]).filter(Boolean);
+  const modalAttrs = {
+    class: tw`${token('modal-card')}`,
+    role:'dialog',
+    'aria-modal':'true'
+  };
+  if(titleId) modalAttrs['aria-labelledby'] = titleId;
+  if(descriptionId) modalAttrs['aria-describedby'] = descriptionId;
+  return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}`, role:'presentation' }}, [
     h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:'ui:modal:close' }}),
-    h.Containers.Section({ attrs:{ class: tw`${token('modal-card')}` }}, [
-      h.Containers.Div({ attrs:{ class: tw`${token('card/header')}` }}, [
-        title && h.Text.H3({ attrs:{ class: tw`${token('card/title')}` }}, [title]),
-        description && h.Text.P({ attrs:{ class: tw`${token('card/desc')}` }}, [description])
-      ]),
-      content && h.Containers.Div({ attrs:{ class: tw`${token('card/content')}` }}, [content]),
-      h.Containers.Div({ attrs:{ class: tw`${token('card/footer')}` }}, actions)
-    ])
+    h.Containers.Section({ attrs: modalAttrs }, [
+      h.Containers.Div({ attrs:{ class: tw`${token('modal/header')}` }}, headerContent.filter(Boolean)),
+      content ? h.Containers.Div({ attrs:{ class: tw`${token('modal/body')}` }}, [content]) : null,
+      actionNodes.length ? h.Containers.Div({ attrs:{ class: tw`${token('modal/footer')}` }}, actionNodes) : null
+    ].filter(Boolean))
   ]);
 };
 
