@@ -34,11 +34,25 @@ const database = {
     // --- بيانات الطاولات في المطعم (الإضافة الجديدة) ---
     tables: [
         { "id": "T1", "name": "طاولة 1", "seats": 4, "status": "available" },
-        { "id": "T2", "name": "طاولة 2", "seats": 4, "status": "occupied", "orderId": "ord-1678886400000" },
+        { "id": "T2", "name": "طاولة 2", "seats": 4, "status": "occupied", "sessions": ["ord-1678886400000"], "locked": true, "lockedBy": "ord-1678886400000" },
         { "id": "T3", "name": "طاولة 3", "seats": 2, "status": "available" },
-        { "id": "T4", "name": "طاولة 4", "seats": 6, "status": "available" },
+        { "id": "T4", "name": "طاولة 4", "seats": 6, "status": "maintenance" },
         { "id": "T5", "name": "طاولة 5", "seats": 2, "status": "reserved" },
-        { "id": "T6", "name": "طاولة 6", "seats": 8, "status": "occupied", "orderId": "ord-1678886500000" }
+        { "id": "T6", "name": "طاولة 6", "seats": 8, "status": "occupied", "sessions": ["ord-1678886500000", "ord-1678886600000"] },
+        { "id": "T7", "name": "طاولة 7", "seats": 4, "status": "available" },
+        { "id": "T8", "name": "طاولة 8", "seats": 4, "status": "available" },
+        { "id": "T9", "name": "طاولة 9", "seats": 6, "status": "available" },
+        { "id": "T10", "name": "طاولة 10", "seats": 6, "status": "reserved" },
+        { "id": "T11", "name": "طاولة 11", "seats": 2, "status": "available" },
+        { "id": "T12", "name": "طاولة 12", "seats": 4, "status": "available" },
+        { "id": "T13", "name": "طاولة 13", "seats": 8, "status": "occupied", "sessions": ["ord-1678886700000"], "locked": true, "lockedBy": "ord-1678886700000" },
+        { "id": "T14", "name": "طاولة 14", "seats": 4, "status": "maintenance" },
+        { "id": "T15", "name": "طاولة 15", "seats": 2, "status": "available" },
+        { "id": "T16", "name": "طاولة 16", "seats": 10, "status": "reserved" },
+        { "id": "T17", "name": "طاولة 17", "seats": 4, "status": "available" },
+        { "id": "T18", "name": "طاولة 18", "seats": 4, "status": "available" },
+        { "id": "T19", "name": "طاولة 19", "seats": 6, "status": "inactive" },
+        { "id": "T20", "name": "طاولة 20", "seats": 6, "status": "available" }
     ],
 
     // --- بيانات سائقي التوصيل ---

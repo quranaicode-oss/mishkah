@@ -164,16 +164,26 @@ UI.Badge = ({ attrs={}, variant='badge', leading, trailing, text })=>{
 
 UI.Chip = ({ label, active=false, attrs={} })=>{
   const cls = cx(token('chip'), active? token('chip/active'): '');
-  return h.Forms.Button({ attrs: withClass({ type:'button', ...(attrs||{}) }, cls) }, [label]);
+  const buttonAttrs = Object.assign({ type:'button' }, attrs||{});
+  if(attrs && Object.prototype.hasOwnProperty.call(attrs, 'gkey')){
+    buttonAttrs.gkey = attrs.gkey;
+  }
+  return h.Forms.Button({ attrs: withClass(buttonAttrs, cls) }, [label]);
 };
 
 UI.ChipGroup = ({ items=[], activeId, attrs={} })=>
   h.Containers.Div({ attrs: withClass(attrs, tw`flex flex-wrap gap-2`) },
-    items.map((it)=> UI.Chip({
-      label: it.label,
-      active: it.id===activeId,
-      attrs:{ ...(it.attrs||{}), gkey: it.gkey, 'data-chip-id':it.id }
-    }))
+    items.map((it)=>{
+      const baseAttrs = Object.assign({ 'data-chip-id': it.id }, it.attrs || {});
+      if(!('gkey' in baseAttrs) && it.gkey){
+        baseAttrs.gkey = it.gkey;
+      }
+      return UI.Chip({
+        label: it.label,
+        active: it.id===activeId,
+        attrs: baseAttrs
+      });
+    })
   );
 
 UI.ScrollArea = ({ attrs={}, children=[] })=>
@@ -241,8 +251,13 @@ UI.Segmented = ({ items=[], activeId, attrs={} })=>
   h.Containers.Div({ attrs: withClass(attrs, tw`inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] p-1`) },
     items.map(it=>{
       const active = it.id===activeId;
+      const segmentAttrs = Object.assign({ 'data-segment-id': it.id }, it.attrs || {});
+      if(!('gkey' in segmentAttrs) && it.gkey){
+        segmentAttrs.gkey = it.gkey;
+      }
+      segmentAttrs.class = tw`${segmentAttrs.class||''} ${active? token('chip/active'): ''}`.trim();
       return UI.Button({
-        attrs:{ ...(it.attrs||{}), gkey: it.gkey, 'data-segment-id':it.id, class: tw`${active? token('chip/active'): ''}` },
+        attrs: segmentAttrs,
         variant: active? 'solid': 'ghost', size:'sm'
       }, [it.label]);
     })
@@ -289,7 +304,7 @@ UI.Drawer = ({ open=false, side='start', header, content })=>{
   ]);
 };
 
-UI.Modal = ({ open=false, title, description, actions=[] })=>{
+UI.Modal = ({ open=false, title, description, content, actions=[] })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}` }}, [
     h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:'ui:modal:close' }}),
@@ -298,6 +313,7 @@ UI.Modal = ({ open=false, title, description, actions=[] })=>{
         title && h.Text.H3({ attrs:{ class: tw`${token('card/title')}` }}, [title]),
         description && h.Text.P({ attrs:{ class: tw`${token('card/desc')}` }}, [description])
       ]),
+      content && h.Containers.Div({ attrs:{ class: tw`${token('card/content')}` }}, [content]),
       h.Containers.Div({ attrs:{ class: tw`${token('card/footer')}` }}, actions)
     ])
   ]);

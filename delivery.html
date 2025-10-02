@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مشكاة — شاشة التوصيل</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Tajawal", "Cairo", system-ui, sans-serif;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #111827 0%, #0f172a 60%, #030712 100%);
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 17, 21, 0.8);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      gap: 1rem;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2vw + 1rem, 2.4rem);
+      font-weight: 800;
+    }
+    .stats {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.95rem;
+      color: rgba(226, 232, 240, 0.85);
+    }
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      align-items: start;
+    }
+    .panel {
+      background: rgba(17, 24, 39, 0.92);
+      border-radius: 22px;
+      padding: 1.25rem;
+      box-shadow: 0 25px 45px rgba(15, 23, 42, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-height: 50vh;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #e2e8f0;
+    }
+    .order-card {
+      background: rgba(30, 41, 59, 0.75);
+      border-radius: 18px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      border: 1px solid transparent;
+      transition: border-color 0.2s ease;
+    }
+    .order-card:hover {
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+    .order-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.ready { background: rgba(74, 222, 128, 0.15); color: #86efac; }
+    .badge.route { background: rgba(96, 165, 250, 0.15); color: #bfdbfe; }
+    .badge.cash { background: rgba(250, 204, 21, 0.15); color: #facc15; }
+    .details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+    }
+    .details span {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: rgba(226, 232, 240, 0.75);
+    }
+    .items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding: 0.5rem 0 0;
+      border-top: 1px dashed rgba(148, 163, 184, 0.2);
+      font-size: 0.85rem;
+    }
+    .drivers {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .driver-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 0.75rem 1rem;
+      border-radius: 16px;
+      font-size: 0.9rem;
+    }
+    footer {
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: rgba(148, 163, 184, 0.75);
+    }
+    @media (max-width: 768px) {
+      header, footer { padding-inline: 1rem; }
+      main { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>مشكاة — متابعة التوصيل</h1>
+    <div class="stats">
+      <span>🚚 الطلبات الجاهزة: <strong id="ready-count">0</strong></span>
+      <span>🛵 على الطريق: <strong id="route-count">0</strong></span>
+      <span>💰 بانتظار التحصيل: <strong id="settle-count">0</strong></span>
+    </div>
+  </header>
+  <main>
+    <section class="panel" id="ready-panel">
+      <h2>🚀 جاهزة للتسليم</h2>
+    </section>
+    <section class="panel" id="route-panel">
+      <h2>🛣️ في الطريق</h2>
+    </section>
+    <section class="panel" id="settle-panel">
+      <h2>💳 بانتظار التحصيل</h2>
+    </section>
+    <section class="panel" id="drivers-panel">
+      <h2>🧑‍✈️ السائقون</h2>
+      <div class="drivers" id="drivers"></div>
+    </section>
+  </main>
+  <footer>
+    <span>البيانات تجريبية من mock data</span>
+    <span>يمكن تقسيم المدفوعات نقدًا أو محافظ رقمية</span>
+  </footer>
+  <script src="./pos-mock-data.js"></script>
+  <script>
+    (function(){
+      const db = window.database || {};
+      const items = db.items || [];
+      const drivers = db.drivers || [];
+      const itemIndex = Object.fromEntries(items.map(it => [String(it.id), it]));
+      const driverIndex = Object.fromEntries(drivers.map(driver => [driver.id, driver]));
+
+      const deliveryOrders = [
+        {
+          id: 'DLV-5001',
+          customer: 'محمد علي',
+          phone: '01012345678',
+          address: 'مدينة نصر — شارع الطيران',
+          payment: [{ method: 'instapay', amount: 180 }, { method: 'cash', amount: 65 }],
+          total: 245,
+          status: 'ready',
+          driverId: 1,
+          eta: '10 دقائق',
+          items: [
+            { itemId: 14, qty: 1 },
+            { itemId: 1, qty: 2 },
+            { itemId: 26, qty: 1 }
+          ],
+          notes: 'التأكيد قبل الوصول'
+        },
+        {
+          id: 'DLV-5002',
+          customer: 'هند شوقي',
+          phone: '01198765432',
+          address: 'القاهرة الجديدة — التجمع الخامس',
+          payment: [{ method: 'card', amount: 320 }],
+          total: 320,
+          status: 'on_route',
+          driverId: 2,
+          eta: '15 دقائق',
+          items: [
+            { itemId: 25, qty: 1 },
+            { itemId: 9, qty: 2 }
+          ],
+          notes: 'برج 4 — شقة 12'
+        },
+        {
+          id: 'DLV-5003',
+          customer: 'شادي رأفت',
+          phone: '01234567890',
+          address: 'حلوان — كورنيش النيل',
+          payment: [{ method: 'cash', amount: 0 }],
+          total: 410,
+          status: 'settlement',
+          driverId: 3,
+          eta: 'بانتظار العودة',
+          items: [
+            { itemId: 24, qty: 1 },
+            { itemId: 2, qty: 3 },
+            { itemId: 27, qty: 2 }
+          ],
+          notes: 'تحصيل نقدي كامل'
+        }
+      ];
+
+      function resolveItem(itemId){
+        const item = itemIndex[String(itemId)];
+        return item?.translations?.ar?.name || item?.translations?.en?.name || `صنف #${itemId}`;
+      }
+
+      function renderPayment(payment){
+        return payment.map(p => {
+          const method = p.method === 'instapay' ? 'إنستا باي' : p.method === 'cash' ? 'نقدي' : p.method === 'card' ? 'بطاقة' : p.method;
+          return `${method}: ${p.amount.toFixed(2)} ج.م`;
+        }).join(' | ');
+      }
+
+      function createOrderCard(order){
+        const card = document.createElement('article');
+        card.className = 'order-card';
+
+        const head = document.createElement('div');
+        head.className = 'order-head';
+        const title = document.createElement('strong');
+        title.textContent = `طلب ${order.id}`;
+        const badge = document.createElement('span');
+        badge.className = `badge ${order.status === 'ready' ? 'ready' : order.status === 'on_route' ? 'route' : 'cash'}`;
+        badge.textContent = order.status === 'ready' ? 'جاهز' : order.status === 'on_route' ? 'في الطريق' : 'تحصيل';
+        head.append(title, badge);
+        card.append(head);
+
+        const details = document.createElement('div');
+        details.className = 'details';
+        details.innerHTML = `
+          <span>👤 ${order.customer}</span>
+          <span>📍 ${order.address}</span>
+          <span>☎️ ${order.phone}</span>
+          <span>💳 ${renderPayment(order.payment)}</span>
+          <span>💵 الإجمالي: ${order.total.toFixed(2)} ج.م</span>
+        `;
+        card.append(details);
+
+        if(order.notes){
+          const note = document.createElement('div');
+          note.className = 'details';
+          note.innerHTML = `<span>📝 ${order.notes}</span>`;
+          card.append(note);
+        }
+
+        const itemsList = document.createElement('div');
+        itemsList.className = 'items';
+        order.items.forEach(line => {
+          const row = document.createElement('span');
+          row.textContent = `${line.qty}× ${resolveItem(line.itemId)}`;
+          itemsList.append(row);
+        });
+        card.append(itemsList);
+
+        const footer = document.createElement('div');
+        footer.className = 'details';
+        const driver = driverIndex[order.driverId];
+        footer.innerHTML = `
+          <span>🛵 السائق: ${driver ? driver.name : 'غير محدد'}</span>
+          <span>⌛ ${order.eta}</span>
+        `;
+        card.append(footer);
+
+        return card;
+      }
+
+      const readyPanel = document.getElementById('ready-panel');
+      const routePanel = document.getElementById('route-panel');
+      const settlePanel = document.getElementById('settle-panel');
+
+      deliveryOrders.forEach(order => {
+        const card = createOrderCard(order);
+        if(order.status === 'ready') readyPanel.append(card);
+        else if(order.status === 'on_route') routePanel.append(card);
+        else settlePanel.append(card);
+      });
+
+      document.getElementById('ready-count').textContent = deliveryOrders.filter(o => o.status === 'ready').length;
+      document.getElementById('route-count').textContent = deliveryOrders.filter(o => o.status === 'on_route').length;
+      document.getElementById('settle-count').textContent = deliveryOrders.filter(o => o.status === 'settlement').length;
+
+      const driversHost = document.getElementById('drivers');
+      drivers.forEach(driver => {
+        const card = document.createElement('div');
+        card.className = 'driver-card';
+        card.innerHTML = `
+          <span>${driver.name}</span>
+          <span>${driver.phone}</span>
+          <span>${driver.vehicle_id}</span>
+        `;
+        driversHost.append(card);
+      });
+    })();
+  </script>
+</body>
+</html>
