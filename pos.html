@@ -52,7 +52,13 @@
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
           arabic:'عربي', english:'English', service_type:'نوع الطلب', guests:'عدد الأفراد', kds:'نظام المطبخ (KDS)',
           status_online:'متصل', status_offline:'غير متصل', status_idle:'انتظار', order_id:'طلب', last_orders:'الطلبات الأخيرة',
-          connect_kds:'اتصال', reconnect:'إعادة الاتصال'
+          connect_kds:'اتصال', reconnect:'إعادة الاتصال', print_size:'مقاس الطباعة', thermal_80:'حرارية 80مم', a5:'A5', a4:'A4',
+          tables_manage:'إدارة الطاولات', tables_assign:'تخصيص الطاولات', table_lock:'قفل الطاولة', table_unlock:'فك القفل',
+          table_locked:'مقفلة', table_sessions:'طلبات مرتبطة', table_no_sessions:'لا توجد طلبات', table_add:'إضافة طاولة',
+          table_rename:'تعديل الاسم', table_delete:'حذف الطاولة', table_status_change:'تغيير الحالة', table_status_inactive:'معطلة',
+          table_status_active:'متاحة', table_status_reserved:'محجوزة', table_status_maintenance:'صيانة', table_manage_hint:'اضغط على أي طاولة للإسناد أو استخدم أدوات الإدارة.',
+          table_multi_orders:'طلبات متعددة', print_profile:'ملف الطباعة', table_confirm_unlock:'هل تريد فك قفل الطاولة؟',
+          table_confirm_remove:'هل تريد حذف هذه الطاولة؟', table_confirm_release:'هل تريد فك ارتباط الطلب بالطاولة؟'
         },
         toast:{
           item_added:'تمت إضافة الصنف', quantity_updated:'تم تحديث الكمية', cart_cleared:'تم مسح الطلب',
@@ -65,7 +71,13 @@
           merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري المزامنة مع IndexedDB',
           theme_switched:'تم تغيير الثيم', lang_switched:'تم تغيير اللغة', logout_stub:'تم إنهاء الوردية افتراضيًا',
           kdsConnected:'تم الاتصال بالمطبخ', kdsClosed:'تم إغلاق الاتصال بالمطبخ', kdsFailed:'فشل الاتصال بالمطبخ',
-          kdsUnavailable:'متصفحك لا يدعم WebSocket', kdsPong:'تم استقبال إشارة من المطبخ'
+          kdsUnavailable:'متصفحك لا يدعم WebSocket', kdsPong:'تم استقبال إشارة من المطبخ',
+          table_locked_other:'الطاولة مقفلة لطلب آخر', table_locked_now:'تم قفل الطاولة على الطلب الحالي',
+          table_unlocked:'تم فك قفل الطاولة', table_updated:'تم تحديث بيانات الطاولة', table_removed:'تم حذف الطاولة',
+          table_added:'تم إنشاء طاولة جديدة', table_inactive_assign:'لا يمكن اختيار طاولة معطلة',
+          table_sessions_cleared:'تم فك ارتباط الطلب بالطاولة', print_size_switched:'تم تحديث مقاس الطباعة',
+          table_invalid_seats:'رجاء إدخال عدد مقاعد صالح', table_name_required:'يجب إدخال اسم للطاولة',
+          table_has_sessions:'لا يمكن حذف طاولة عليها طلبات'
         }
       },
       en:{
@@ -83,7 +95,14 @@
           new_order:'New order', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
           light:'Light', dark:'Dark', language:'Language', arabic:'Arabic', english:'English', service_type:'Service type',
           guests:'Guests', kds:'Kitchen display', status_online:'Online', status_offline:'Offline', status_idle:'Idle',
-          order_id:'Order', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect'
+          order_id:'Order', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect', print_size:'Print size',
+          thermal_80:'Thermal 80mm', a5:'A5', a4:'A4', tables_manage:'Table management', tables_assign:'Assign tables',
+          table_lock:'Lock table', table_unlock:'Unlock table', table_locked:'Locked', table_sessions:'Linked orders',
+          table_no_sessions:'No orders yet', table_add:'Add table', table_rename:'Rename table', table_delete:'Remove table',
+          table_status_change:'Change status', table_status_inactive:'Inactive', table_status_active:'Available',
+          table_status_reserved:'Reserved', table_status_maintenance:'Maintenance', table_manage_hint:'Tap a table to assign it or use the tools below.',
+          table_multi_orders:'Multi orders', print_profile:'Print profile', table_confirm_unlock:'Unlock this table?',
+          table_confirm_remove:'Remove this table?', table_confirm_release:'Unlink the order from the table?'
         },
         toast:{
           item_added:'Item added to cart', quantity_updated:'Quantity updated', cart_cleared:'Cart cleared',
@@ -96,7 +115,13 @@
           merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Syncing with IndexedDB…',
           theme_switched:'Theme updated', lang_switched:'Language updated', logout_stub:'Session ended (stub)',
           kdsConnected:'Connected to kitchen', kdsClosed:'Kitchen connection closed', kdsFailed:'Kitchen connection failed',
-          kdsUnavailable:'WebSocket not supported', kdsPong:'KDS heartbeat received'
+          kdsUnavailable:'WebSocket not supported', kdsPong:'KDS heartbeat received',
+          table_locked_other:'Table is locked by another order', table_locked_now:'Table locked for this order',
+          table_unlocked:'Table unlocked', table_updated:'Table details updated', table_removed:'Table removed',
+          table_added:'New table added', table_inactive_assign:'Inactive tables cannot be assigned',
+          table_sessions_cleared:'Order unlinked from table', print_size_switched:'Print size updated',
+          table_invalid_seats:'Please enter a valid seat count', table_name_required:'Table name is required',
+          table_has_sessions:'Cannot remove a table with linked orders'
         }
       }
     };
@@ -353,7 +378,32 @@
       }
     }));
 
-    const tables = (MOCK.tables || []).map(tbl=>({ ...tbl }));
+    const baseTables = Array.isArray(MOCK.tables) ? MOCK.tables : [];
+    const tables = baseTables.map((tbl, idx)=>({
+      id: tbl.id || `T${idx+1}`,
+      name: tbl.name || `طاولة ${idx+1}`,
+      seats: tbl.seats || 4,
+      status: tbl.status || 'available',
+      locked: Boolean(tbl.locked),
+      lockedBy: tbl.lockedBy || null,
+      sessions: Array.isArray(tbl.sessions)
+        ? tbl.sessions.slice()
+        : (tbl.orderId ? [tbl.orderId] : []),
+      notes: tbl.notes || ''
+    }));
+    while(tables.length < 20){
+      const nextIndex = tables.length + 1;
+      tables.push({
+        id:`T${nextIndex}`,
+        name:`طاولة ${nextIndex}`,
+        seats:4,
+        status:'available',
+        locked:false,
+        lockedBy:null,
+        sessions:[],
+        notes:''
+      });
+    }
     const employees = MOCK.employees || [];
     const cashier = employees[0] || { full_name:'أحمد محمود', role:'cashier' };
 
@@ -361,12 +411,7 @@
       return 'ORD-' + Date.now().toString(36).toUpperCase();
     }
 
-    const sampleLines = menuItems.length ? [
-      createOrderLine(menuItems[0], 2),
-      createOrderLine(menuItems[1] || menuItems[0], 1)
-    ] : [];
-
-    const initialTotals = calculateTotals(sampleLines, settings, 'dine_in');
+    const initialTotals = calculateTotals([], settings, 'dine_in');
 
     const posState = {
       head:{ title:'مشكاة — نقطة بيع حية' },
@@ -395,9 +440,10 @@
         order:{
           id: generateOrderId(),
           type:'dine_in',
-          table: tables.find(t=> t.status === 'occupied') || tables[0] || null,
-          guests:3,
-          lines: sampleLines,
+          tableId:null,
+          table:null,
+          guests:0,
+          lines:[],
           totals: initialTotals
         },
         tables,
@@ -409,11 +455,9 @@
             { id:'voucher', icon:'🎟️', label:{ ar:'قسيمة', en:'Voucher' } }
           ],
           activeMethod:'cash',
-          split:[
-            { id:'pm-1', method:'cash', amount:250 },
-            { id:'pm-2', method:'card', amount:120 }
-          ]
+          split:[]
         },
+        print:{ size:'thermal_80' },
         reports:{
           salesToday:12430,
           ordersCount:58,
@@ -424,7 +468,8 @@
       ui:{
         modals:{ tables:false, payments:false, reports:false },
         drawers:{},
-        paymentDraft:{ amount:'' }
+        paymentDraft:{ amount:'' },
+        tablesView:'assign'
       }
     };
 
@@ -670,7 +715,12 @@
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
               D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
               order.type === 'dine_in'
-                ? D.Text.Span({}, [`${t.ui.tables}: ${order.table ? order.table.name : t.ui.select_table}`])
+                ? UI.HStack({ attrs:{ class: tw`items-center gap-1` }}, [
+                    D.Text.Span({}, [`${t.ui.tables}: ${order.table ? order.table.name : t.ui.select_table}`]),
+                    order.tableId
+                      ? UI.Button({ attrs:{ gkey:'pos:order:table:release', class: tw`h-7 w-7`, title:t.ui.table_unlock }, variant:'ghost', size:'sm' }, ['🔓'])
+                      : null
+                  ].filter(Boolean))
                 : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
               D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
             ]),
@@ -705,12 +755,22 @@
 
     function FooterBar(db){
       const t = getTexts(db);
+      const printOptions = [
+        { id:'thermal_80', label:`🧾 ${t.ui.thermal_80}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'thermal_80' } },
+        { id:'a5', label:`📄 ${t.ui.a5}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a5' } },
+        { id:'a4', label:`🗒️ ${t.ui.a4}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a4' } }
+      ];
+      const printSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 items-stretch` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_profile]),
+        UI.Segmented({ items: printOptions, activeId: db.data.print?.size || 'thermal_80' })
+      ]);
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
           statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
         ],
         right:[
+          printSelector,
           UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
           UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[120px]` }, variant:'ghost', size:'md' }, [t.ui.print])
@@ -722,33 +782,89 @@
       const t = getTexts(db);
       if(!db.ui.modals.tables) return null;
       const tablesList = db.data.tables || [];
-      return UI.Modal({
-        open:true,
-        title:t.ui.tables,
-        description:t.ui.select_table,
-        actions:[
-          UI.ScrollArea({
-            attrs:{ class: tw`max-h-[60vh] w-full space-y-2` },
-            children: tablesList.map(table=>{
-              const statusMap = {
-                available:{ icon:'🟢', tone:'online', label:t.ui.table_available },
-                occupied:{ icon:'🟠', tone:'idle', label:t.ui.table_occupied },
-                reserved:{ icon:'🔵', tone:'idle', label:t.ui.table_reserved },
-                maintenance:{ icon:'⚫', tone:'offline', label:t.ui.table_maintenance }
-              };
+      const view = db.ui.tablesView || 'assign';
+      const statusMap = {
+        available:{ icon:'🟢', tone:'online', label:t.ui.table_available },
+        occupied:{ icon:'🟠', tone:'idle', label:t.ui.table_occupied },
+        reserved:{ icon:'🔵', tone:'idle', label:t.ui.table_reserved },
+        maintenance:{ icon:'⚫', tone:'offline', label:t.ui.table_maintenance },
+        inactive:{ icon:'⬛', tone:'offline', label:t.ui.table_status_inactive }
+      };
+      const viewSelector = UI.Segmented({
+        items:[
+          { id:'assign', label:t.ui.tables_assign, attrs:{ gkey:'pos:tables:view', 'data-tables-view':'assign' } },
+          { id:'manage', label:t.ui.tables_manage, attrs:{ gkey:'pos:tables:view', 'data-tables-view':'manage' } }
+        ],
+        activeId:view
+      });
+
+      const assignTables = tablesList.filter(table=> table.status !== 'inactive');
+      const assignList = assignTables.length
+        ? UI.ScrollArea({
+            attrs:{ class: tw`max-h-[50vh] w-full space-y-2` },
+            children: assignTables.map(table=>{
               const meta = statusMap[table.status] || statusMap.available;
+              const ordersCount = (table.sessions || []).length;
               return UI.ListItem({
                 leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, [meta.icon]),
                 content:[
                   D.Text.Strong({}, [table.name || table.id]),
                   D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.guests}: ${table.seats}`]),
-                  meta.label ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta.label]) : null
+                  meta.label ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta.label]) : null,
+                  ordersCount ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.table_sessions}: ${ordersCount}`]) : null,
+                  table.locked ? D.Text.Span({ attrs:{ class: tw`text-xs text-amber-500` }}, [`🔒 ${t.ui.table_locked}`]) : null
                 ].filter(Boolean),
-                trailing:[ statusBadge(db, meta.tone === 'online' ? 'online' : meta.tone === 'offline' ? 'offline' : 'idle', t.ui.table_status) ],
+                trailing:[
+                  ordersCount ? UI.Badge({ text:`${ordersCount}`, leading:'🧾', variant:'badge/ghost' }) : null,
+                  UI.Button({ attrs:{ gkey:'pos:tables:lock-toggle', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, [table.locked ? '🔓' : '🔒'])
+                ].filter(Boolean),
                 attrs:{ gkey:'pos:tables:select', 'data-table-id':table.id }
               });
             })
-          }),
+          })
+        : UI.EmptyState({ icon:'🪑', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint });
+
+      const manageList = UI.ScrollArea({
+        attrs:{ class: tw`max-h-[50vh] w-full space-y-2` },
+        children: tablesList.map(table=>{
+          const meta = statusMap[table.status] || statusMap.available;
+          return UI.ListItem({
+            leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, [meta.icon]),
+            content:[
+              D.Text.Strong({}, [table.name || table.id]),
+              D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.guests}: ${table.seats}`]),
+              meta.label ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta.label]) : null
+            ].filter(Boolean),
+            trailing:[
+              UI.Button({ attrs:{ gkey:'pos:tables:rename', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['✏️']),
+              UI.Button({ attrs:{ gkey:'pos:tables:seats', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['👥']),
+              UI.Button({ attrs:{ gkey:'pos:tables:status', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['♻️']),
+              UI.Button({ attrs:{ gkey:'pos:tables:remove', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['🗑️'])
+            ],
+            attrs:{ class: tw`cursor-default` }
+          });
+        })
+      });
+
+      const manageTools = D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+        UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+          D.Text.Span({ attrs:{ class: tw`${token('muted')} text-sm` }}, [t.ui.table_manage_hint]),
+          UI.Button({ attrs:{ gkey:'pos:tables:add', 'data-prevent-select':'true' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.table_add}`])
+        ]),
+        manageList
+      ]);
+
+      const modalBody = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        viewSelector,
+        view === 'assign' ? assignList : manageTools
+      ]);
+
+      return UI.Modal({
+        open:true,
+        title:t.ui.tables,
+        description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
+        content: modalBody,
+        actions:[
           UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
         ]
       });
@@ -1102,6 +1218,52 @@
           UI.pushToast(ctx, { title:t.toast.discount_stub, icon:'💡' });
         }
       },
+      'pos.order.table.release':{
+        on:['click'],
+        gkeys:['pos:order:table:release'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          if(!order.tableId) return;
+          if(!window.confirm(t.ui.table_confirm_release)) return;
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const orderState = data.order || {};
+            const orderId = orderState.id;
+            const tableId = orderState.tableId;
+            const updatedTables = (data.tables || []).map(tbl=>{
+              if(tbl.id !== tableId) return tbl;
+              const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
+              const wasLockedByOrder = tbl.lockedBy === orderId;
+              const nextStatus = nextSessions.length ? tbl.status : (tbl.status === 'occupied' ? 'available' : tbl.status);
+              return {
+                ...tbl,
+                sessions: nextSessions,
+                locked: wasLockedByOrder ? false : tbl.locked,
+                lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
+                status: nextStatus
+              };
+            });
+            const nextOrder = {
+              ...orderState,
+              tableId:null,
+              table:null
+            };
+            nextOrder.totals = calculateTotals(nextOrder.lines || [], data.settings || {}, nextOrder.type || 'dine_in');
+            return {
+              ...s,
+              data:{
+                ...data,
+                tables: updatedTables,
+                order: nextOrder
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_sessions_cleared, icon:'🔓' });
+        }
+      },
       'pos.order.note':{
         on:['click'],
         gkeys:['pos:order:note'],
@@ -1133,18 +1295,42 @@
           const btn = e.target.closest('[data-order-type]');
           if(!btn) return;
           const type = btn.getAttribute('data-order-type');
-          const t = getTexts(ctx.getState());
+          const state = ctx.getState();
+          const t = getTexts(state);
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
             const lines = order.lines || [];
+            let tablesState = data.tables || [];
             const nextOrder = { ...order, type };
-            if(type !== 'dine_in') nextOrder.table = null;
+            if(type !== 'dine_in' && order.tableId){
+              const orderId = order.id;
+              const tableId = order.tableId;
+              tablesState = (tablesState || []).map(tbl=>{
+                if(tbl.id !== tableId) return tbl;
+                const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
+                const wasLockedByOrder = tbl.lockedBy === orderId;
+                const nextStatus = nextSessions.length ? tbl.status : (tbl.status === 'occupied' ? 'available' : tbl.status);
+                return {
+                  ...tbl,
+                  sessions: nextSessions,
+                  locked: wasLockedByOrder ? false : tbl.locked,
+                  lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
+                  status: nextStatus
+                };
+              });
+              nextOrder.tableId = null;
+              nextOrder.table = null;
+            }
+            if(type === 'dine_in' && !nextOrder.tableId){
+              nextOrder.table = null;
+            }
             nextOrder.totals = calculateTotals(lines, data.settings || {}, type);
             return {
               ...s,
               data:{
                 ...data,
+                tables: tablesState,
                 order: nextOrder
               }
             };
@@ -1198,8 +1384,30 @@
         on:['click'],
         gkeys:['pos:order:print'],
         handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const size = state.data.print?.size || 'thermal_80';
+          const sizeLabel = size === 'a5' ? t.ui.a5 : size === 'a4' ? t.ui.a4 : t.ui.thermal_80;
+          UI.pushToast(ctx, { title:t.toast.print_stub, message:`${t.ui.print_size}: ${sizeLabel}`, icon:'🖨️' });
+        }
+      },
+      'pos.print.size':{
+        on:['click'],
+        gkeys:['pos:print:size'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-print-size]');
+          if(!btn) return;
+          const size = btn.getAttribute('data-print-size') || 'thermal_80';
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              print:{ ...(s.data.print || {}), size }
+            }
+          }));
+          ctx.rebuild();
           const t = getTexts(ctx.getState());
-          UI.pushToast(ctx, { title:t.toast.print_stub, icon:'🖨️' });
+          UI.pushToast(ctx, { title:t.toast.print_size_switched, icon:'🖨️' });
         }
       },
       'pos.tables.open':{
@@ -1208,7 +1416,7 @@
         handler:(e,ctx)=>{
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), tables:true } }
+            ui:{ ...(s.ui || {}), tablesView:'assign', modals:{ ...(s.ui?.modals || {}), tables:true } }
           }));
           ctx.rebuild();
         }
@@ -1217,26 +1425,284 @@
         on:['click'],
         gkeys:['pos:tables:select'],
         handler:(e,ctx)=>{
+          if(e.target.closest('[data-prevent-select="true"]')) return;
           const btn = e.target.closest('[data-table-id]');
           if(!btn) return;
           const tableId = btn.getAttribute('data-table-id');
           const state = ctx.getState();
-          const table = (state.data.tables || []).find(t=> t.id === tableId) || null;
           const t = getTexts(state);
+          const tables = state.data.tables || [];
+          const tableIndex = tables.findIndex(tbl=> tbl.id === tableId);
+          if(tableIndex < 0) return;
+          const table = tables[tableIndex];
+          if(table.status === 'inactive'){
+            UI.pushToast(ctx, { title:t.toast.table_inactive_assign, icon:'🚫' });
+            return;
+          }
+          const order = state.data.order || {};
+          if(table.locked && table.lockedBy && table.lockedBy !== order.id){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, icon:'🔒' });
+            return;
+          }
+          const currentTableId = order.tableId;
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const orderState = data.order || {};
+            const orderId = orderState.id;
+            const updatedTables = (data.tables || []).map(tbl=>{
+              if(tbl.id === tableId){
+                const sessions = new Set(tbl.sessions || []);
+                sessions.add(orderId);
+                const nextSessions = Array.from(sessions);
+                let lockedBy = tbl.lockedBy;
+                if(tbl.locked && !lockedBy) lockedBy = orderId;
+                const nextStatus = 'occupied';
+                return { ...tbl, sessions: nextSessions, lockedBy, status: nextStatus };
+              }
+              if(tbl.id === currentTableId){
+                const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
+                const wasLockedByOrder = tbl.lockedBy === orderId;
+                const resetStatus = !nextSessions.length && tbl.status === 'occupied' ? 'available' : (nextSessions.length ? tbl.status : tbl.status === 'inactive' ? 'inactive' : tbl.status);
+                return {
+                  ...tbl,
+                  sessions: nextSessions,
+                  locked: wasLockedByOrder ? false : tbl.locked,
+                  lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
+                  status: nextSessions.length ? tbl.status : resetStatus
+                };
+              }
+              const cleanedSessions = (tbl.sessions || []).filter(id=> id !== orderId);
+              if(cleanedSessions.length !== (tbl.sessions || []).length){
+                const resetStatus = !cleanedSessions.length && tbl.status === 'occupied' ? 'available' : tbl.status;
+                return { ...tbl, sessions: cleanedSessions, status: resetStatus };
+              }
+              return tbl;
+            });
+            const selectedTable = updatedTables.find(tbl=> tbl.id === tableId) || null;
+            const nextOrder = {
+              ...orderState,
+              tableId: selectedTable ? selectedTable.id : null,
+              table: selectedTable ? { id:selectedTable.id, name:selectedTable.name, status:selectedTable.status } : null
+            };
+            nextOrder.totals = calculateTotals(nextOrder.lines || [], data.settings || {}, nextOrder.type || 'dine_in');
+            return {
+              ...s,
+              data:{
+                ...data,
+                tables: updatedTables,
+                order: nextOrder
+              },
+              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), tables:false } }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_assigned, icon:'🪑' });
+        }
+      },
+      'pos.tables.view':{
+        on:['click'],
+        gkeys:['pos:tables:view'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tables-view]');
+          if(!btn) return;
+          const view = btn.getAttribute('data-tables-view') || 'assign';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tablesView:view }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.lock-toggle':{
+        on:['click'],
+        gkeys:['pos:tables:lock-toggle'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const shouldLock = !table.locked;
+          if(!shouldLock){
+            if(!window.confirm(t.ui.table_confirm_unlock)) return;
+          }
+          const lockWithOrder = shouldLock && Boolean(state.data.order?.id);
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const updatedTables = (data.tables || []).map(tbl=>{
+              if(tbl.id !== tableId) return tbl;
+              if(shouldLock){
+                const sessions = new Set(tbl.sessions || []);
+                if(order.id) sessions.add(order.id);
+                return {
+                  ...tbl,
+                  locked:true,
+                  lockedBy: order.id || tbl.lockedBy || null,
+                  sessions: Array.from(sessions)
+                };
+              }
+              return { ...tbl, locked:false, lockedBy:null };
+            });
+            return {
+              ...s,
+              data:{ ...data, tables: updatedTables }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title: shouldLock && lockWithOrder ? t.toast.table_locked_now : shouldLock ? t.toast.table_updated : t.toast.table_unlocked, icon: shouldLock ? '🔒' : '🔓' });
+        }
+      },
+      'pos.tables.add':{
+        on:['click'],
+        gkeys:['pos:tables:add'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const suggestedName = `${t.ui.tables} ${(state.data.tables || []).length + 1}`;
+          const nameInput = window.prompt(t.ui.table_add, suggestedName);
+          if(nameInput == null) return;
+          const name = nameInput.trim();
+          if(!name){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
+            return;
+          }
+          const seatsInput = window.prompt(t.ui.guests, '4');
+          if(seatsInput == null) return;
+          const seats = parseInt(seatsInput, 10);
+          if(!Number.isFinite(seats) || seats <= 0){
+            UI.pushToast(ctx, { title:t.toast.table_invalid_seats, icon:'⚠️' });
+            return;
+          }
+          const id = `T${Date.now().toString(36).toUpperCase()}`;
           ctx.setState(s=>({
             ...s,
             data:{
               ...s.data,
-              order:{
-                ...(s.data.order || {}),
-                table,
-                totals: calculateTotals(s.data.order?.lines || [], s.data.settings || {}, s.data.order?.type || 'dine_in')
-              }
-            },
-            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), tables:false } }
+              tables:[
+                ...(s.data.tables || []),
+                { id, name, seats, status:'available', locked:false, lockedBy:null, sessions:[], notes:'' }
+              ]
+            }
           }));
           ctx.rebuild();
-          UI.pushToast(ctx, { title:t.toast.table_assigned, icon:'🪑' });
+          UI.pushToast(ctx, { title:t.toast.table_added, icon:'➕' });
+        }
+      },
+      'pos.tables.rename':{
+        on:['click'],
+        gkeys:['pos:tables:rename'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const nextNameInput = window.prompt(t.ui.table_rename, table.name || table.id);
+          if(nextNameInput == null) return;
+          const nextName = nextNameInput.trim();
+          if(!nextName){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, name: nextName } : tbl)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'✏️' });
+        }
+      },
+      'pos.tables.seats':{
+        on:['click'],
+        gkeys:['pos:tables:seats'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const seatsInput = window.prompt(t.ui.guests, String(table.seats || 4));
+          if(seatsInput == null) return;
+          const seats = parseInt(seatsInput, 10);
+          if(!Number.isFinite(seats) || seats <= 0){
+            UI.pushToast(ctx, { title:t.toast.table_invalid_seats, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, seats } : tbl)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'👥' });
+        }
+      },
+      'pos.tables.status':{
+        on:['click'],
+        gkeys:['pos:tables:status'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const statuses = ['available','reserved','occupied','maintenance','inactive'];
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=>{
+                if(tbl.id !== tableId) return tbl;
+                const currentIndex = statuses.indexOf(tbl.status);
+                const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+                const nextSessions = nextStatus === 'inactive' ? [] : (tbl.sessions || []);
+                const nextLocked = nextStatus === 'inactive' ? false : tbl.locked;
+                const nextLockedBy = nextStatus === 'inactive' ? null : tbl.lockedBy;
+                return { ...tbl, status: nextStatus, sessions: nextSessions, locked: nextLocked, lockedBy: nextLockedBy };
+              })
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'♻️' });
+        }
+      },
+      'pos.tables.remove':{
+        on:['click'],
+        gkeys:['pos:tables:remove'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          if((table.sessions || []).length){
+            UI.pushToast(ctx, { title:t.toast.table_has_sessions, icon:'⚠️' });
+            return;
+          }
+          if(!window.confirm(t.ui.table_confirm_remove)) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).filter(tbl=> tbl.id !== tableId)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_removed, icon:'🗑️' });
         }
       },
       'pos.tables.merge':{
