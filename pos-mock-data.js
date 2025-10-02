@@ -33,26 +33,50 @@ const database = {
 
     // --- بيانات الطاولات في المطعم (الإضافة الجديدة) ---
     tables: [
-        { "id": "T1", "name": "طاولة 1", "seats": 4, "status": "available" },
-        { "id": "T2", "name": "طاولة 2", "seats": 4, "status": "occupied", "sessions": ["ord-1678886400000"], "locked": true, "lockedBy": "ord-1678886400000" },
-        { "id": "T3", "name": "طاولة 3", "seats": 2, "status": "available" },
-        { "id": "T4", "name": "طاولة 4", "seats": 6, "status": "maintenance" },
-        { "id": "T5", "name": "طاولة 5", "seats": 2, "status": "reserved" },
-        { "id": "T6", "name": "طاولة 6", "seats": 8, "status": "occupied", "sessions": ["ord-1678886500000", "ord-1678886600000"] },
-        { "id": "T7", "name": "طاولة 7", "seats": 4, "status": "available" },
-        { "id": "T8", "name": "طاولة 8", "seats": 4, "status": "available" },
-        { "id": "T9", "name": "طاولة 9", "seats": 6, "status": "available" },
-        { "id": "T10", "name": "طاولة 10", "seats": 6, "status": "reserved" },
-        { "id": "T11", "name": "طاولة 11", "seats": 2, "status": "available" },
-        { "id": "T12", "name": "طاولة 12", "seats": 4, "status": "available" },
-        { "id": "T13", "name": "طاولة 13", "seats": 8, "status": "occupied", "sessions": ["ord-1678886700000"], "locked": true, "lockedBy": "ord-1678886700000" },
-        { "id": "T14", "name": "طاولة 14", "seats": 4, "status": "maintenance" },
-        { "id": "T15", "name": "طاولة 15", "seats": 2, "status": "available" },
-        { "id": "T16", "name": "طاولة 16", "seats": 10, "status": "reserved" },
-        { "id": "T17", "name": "طاولة 17", "seats": 4, "status": "available" },
-        { "id": "T18", "name": "طاولة 18", "seats": 4, "status": "available" },
-        { "id": "T19", "name": "طاولة 19", "seats": 6, "status": "inactive" },
-        { "id": "T20", "name": "طاولة 20", "seats": 6, "status": "available" }
+        { "id": "T1", "name": "طاولة 1", "seats": 4, "state": "active", "zone": "A", "displayOrder": 1 },
+        { "id": "T2", "name": "طاولة 2", "seats": 4, "state": "active", "zone": "A", "displayOrder": 2 },
+        { "id": "T3", "name": "طاولة 3", "seats": 2, "state": "active", "zone": "A", "displayOrder": 3 },
+        { "id": "T4", "name": "طاولة 4", "seats": 6, "state": "maintenance", "zone": "B", "displayOrder": 4, "note": "تنظيف عميق" },
+        { "id": "T5", "name": "طاولة 5", "seats": 2, "state": "active", "zone": "B", "displayOrder": 5 },
+        { "id": "T6", "name": "طاولة 6", "seats": 8, "state": "active", "zone": "VIP", "displayOrder": 6 },
+        { "id": "T7", "name": "طاولة 7", "seats": 4, "state": "active", "zone": "A", "displayOrder": 7 },
+        { "id": "T8", "name": "طاولة 8", "seats": 4, "state": "active", "zone": "A", "displayOrder": 8 },
+        { "id": "T9", "name": "طاولة 9", "seats": 6, "state": "active", "zone": "Terrace", "displayOrder": 9 },
+        { "id": "T10", "name": "طاولة 10", "seats": 6, "state": "active", "zone": "Terrace", "displayOrder": 10 },
+        { "id": "T11", "name": "طاولة 11", "seats": 2, "state": "active", "zone": "A", "displayOrder": 11 },
+        { "id": "T12", "name": "طاولة 12", "seats": 4, "state": "active", "zone": "A", "displayOrder": 12 },
+        { "id": "T13", "name": "طاولة 13", "seats": 8, "state": "active", "zone": "VIP", "displayOrder": 13 },
+        { "id": "T14", "name": "طاولة 14", "seats": 4, "state": "maintenance", "zone": "B", "displayOrder": 14 },
+        { "id": "T15", "name": "طاولة 15", "seats": 2, "state": "active", "zone": "B", "displayOrder": 15 },
+        { "id": "T16", "name": "طاولة 16", "seats": 10, "state": "active", "zone": "Banquet", "displayOrder": 16 },
+        { "id": "T17", "name": "طاولة 17", "seats": 4, "state": "active", "zone": "A", "displayOrder": 17 },
+        { "id": "T18", "name": "طاولة 18", "seats": 4, "state": "active", "zone": "A", "displayOrder": 18 },
+        { "id": "T19", "name": "طاولة 19", "seats": 6, "state": "disactive", "zone": "Storage", "displayOrder": 19, "note": "خارج الخدمة" },
+        { "id": "T20", "name": "طاولة 20", "seats": 6, "state": "active", "zone": "Terrace", "displayOrder": 20 }
+    ],
+
+    tableLocks: [
+        { "id": "lock-001", "tableId": "T2", "orderId": "ord-1678886400000", "lockedBy": "e7a8f0b4", "lockedAt": "2024-02-18T15:30:00Z", "source": "pos", "active": true },
+        { "id": "lock-002", "tableId": "T6", "orderId": "ord-1678886500000", "lockedBy": "e7a8f0b4", "lockedAt": "2024-02-18T15:40:00Z", "source": "pos", "active": true },
+        { "id": "lock-003", "tableId": "T6", "orderId": "ord-1678886600000", "lockedBy": "f3c9d8e1", "lockedAt": "2024-02-18T15:45:00Z", "source": "pos", "active": true },
+        { "id": "lock-004", "tableId": "T13", "orderId": "ord-1678886700000", "lockedBy": "a1b2c3d4", "lockedAt": "2024-02-18T16:10:00Z", "source": "pos", "active": true }
+    ],
+
+    orders: [
+        { "id": "ord-1678886400000", "status": "open", "tableIds": ["T2"], "guests": 3, "createdAt": "2024-02-18T15:30:00Z", "updatedAt": "2024-02-18T15:45:00Z", "totals": { "due": 420.50 } },
+        { "id": "ord-1678886500000", "status": "held", "tableIds": ["T6"], "guests": 6, "createdAt": "2024-02-18T15:35:00Z", "updatedAt": "2024-02-18T16:00:00Z", "totals": { "due": 980.00 } },
+        { "id": "ord-1678886600000", "status": "open", "tableIds": ["T6"], "guests": 2, "createdAt": "2024-02-18T15:45:00Z", "updatedAt": "2024-02-18T15:55:00Z", "totals": { "due": 210.00 } },
+        { "id": "ord-1678886700000", "status": "open", "tableIds": ["T13"], "guests": 4, "createdAt": "2024-02-18T16:05:00Z", "updatedAt": "2024-02-18T16:15:00Z", "totals": { "due": 760.00 } }
+    ],
+
+    reservations: [
+        { "id": "res-001", "customerName": "محمد سامي", "phone": "01000200300", "partySize": 4, "scheduledAt": "2024-02-18T19:00:00Z", "holdUntil": "2024-02-18T19:20:00Z", "tableIds": ["T7"], "status": "booked", "note": "عيد ميلاد" },
+        { "id": "res-002", "customerName": "Sarah Ahmed", "phone": "01133344455", "partySize": 2, "scheduledAt": "2024-02-18T20:30:00Z", "holdUntil": "2024-02-18T20:50:00Z", "tableIds": ["T5", "T6"], "status": "booked", "note": "جلسة هادئة" },
+        { "id": "res-003", "customerName": "شركة بريميوم", "phone": "01266677788", "partySize": 10, "scheduledAt": "2024-02-19T13:00:00Z", "holdUntil": "2024-02-19T13:15:00Z", "tableIds": ["T16"], "status": "seated", "note": "اجتماع عمل" }
+    ],
+
+    auditEvents: [
+        { "id": "audit-001", "userId": "a1b2c3d4", "action": "table.state", "refType": "table", "refId": "T19", "at": "2024-02-15T10:00:00Z", "meta": { "state": "disactive" } }
     ],
 
     // --- بيانات سائقي التوصيل ---
