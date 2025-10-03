@@ -697,7 +697,7 @@
         }, [isFav ? '★' : '☆']),
         D.Containers.Div({ attrs:{ class: tw`h-24 overflow-hidden rounded-2xl bg-[var(--surface-2)]` }}, [
           item.image
-            ? D.Containers.Img({ attrs:{ src:item.image, alt:localize(item.name, lang), class: tw`h-full w-full object-cover scale-[1.05]` }})
+            ? D.Media.Img({ attrs:{ src:item.image, alt:localize(item.name, lang), class: tw`h-full w-full object-cover scale-[1.05]` }})
             : D.Containers.Div({ attrs:{ class: tw`grid h-full place-items-center text-3xl` }}, ['🍽️'])
         ]),
         D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
