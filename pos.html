@@ -1,0 +1,2986 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>مشكاة — نقطة البيع للمطاعم</title>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background, #0f1115);
+    }
+    body {
+      font-family: "Tajawal", "Cairo", system-ui, sans-serif;
+      touch-action: manipulation;
+      display: flex;
+      min-height: 100vh;
+    }
+    #app {
+      flex: 1 1 auto;
+      min-height: 100vh;
+      display: flex;
+    }
+    .pos-shell { flex: 1 1 auto; }
+  </style>
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./pos-mock-data.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+  (function(){
+    const M = Mishkah;
+    const UI = M.UI;
+    const U = M.utils;
+    const D = M.DSL;
+    const { tw, token } = U.twcss;
+
+    const MOCK = window.database || {};
+    const settings = MOCK.settings || {};
+    const currencyMap = settings.currency || { ar:'ج.م', en:'EGP' };
+
+    const ORDER_TYPES = [
+      { id:'dine_in', icon:'🍽️', label:{ ar:'صالة', en:'Dine-in' } },
+      { id:'delivery', icon:'🚚', label:{ ar:'دليفري', en:'Delivery' } },
+      { id:'cashier', icon:'🧾', label:{ ar:'كاشير', en:'Counter' } }
+    ];
+
+    const TEXTS = {
+      ar:{
+        ui:{
+          shift:'الوردية', cashier:'الكاشير', dine_in:'صالة', delivery:'توصيل', cashier_mode:'كاشير',
+          search:'ابحث في المنيو', favorites:'المفضلة', favorites_only:'المفضلة فقط', categories:'التصنيفات', load_more:'عرض المزيد',
+          indexeddb:'قاعدة البيانات المحلية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
+          subtotal:'الإجمالي الفرعي', service:'خدمة', vat:'ضريبة', discount:'خصم', delivery_fee:'رسوم التوصيل', total:'الإجمالي المستحق',
+          cart_empty:'لم يتم إضافة أصناف بعد', choose_items:'اختر صنفًا من القائمة لإضافته إلى الطلب.', tables:'الطاولات',
+          select_table:'اختر طاولة لإسناد الطلب', table_status:'حالة الطاولة', table_available:'متاحة', table_occupied:'مشغولة',
+          table_reserved:'محجوزة', table_maintenance:'صيانة', payments:'المدفوعات', split_payments:'تقسيم الدفعات', paid:'المدفوع',
+          remaining:'المتبقي', open_payments:'تسجيل دفعة', open_reports:'فتح التقارير', reports:'التقارير', orders_count:'عدد الطلبات',
+          avg_ticket:'متوسط الفاتورة', top_selling:'الأكثر مبيعًا', sales_today:'مبيعات اليوم', save_order:'حفظ الطلب',
+          settle_and_print:'تحصيل وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
+          amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
+          arabic:'عربي', english:'English', service_type:'نوع الطلب', guests:'عدد الأفراد', kds:'نظام المطبخ (KDS)',
+          status_online:'متصل', status_offline:'غير متصل', status_idle:'انتظار', order_id:'طلب', last_orders:'الطلبات الأخيرة',
+          connect_kds:'اتصال', reconnect:'إعادة الاتصال', print_size:'مقاس الطباعة', thermal_80:'حرارية 80مم', a5:'A5', a4:'A4',
+          tables_manage:'إدارة الطاولات', tables_assign:'تخصيص الطاولات', table_lock:'قفل الطاولة', table_unlock:'فك القفل',
+          table_locked:'مقفلة', table_sessions:'طلبات مرتبطة', table_no_sessions:'لا توجد طلبات', table_add:'إضافة طاولة',
+          table_rename:'تعديل الاسم', table_delete:'حذف الطاولة', table_status_change:'تغيير الحالة', table_status_inactive:'معطلة',
+          table_status_active:'متاحة', table_status_reserved:'محجوزة', table_status_maintenance:'صيانة', table_manage_hint:'اضغط على أي طاولة للإسناد أو استخدم أدوات الإدارة.',
+          table_multi_orders:'طلبات متعددة', print_profile:'ملف الطباعة', table_confirm_unlock:'هل تريد فك قفل الطاولة؟',
+          table_confirm_remove:'هل تريد حذف هذه الطاولة؟', table_confirm_release:'هل تريد فك ارتباط الطلب بالطاولة؟',
+          tables_filter_all:'الكل', tables_filter_free:'متاحة', tables_filter_single:'مقفلة (طلب واحد)', tables_filter_multi:'مقفلة (متعددة)',
+          tables_filter_maintenance:'صيانة', tables_search_placeholder:'ابحث باسم أو رقم الطاولة', tables_details:'تفاصيل الطاولة',
+          tables_zone:'منطقة', tables_capacity:'سعة', tables_state_active:'متاحة', tables_state_disactive:'معطلة',
+          tables_state_maintenance:'صيانة', tables_state_free:'حرة', tables_state_single:'طلب واحد', tables_state_multi:'طلبات متعددة',
+          tables_unlock_all:'فك الجميع', tables_unlock_single:'فك عن هذا الطلب', tables_assign_to_order:'إسناد للطلب الحالي',
+          tables_remove_from_order:'إزالة من الطلب الحالي', tables_orders_badge:'طلبات', tables_reservations_badge:'حجوزات',
+          tables_actions:'إجراءات الطاولة', tables_longpress_hint:'اضغط مطولًا لعرض التفاصيل', tables_count_label:'إجمالي الطاولات',
+          reservations:'الحجوزات', reservations_manage:'إدارة الحجوزات', reservations_filter_all:'الكل', reservations_filter_booked:'محجوز',
+          reservations_filter_seated:'تم الجلوس', reservations_filter_completed:'منتهٍ', reservations_filter_cancelled:'ملغي',
+          reservations_filter_noshow:'لم يحضر', reservations_new:'حجز جديد', reservations_edit:'تعديل الحجز', reservations_customer:'اسم العميل',
+          reservations_phone:'الهاتف', reservations_party_size:'عدد الأفراد', reservations_time:'وقت الحجز', reservations_hold_until:'الانتظار حتى',
+          reservations_tables:'الطاولات المرتبطة', reservations_note:'ملاحظات', reservations_status:'الحالة',
+          reservations_status_booked:'محجوز', reservations_status_seated:'تم الجلوس', reservations_status_no_show:'لم يحضر',
+          reservations_status_cancelled:'ملغي', reservations_status_completed:'مكتمل', reservations_convert:'وصل العميل',
+          reservations_no_show:'لم يحضر', reservations_cancel_action:'إلغاء', reservations_save:'حفظ الحجز',
+          reservations_conflict:'يوجد تعارض في الوقت المحدد مع طاولة أخرى.', reservations_conflict_maintenance:'أحد الطاولات في صيانة، يرجى اختيار طاولة مختلفة.',
+          reservations_conflict_lock:'الطاولة مرتبطة بطلب آخر.', reservations_tables_required:'اختر طاولة واحدة على الأقل',
+          reservations_list_empty:'لا توجد حجوزات في هذا النطاق الزمني.', reservations_hold_label:'سيتم الاحتفاظ حتى',
+          tables_manage_log:'سجل التعديلات', print_doc_customer:'إيصال عميل', print_doc_summary:'ملخص الطلب', print_doc_kitchen:'إرسال للمطبخ',
+          print_preview:'معاينة', print_send:'إرسال للطابعة', print_save_profile:'حفظ الإعدادات', print_header_store:'اسم المتجر',
+          print_header_address:'العنوان', print_header_phone:'الهاتف', print_footer_thanks:'شكرًا لزيارتكم!',
+          print_footer_policy:'سياسة الاستبدال خلال 24 ساعة مع الإيصال.', print_footer_feedback:'شاركنا رأيك',
+          print_payments:'المدفوعات', print_change_due:'المتبقي للعميل', print_size_label:'مقاس الطباعة',
+          print_printer_default:'الطابعة الافتراضية', print_auto_send:'إرسال مباشر للطابعة الحرارية', print_show_preview:'عرض المعاينة قبل الطباعة',
+          orders_queue:'الطلبات المفتوحة', orders_queue_hint:'الطلبات المعلقة/المفتوحة', orders_queue_empty:'لا توجد طلبات في الانتظار.',
+          orders_queue_open:'فتح الطلب', orders_queue_status_open:'مفتوح', orders_queue_status_held:'معلّق',
+          tables_bulk_activate:'تفعيل', tables_bulk_maintenance:'وضع صيانة'
+        },
+        toast:{
+          item_added:'تمت إضافة الصنف', quantity_updated:'تم تحديث الكمية', cart_cleared:'تم مسح الطلب',
+          order_saved:'تم حفظ الطلب محليًا', sync_complete:'تم تحديث المزامنة', payment_recorded:'تم تسجيل الدفعة',
+          amount_required:'من فضلك أدخل قيمة صحيحة', indexeddb_missing:'IndexedDB غير متاحة في هذا المتصفح',
+          indexeddb_error:'تعذر حفظ البيانات محليًا', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
+          discount_stub:'سيتم تفعيل الخصومات لاحقًا', notes_updated:'تم تحديث الملاحظات', add_note:'أدخل ملاحظة ترسل للمطبخ',
+          set_qty:'أدخل الكمية الجديدة', line_actions:'سيتم فتح إجراءات السطر لاحقًا', confirm_clear:'هل تريد مسح الطلب الحالي؟',
+          new_order:'تم إنشاء طلب جديد', order_type_changed:'تم تغيير نوع الطلب', table_assigned:'تم اختيار الطاولة',
+          merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري المزامنة مع IndexedDB',
+          theme_switched:'تم تغيير الثيم', lang_switched:'تم تغيير اللغة', logout_stub:'تم إنهاء الوردية افتراضيًا',
+          kdsConnected:'تم الاتصال بالمطبخ', kdsClosed:'تم إغلاق الاتصال بالمطبخ', kdsFailed:'فشل الاتصال بالمطبخ',
+          kdsUnavailable:'متصفحك لا يدعم WebSocket', kdsPong:'تم استقبال إشارة من المطبخ',
+          table_locked_other:'الطاولة مقفلة لطلب آخر', table_locked_now:'تم قفل الطاولة على الطلب الحالي',
+          table_unlocked:'تم فك قفل الطاولة', table_updated:'تم تحديث بيانات الطاولة', table_removed:'تم حذف الطاولة',
+          table_added:'تم إنشاء طاولة جديدة', table_inactive_assign:'لا يمكن اختيار طاولة معطلة',
+          table_sessions_cleared:'تم فك ارتباط الطلب بالطاولة', print_size_switched:'تم تحديث مقاس الطباعة',
+          table_invalid_seats:'رجاء إدخال عدد مقاعد صالح', table_name_required:'يجب إدخال اسم للطاولة',
+          table_has_sessions:'لا يمكن حذف طاولة عليها طلبات', table_state_updated:'تم تحديث حالة الطاولة',
+          table_unlock_partial:'تم فك قفل الطاولة للطلب المحدد', reservation_created:'تم إنشاء الحجز', reservation_updated:'تم تحديث الحجز',
+          reservation_cancelled:'تم إلغاء الحجز', reservation_converted:'تم تحويل الحجز إلى طلب', reservation_no_show:'تم وسم الحجز بعدم الحضور',
+          print_profile_saved:'تم حفظ إعدادات الطباعة', print_sent:'تم إرسال أمر الطباعة'
+        }
+      },
+      en:{
+        ui:{
+          shift:'Shift', cashier:'Cashier', dine_in:'Dine-in', delivery:'Delivery', cashier_mode:'Counter',
+          search:'Search menu', favorites:'Favorites', favorites_only:'Only favorites', categories:'Categories', load_more:'Load more',
+          indexeddb:'Local database', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
+          service:'Service', vat:'VAT', discount:'Discount', delivery_fee:'Delivery fee', total:'Amount due',
+          cart_empty:'No items added yet', choose_items:'Pick an item from the menu to start the order.', tables:'Tables',
+          select_table:'Select a table for this order', table_status:'Table status', table_available:'Available', table_occupied:'Occupied',
+          table_reserved:'Reserved', table_maintenance:'Maintenance', payments:'Payments', split_payments:'Split payments', paid:'Paid',
+          remaining:'Remaining', open_payments:'Add payment', open_reports:'Open reports', reports:'Reports', orders_count:'Orders',
+          avg_ticket:'Average ticket', top_selling:'Top seller', sales_today:'Sales today', save_order:'Save order',
+          settle_and_print:'Settle & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
+          new_order:'New order', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
+          light:'Light', dark:'Dark', language:'Language', arabic:'Arabic', english:'English', service_type:'Service type',
+          guests:'Guests', kds:'Kitchen display', status_online:'Online', status_offline:'Offline', status_idle:'Idle',
+          order_id:'Order', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect', print_size:'Print size',
+          thermal_80:'Thermal 80mm', a5:'A5', a4:'A4', tables_manage:'Table management', tables_assign:'Assign tables',
+          table_lock:'Lock table', table_unlock:'Unlock table', table_locked:'Locked', table_sessions:'Linked orders',
+          table_no_sessions:'No orders yet', table_add:'Add table', table_rename:'Rename table', table_delete:'Remove table',
+          table_status_change:'Change status', table_status_inactive:'Inactive', table_status_active:'Available',
+          table_status_reserved:'Reserved', table_status_maintenance:'Maintenance', table_manage_hint:'Tap a table to assign it or use the tools below.',
+          table_multi_orders:'Multi orders', print_profile:'Print profile', table_confirm_unlock:'Unlock this table?',
+          table_confirm_remove:'Remove this table?', table_confirm_release:'Unlink the order from the table?',
+          tables_filter_all:'All', tables_filter_free:'Free', tables_filter_single:'Locked (single)', tables_filter_multi:'Locked (multi)',
+          tables_filter_maintenance:'Maintenance', tables_search_placeholder:'Search by table name or number', tables_details:'Table details',
+          tables_zone:'Zone', tables_capacity:'Capacity', tables_state_active:'Active', tables_state_disactive:'Inactive',
+          tables_state_maintenance:'Maintenance', tables_state_free:'Free', tables_state_single:'Single lock', tables_state_multi:'Multi lock',
+          tables_unlock_all:'Unlock all', tables_unlock_single:'Unlock current order', tables_assign_to_order:'Assign to current order',
+          tables_remove_from_order:'Remove from this order', tables_orders_badge:'Orders', tables_reservations_badge:'Reservations',
+          tables_actions:'Table actions', tables_longpress_hint:'Long press to view details', tables_count_label:'Total tables',
+          reservations:'Reservations', reservations_manage:'Manage reservations', reservations_filter_all:'All', reservations_filter_booked:'Booked',
+          reservations_filter_seated:'Seated', reservations_filter_completed:'Completed', reservations_filter_cancelled:'Cancelled',
+          reservations_filter_noshow:'No-show', reservations_new:'New reservation', reservations_edit:'Edit reservation', reservations_customer:'Customer name',
+          reservations_phone:'Phone', reservations_party_size:'Party size', reservations_time:'Reservation time', reservations_hold_until:'Hold until',
+          reservations_tables:'Linked tables', reservations_note:'Notes', reservations_status:'Status',
+          reservations_status_booked:'Booked', reservations_status_seated:'Seated', reservations_status_no_show:'No-show',
+          reservations_status_cancelled:'Cancelled', reservations_status_completed:'Completed', reservations_convert:'Guest arrived',
+          reservations_no_show:'Mark no-show', reservations_cancel_action:'Cancel', reservations_save:'Save reservation',
+          reservations_conflict:'Conflict detected with selected tables.', reservations_conflict_maintenance:'One of the tables is under maintenance.',
+          reservations_conflict_lock:'Table currently locked by another order.', reservations_tables_required:'Select at least one table',
+          reservations_list_empty:'No reservations for this time range.', reservations_hold_label:'Hold until',
+          tables_manage_log:'Audit trail', print_doc_customer:'Customer receipt', print_doc_summary:'Order summary', print_doc_kitchen:'Kitchen chit',
+          print_preview:'Preview', print_send:'Send to printer', print_save_profile:'Save settings', print_header_store:'Store name',
+          print_header_address:'Address', print_header_phone:'Phone', print_footer_thanks:'Thanks for visiting!',
+          print_footer_policy:'Exchange within 24h with receipt.', print_footer_feedback:'Share your feedback',
+          print_payments:'Payments', print_change_due:'Change due', print_size_label:'Print size',
+          print_printer_default:'Default printer', print_auto_send:'Auto send to thermal printer', print_show_preview:'Show preview before printing',
+          orders_queue:'Open orders', orders_queue_hint:'Held / open orders in progress', orders_queue_empty:'No orders waiting.',
+          orders_queue_open:'Open order', orders_queue_status_open:'Open', orders_queue_status_held:'Held',
+          tables_bulk_activate:'Activate', tables_bulk_maintenance:'Mark maintenance'
+        },
+        toast:{
+          item_added:'Item added to cart', quantity_updated:'Quantity updated', cart_cleared:'Cart cleared',
+          order_saved:'Order stored locally', sync_complete:'Sync completed', payment_recorded:'Payment recorded',
+          amount_required:'Enter a valid amount', indexeddb_missing:'IndexedDB is not available in this browser',
+          indexeddb_error:'Failed to persist locally', print_stub:'Printer integration coming soon',
+          discount_stub:'Discount workflow coming soon', notes_updated:'Notes updated', add_note:'Add a note for the kitchen',
+          set_qty:'Enter the new quantity', line_actions:'Line actions coming soon', confirm_clear:'Clear the current order?',
+          new_order:'New order created', order_type_changed:'Order type changed', table_assigned:'Table assigned',
+          merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Syncing with IndexedDB…',
+          theme_switched:'Theme updated', lang_switched:'Language updated', logout_stub:'Session ended (stub)',
+          kdsConnected:'Connected to kitchen', kdsClosed:'Kitchen connection closed', kdsFailed:'Kitchen connection failed',
+          kdsUnavailable:'WebSocket not supported', kdsPong:'KDS heartbeat received',
+          table_locked_other:'Table is locked by another order', table_locked_now:'Table locked for this order',
+          table_unlocked:'Table unlocked', table_updated:'Table details updated', table_removed:'Table removed',
+          table_added:'New table added', table_inactive_assign:'Inactive tables cannot be assigned',
+          table_sessions_cleared:'Order unlinked from table', print_size_switched:'Print size updated',
+          table_invalid_seats:'Please enter a valid seat count', table_name_required:'Table name is required',
+          table_has_sessions:'Cannot remove a table with linked orders', table_state_updated:'Table state updated',
+          table_unlock_partial:'Table unlocked for the selected order', reservation_created:'Reservation created', reservation_updated:'Reservation updated',
+          reservation_cancelled:'Reservation cancelled', reservation_converted:'Reservation converted to order', reservation_no_show:'Reservation marked as no-show',
+          print_profile_saved:'Print profile saved', print_sent:'Print job sent'
+        }
+      }
+    };
+
+    function getTexts(db){
+      return TEXTS[db.env.lang] || TEXTS.ar;
+    }
+
+    function localize(value, lang){
+      if(value == null) return '';
+      if(typeof value === 'string') return value;
+      if(typeof value === 'object'){
+        return value[lang] || value.ar || value.en || Object.values(value)[0] || '';
+      }
+      return String(value);
+    }
+
+    function getCurrency(db){
+      const lang = db.env.lang;
+      return currencyMap[lang] || currencyMap.ar || currencyMap.en || 'EGP';
+    }
+
+    function getLocale(db){
+      return db.env.lang === 'ar' ? 'ar-EG' : 'en-US';
+    }
+
+    function round(value){
+      return Math.round((Number(value) || 0) * 100) / 100;
+    }
+
+    function calculateTotals(lines, cfg, type){
+      const subtotal = (lines || []).reduce((sum, line)=> sum + (Number(line.qty)||0) * (Number(line.price)||0), 0);
+      const serviceRate = type === 'dine_in' ? (cfg.service_charge_rate || 0) : 0;
+      const service = subtotal * serviceRate;
+      const vatBase = subtotal + service;
+      const vat = vatBase * (cfg.tax_rate || 0);
+      const deliveryFee = type === 'delivery' ? (cfg.default_delivery_fee || 0) : 0;
+      const discount = 0;
+      const due = subtotal + service + vat + deliveryFee - discount;
+      return {
+        subtotal: round(subtotal),
+        service: round(service),
+        vat: round(vat),
+        discount: round(discount),
+        deliveryFee: round(deliveryFee),
+        due: round(due)
+      };
+    }
+
+    function createOrderLine(item, qty){
+      const quantity = qty || 1;
+      const price = Number(item.price) || 0;
+      return {
+        id: `line-${item.id}`,
+        itemId: item.id,
+        name: item.name,
+        description: item.description,
+        price,
+        qty: quantity,
+        total: round(price * quantity),
+        modifiers: [],
+        notes: ''
+      };
+    }
+
+    function filterMenu(menu, lang){
+      const term = (menu.search || '').trim().toLowerCase();
+      const favorites = new Set((menu.favorites || []).map(String));
+      return (menu.items || []).filter(item=>{
+        if(menu.showFavoritesOnly && !favorites.has(String(item.id))) return false;
+        const inCategory = menu.category === 'all' || item.category === menu.category;
+        if(!inCategory) return false;
+        if(!term) return true;
+        const name = localize(item.name, lang).toLowerCase();
+        const desc = localize(item.description, lang).toLowerCase();
+        return name.includes(term) || desc.includes(term);
+      });
+    }
+
+    function formatSync(ts, lang){
+      if(!ts) return null;
+      try{
+        const formatter = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG' : 'en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        return formatter.format(new Date(ts));
+      } catch(_){
+        return new Date(ts).toLocaleTimeString();
+      }
+    }
+
+    function formatDateTime(ts, lang, options){
+      if(!ts) return '';
+      try{
+        const locale = lang === 'ar' ? 'ar-EG' : 'en-GB';
+        const formatter = new Intl.DateTimeFormat(locale, options || { hour:'2-digit', minute:'2-digit' });
+        return formatter.format(new Date(ts));
+      } catch(_){
+        return new Date(ts).toLocaleString();
+      }
+    }
+
+    function toInputDateTime(ts){
+      if(!ts) return '';
+      const date = new Date(ts);
+      const pad = (v)=> String(v).padStart(2, '0');
+      const year = date.getFullYear();
+      const month = pad(date.getMonth() + 1);
+      const day = pad(date.getDate());
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    const hasIndexedDB = typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
+
+    function createIndexedDBAdapter(name, version){
+      if(!hasIndexedDB){
+        return {
+          available:false,
+          async saveOrder(){ return false; },
+          async listOrders(){ return []; },
+          async markSync(){ return false; }
+        };
+      }
+      let dbPromise = null;
+      function openDB(){
+        if(dbPromise) return dbPromise;
+        dbPromise = new Promise((resolve, reject)=>{
+          const request = window.indexedDB.open(name, version);
+          request.onupgradeneeded = (event)=>{
+            const db = event.target.result;
+            if(!db.objectStoreNames.contains('orders')){
+              db.createObjectStore('orders', { keyPath:'id' });
+            }
+            if(!db.objectStoreNames.contains('syncLog')){
+              db.createObjectStore('syncLog', { keyPath:'ts' });
+            }
+          };
+          request.onsuccess = ()=> resolve(request.result);
+          request.onerror = ()=> reject(request.error);
+        });
+        return dbPromise;
+      }
+      async function saveOrder(order){
+        const db = await openDB();
+        return new Promise((resolve, reject)=>{
+          const tx = db.transaction('orders', 'readwrite');
+          tx.oncomplete = ()=> resolve(true);
+          tx.onerror = ()=> reject(tx.error);
+          tx.objectStore('orders').put({ id: order.id, updatedAt: Date.now(), status: order.status || 'draft', payload: order });
+        });
+      }
+      async function listOrders(){
+        const db = await openDB();
+        return new Promise((resolve, reject)=>{
+          const tx = db.transaction('orders', 'readonly');
+          const req = tx.objectStore('orders').getAll();
+          req.onsuccess = ()=> resolve(req.result || []);
+          req.onerror = ()=> reject(req.error);
+        });
+      }
+      async function markSync(){
+        const db = await openDB();
+        return new Promise((resolve, reject)=>{
+          const tx = db.transaction('syncLog', 'readwrite');
+          tx.oncomplete = ()=> resolve(true);
+          tx.onerror = ()=> reject(tx.error);
+          tx.objectStore('syncLog').put({ ts: Date.now() });
+        });
+      }
+      return { available:true, saveOrder, listOrders, markSync };
+    }
+
+    function createKDSBridge(url){
+      let socket = null;
+      return {
+        connect(ctx){
+          const state = ctx.getState();
+          const t = getTexts(state);
+          if(socket){
+            try { socket.close(); } catch(_){ }
+          }
+          if(!('WebSocket' in window)){
+            UI.pushToast(ctx, { title:t.toast.kdsUnavailable, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              status:{
+                ...s.data.status,
+                kds:{ ...(s.data.status?.kds || {}), state:'idle' }
+              }
+            }
+          }));
+          ctx.rebuild();
+          try{
+            socket = new WebSocket(url);
+          } catch(error){
+            UI.pushToast(ctx, { title:t.toast.kdsFailed, message:String(error), icon:'🛑' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
+              }
+            }));
+            ctx.rebuild();
+            return;
+          }
+          socket.onopen = ()=>{
+            UI.pushToast(ctx, { title:t.toast.kdsConnected, icon:'✅' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'online' } }
+              }
+            }));
+            ctx.rebuild();
+          };
+          socket.onclose = ()=>{
+            UI.pushToast(ctx, { title:t.toast.kdsClosed, icon:'ℹ️' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
+              }
+            }));
+            ctx.rebuild();
+          };
+          socket.onerror = ()=>{
+            UI.pushToast(ctx, { title:t.toast.kdsFailed, icon:'🛑' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
+              }
+            }));
+            ctx.rebuild();
+          };
+          socket.onmessage = (event)=>{
+            try{
+              const payload = JSON.parse(event.data);
+              if(payload && payload.type === 'pong'){
+                UI.pushToast(ctx, { title:'KDS', message:t.toast.kdsPong, icon:'🍳', ttl:1600 });
+              }
+            } catch(_){ }
+          };
+        }
+      };
+    }
+
+    const posDB = createIndexedDBAdapter('mishkah-pos', 1);
+    const kdsBridge = createKDSBridge('wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q');
+
+    const menuCategories = [{ id:'all', translations:{ ar:'الكل', en:'All' } }].concat(MOCK.categories || []);
+    const categories = menuCategories.map(cat=>({
+      id: cat.id,
+      label:{ ar: cat.translations?.ar || cat.id, en: cat.translations?.en || cat.id }
+    }));
+
+    const menuItems = (MOCK.items || []).map(item=>({
+      id: item.id,
+      category: item.category || 'all',
+      price: item.price || 0,
+      image: item.image,
+      name:{
+        ar: item.translations?.ar?.name || item.translations?.en?.name || String(item.id),
+        en: item.translations?.en?.name || item.translations?.ar?.name || String(item.id)
+      },
+      description:{
+        ar: item.translations?.ar?.description || '',
+        en: item.translations?.en?.description || item.translations?.ar?.description || ''
+      }
+    }));
+
+    const baseTables = Array.isArray(MOCK.tables) ? MOCK.tables : [];
+    const tables = baseTables.map((tbl, idx)=>({
+      id: tbl.id || `T${idx+1}`,
+      name: tbl.name || `طاولة ${idx+1}`,
+      capacity: tbl.seats || tbl.capacity || 4,
+      zone: tbl.zone || '',
+      displayOrder: typeof tbl.displayOrder === 'number' ? tbl.displayOrder : idx + 1,
+      state: tbl.state || (tbl.status === 'inactive' ? 'disactive' : tbl.status === 'maintenance' ? 'maintenance' : 'active'),
+      note: tbl.note || tbl.notes || ''
+    }));
+    while(tables.length < 20){
+      const nextIndex = tables.length + 1;
+      tables.push({
+        id:`T${nextIndex}`,
+        name:`طاولة ${nextIndex}`,
+        capacity:4,
+        zone:'',
+        displayOrder: nextIndex,
+        state:'active',
+        note:''
+      });
+    }
+    tables.sort((a,b)=> (a.displayOrder||0) - (b.displayOrder||0));
+
+    const tableLocks = Array.isArray(MOCK.tableLocks) ? MOCK.tableLocks.map(lock=>({
+      id: lock.id || `lock-${Math.random().toString(36).slice(2,8)}`,
+      tableId: lock.tableId,
+      orderId: lock.orderId || null,
+      reservationId: lock.reservationId || null,
+      lockedBy: lock.lockedBy || 'system',
+      lockedAt: lock.lockedAt ? new Date(lock.lockedAt).getTime() : Date.now(),
+      source: lock.source || 'pos',
+      active: lock.active !== false
+    })) : [];
+
+    const ordersQueue = Array.isArray(MOCK.orders) ? MOCK.orders.map(order=>({
+      id: order.id,
+      status: order.status || 'open',
+      tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
+      guests: order.guests || 0,
+      createdAt: order.createdAt ? new Date(order.createdAt).getTime() : Date.now(),
+      updatedAt: order.updatedAt ? new Date(order.updatedAt).getTime() : Date.now(),
+      totals: order.totals || {}
+    })) : [];
+
+    const reservations = Array.isArray(MOCK.reservations) ? MOCK.reservations.map(res=>({
+      id: res.id || `res-${Math.random().toString(36).slice(2,6)}`,
+      customerName: res.customerName || '',
+      phone: res.phone || '',
+      partySize: res.partySize || 2,
+      scheduledAt: res.scheduledAt ? new Date(res.scheduledAt).getTime() : Date.now(),
+      holdUntil: res.holdUntil ? new Date(res.holdUntil).getTime() : null,
+      tableIds: Array.isArray(res.tableIds) ? res.tableIds.slice() : [],
+      status: res.status || 'booked',
+      note: res.note || '',
+      createdAt: res.createdAt ? new Date(res.createdAt).getTime() : Date.now()
+    })) : [];
+
+    const auditTrail = Array.isArray(MOCK.auditEvents) ? MOCK.auditEvents.map(evt=>({
+      id: evt.id || `audit-${Math.random().toString(36).slice(2,8)}`,
+      userId: evt.userId || 'system',
+      action: evt.action || 'unknown',
+      refType: evt.refType || 'table',
+      refId: evt.refId || '',
+      at: evt.at ? new Date(evt.at).getTime() : Date.now(),
+      meta: evt.meta || {}
+    })) : [];
+    const employees = MOCK.employees || [];
+    const cashier = employees[0] || { full_name:'أحمد محمود', role:'cashier' };
+
+    function generateOrderId(){
+      return 'ORD-' + Date.now().toString(36).toUpperCase();
+    }
+
+    const initialTotals = calculateTotals([], settings, 'dine_in');
+
+    const posState = {
+      head:{ title:'مشكاة — نقطة بيع حية' },
+      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      data:{
+        settings,
+        currency: currencyMap,
+        user:{
+          name: cashier.full_name || 'أحمد محمود',
+          role: cashier.role || 'cashier',
+          shift:'الصباحية',
+          shiftNo:'#103'
+        },
+        status:{
+          indexeddb:{ state: posDB.available ? 'idle' : 'offline', lastSync: null },
+          kds:{ state:'idle', endpoint:'wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q' }
+        },
+        menu:{
+          search:'',
+          category:'all',
+          showFavoritesOnly:false,
+          favorites:[],
+          categories,
+          items: menuItems
+        },
+        order:{
+          id: generateOrderId(),
+          status:'open',
+          type:'dine_in',
+          tableIds:[],
+          guests:2,
+          lines:[],
+          totals: initialTotals,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        },
+        tables,
+        tableLocks,
+        reservations,
+        ordersQueue,
+        auditTrail,
+        payments:{
+          methods:[
+            { id:'cash', icon:'💵', label:{ ar:'نقدي', en:'Cash' } },
+            { id:'card', icon:'💳', label:{ ar:'بطاقة', en:'Card' } },
+            { id:'wallet', icon:'📱', label:{ ar:'محفظة', en:'Wallet' } },
+            { id:'voucher', icon:'🎟️', label:{ ar:'قسيمة', en:'Voucher' } }
+          ],
+          activeMethod:'cash',
+          split:[]
+        },
+        print:{
+          size:'thermal_80',
+          docType:'customer',
+          profiles:{
+            customer:{ size:'thermal_80', defaultPrinter:'Thermal-80', autoSend:true, preview:false },
+            kitchen:{ size:'a5', defaultPrinter:'Kitchen-A5', autoSend:false, preview:true }
+          }
+        },
+        reports:{
+          salesToday:12430,
+          ordersCount:58,
+          avgTicket:214,
+          topItemId: menuItems[0]?.id || null
+        }
+      },
+      ui:{
+        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false },
+        drawers:{},
+        paymentDraft:{ amount:'' },
+        tables:{ view:'assign', filter:'all', search:'', details:null },
+        reservations:{ filter:'today', status:'all', editing:null, form:null },
+        print:{ docType:'customer', size:'thermal_80', showPreview:false }
+      }
+    };
+
+    function getOrderTypeConfig(type){
+      return ORDER_TYPES.find(o=> o.id === type) || ORDER_TYPES[0];
+    }
+
+    function statusBadge(db, state, label){
+      const t = getTexts(db);
+      const tone = state === 'online' ? 'status/online' : state === 'offline' ? 'status/offline' : 'status/idle';
+      const stateText = state === 'online' ? t.ui.status_online : state === 'offline' ? t.ui.status_offline : t.ui.status_idle;
+      return UI.Badge({
+        variant:'badge/status',
+        attrs:{ class: tw`${token(tone)} text-xs` },
+        leading: state === 'online' ? '●' : state === 'offline' ? '✖' : '…',
+        text: `${label} • ${stateText}`
+      });
+    }
+
+    function ThemeSwitch(db){
+      const t = getTexts(db);
+      return UI.Segmented({
+        items:[
+          { id:'light', label:`☀️ ${t.ui.light}`, attrs:{ gkey:'pos:theme:toggle', 'data-theme':'light' } },
+          { id:'dark', label:`🌙 ${t.ui.dark}`, attrs:{ gkey:'pos:theme:toggle', 'data-theme':'dark' } }
+        ],
+        activeId: db.env.theme,
+        attrs:{ class: tw`hidden xl:inline-flex` }
+      });
+    }
+
+    function LangSwitch(db){
+      const t = getTexts(db);
+      return UI.Segmented({
+        items:[
+          { id:'ar', label:t.ui.arabic, attrs:{ gkey:'pos:lang:switch', 'data-lang':'ar' } },
+          { id:'en', label:t.ui.english, attrs:{ gkey:'pos:lang:switch', 'data-lang':'en' } }
+        ],
+        activeId: db.env.lang
+      });
+    }
+
+    function Header(db){
+      const t = getTexts(db);
+      const user = db.data.user;
+      const orderType = getOrderTypeConfig(db.data.order.type);
+      return UI.Toolbar({
+        left:[
+          D.Text.Span({ attrs:{ class: tw`text-2xl font-black tracking-tight` }}, ['Mishkah POS']),
+          UI.Badge({ text:`${orderType.icon} ${localize(orderType.label, db.env.lang)}`, variant:'badge/ghost', attrs:{ class: tw`text-sm` } })
+        ],
+        right:[
+          ThemeSwitch(db),
+          LangSwitch(db),
+          UI.Button({ attrs:{ gkey:'pos:tables:open', title:t.ui.tables }, variant:'ghost', size:'sm' }, ['🪑']),
+          UI.Button({ attrs:{ gkey:'pos:reservations:open', title:t.ui.reservations }, variant:'ghost', size:'sm' }, ['📅']),
+          UI.Button({ attrs:{ gkey:'pos:orders:open', title:t.ui.orders_queue }, variant:'ghost', size:'sm' }, ['🧾']),
+          UI.Badge({ text:`${t.ui.shift}: ${user.shift}`, leading:'🕑', variant:'badge/ghost' }),
+          UI.Badge({ text:`${t.ui.cashier}: ${user.name}`, leading:'👤', variant:'badge/ghost' }),
+          UI.Button({ attrs:{ gkey:'pos:session:logout', title:'Logout' }, variant:'ghost', size:'sm' }, ['🚪'])
+        ]
+      });
+    }
+
+    function MenuItemCard(db, item){
+      const lang = db.env.lang;
+      const menu = db.data.menu;
+      const isFav = (menu.favorites || []).includes(String(item.id));
+      return D.Containers.Div({
+        attrs:{
+          class: tw`relative flex flex-col gap-2 rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-3 text-[var(--foreground)] transition hover:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]`,
+          gkey:'pos:menu:add',
+          'data-item-id': item.id,
+          role:'button',
+          tabindex:'0'
+        }
+      }, [
+        UI.Button({
+          attrs:{
+            gkey:'pos:menu:favorite',
+            'data-item-id': item.id,
+            class: tw`absolute top-2 ${db.env.dir === 'rtl' ? 'left-2' : 'right-2'} rounded-full`
+          },
+          variant: isFav ? 'solid' : 'ghost',
+          size:'sm'
+        }, [isFav ? '★' : '☆']),
+        D.Containers.Div({ attrs:{ class: tw`h-24 overflow-hidden rounded-2xl bg-[var(--surface-2)]` }}, [
+          item.image
+            ? D.Media.Img({ attrs:{ src:item.image, alt:localize(item.name, lang), class: tw`h-full w-full object-cover scale-[1.05]` }})
+            : D.Containers.Div({ attrs:{ class: tw`grid h-full place-items-center text-3xl` }}, ['🍽️'])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+          D.Text.Strong({ attrs:{ class: tw`text-sm font-semibold leading-tight` }}, [localize(item.name, lang)]),
+          localize(item.description, lang)
+            ? D.Text.P({ attrs:{ class: tw`text-xs ${token('muted')} line-clamp-2` }}, [localize(item.description, lang)])
+            : null
+        ].filter(Boolean)),
+        D.Containers.Div({ attrs:{ class: tw`mt-auto flex items-center justify-between text-sm` }}, [
+          UI.PriceText({ amount:item.price, currency:getCurrency(db), locale:getLocale(db) }),
+          D.Text.Span({ attrs:{ class: tw`text-xl font-semibold text-[var(--primary)]` }}, ['+'])
+        ])
+      ]);
+    }
+
+    function MenuColumn(db){
+      const t = getTexts(db);
+      const lang = db.env.lang;
+      const menu = db.data.menu;
+      const filtered = filterMenu(menu, lang);
+      const chips = menu.categories.map(cat=>({
+        id: cat.id,
+        label: localize(cat.label, lang),
+        attrs:{ gkey:'pos:menu:category', 'data-category-id':cat.id }
+      }));
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3 overflow-hidden` }}, [
+        UI.Card({
+          variant:'card/soft-1',
+          content: D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
+            UI.SearchBar({
+              value: menu.search,
+              placeholder: t.ui.search,
+              onInput:'pos:menu:search',
+              trailing:[
+                UI.Button({
+                  attrs:{
+                    gkey:'pos:menu:favorites-only',
+                    class: tw`rounded-full ${menu.showFavoritesOnly ? 'bg-[var(--primary)] text-white' : ''}`
+                  },
+                  variant: menu.showFavoritesOnly ? 'solid' : 'ghost',
+                  size:'sm'
+                }, ['⭐'])
+              ]
+            }),
+            UI.ChipGroup({ items: chips, activeId: menu.category })
+          ])
+        }),
+        D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 min-h-0 overflow-hidden` }}, [
+          D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/head')}` }}, [
+            D.Text.Strong({}, [t.ui.categories]),
+            UI.Button({ attrs:{ gkey:'pos:menu:load-more' }, variant:'ghost', size:'sm' }, [t.ui.load_more])
+          ]),
+          UI.ScrollArea({
+            attrs:{ class: tw`${token('scroll-panel/body')} px-3 pb-3` },
+            children:[
+              filtered.length
+                ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3` }}, filtered.map(item=> MenuItemCard(db, item)))
+                : UI.EmptyState({ icon:'🍽️', title:t.ui.cart_empty, description:t.ui.choose_items })
+            ]
+          }),
+          D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/footer')} flex flex-wrap items-center justify-between gap-3` }}, [
+            statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb),
+            D.Containers.Div({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [
+              D.Text.Span({}, [`${t.ui.last_sync}: ${formatSync(db.data.status.indexeddb.lastSync, lang) || t.ui.never_synced}`])
+            ]),
+            UI.Button({ attrs:{ gkey:'pos:indexeddb:sync' }, variant:'ghost', size:'sm' }, [t.ui.sync_now])
+          ])
+        ])
+      ]);
+    }
+
+    function OrderLine(db, line){
+      const lang = db.env.lang;
+      return UI.ListItem({
+        leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🍲']),
+        content:[
+          D.Text.Strong({}, [localize(line.name, lang)]),
+          line.notes ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, ['📝 ', line.notes]) : null
+        ].filter(Boolean),
+        trailing:[
+          UI.QtyStepper({ value: line.qty, gkeyDec:'pos:order:line:dec', gkeyInc:'pos:order:line:inc', gkeyEdit:'pos:order:line:qty', dataId: line.id }),
+          UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) }),
+          UI.Button({ attrs:{ gkey:'pos:order:line:actions', 'data-line-id':line.id }, variant:'ghost', size:'sm' }, ['⋯'])
+        ]
+      });
+    }
+
+    function TotalsSection(db){
+      const t = getTexts(db);
+      const totals = db.data.order.totals || {};
+      const rows = [
+        { label:t.ui.subtotal, value: totals.subtotal },
+        { label:t.ui.service, value: totals.service },
+        { label:t.ui.vat, value: totals.vat },
+        totals.deliveryFee ? { label:t.ui.delivery_fee, value: totals.deliveryFee } : null,
+        totals.discount ? { label:t.ui.discount, value: totals.discount } : null
+      ].filter(Boolean);
+      return D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+        ...rows.map(row=> UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+          D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [row.label]),
+          UI.PriceText({ amount:row.value, currency:getCurrency(db), locale:getLocale(db) })
+        ])),
+        UI.Divider(),
+        UI.HStack({ attrs:{ class: tw`${token('split')} text-lg font-semibold` }}, [
+          D.Text.Span({}, [t.ui.total]),
+          UI.PriceText({ amount:totals.due, currency:getCurrency(db), locale:getLocale(db) })
+        ])
+      ]);
+    }
+
+    function CartFooter(db){
+      const t = getTexts(db);
+      return D.Containers.Div({ attrs:{ class: tw`shrink-0 border-t border-[var(--border)] bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-4 py-3 rounded-[var(--radius)] shadow-[var(--shadow)] flex flex-col gap-3` }}, [
+        TotalsSection(db),
+        UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+          UI.Button({ attrs:{ gkey:'pos:order:discount', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.discount_action]),
+          UI.Button({ attrs:{ gkey:'pos:order:note', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.notes]),
+          UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.new_order]),
+          UI.Button({ attrs:{ gkey:'pos:order:clear' }, variant:'ghost', size:'sm' }, [t.ui.clear])
+        ])
+      ]);
+    }
+
+    function computeTableRuntime(db){
+      const tables = db.data.tables || [];
+      const locks = (db.data.tableLocks || []).filter(lock=> lock.active !== false);
+      const reservations = db.data.reservations || [];
+      const currentOrderId = db.data.order?.id;
+      return tables.map(table=>{
+        const activeLocks = locks.filter(lock=> lock.tableId === table.id);
+        const orderLocks = activeLocks.filter(lock=> lock.orderId);
+        const reservationLocks = activeLocks.filter(lock=> lock.reservationId);
+        const lockState = table.state !== 'active'
+          ? table.state
+          : activeLocks.length === 0
+            ? 'free'
+            : activeLocks.length === 1
+              ? 'single'
+              : 'multi';
+        const reservationRefs = reservationLocks.map(lock=> reservations.find(res=> res.id === lock.reservationId)).filter(Boolean);
+        return {
+          ...table,
+          lockState,
+          activeLocks,
+          orderLocks,
+          reservationLocks,
+          reservationRefs,
+          isCurrentOrder: orderLocks.some(lock=> lock.orderId === currentOrderId)
+        };
+      });
+    }
+
+    function tableStateLabel(t, runtime){
+      if(runtime.state === 'disactive') return t.ui.tables_state_disactive;
+      if(runtime.state === 'maintenance') return t.ui.tables_state_maintenance;
+      if(runtime.lockState === 'free') return t.ui.tables_state_free;
+      if(runtime.lockState === 'single') return t.ui.tables_state_single;
+      if(runtime.lockState === 'multi') return t.ui.tables_state_multi;
+      return t.ui.tables_state_active;
+    }
+
+    function tablePalette(runtime){
+      if(runtime.state === 'disactive') return 'border-zinc-700 bg-zinc-800/40 text-zinc-400';
+      if(runtime.state === 'maintenance') return 'border-amber-500/40 bg-amber-500/10 text-amber-400';
+      if(runtime.lockState === 'free') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400';
+      if(runtime.lockState === 'single') return 'border-sky-500/40 bg-sky-500/10 text-sky-400';
+      if(runtime.lockState === 'multi') return 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-400';
+      return 'border-[var(--border)] bg-[var(--surface-1)]';
+    }
+
+    function PaymentSummary(db){
+      const t = getTexts(db);
+      const split = db.data.payments.split || [];
+      const methods = db.data.payments.methods || [];
+      const due = db.data.order.totals?.due || 0;
+      const totalPaid = split.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
+      const remaining = Math.max(0, round(due - totalPaid));
+      return UI.Card({
+        variant:'card/soft-1',
+        title: t.ui.split_payments,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+          ...split.map(entry=>{
+            const method = methods.find(m=> m.id === entry.method);
+            const label = method ? `${method.icon} ${localize(method.label, db.env.lang)}` : entry.method;
+            return UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+              D.Text.Span({}, [label]),
+              UI.PriceText({ amount: entry.amount, currency:getCurrency(db), locale:getLocale(db) })
+            ]);
+          }),
+          split.length ? UI.Divider() : null,
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm font-semibold` }}, [
+            D.Text.Span({}, [t.ui.paid]),
+            UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
+          ]),
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+            D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.remaining]),
+            UI.PriceText({ amount: remaining, currency:getCurrency(db), locale:getLocale(db) })
+          ]),
+          UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.open_payments])
+        ].filter(Boolean))
+      });
+    }
+
+    function OrderColumn(db){
+      const t = getTexts(db);
+      const order = db.data.order;
+      const assignedTables = (order.tableIds || []).map(tableId=>{
+        const table = (db.data.tables || []).find(tbl=> tbl.id === tableId);
+        return { id: tableId, name: table?.name || tableId };
+      });
+      const serviceSegments = ORDER_TYPES.map(type=>({
+        id: type.id,
+        label: `${type.icon} ${localize(type.label, db.env.lang)}`,
+        attrs:{ gkey:'pos:order:type', 'data-order-type':type.id }
+      }));
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3 overflow-hidden` }}, [
+        UI.Card({
+          variant:'card/soft-1',
+          content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
+            UI.Segmented({ items: serviceSegments, activeId: order.type }),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
+              D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
+              order.type === 'dine_in'
+                ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
+                    assignedTables.length
+                      ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
+                          UI.Button({
+                            attrs:{
+                              gkey:'pos:order:table:remove',
+                              'data-table-id':table.id,
+                              class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
+                            },
+                            variant:'ghost',
+                            size:'sm'
+                          }, [`🪑 ${table.name}`, '✕'])
+                        ))
+                      : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
+                    UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
+                  ])
+                : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
+              D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0` }}, [
+              UI.ScrollArea({
+                attrs:{ class: tw`flex h-full min-h-0 flex-1 overflow-auto pr-2` },
+                children:[
+                  order.lines && order.lines.length
+                    ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
+                    : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
+                ]
+              })
+            ]),
+            CartFooter(db)
+          ])
+        }),
+        PaymentSummary(db),
+        UI.StatCard({
+          title: t.ui.reports,
+          value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}`,
+          meta: `${t.ui.orders_count}: ${db.data.reports.ordersCount}`,
+          footer:[
+            UI.Button({ attrs:{ gkey:'pos:reports:toggle', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
+          ]
+        })
+      ]);
+    }
+
+    function FooterBar(db){
+      const t = getTexts(db);
+      const printOptions = [
+        { id:'thermal_80', label:`🧾 ${t.ui.thermal_80}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'thermal_80' } },
+        { id:'a5', label:`📄 ${t.ui.a5}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a5' } },
+        { id:'a4', label:`🗒️ ${t.ui.a4}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a4' } }
+      ];
+      const printSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 items-stretch` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_size_label]),
+        UI.Segmented({ items: printOptions, activeId: db.data.print?.size || 'thermal_80' })
+      ]);
+      return UI.Footerbar({
+        left:[
+          statusBadge(db, db.data.status.kds.state, t.ui.kds),
+          statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
+        ],
+        right:[
+          printSelector,
+          UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
+          UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
+          UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[120px]` }, variant:'ghost', size:'md' }, [t.ui.print])
+        ]
+      });
+    }
+
+    function TablesModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.tables) return null;
+      const runtimeTables = computeTableRuntime(db);
+      const tablesUI = db.ui.tables || {};
+      const view = tablesUI.view || 'assign';
+      const filter = tablesUI.filter || 'all';
+      const searchTerm = (tablesUI.search || '').trim().toLowerCase();
+
+      const counts = runtimeTables.reduce((acc, table)=>{
+        acc.all += table.state === 'disactive' ? 0 : 1;
+        if(table.state === 'maintenance') acc.maintenance += 1;
+        if(table.state === 'active'){
+          if(table.lockState === 'free') acc.free += 1;
+          if(table.lockState === 'single') acc.single += 1;
+          if(table.lockState === 'multi') acc.multi += 1;
+        }
+        return acc;
+      }, { all:0, free:0, single:0, multi:0, maintenance:0 });
+
+      const filterItems = [
+        { id:'all', label:`${t.ui.tables_filter_all} (${counts.all})` },
+        { id:'free', label:`${t.ui.tables_filter_free} (${counts.free})` },
+        { id:'single', label:`${t.ui.tables_filter_single} (${counts.single})` },
+        { id:'multi', label:`${t.ui.tables_filter_multi} (${counts.multi})` },
+        { id:'maintenance', label:`${t.ui.tables_filter_maintenance} (${counts.maintenance})` }
+      ].map(item=> ({
+        ...item,
+        attrs:{ gkey:'pos:tables:filter', 'data-tables-filter':item.id }
+      }));
+
+      function createTableCard(runtime){
+        const palette = tablePalette(runtime);
+        const stateLabel = tableStateLabel(t, runtime);
+        const ordersCount = runtime.orderLocks.length;
+        const reservationsCount = runtime.reservationRefs.length;
+        const chips = [];
+        if(ordersCount){ chips.push(UI.Badge({ text:`${ordersCount} ${t.ui.tables_orders_badge}`, variant:'badge/ghost' })); }
+        if(reservationsCount){ chips.push(UI.Badge({ text:`${reservationsCount} ${t.ui.tables_reservations_badge}`, variant:'badge/ghost' })); }
+        if(runtime.isCurrentOrder){ chips.push(UI.Badge({ text:t.ui.table_locked, variant:'badge' })); }
+        return D.Containers.Div({
+          attrs:{
+            class: tw`group relative flex min-h-[160px] flex-col justify-between gap-3 rounded-3xl border-2 p-4 transition hover:shadow-[var(--shadow)] ${palette}`,
+            gkey:'pos:tables:card:tap',
+            'data-table-id': runtime.id
+          }
+        }, [
+          D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-2` }}, [
+            D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+              D.Text.Strong({ attrs:{ class: tw`text-lg font-semibold` }}, [runtime.name || runtime.id]),
+              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
+              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
+              D.Text.Span({ attrs:{ class: tw`text-xs font-medium` }}, [stateLabel])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-2` }}, [
+              chips.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap justify-end gap-1` }}, chips) : null,
+              UI.Button({ attrs:{ gkey:'pos:tables:details', 'data-table-id':runtime.id, class: tw`rounded-full` }, variant:'ghost', size:'sm' }, ['⋯'])
+            ].filter(Boolean))
+          ]),
+          runtime.note
+            ? D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`📝 ${runtime.note}`])
+            : D.Text.Span({ attrs:{ class: tw`text-[11px] opacity-60` }}, [t.ui.tables_longpress_hint])
+        ]);
+      }
+
+      function createDetailsPanel(){
+        if(!tablesUI.details) return null;
+        const runtime = runtimeTables.find(tbl=> tbl.id === tablesUI.details);
+        if(!runtime) return null;
+        const orderMap = new Map();
+        orderMap.set(db.data.order.id, { ...db.data.order });
+        (db.data.ordersQueue || []).forEach(ord=> orderMap.set(ord.id, ord));
+        const lang = db.env.lang;
+        const ordersList = runtime.orderLocks.length
+          ? UI.List({
+              children: runtime.orderLocks.map(lock=>{
+                const order = orderMap.get(lock.orderId) || { id: lock.orderId, status:'open' };
+                return UI.ListItem({
+                  leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
+                  content:[
+                    D.Text.Strong({}, [`${t.ui.order_id} ${order.id}`]),
+                    D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [formatDateTime(order.updatedAt || lock.lockedAt, lang, { hour:'2-digit', minute:'2-digit' })])
+                  ],
+                  trailing:[
+                    UI.Button({ attrs:{ gkey:'pos:tables:unlock-order', 'data-table-id':runtime.id, 'data-order-id':order.id }, variant:'ghost', size:'sm' }, ['🔓'])
+                  ]
+                });
+              })
+            })
+          : UI.EmptyState({ icon:'🧾', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint });
+
+        const reservationsList = runtime.reservationRefs.length
+          ? UI.List({
+              children: runtime.reservationRefs.map(res=> UI.ListItem({
+                leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['📅']),
+                content:[
+                  D.Text.Strong({}, [res.customerName || res.id]),
+                  D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${formatDateTime(res.scheduledAt, lang, { hour:'2-digit', minute:'2-digit' })} • ${res.partySize} ${t.ui.guests}`])
+                ],
+                trailing:[
+                  UI.Badge({ text: localize(t.ui[`reservations_status_${res.status}`] || res.status, lang === 'ar' ? 'ar' : 'en'), variant:'badge/ghost' })
+                ]
+              }))
+            })
+          : null;
+
+        return UI.Card({
+          title: `${t.ui.tables_details} — ${runtime.name || runtime.id}`,
+          description: t.ui.tables_actions,
+          content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-3 text-sm ${token('muted')}` }}, [
+              D.Text.Span({}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
+              D.Text.Span({}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
+              D.Text.Span({}, [tableStateLabel(t, runtime)])
+            ]),
+            ordersList,
+            reservationsList,
+            UI.HStack({ attrs:{ class: tw`justify-end gap-2` }}, [
+              UI.Button({ attrs:{ gkey:'pos:tables:unlock-all', 'data-table-id':runtime.id }, variant:'ghost', size:'sm' }, [t.ui.tables_unlock_all]),
+              UI.Button({ attrs:{ gkey:'pos:tables:details-close' }, variant:'ghost', size:'sm' }, [t.ui.close])
+            ])
+          ])
+        });
+      }
+
+      const assignables = runtimeTables
+        .filter(table=> table.state !== 'disactive')
+        .filter(table=>{
+          if(!searchTerm) return true;
+          const term = searchTerm.toLowerCase();
+          return (table.name || '').toLowerCase().includes(term) || (table.id || '').toLowerCase().includes(term) || (table.zone || '').toLowerCase().includes(term);
+        })
+        .filter(table=>{
+          if(filter === 'free') return table.state === 'active' && table.lockState === 'free';
+          if(filter === 'single') return table.lockState === 'single';
+          if(filter === 'multi') return table.lockState === 'multi';
+          if(filter === 'maintenance') return table.state === 'maintenance';
+          return true;
+        });
+
+      const assignView = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.SearchBar({
+          value: tablesUI.search || '',
+          placeholder: t.ui.tables_search_placeholder,
+          onInput:'pos:tables:search'
+        }),
+        UI.ChipGroup({ items: filterItems, activeId: filter }),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 text-xs ${token('muted')}` }}, [
+          D.Text.Span({}, [`${t.ui.tables_count_label}: ${assignables.length}`])
+        ]),
+        assignables.length
+          ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3` }}, assignables.map(createTableCard))
+          : UI.EmptyState({ icon:'🪑', title:t.ui.table_no_sessions, description:t.ui.table_manage_hint }),
+        createDetailsPanel()
+      ].filter(Boolean));
+
+      const manageRows = runtimeTables
+        .slice()
+        .sort((a,b)=> (a.displayOrder||0) - (b.displayOrder||0))
+        .map(table=> UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🪑']),
+          content:[
+            D.Text.Strong({}, [table.name || table.id]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.tables_zone}: ${table.zone || '—'}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.tables_capacity}: ${table.capacity}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [tableStateLabel(t, table)])
+          ],
+          trailing:[
+            UI.Button({ attrs:{ gkey:'pos:tables:rename', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['✏️']),
+            UI.Button({ attrs:{ gkey:'pos:tables:capacity', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['👥']),
+            UI.Button({ attrs:{ gkey:'pos:tables:zone', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['📍']),
+            UI.Button({ attrs:{ gkey:'pos:tables:state', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['♻️']),
+            UI.Button({ attrs:{ gkey:'pos:tables:remove', 'data-table-id':table.id, 'data-prevent-select':'true' }, variant:'ghost', size:'sm' }, ['🗑️'])
+          ],
+          attrs:{ class: tw`cursor-default` }
+        }));
+
+      const auditEntries = (db.data.auditTrail || []).slice().sort((a,b)=> b.at - a.at).slice(0,6).map(entry=>
+        UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['📝']),
+          content:[
+            D.Text.Strong({}, [`${entry.action} → ${entry.refId}`]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [formatDateTime(entry.at, db.env.lang, { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' })])
+          ],
+          trailing:[ D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [entry.userId]) ]
+        })
+      );
+
+      const manageView = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+          UI.Button({ attrs:{ gkey:'pos:tables:add' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.table_add}`]),
+          D.Containers.Div({ attrs:{ class: tw`flex gap-2` }}, [
+            UI.Button({ attrs:{ gkey:'pos:tables:bulk', 'data-bulk-action':'activate' }, variant:'ghost', size:'sm' }, [t.ui.tables_bulk_activate]),
+            UI.Button({ attrs:{ gkey:'pos:tables:bulk', 'data-bulk-action':'maintenance' }, variant:'ghost', size:'sm' }, [t.ui.tables_bulk_maintenance])
+          ])
+        ]),
+        UI.ScrollArea({ attrs:{ class: tw`max-h-[40vh] space-y-2` }, children: manageRows }),
+        auditEntries.length ? UI.Card({ title:t.ui.tables_manage_log, content: UI.List({ children:auditEntries }) }) : null
+      ].filter(Boolean));
+
+      const viewSelector = UI.Segmented({
+        items:[
+          { id:'assign', label:t.ui.tables_assign, attrs:{ gkey:'pos:tables:view', 'data-tables-view':'assign' } },
+          { id:'manage', label:t.ui.tables_manage, attrs:{ gkey:'pos:tables:view', 'data-tables-view':'manage' } }
+        ],
+        activeId:view
+      });
+
+      return UI.Modal({
+        open:true,
+        title:t.ui.tables,
+        description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          viewSelector,
+          view === 'assign' ? assignView : manageView
+        ]),
+        actions:[
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function PrintModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.print) return null;
+      const order = db.data.order || {};
+      const docType = db.ui.print?.docType || db.data.print?.docType || 'customer';
+      const selectedSize = db.ui.print?.size || db.data.print?.size || 'thermal_80';
+      const profile = (db.data.print?.profiles || {})[docType] || {};
+      const tablesNames = (order.tableIds || []).map(id=>{
+        const table = (db.data.tables || []).find(tbl=> tbl.id === id);
+        return table?.name || id;
+      });
+      const lang = db.env.lang;
+      const due = order.totals?.due || 0;
+      const subtotal = order.totals?.subtotal || 0;
+      const payments = db.data.payments.split || [];
+      const totalPaid = payments.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
+      const changeDue = Math.max(0, round(totalPaid - due));
+      const totalsRows = [
+        { label:t.ui.subtotal, value: subtotal },
+        order.totals?.service ? { label:t.ui.service, value: order.totals.service } : null,
+        { label:t.ui.vat, value: order.totals?.vat || 0 },
+        order.totals?.deliveryFee ? { label:t.ui.delivery_fee, value: order.totals.deliveryFee } : null,
+        order.totals?.discount ? { label:t.ui.discount, value: order.totals.discount } : null
+      ].filter(Boolean);
+
+      const docTypes = [
+        { id:'customer', label:t.ui.print_doc_customer },
+        { id:'summary', label:t.ui.print_doc_summary },
+        { id:'kitchen', label:t.ui.print_doc_kitchen }
+      ];
+
+      const sizeOptions = [
+        { id:'thermal_80', label:t.ui.thermal_80 },
+        { id:'a5', label:t.ui.a5 },
+        { id:'a4', label:t.ui.a4 }
+      ];
+
+      const previewLines = (order.lines || []).map(line=> UI.HStack({ attrs:{ class: tw`justify-between text-[13px] leading-6` }}, [
+        D.Text.Span({}, [`${localize(line.name, lang)} × ${line.qty}`]),
+        UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) })
+      ]));
+
+      const currentDocLabel = docTypes.find(dt=> dt.id === docType)?.label || t.ui.print_doc_customer;
+      const paymentsList = payments.length
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-1 text-[13px] pt-2` }}, payments.map(pay=>{
+            const method = (db.data.payments.methods || []).find(m=> m.id === pay.method);
+            const label = method ? `${method.icon} ${localize(method.label, lang)}` : pay.method;
+            return D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+              D.Text.Span({}, [label]),
+              UI.PriceText({ amount: pay.amount, currency:getCurrency(db), locale:getLocale(db) })
+            ]);
+          }))
+        : null;
+
+      const previewReceipt = D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[360px] rounded-2xl border border-dashed border-neutral-300 bg-white text-neutral-900 shadow-[0_24px_60px_rgba(15,23,42,0.16)] px-6 py-6 dark:bg-white dark:text-neutral-900` }}, [
+        D.Containers.Div({ attrs:{ class: tw`space-y-1 text-center` }}, [
+          D.Text.Strong({ attrs:{ class: tw`text-base font-semibold tracking-wide` }}, ['Mishkah Restaurant']),
+          D.Text.Span({ attrs:{ class: tw`text-[12px] text-neutral-500` }}, [`${t.ui.print_header_address}: 12 Nile Street`]),
+          D.Text.Span({ attrs:{ class: tw`text-[12px] text-neutral-500` }}, [`${t.ui.print_header_phone}: 0100000000`])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        D.Containers.Div({ attrs:{ class: tw`space-y-1 text-[13px] leading-6` }}, [
+          D.Text.Span({}, [`${t.ui.order_id} ${order.id || '—'}`]),
+          D.Text.Span({}, [`${t.ui.guests}: ${order.guests || 0}`]),
+          tablesNames.length ? D.Text.Span({}, [`${t.ui.tables}: ${tablesNames.join(', ')}`]) : null,
+          D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })])
+        ].filter(Boolean)),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        previewLines.length
+          ? D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, previewLines)
+          : D.Text.Span({ attrs:{ class: tw`block text-center text-[13px] text-neutral-400` }}, [t.ui.cart_empty]),
+        D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
+        D.Containers.Div({ attrs:{ class: tw`space-y-2 text-[13px]` }}, [
+          ...totalsRows.map(row=> D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [row.label]),
+            UI.PriceText({ amount: row.value, currency:getCurrency(db), locale:getLocale(db) })
+          ])),
+          D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between text-[14px] font-semibold` }}, [
+            D.Text.Span({}, [t.ui.total]),
+            UI.PriceText({ amount: due, currency:getCurrency(db), locale:getLocale(db) })
+          ]),
+          payments.length ? D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [t.ui.paid]),
+            UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
+          ]) : null,
+          payments.length ? D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+            D.Text.Span({}, [t.ui.print_change_due]),
+            UI.PriceText({ amount: changeDue, currency:getCurrency(db), locale:getLocale(db) })
+          ]) : null,
+          paymentsList
+        ].filter(Boolean)),
+        D.Containers.Div({ attrs:{ class: tw`mt-6 space-y-1 text-center text-[12px] text-neutral-500` }}, [
+          D.Text.Span({}, [t.ui.print_footer_thanks]),
+          D.Text.Span({}, [t.ui.print_footer_policy]),
+          D.Text.Span({}, [`${t.ui.print_footer_feedback} • QR`])
+        ])
+      ]);
+
+      const preview = UI.Card({
+        variant:'card/soft-2',
+        title: `${t.ui.print_preview} — ${currentDocLabel}`,
+        content: previewReceipt
+      });
+
+      const modalContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        UI.Segmented({
+          items: docTypes.map(dt=>({ id: dt.id, label: dt.label, attrs:{ gkey:'pos:print:doc', 'data-doc-type':dt.id } })),
+          activeId: docType
+        }),
+        UI.Segmented({
+          items: sizeOptions.map(opt=>({ id: opt.id, label: opt.label, attrs:{ gkey:'pos:print:size', 'data-print-size':opt.id } })),
+          activeId: selectedSize
+        }),
+        UI.Field({
+          label: t.ui.print_printer_default,
+          control: UI.Input({ attrs:{ value: profile.defaultPrinter || '', placeholder:'Printer name', gkey:'pos:print:printer' } })
+        }),
+        UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
+          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
+          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview])
+        ]),
+        preview
+      ]);
+
+      return UI.Modal({
+        open:true,
+        title: t.ui.print,
+        description: t.ui.print_profile,
+        content: modalContent,
+        actions:[
+          UI.Button({ attrs:{ gkey:'pos:print:save', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.print_save_profile]),
+          UI.Button({ attrs:{ gkey:'pos:print:send', class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.print_send]),
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function ReservationsModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.reservations) return null;
+      const reservations = db.data.reservations || [];
+      const tables = db.data.tables || [];
+      const uiState = db.ui.reservations || {};
+      const statusFilter = uiState.status || 'all';
+      const rangeFilter = uiState.filter || 'today';
+      const formState = uiState.form || null;
+      const lang = db.env.lang;
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+
+      function inRange(res){
+        if(rangeFilter === 'today') return res.scheduledAt >= startOfToday && res.scheduledAt < endOfToday;
+        if(rangeFilter === 'upcoming') return res.scheduledAt >= endOfToday;
+        if(rangeFilter === 'past') return res.scheduledAt < startOfToday;
+        return true;
+      }
+
+      const filtered = reservations
+        .filter(res=> statusFilter === 'all' ? true : res.status === statusFilter)
+        .filter(inRange)
+        .sort((a,b)=> a.scheduledAt - b.scheduledAt);
+
+      const rangeItems = [
+        { id:'today', label:t.ui.reservations_manage },
+        { id:'upcoming', label:'⏭️' },
+        { id:'all', label:t.ui.reservations_filter_all }
+      ].map(item=>({ ...item, attrs:{ gkey:'pos:reservations:range', 'data-reservation-range':item.id } }));
+
+      const statusItems = [
+        { id:'all', label:t.ui.reservations_filter_all },
+        { id:'booked', label:t.ui.reservations_filter_booked },
+        { id:'seated', label:t.ui.reservations_filter_seated },
+        { id:'completed', label:t.ui.reservations_filter_completed },
+        { id:'cancelled', label:t.ui.reservations_filter_cancelled },
+        { id:'no-show', label:t.ui.reservations_filter_noshow }
+      ].map(item=>({ ...item, attrs:{ gkey:'pos:reservations:status', 'data-reservation-status':item.id } }));
+
+      const formTables = tables.filter(tbl=> tbl.state === 'active');
+      const selectedTables = new Set(Array.isArray(formState?.tableIds) ? formState.tableIds : []);
+
+      const formCard = formState ? UI.Card({
+        title: formState.id ? t.ui.reservations_edit : t.ui.reservations_new,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          UI.Field({ label:t.ui.reservations_customer, control: UI.Input({ attrs:{ value: formState.customerName || '', gkey:'pos:reservations:form', 'data-field':'customerName', placeholder:t.ui.reservations_customer } }) }),
+          UI.Field({ label:t.ui.reservations_phone, control: UI.Input({ attrs:{ value: formState.phone || '', gkey:'pos:reservations:form', 'data-field':'phone', placeholder:'010...' } }) }),
+          UI.Field({ label:t.ui.reservations_party_size, control: UI.Input({ attrs:{ value: formState.partySize || 2, type:'number', min:'1', gkey:'pos:reservations:form', 'data-field':'partySize' } }) }),
+          UI.Field({ label:t.ui.reservations_time, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.scheduledAt), gkey:'pos:reservations:form', 'data-field':'scheduledAt' } }) }),
+          UI.Field({ label:t.ui.reservations_hold_until, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.holdUntil), gkey:'pos:reservations:form', 'data-field':'holdUntil' } }) }),
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [t.ui.reservations_tables]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, formTables.map(tbl=> UI.Button({
+              attrs:{
+                gkey:'pos:reservations:form:table',
+                'data-table-id':tbl.id,
+                class: tw`rounded-full px-3 py-1 text-sm ${selectedTables.has(tbl.id) ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'bg-[var(--surface-2)]'}`
+              },
+              variant:'ghost',
+              size:'sm'
+            }, [`🪑 ${tbl.name}`])) )
+          ]),
+          UI.Field({ label:t.ui.reservations_note, control: UI.Textarea({ attrs:{ value: formState.note || '', rows:'2', gkey:'pos:reservations:form', 'data-field':'note' } }) })
+        ]),
+        footer: UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+          UI.Button({ attrs:{ gkey:'pos:reservations:save', class: tw`flex-1` }, variant:'solid', size:'sm' }, [t.ui.reservations_save]),
+          UI.Button({ attrs:{ gkey:'pos:reservations:cancel-edit', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ])
+      }) : null;
+
+      const listCards = filtered.length ? filtered.map(res=>{
+        const tableBadges = res.tableIds.map(id=>{
+          const table = tables.find(tbl=> tbl.id === id);
+          return UI.Badge({ text: table?.name || id, variant:'badge/ghost' });
+        });
+        return UI.Card({
+          title: `${res.customerName} — ${res.partySize} ${t.ui.guests}`,
+          description: `${formatDateTime(res.scheduledAt, lang, { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' })} • ${res.phone || ''}`,
+          content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-sm` }}, [
+            tableBadges.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-1` }}, tableBadges) : null,
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.reservations_hold_label}: ${res.holdUntil ? formatDateTime(res.holdUntil, lang, { hour:'2-digit', minute:'2-digit' }) : '—'}`])
+          ].filter(Boolean)),
+          footer: UI.HStack({ attrs:{ class: tw`flex-wrap gap-2` }}, [
+            UI.Badge({ text: t.ui[`reservations_status_${res.status}`] || res.status, variant:'badge/ghost' }),
+            UI.Button({ attrs:{ gkey:'pos:reservations:edit', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, ['✏️']),
+            UI.Button({ attrs:{ gkey:'pos:reservations:convert', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_convert]),
+            UI.Button({ attrs:{ gkey:'pos:reservations:noshow', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_no_show]),
+            UI.Button({ attrs:{ gkey:'pos:reservations:cancel', 'data-reservation-id':res.id }, variant:'ghost', size:'sm' }, [t.ui.reservations_cancel_action])
+          ])
+        });
+      }) : [UI.EmptyState({ icon:'📅', title:t.ui.reservations, description:t.ui.reservations_list_empty })];
+
+      return UI.Modal({
+        open:true,
+        title:t.ui.reservations,
+        description:t.ui.reservations_manage,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+            UI.Segmented({ items: rangeItems, activeId: rangeFilter }),
+            UI.Button({ attrs:{ gkey:'pos:reservations:new' }, variant:'solid', size:'sm' }, [`＋ ${t.ui.reservations_new}`])
+          ]),
+          UI.ChipGroup({ items: statusItems, activeId: statusFilter }),
+          formCard,
+          D.Containers.Div({ attrs:{ class: tw`space-y-3 max-h-[60vh] overflow-auto pr-1` }}, listCards)
+        ].filter(Boolean)),
+        actions:[
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function OrdersQueueDrawer(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.orders) return null;
+      const orders = [db.data.order, ...(db.data.ordersQueue || [])].filter(Boolean).reduce((acc, order)=>{
+        if(acc.some(o=> o.id === order.id)) return acc;
+        acc.push(order);
+        return acc;
+      }, []);
+      const lang = db.env.lang;
+      const items = orders.map(order=>{
+        const tablesNames = (order.tableIds || []).map(id=>{
+          const table = (db.data.tables || []).find(tbl=> tbl.id === id);
+          return table?.name || id;
+        }).join(', ');
+        const status = order.status || 'open';
+        const statusLabel = status === 'held' ? t.ui.orders_queue_status_held : t.ui.orders_queue_status_open;
+        return UI.ListItem({
+          leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
+          content:[
+            D.Text.Strong({}, [order.id]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${statusLabel} • ${formatDateTime(order.updatedAt || order.createdAt, lang, { hour:'2-digit', minute:'2-digit' })}`]),
+            tablesNames ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [tablesNames]) : null
+          ].filter(Boolean),
+          trailing:[
+            UI.PriceText({ amount: order.totals?.due || 0, currency:getCurrency(db), locale:getLocale(db) }),
+            UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])
+          ]
+        });
+      });
+      return UI.Drawer({
+        open:true,
+        side:'end',
+        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+          D.Text.Strong({}, [t.ui.orders_queue]),
+          UI.Button({ attrs:{ gkey:'pos:orders:toggle' }, variant:'ghost', size:'sm' }, ['×'])
+        ]),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.orders_queue_hint]),
+          items.length ? UI.List({ children: items }) : UI.EmptyState({ icon:'🧾', title:t.ui.orders_queue_empty })
+        ])
+      });
+    }
+
+    function PaymentsSheet(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.payments) return null;
+      return UI.Drawer({
+        open:true,
+        side:'end',
+        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+            D.Text.Strong({}, [t.ui.payments]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.split_payments])
+          ]),
+          UI.Button({ attrs:{ gkey:'pos:payments:close' }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          UI.ChipGroup({
+            items: (db.data.payments.methods || []).map(method=>({
+              id: method.id,
+              label: `${method.icon} ${localize(method.label, db.env.lang)}`,
+              attrs:{ gkey:'pos:payments:method', 'data-method-id':method.id }
+            })),
+            activeId: db.data.payments.activeMethod
+          }),
+          UI.Input({ attrs:{
+            type:'number',
+            min:'0',
+            step:'0.01',
+            value: db.ui.paymentDraft?.amount || '',
+            placeholder: t.ui.amount,
+            gkey:'pos:payments:amount'
+          }}),
+          UI.Button({ attrs:{ gkey:'pos:payments:capture', class: tw`w-full` }, variant:'solid', size:'md' }, [t.ui.capture_payment])
+        ])
+      });
+    }
+
+    function ReportsDrawer(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.reports) return null;
+      const topItem = db.data.reports.topItemId ? (db.data.menu.items || []).find(it=> it.id === db.data.reports.topItemId) : null;
+      return UI.Drawer({
+        open:true,
+        side:'start',
+        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+          D.Text.Strong({}, [t.ui.reports]),
+          UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, ['×'])
+        ]),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          UI.StatCard({ title: t.ui.sales_today, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}` }),
+          UI.StatCard({ title: t.ui.orders_count, value: String(db.data.reports.ordersCount) }),
+          UI.StatCard({ title: t.ui.avg_ticket, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.avgTicket)} ${getCurrency(db)}` }),
+          topItem ? UI.StatCard({ title: t.ui.top_selling, value: localize(topItem.name, db.env.lang) }) : null
+        ].filter(Boolean))
+      });
+    }
+
+    Mishkah.app.setBody(function(db){
+      return UI.AppRoot({
+        shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
+          Header(db),
+          D.Containers.Main({ attrs:{ class: tw`flex-1 min-h-0 grid gap-4 px-4 pb-3 pt-3 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)] overflow-hidden` }}, [
+            MenuColumn(db),
+            OrderColumn(db)
+          ]),
+          FooterBar(db)
+        ]),
+        overlays:[
+          TablesModal(db),
+          ReservationsModal(db),
+          PrintModal(db),
+          PaymentsSheet(db),
+          ReportsDrawer(db),
+          OrdersQueueDrawer(db),
+          db.ui?.toasts ? UI.ToastHost({ toasts: db.ui.toasts }) : null
+        ].filter(Boolean)
+      });
+    });
+
+    const app = M.app.createApp(posState, {});
+    const auto = U.twcss.auto(posState, app, { pageScaffold:true });
+
+    function closeActiveModals(ctx){
+      const state = ctx.getState();
+      const modalsState = state.ui?.modals || {};
+      const anyOpen = Object.values(modalsState).some(Boolean) || !!state.ui?.modalOpen;
+      if(!anyOpen) return false;
+      ctx.setState(s=>{
+        const current = { ...(s.ui?.modals || {}) };
+        Object.keys(current).forEach(key=>{
+          current[key] = false;
+        });
+        return {
+          ...s,
+          ui:{ ...(s.ui || {}), modalOpen:false, modals: current }
+        };
+      });
+      ctx.rebuild();
+      return true;
+    }
+
+    const posOrders = {
+      'ui.modal.close':{
+        on:['click'],
+        gkeys:['ui:modal:close'],
+        handler:(e,ctx)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          closeActiveModals(ctx);
+        }
+      },
+      'ui.modal.escape':{
+        on:['keydown'],
+        handler:(e,ctx)=>{
+          if(e.key !== 'Escape') return;
+          const closed = closeActiveModals(ctx);
+          if(closed){
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      },
+      'pos.menu.search':{
+        on:['input','change'],
+        gkeys:['pos:menu:search'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              menu:{ ...(s.data.menu || {}), search:value }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.menu.category':{
+        on:['click'],
+        gkeys:['pos:menu:category'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-category-id]');
+          if(!btn) return;
+          const id = btn.getAttribute('data-category-id') || 'all';
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              menu:{ ...(s.data.menu || {}), category:id }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.menu:add':{
+        on:['click','keydown'],
+        gkeys:['pos:menu:add'],
+        handler:(e,ctx)=>{
+          if(e.type === 'keydown' && !['Enter',' '].includes(e.key)) return;
+          const card = e.target.closest('[data-item-id]');
+          if(!card) return;
+          const itemId = card.getAttribute('data-item-id');
+          const state = ctx.getState();
+          const item = (state.data.menu.items || []).find(it=> String(it.id) === String(itemId));
+          if(!item) return;
+          const t = getTexts(state);
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = (order.lines || []).map(line=> ({ ...line }));
+            const idx = lines.findIndex(line=> String(line.itemId) === String(item.id));
+            if(idx >= 0){
+              const line = { ...lines[idx] };
+              line.qty += 1;
+              line.total = round(line.qty * line.price);
+              lines[idx] = line;
+            } else {
+              lines.push(createOrderLine(item, 1));
+            }
+            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines, totals }
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.item_added, icon:'✅' });
+        }
+      },
+      'pos.menu.favorite':{
+        on:['click'],
+        gkeys:['pos:menu:favorite'],
+        handler:(e,ctx)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          const btn = e.target.closest('[data-item-id]');
+          if(!btn) return;
+          const itemId = String(btn.getAttribute('data-item-id'));
+          ctx.setState(s=>{
+            const menu = s.data.menu || {};
+            const favorites = new Set((menu.favorites || []).map(String));
+            if(favorites.has(itemId)) favorites.delete(itemId); else favorites.add(itemId);
+            return {
+              ...s,
+              data:{
+                ...s.data,
+                menu:{ ...menu, favorites:Array.from(favorites) }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.menu.favorites-only':{
+        on:['click'],
+        gkeys:['pos:menu:favorites-only'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              menu:{ ...(s.data.menu || {}), showFavoritesOnly: !s.data.menu?.showFavoritesOnly }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.menu.load-more':{
+        on:['click'],
+        gkeys:['pos:menu:load-more'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.load_more_stub, icon:'ℹ️' });
+        }
+      },
+      'pos.order.line.inc':{
+        on:['click'],
+        gkeys:['pos:order:line:inc'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = (order.lines || []).map(line=>{
+              if(line.id !== lineId) return line;
+              const next = { ...line, qty: line.qty + 1 };
+              next.total = round(next.qty * next.price);
+              return next;
+            });
+            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines, totals }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.order.line.dec':{
+        on:['click'],
+        gkeys:['pos:order:line:dec'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = [];
+            for(const line of (order.lines || [])){
+              if(line.id !== lineId){
+                lines.push(line);
+                continue;
+              }
+              if(line.qty <= 1) continue;
+              const next = { ...line, qty: line.qty - 1 };
+              next.total = round(next.qty * next.price);
+              lines.push(next);
+            }
+            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines, totals }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.order.line.qty':{
+        on:['click'],
+        gkeys:['pos:order:line:qty'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const current = (state.data.order.lines || []).find(line=> line.id === lineId);
+          const nextValue = window.prompt(t.toast.set_qty, current ? current.qty : 1);
+          if(nextValue == null) return;
+          const qty = Math.max(1, parseInt(nextValue, 10) || 1);
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = (order.lines || []).map(line=>{
+              if(line.id !== lineId) return line;
+              const next = { ...line, qty };
+              next.total = round(next.qty * next.price);
+              return next;
+            });
+            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines, totals }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.order.line.actions':{
+        on:['click'],
+        gkeys:['pos:order:line:actions'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.line_actions, icon:'🛠️' });
+        }
+      },
+      'pos.order.clear':{
+        on:['click'],
+        gkeys:['pos:order:clear'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          if(!window.confirm(t.toast.confirm_clear)) return;
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const totals = calculateTotals([], data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines:[], totals }
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.cart_cleared, icon:'🧺' });
+        }
+      },
+      'pos.order.new':{
+        on:['click'],
+        gkeys:['pos:order:new'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const totals = calculateTotals([], data.settings || {}, order.type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, id: generateOrderId(), lines:[], totals, tableIds:[] },
+                tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.new_order, icon:'🆕' });
+        }
+      },
+      'pos.order.discount':{
+        on:['click'],
+        gkeys:['pos:order:discount'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.discount_stub, icon:'💡' });
+        }
+      },
+      'pos.order.table.remove':{
+        on:['click'],
+        gkeys:['pos:order:table:remove'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          if(!window.confirm(t.ui.table_confirm_release)) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() },
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
+        }
+      },
+      'pos.order.note':{
+        on:['click'],
+        gkeys:['pos:order:note'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const note = window.prompt(t.toast.add_note);
+          if(note == null) return;
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = (order.lines || []).map(line=> ({ ...line, notes: note }));
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{ ...order, lines }
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.notes_updated, icon:'📝' });
+        }
+      },
+      'pos.order.type':{
+        on:['click'],
+        gkeys:['pos:order:type'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-order-type]');
+          if(!btn) return;
+          const type = btn.getAttribute('data-order-type');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const lines = order.lines || [];
+            let tablesState = data.tables || [];
+            const nextOrder = { ...order, type };
+            if(type !== 'dine_in' && order.tableId){
+              const orderId = order.id;
+              const tableId = order.tableId;
+              tablesState = (tablesState || []).map(tbl=>{
+                if(tbl.id !== tableId) return tbl;
+                const nextSessions = (tbl.sessions || []).filter(id=> id !== orderId);
+                const wasLockedByOrder = tbl.lockedBy === orderId;
+                const nextStatus = nextSessions.length ? tbl.status : (tbl.status === 'occupied' ? 'available' : tbl.status);
+                return {
+                  ...tbl,
+                  sessions: nextSessions,
+                  locked: wasLockedByOrder ? false : tbl.locked,
+                  lockedBy: wasLockedByOrder ? null : tbl.lockedBy,
+                  status: nextStatus
+                };
+              });
+              nextOrder.tableId = null;
+              nextOrder.table = null;
+            }
+            if(type === 'dine_in' && !nextOrder.tableId){
+              nextOrder.table = null;
+            }
+            nextOrder.totals = calculateTotals(lines, data.settings || {}, type);
+            return {
+              ...s,
+              data:{
+                ...data,
+                tables: tablesState,
+                order: nextOrder
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.order_type_changed, icon:'🔄' });
+        }
+      },
+      'pos.order.save':{
+        on:['click'],
+        gkeys:['pos:order:save'],
+        handler: async (e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          if(!posDB.available){
+            UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
+            return;
+          }
+          try{
+            await posDB.saveOrder(state.data.order);
+            await posDB.markSync();
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{
+                  ...s.data.status,
+                  indexeddb:{ state:'online', lastSync: Date.now() }
+                }
+              }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{
+                  ...s.data.status,
+                  indexeddb:{ state:'offline', lastSync: s.data.status?.indexeddb?.lastSync || null }
+                }
+              }
+            }));
+            ctx.rebuild();
+          }
+        }
+      },
+      'pos.order.print':{
+        on:['click'],
+        gkeys:['pos:order:print'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:true }, print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.size':{
+        on:['click'],
+        gkeys:['pos:print:size'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-print-size]');
+          if(!btn) return;
+          const size = btn.getAttribute('data-print-size') || 'thermal_80';
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              print:{ ...(s.data.print || {}), size }
+            },
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), size } }
+          }));
+          ctx.rebuild();
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.print_size_switched, icon:'🖨️' });
+        }
+      },
+      'pos.print.doc':{
+        on:['click'],
+        gkeys:['pos:print:doc'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-doc-type]');
+          if(!btn) return;
+          const doc = btn.getAttribute('data-doc-type') || 'customer';
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), docType:doc } },
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), docType:doc } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.printer':{
+        on:['input','change'],
+        gkeys:['pos:print:printer'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          ctx.setState(s=>{
+            const existingProfiles = { ...(s.data.print?.profiles || {}) };
+            const currentProfile = { ...(existingProfiles[docType] || {}) };
+            currentProfile.defaultPrinter = value;
+            existingProfiles[docType] = currentProfile;
+            return {
+              ...s,
+              data:{
+                ...s.data,
+                print:{ ...(s.data.print || {}), profiles: existingProfiles }
+              }
+            };
+          });
+        }
+      },
+      'pos.print.toggle':{
+        on:['click'],
+        gkeys:['pos:print:toggle'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-print-toggle]');
+          if(!btn) return;
+          const key = btn.getAttribute('data-print-toggle');
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          ctx.setState(s=>{
+            const profiles = { ...(s.data.print?.profiles || {}) };
+            const profile = { ...(profiles[docType] || {}) };
+            profile[key] = !profile[key];
+            profiles[docType] = profile;
+            return {
+              ...s,
+              data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), profiles } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.print.save':{
+        on:['click'],
+        gkeys:['pos:print:save'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.print_profile_saved, icon:'💾' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.send':{
+        on:['click'],
+        gkeys:['pos:print:send'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.print_sent, icon:'🖨️' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.open':{
+        on:['click'],
+        gkeys:['pos:reservations:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null }, modals:{ ...(s.ui?.modals || {}), reservations:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.new':{
+        on:['click'],
+        gkeys:['pos:reservations:new'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              reservations:{
+                ...(s.ui?.reservations || {}),
+                editing:'new',
+                form:{ id:null, customerName:'', phone:'', partySize:2, scheduledAt:Date.now(), holdUntil:Date.now()+3600000, tableIds:[], note:'' }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.range':{
+        on:['click'],
+        gkeys:['pos:reservations:range'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-range]');
+          if(!btn) return;
+          const range = btn.getAttribute('data-reservation-range') || 'today';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), filter:range } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.status':{
+        on:['click'],
+        gkeys:['pos:reservations:status'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-status]');
+          if(!btn) return;
+          const status = btn.getAttribute('data-reservation-status') || 'all';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), status } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.form':{
+        on:['input','change'],
+        gkeys:['pos:reservations:form'],
+        handler:(e,ctx)=>{
+          const field = e.target.getAttribute('data-field');
+          if(!field) return;
+          const valueRaw = e.target.value;
+          ctx.setState(s=>{
+            const form = { ...(s.ui?.reservations?.form || {}) };
+            let value = valueRaw;
+            if(field === 'partySize') value = parseInt(valueRaw || '0', 10) || 0;
+            if(field === 'scheduledAt' || field === 'holdUntil') value = valueRaw ? new Date(valueRaw).getTime() : null;
+            form[field] = value;
+            return { ...s, ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), form } } };
+          });
+        }
+      },
+      'pos.reservations.form:table':{
+        on:['click'],
+        gkeys:['pos:reservations:form:table'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>{
+            const form = { ...(s.ui?.reservations?.form || { tableIds:[] }) };
+            const set = new Set(form.tableIds || []);
+            if(set.has(tableId)) set.delete(tableId); else set.add(tableId);
+            form.tableIds = Array.from(set);
+            return { ...s, ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), form } } };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.cancel-edit':{
+        on:['click'],
+        gkeys:['pos:reservations:cancel-edit'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.save':{
+        on:['click'],
+        gkeys:['pos:reservations:save'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const form = state.ui?.reservations?.form;
+          if(!form) return;
+          if(!form.tableIds || !form.tableIds.length){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, message:t.ui.reservations_tables_required, icon:'⚠️' });
+            return;
+          }
+          const tables = state.data.tables || [];
+          for(const id of form.tableIds){
+            const table = tables.find(tbl=> tbl.id === id);
+            if(table && table.state === 'maintenance'){
+              UI.pushToast(ctx, { title:t.toast.table_state_updated, message:t.ui.reservations_conflict_maintenance, icon:'🛠️' });
+              return;
+            }
+          }
+          const reservations = state.data.reservations || [];
+          const windowMs = 90 * 60 * 1000;
+          const conflicts = reservations.some(res=>{
+            if(res.id === form.id) return false;
+            if(['cancelled','completed','no-show'].includes(res.status)) return false;
+            if(!res.tableIds?.some(id=> form.tableIds.includes(id))) return false;
+            return Math.abs((res.scheduledAt || 0) - (form.scheduledAt || Date.now())) < windowMs;
+          });
+          if(conflicts){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.reservations_conflict, icon:'⚠️' });
+            return;
+          }
+          const tableLocks = state.data.tableLocks || [];
+          const lockConflict = tableLocks.some(lock=> lock.active && form.tableIds.includes(lock.tableId) && lock.orderId && lock.orderId !== state.data.order?.id);
+          if(lockConflict){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.reservations_conflict_lock, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>{
+            const reservations = s.data.reservations || [];
+            const isEdit = !!form.id;
+            const reservationId = form.id || `res-${Date.now().toString(36)}`;
+            const payload = { id:reservationId, customerName:form.customerName, phone:form.phone, partySize:form.partySize, scheduledAt:form.scheduledAt || Date.now(), holdUntil:form.holdUntil || null, tableIds:form.tableIds.slice(), status: form.status || 'booked', note:form.note || '', createdAt: form.createdAt || Date.now() };
+            const nextReservations = isEdit ? reservations.map(res=> res.id === reservationId ? payload : res) : reservations.concat(payload);
+            return {
+              ...s,
+              data:{ ...(s.data || {}), reservations: nextReservations },
+              ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title: form.id ? t.toast.reservation_updated : t.toast.reservation_created, icon:'📅' });
+        }
+      },
+      'pos.reservations.edit':{
+        on:['click'],
+        gkeys:['pos:reservations:edit'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const reservation = (state.data.reservations || []).find(res=> res.id === resId);
+          if(!reservation) return;
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:resId, form:{ ...reservation } } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reservations.convert':{
+        on:['click'],
+        gkeys:['pos:reservations:convert'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const reservation = (state.data.reservations || []).find(res=> res.id === resId);
+          if(!reservation) return;
+          const newOrder = { id: generateOrderId(), status:'open', tableIds: reservation.tableIds.slice(), guests: reservation.partySize, createdAt: Date.now(), updatedAt: Date.now(), totals:{ due:0 } };
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              ordersQueue:[ newOrder, ...(s.data.ordersQueue || []) ],
+              reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'seated' } : res),
+              tableLocks:[...(s.data.tableLocks || []), ...reservation.tableIds.map(id=> ({ id:`lock-${Date.now().toString(36)}-${id}`, tableId:id, orderId:newOrder.id, lockedBy:s.data.user?.id || 'pos-user', lockedAt:Date.now(), source:'reservation-convert', active:true }))]
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_converted, icon:'🍽️' });
+        }
+      },
+      'pos.reservations.noshow':{
+        on:['click'],
+        gkeys:['pos:reservations:noshow'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'no-show' } : res) }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_no_show, icon:'⏰' });
+        }
+      },
+      'pos.reservations.cancel':{
+        on:['click'],
+        gkeys:['pos:reservations:cancel'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-reservation-id]');
+          if(!btn) return;
+          const resId = btn.getAttribute('data-reservation-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'cancelled' } : res) }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.reservation_cancelled, icon:'🚫' });
+        }
+      },
+      'pos.orders.open':{
+        on:['click'],
+        gkeys:['pos:orders:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.toggle':{
+        on:['click'],
+        gkeys:['pos:orders:toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.open-order':{
+        on:['click'],
+        gkeys:['pos:orders:open-order'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-order-id]');
+          if(!btn) return;
+          const orderId = btn.getAttribute('data-order-id');
+          const state = ctx.getState();
+          const order = [state.data.order, ...(state.data.ordersQueue || [])].find(ord=> ord && ord.id === orderId);
+          if(!order) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), order:{ ...(s.data.order || {}), ...order } },
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.open':{
+        on:['click'],
+        gkeys:['pos:tables:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              tables:{ view:'assign', filter:'all', search:'', details:null },
+              modals:{ ...(s.ui?.modals || {}), tables:true }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.view':{
+        on:['click'],
+        gkeys:['pos:tables:view'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tables-view]');
+          if(!btn) return;
+          const view = btn.getAttribute('data-tables-view') || 'assign';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), view } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.filter':{
+        on:['click'],
+        gkeys:['pos:tables:filter'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tables-filter]');
+          if(!btn) return;
+          const filter = btn.getAttribute('data-tables-filter') || 'all';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), filter } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.search':{
+        on:['input','change'],
+        gkeys:['pos:tables:search'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), search:value } }
+          }));
+        }
+      },
+      'pos.tables.details':{
+        on:['click'],
+        gkeys:['pos:tables:details'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:tableId } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.details-close':{
+        on:['click'],
+        gkeys:['pos:tables:details-close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:null } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.card.tap':{
+        on:['click'],
+        gkeys:['pos:tables:card:tap'],
+        handler:(e,ctx)=>{
+          if(e.target.closest('[data-prevent-select="true"]')) return;
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const runtimeTables = computeTableRuntime(state);
+          const runtime = runtimeTables.find(tbl=> tbl.id === tableId);
+          if(!runtime) return;
+          if(runtime.state === 'maintenance'){
+            UI.pushToast(ctx, { title:t.toast.table_locked_other, message:t.ui.table_status_maintenance, icon:'🛠️' });
+            return;
+          }
+          if(runtime.state === 'disactive'){
+            UI.pushToast(ctx, { title:t.toast.table_inactive_assign, icon:'🚫' });
+            return;
+          }
+          const order = state.data.order || {};
+          if(order.type !== 'dine_in'){
+            UI.pushToast(ctx, { title:t.toast.table_assigned, message:t.ui.service_type, icon:'ℹ️' });
+            return;
+          }
+          const currentTables = new Set(order.tableIds || []);
+          const isAssigned = currentTables.has(tableId);
+          if(isAssigned){
+            if(!window.confirm(t.ui.table_confirm_release)) return;
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock),
+                order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() }
+              }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
+            return;
+          }
+          if(runtime.lockState !== 'free' && !runtime.isCurrentOrder){
+            if(!window.confirm(t.toast.table_locked_other)) return;
+          }
+          if(currentTables.size && !window.confirm(t.ui.table_multi_orders)) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:[...(s.data.tableLocks || []), { id:`lock-${Date.now().toString(36)}`, tableId, orderId: order.id, lockedBy: s.data.user?.id || 'pos-user', lockedAt: Date.now(), source:'pos', active:true }],
+              order:{ ...(s.data.order || {}), tableIds:Array.from(new Set([...(s.data.order?.tableIds || []), tableId])), updatedAt: Date.now() }
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_locked_now, icon:'🔒' });
+        }
+      },
+      'pos.tables.unlock-order':{
+        on:['click'],
+        gkeys:['pos:tables:unlock-order'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const orderId = btn.getAttribute('data-order-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === orderId ? { ...lock, active:false } : lock)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_unlock_partial, icon:'🔓' });
+        }
+      },
+      'pos.tables.unlock-all':{
+        on:['click'],
+        gkeys:['pos:tables:unlock-all'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId ? { ...lock, active:false } : lock)
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.add':{
+        on:['click'],
+        gkeys:['pos:tables:add'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const nextIndex = (state.data.tables || []).length + 1;
+          const defaultName = `${t.ui.tables} ${nextIndex}`;
+          const name = window.prompt(t.ui.table_add, defaultName);
+          if(!name){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:[...(s.data.tables || []), { id:`T${Date.now().toString(36)}`, name, capacity:4, zone:'', state:'active', displayOrder: nextIndex, note:'' }]
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_added, icon:'➕' });
+        }
+      },
+      'pos.tables.rename':{
+        on:['click'],
+        gkeys:['pos:tables:rename'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const nextName = window.prompt(t.ui.table_rename, table.name || table.id);
+          if(!nextName){
+            UI.pushToast(ctx, { title:t.toast.table_name_required, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, name: nextName } : tbl),
+              auditTrail:[...(s.data.auditTrail || []), { id:`audit-${Date.now().toString(36)}`, userId:s.data.user?.id || 'pos-user', action:'table.rename', refType:'table', refId:tableId, at:Date.now(), meta:{ name:nextName } }]
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'✏️' });
+        }
+      },
+      'pos.tables.capacity':{
+        on:['click'],
+        gkeys:['pos:tables:capacity'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const input = window.prompt(t.ui.tables_capacity, String(table.capacity || 4));
+          if(input == null) return;
+          const capacity = parseInt(input, 10);
+          if(!Number.isFinite(capacity) || capacity <= 0){
+            UI.pushToast(ctx, { title:t.toast.table_invalid_seats, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, capacity } : tbl)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_updated, icon:'👥' });
+        }
+      },
+      'pos.tables.zone':{
+        on:['click'],
+        gkeys:['pos:tables:zone'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const table = (state.data.tables || []).find(tbl=> tbl.id === tableId);
+          if(!table) return;
+          const zone = window.prompt('Zone', table.zone || '');
+          if(zone == null) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, zone } : tbl)
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.tables.state':{
+        on:['click'],
+        gkeys:['pos:tables:state'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const orderLocks = (state.data.tableLocks || []).filter(lock=> lock.tableId === tableId && lock.active);
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).map(tbl=>{
+                if(tbl.id !== tableId) return tbl;
+                const cycle = ['active','maintenance','disactive'];
+                const currentIndex = cycle.indexOf(tbl.state || 'active');
+                const nextState = cycle[(currentIndex + 1) % cycle.length];
+                if(nextState !== 'active' && orderLocks.length){
+                  return tbl;
+                }
+                return { ...tbl, state: nextState };
+              })
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_state_updated, icon:'♻️' });
+        }
+      },
+      'pos.tables.remove':{
+        on:['click'],
+        gkeys:['pos:tables:remove'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-table-id]');
+          if(!btn) return;
+          const tableId = btn.getAttribute('data-table-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const locks = (state.data.tableLocks || []).filter(lock=> lock.tableId === tableId && lock.active);
+          if(locks.length){
+            UI.pushToast(ctx, { title:t.toast.table_has_sessions, icon:'⚠️' });
+            return;
+          }
+          if(!window.confirm(t.ui.table_confirm_remove)) return;
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              tables:(s.data.tables || []).filter(tbl=> tbl.id !== tableId)
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.table_removed, icon:'🗑️' });
+        }
+      },
+      'pos.tables.bulk':{
+        on:['click'],
+        gkeys:['pos:tables:bulk'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-bulk-action]');
+          if(!btn) return;
+          const action = btn.getAttribute('data-bulk-action');
+          ctx.setState(s=>{
+            const tables = (s.data.tables || []).map(tbl=>{
+              if(action === 'activate') return { ...tbl, state:'active' };
+              if(action === 'maintenance') return { ...tbl, state:'maintenance' };
+              return tbl;
+            });
+            return { ...s, data:{ ...(s.data || {}), tables } };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.payments.open':{
+        on:['click'],
+        gkeys:['pos:payments:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), payments:true },
+              paymentDraft:{ amount:'', method: s.data.payments?.activeMethod || 'cash' }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.payments.close':{
+        on:['click'],
+        gkeys:['pos:payments:close','ui:drawer:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.payments.method':{
+        on:['click'],
+        gkeys:['pos:payments:method'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-method-id]');
+          if(!btn) return;
+          const method = btn.getAttribute('data-method-id');
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...(s.data || {}), payments:{ ...(s.data.payments || {}), activeMethod: method } },
+            ui:{ ...(s.ui || {}), paymentDraft:{ ...(s.ui?.paymentDraft || {}), method } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.payments.amount':{
+        on:['input','change'],
+        gkeys:['pos:payments:amount'],
+        handler:(e,ctx)=>{
+          const value = e.target.value;
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount:value } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.payments.capture':{
+        on:['click'],
+        gkeys:['pos:payments:capture'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const amount = parseFloat(state.ui?.paymentDraft?.amount);
+          if(!amount || amount <= 0){
+            UI.pushToast(ctx, { title:t.toast.amount_required, icon:'⚠️' });
+            return;
+          }
+          const method = state.data.payments.activeMethod || 'cash';
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              payments:{
+                ...(s.data.payments || {}),
+                split:(s.data.payments?.split || []).concat([{ id:`pm-${Date.now()}`, method, amount: round(amount) }])
+              }
+            },
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false }, paymentDraft:{ amount:'' } }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.payment_recorded, icon:'💰' });
+        }
+      },
+      'pos.payments.split':{
+        on:['click'],
+        gkeys:['pos:payments:split'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.reports.toggle':{
+        on:['click'],
+        gkeys:['pos:reports:toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), reports: !s.ui?.modals?.reports } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.indexeddb.sync':{
+        on:['click'],
+        gkeys:['pos:indexeddb:sync'],
+        handler: async (e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          if(!posDB.available){
+            UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
+            return;
+          }
+          try{
+            UI.pushToast(ctx, { title:t.toast.indexeddb_syncing, icon:'🔄' });
+            const orders = await posDB.listOrders();
+            await posDB.markSync();
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, indexeddb:{ state:'online', lastSync: Date.now() } },
+                reports:{ ...(s.data.reports || {}), ordersCount: orders.length }
+              }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.toast.sync_complete, icon:'✅' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
+            ctx.setState(s=>({
+              ...s,
+              data:{
+                ...s.data,
+                status:{ ...s.data.status, indexeddb:{ state:'offline', lastSync: s.data.status?.indexeddb?.lastSync || null } }
+              }
+            }));
+            ctx.rebuild();
+          }
+        }
+      },
+      'pos.kds.connect':{
+        on:['click'],
+        gkeys:['pos:kds:connect'],
+        handler:(e,ctx)=>{
+          kdsBridge.connect(ctx);
+        }
+      },
+      'pos.theme.toggle':{
+        on:['click'],
+        gkeys:['pos:theme:toggle'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-theme]');
+          if(!btn) return;
+          const theme = btn.getAttribute('data-theme');
+          ctx.setState(s=>({
+            ...s,
+            env:{ ...(s.env || {}), theme }
+          }));
+          ctx.rebuild();
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.theme_switched, icon: theme === 'dark' ? '🌙' : '☀️' });
+        }
+      },
+      'pos.lang.switch':{
+        on:['click'],
+        gkeys:['pos:lang:switch'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-lang]');
+          if(!btn) return;
+          const lang = btn.getAttribute('data-lang');
+          ctx.setState(s=>({
+            ...s,
+            env:{ ...(s.env || {}), lang, dir: lang === 'ar' ? 'rtl' : 'ltr' }
+          }));
+          ctx.rebuild();
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.lang_switched, icon:'🌐' });
+        }
+      },
+      'pos.session.logout':{
+        on:['click'],
+        gkeys:['pos:session:logout'],
+        handler:(e,ctx)=>{
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.logout_stub, icon:'👋' });
+        }
+      }
+    };
+
+    app.setOrders(Object.assign({}, UI.orders, auto.orders, posOrders));
+    app.mount('#app');
+  })();
+  </script>
+</body>
+</html>
