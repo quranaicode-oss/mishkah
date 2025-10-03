@@ -1,9 +1,6 @@
+بسم الله نبدأ.
 
 # Mishkah.js — إطار عمل النور والنظام
-
-# الدستور التأسيسي الكامل
-
-*بنية برمجية مستوحاة من سنن الله في الخلق والأمر: ﴿وَلَقَدۡ أَنزَلۡنَآ إِلَيۡكُمۡ ءَايَٰتٖ مُّبَيِّنَٰتٖ وَمَثَلٗا مِّنَ ٱلَّذِينَ خَلَوۡاْ مِن قَبۡلِكُمۡ وَمَوۡعِظَةٗ لِّلۡمُتَّقِينَ﴾*
 
 *بنية برمجية (Software Architecture) ذات 7 أركان مستوحاة من أفضل الممارسات البرمجية*
 
@@ -24,359 +21,586 @@
 
 ## الأركان السبعة لمعمارية "مشكاة"
 
-### 1\. توحيد مصدر الحقيقة (`database`): لا إله إلا هو
 
-**الركن الأول والأساس الذي يقوم عليه كل شيء.**
-في "مشكاة"، لا يمكن أن يكون هناك مصدر للحالة (`state`) إلا واحد: `database`. هذا ليس مجرد خيار تصميمي، بل هو تطبيق صارم لمبدأ التوحيد. أي محاولة لخلق مصدر آخر للحقيقة هي "شرك" برمجي، تؤدي حتمًا إلى التنازع والتضارب، وتشتيت يؤدي إلى انهيار النظام.
-﴿لَوْ كَانَ فِيهِمَا آلِهَةٌ إِلَّا اللَّهُ لَفَسَدَتَا﴾. وكما أن للكون إله واحد، يجب أن يكون لتطبيقك مصدر حقيقة واحد لا ينازعه في ملكه منازع.
-#### تجلي الركن في الكود:
+-----
 
-كل شيء يبدأ من هنا. `database` ليس مجرد كائن، بل هو العهد الذي يلتزم به كل جزء من التطبيق.
+## الأركان المعمارية السبعة لمنظومة "مشكاة"
+
+### 1\. مركزية الحالة (State Centralization): العقل المدبر للنظام
+
+**المبدأ:** في أي نظام معقد، الفوضى تبدأ عندما تتعدد مصادر القرار. لهذا، تفرض "مشكاة" مبدأ **المركزية المطلقة للحالة**. كل معلومة يحتاجها تطبيقك، من هوية المستخدم ولغة الواجهة، إلى محتوى المقالات وبيانات النماذج، يجب أن توجد في مكان واحد فقط: كائن `database`. هذا الكائن ليس مجرد مخزن بيانات، بل هو **النموذج الكامل لعالم التطبيق (World Model)** في أي لحظة زمنية.
+
+**لماذا هذا المبدأ صارم؟** لأن الحالة الموزعة (مثل `useState` المنتشر في مكونات React) تخلق كابوسًا من الأسئلة: أي حالة هي الصحيحة الآن؟ لماذا لم يتم تحديث هذا المكون مع ذاك؟ تتبع الأخطاء يصبح عملية تنقيب مضنية.
+
+في "مشكاة"، واجهة المستخدم هي انعكاس بصري مباشر وصادق للحقيقة الموجودة في `database`. لا مجال للكذب أو عدم التزامن. هذا يفتح الباب لتقنيات متقدمة مثل **التصحيح عبر السفر الزمني (Time-Travel Debugging)**، حيث يمكن تسجيل سلسلة من الحالات والتنقل بينها لفهم كيف تطور النظام.
+
+#### التطبيق التقني:
+
+تصبح عمليات التحديث شفافة ويمكن التنبؤ بها. كل تغيير هو مجرد دالة تأخذ الحالة القديمة وتعيد الحالة الجديدة.
 
 ```javascript
-// database: العهد والميثاق ومصدر الحقيقة الأوحد
+// `database`: هو العقل الذي يحتوي على كل حقائق النظام.
 const database = {
   env: { theme: 'dark', lang: 'ar' },
-  user: { name: 'عبد الله', loggedIn: true },
-  posts: [
-    { id: 1, title: 'أول تدوينة', content: '...' }
-  ]
+  user: { name: 'زائر', loggedIn: false, visits: 1 },
+  cart: { items: [], total: 0 }
 };
 
-// المكونات (Components) لا تملك حالة خاصة بها،
-// بل تستمد وجودها وحقيقتها الكاملة من الـ database.
-function UserGreeting(db) {
-  // تقرأ من المصدر الواحد، ولا تجتهد في خلق مصدر جديد.
-  const name = db.user.name;
-  return D.Text.H1({}, [`مرحباً يا ${name}`]);
+// أي مكون هو مجرد قارئ أمين لهذه الحقائق.
+function Navbar(db) {
+  const userName = db.user.name;
+  const cartCount = db.cart.items.length;
+  // ... يعرض واجهة مبنية على هذه البيانات
+}
+
+// التغييرات لا تحدث عشوائيًا، بل عبر "أوامر" مركزية ومنظمة.
+// تخيل أن هذا الأمر يتم استدعاؤه عند تسجيل الدخول.
+function handleLogin(currentUser) {
+  // لا نعدل الحالة مباشرة، بل نصف التغيير المطلوب.
+  // إطار العمل يتولى تحديث الـ `database` وإعادة التصيير.
+  app.setState(currentState => {
+    return {
+      ...currentState, // ننسخ الحالة القديمة
+      user: { // ونحدث فقط الجزء الخاص بالمستخدم
+        ...currentUser,
+        loggedIn: true,
+        visits: currentState.user.visits + 1
+      }
+    };
+  });
 }
 ```
 
-هذا المبدأ يفرض نظامًا صارمًا لكنه يمنحك يقينًا مطلقًا. لا حاجة للبحث عن الحقيقة في أودية المكونات المتفرقة؛ إنها دائمًا في مكان واحد، واضحة وجلية.
+بهذه الطريقة، يصبح تدفق البيانات في التطبيق واضحًا وسهل التتبع كنهر يجري في مسار واحد.
 
 -----
 
+### 2\. لغة تعريفية مُحكَمة (A Constrained DSL): عقد بَنّاء وآمن
 
-### 2\. المشكاة (The Ecosystem): هيكل يجمع نور أعمالك
+**المبدأ:** لغات القوالب التقليدية (مثل JSX) تمنح حرية خطيرة، فهي تسمح بخلط منطق العرض مع منطق العمل والوصول للبيانات في مكان واحد، مما ينتج عنه مكونات هجينة ومعقدة. "مشكاة" تقدم بديلاً: **لغة تعريفية خاصة (DSL) تعمل كعقد صارم**.
 
-صديقي، لو أنك مصباح متوهج مرمي في ركن غرفة بعيد، هل ستضيء الغرفة؟ للأسف، ستضيء ركنك فقط، ولن يكبر نورك أو يظهر للعالم. ولو أن مصباحك في العراء، لظل نقطة باهتة غارقة في الفضاء الأسود البهيم.
-إن جهدك كمبرمج هو **نور**، وهذا النور إن لم يوضع في **مشكاة** تجمعه وتركزه وتمنعه من التشتت، فسيضيع هباءً.
+هذا العقد يفرض **فصلًا قاطعًا بين بنية المكون (`attributes`) وسلوكه (`events`)**. أنت لا تكتب خليطًا من HTML و JavaScript، بل تصف بنية واجهتك باستخدام مفردات محددة وواضحة تمنعك من ارتكاب الأخطاء. يتم ربط السلوك (ماذا يحدث عند النقر) بشكل غير مباشر عبر مفاتيح (`gkeys`)، مما يبقي منطق العمل مركزيًا ومنظمًا في ملف `orders`.
 
-وظيفة "مشكاة" هي أن تكون لك هذا الهيكل الذي يمنع التشتت بكل صوره:
+#### التطبيق التقني:
 
-  * **لا تشتيت في الأدوات:** لن تغرق في بحر من المكتبات المتضاربة. كل ما تحتاجه مدمج ومتناغم.
-  * **لا تشتيت في الإعداد:** لن تضيع أيامًا في تهيئة بيئة العمل. أمر واحد مثل `tw.auto()` يكفي لتفعيل منظومة تصميم كاملة.
-  * **لا تشتيت في الجهد:** دعم تعدد اللغات (`i18n`)، والاتجاه من اليمين لليسار (`RTL`)، والثيمات المظلمة والمضيئة، كلها تعمل تلقائيًا لتركز جهدك كله على الإبداع الفعلي.
-  
-  
-#### تجلي الركن في الكود (رحلة الخلق):
-
-إن بناء التطبيق يتبع رحلة الخلق ذات الزوجين:
-
-```javascript
-// الزوج الأول: التصميم والتسوية (تخطيط الجسد)
-// 1. الذرات (Atoms): تعريف المكونات كهيكل بصري.
-function AppBody(db, D) { /* ... */ }
-// 2. العلم الفطري (database as DNA): الحالة الأولية.
-const database = { /* ... */ };
-
-// عملية التسوية: دمج الذرات مع العلم الفطري لإنشاء "جسد مُصوَّر" (VDOM)
-Mishkah.app.setBody(AppBody);
-
-
-// الزوج الثاني: التمكين والتكليف (نفخ الروح)
-// 1. الإيمان (database as State): نفس البيانات أصبحت الآن مصدر الحقيقة الحي.
-// 2. العمل الصالح (Orders): تعريف الأفعال التي تغير الإيمان.
-const orders = { /* ... */ };
-
-// عملية الخلق: نفخ الروح في الجسد بدمج الإيمان مع العمل
-const app = Mishkah.app.createApp(database, orders);
-
-// البعث: إظهار الكائن الحي للعالم (DOM)
-app.mount('#app');
-```
-
-هذا الترتيب ليس عشوائيًا، بل هو محاكاة لعملية الخلق المنظمة: تصميم دقيق أولاً، ثم بث للحياة والتفاعل ثانيًا.
-
------
-
-
-#### رحلة الخلق في "مشكاة": زوجان من زوجين
-
-إن بناء تطبيقك في "مشكاة" يمر برحلة خلق تشبه خلق الإنسان، قائمة على زوجين اثنين، لكل زوج ركنان:
-
-1.  **الزوج الأول: التصميم والتسوية (تخطيط الجسد)**
-
-      * **الركن الأول: الطين والذرات (`Atoms`):** هي لبنات البناء الأساسية، المادة الخام.
-      * **الركن الثاني: العلم الفطري (`database` كـ DNA):** هي البيانات الأولية التي تحدد صفات هذا الجسد وشفرته الفطرية.
-        **النتيجة:** جسدٌ مُصوَّر، روبوت ميكانيكي له تصميم دقيق قبل أن تُنفخ فيه الروح البرمجية.
-
-2.  **الزوج الثاني: التمكين والتكليف (نفخ الكود والحياة)**
-
-      * **الركن الأول: الإيمان (`database` كروح وهداية):** هي نفس البيانات التي أصبحت الآن مصدر الحقيقة الحي للتطبيق.
-      * **الركن الثاني: العمل الصالح (`orders`):** هي الأوامر والأفعال التي تحرك هذا الجسد وتغير من حال إيمانه.
-        **النتيجة:** كائن حي مكتمل، قادر على التفاعل والنمو.
-
-لاحظ أن البيانات (`database`) هي الركن الدائم في كلا الزوجين، إنها كالروح التي كانت في علم التصوير الأول، وهي نفسها روح الهداية في التكليف الثاني.
-
-### 3\. الزجاجة (The Expressive DSL): حماية وجمال
-
-**﴿ٱلۡمِصۡبَاحُ فِي زُجَاجَةٍۖ ٱلزُّجَاجَةُ كَأَنَّهَا كَوۡكَبٞ دُرِّيّٞ﴾**
-إن أجمل ما ستلاقي ليس فقط المشكاة التي تضخم ضوءك، بل أن مصباحك سيكون في **زجاجة**. إن فتيل مصباحك المحترق بجهدك، مهما كان عظيمًا، إن وُجد في العراء في خضم رياح الفوضى، فسيطْفَأ لا محالة.
-كم من مبرمج بارع صنع مكونًا محكمًا، لكن مع تشتت البيانات وفوضى الـ DOM، صار يعمل بأداء ضعيف وسط تنازع وتضارب.
-
-"مشكاة" تمنحك هذه الزجاجة من خلال لغة تعريفية (DSL) صارمة، حامية، وشفافة:
-
-  * **حامية:** تفصل بصرامة بين **صفات المكون (`attrs`)** و**أفعاله (`events`)**، فتمنع الأخطاء الخفية التي يعاني منها كل مبرمج.
-  * **شفافة:** لا تخفي أعمالك خلف طبقات من التعقيد، بل تظهرها بوضوح وأناقة.
-  * **مُضخِّمة:** مع التصنيف الدقيق للـ `Atoms` واللمسات الفنية في ظهور وخفاء الكائنات وتقلب الليل والنهار، فإنها تضخم جمال كودك ليصير **كوكبًا دريًا**.
-  
-  
-#### تجلي الركن في الكود:
-
-لاحظ كيف أن اللغة نفسها تفرض النظام. لا مجال لخلط الصفات بالأفعال.
+لاحظ كيف تفصل اللغة بين "شكل" الزر و"وظيفة" الزر.
 
 ```javascript
 const D = Mishkah.DSL;
 
-// كتابة واضحة، صارمة، وجميلة كأنها كوكب دري
-D.Forms.Button({
-  // الركن الأول: الصفات (attrs) - ماذا يكون هذا الزر؟
-  attrs: {
-    class: tw`btn btn/solid`,
-    'aria-label': 'إغلاق النافذة',
-    // لا يوجد onClick أو onHover هنا أبدًا!
-  },
-  // الركن الثاني: الأفعال (events) - ماذا يفعل هذا الزر؟
-  // (ملاحظة: في "مشكاة"، الأفعال تُعالج مركزيًا عبر gkey في الـ orders)
-  // لكن لو احتجت لسبب نادر، يكون الفصل واضحًا:
-  events: {
-    // click: () => console.log('This is kept separate')
+// 1. تعريف الشكل (في ملف المكون)
+// هذا الكود يصف "ما هو" الزر، ولا علاقة له بما "يفعله".
+function CloseButton() {
+  return D.Forms.Button({
+    attrs: {
+      class: 'btn btn-danger',
+      'aria-label': 'إغلاق',
+      'data-m-gkey': 'ui:window-close' // مفتاح يربط الزر بوظيفته
+    }
+  }, ['X']);
+}
+
+// 2. تعريف الوظيفة (في ملف الأوامر `orders.js`)
+// هذا الكود يصف "ماذا يحدث" عندما يُستدعى المفتاح `ui:window-close`.
+const orders = {
+  'ui.window.close': { // لاحظ كيف يطابق المفتاح `gkey` مع تعديل بسيط
+    on: ['click'],
+    gkeys: ['ui:window-close'],
+    handler: (event, context) => {
+      // منطق إغلاق النافذة يكتب هنا
+      console.log('Window is closing...');
+      // يمكنه أيضًا تحديث الحالة
+      context.setState(s => ({ ...s, windowOpen: false }));
+    }
   }
-}, ['أيقونة الإغلاق']);
+};
 ```
 
-هذا الفصل ليس خيارًا، بل هو من صلب بنية اللغة، فيحميك من الأخطاء الخفية ويجعل كودك شفافًا ك الزجاجة.
+هذا الفصل ليس خيارًا، بل هو إجبار يضمن أن مكوناتك تبقى بسيطة، قابلة لإعادة الاستخدام، وسهلة الاختبار.
 
-------
+-----
 
+### 3\. التصنيف الوظيفي للذرات (Functional Atom Classification): وحدات بناء ذكية
 
-### 4\. الشجرة المباركة (The UI Library): زيت يكاد يضيء
+**المبدأ:** التعامل المباشر مع وسوم HTML يشبه التعامل مع الطوب والأسمنت الخام. إنه ممكن، لكنه عرضة للأخطاء. "مشكاة" تقدم **"ذرات" (`Atoms`)**: وهي أغلفة ذكية حول وسوم HTML، مصنفة في فئات وظيفية (`Forms`, `Text`, `Containers`, `Media`).
 
-**﴿يُوقَدُ مِن شَجَرَةٖ مُّبَٰرَكَةٖ زَيۡتُونَةٖ لَّا شَرۡقِيَّةٖ وَلَا غَرۡبِيَّةٖ يَكَادُ زَيۡتُهَا يُضِيٓءُ وَلَوۡ لَمۡ تَمۡسَسۡهُ نَارٞۚ﴾**
-إن كوكبك الدري سيوقد من شجرة مباركة. إنها مكتبة المكونات الإبداعية (`mishkah-ui`)، مكتبة بديعة تكاد تضيء من تلقاء نفسها قبل أن يمسها نار جهدك وعملك. تراها أكوادًا، وكأنك ترى مدينة قائمة في خيالك.
-لماذا هي مباركة؟ لأنها لم تتوارت عن شمس العلم، بل تعرضت لها من كل جانب، فصارت "لا شرقية ولا غربية"، مفعمة بالطاقة والمعرفة الحقة.
-إنها زيت صافٍ ونقي، يمثل **هداية المعرفة**. وعندما تمسه نار عملك وجهدك، يتحول إلى **نور على نور**، فتجتمع **هداية المعرفة** مع **هداية العمل والتوفيق**.
+كل ذرة ليست مجرد اسم بديل للوسم، بل هي **وحدة بنائية تفهم سياقها وقواعدها**. الذرة `D.Forms.Textarea` تعرف أنها تتطلب خاصية `value` وليس `text`. الذرة `D.Media.Image` يمكن برمجتها لرفض الإنشاء إذا لم يتم تزويدها بخاصية `alt` الضرورية لإمكانية الوصول. هذا يحول عملية البناء من عمل يدوي معرض للخطأ إلى عملية تركيب **وحدات ذكية وآمنة**.
 
+#### التطبيق التقني:
 
-#### تجلي الركن في الكود:
+الذرات تفرض أفضل الممارسات وتحميك من الأخطاء البديهية.
 
-بدلاً من بناء كل شيء من الصفر، تبدأ من مكونات تكاد تضيء بنفسها.
+```javascript
+const D = Mishkah.DSL;
+
+// مثال 1: ذرة الصورة تفرض إمكانية الوصول
+// هذا الكود قد يفشل في الإنشاء إذا لم توفر `alt` (حسب الإعدادات)
+const profilePicture = D.Media.Image({
+  attrs: {
+    src: '/path/to/image.jpg',
+    alt: 'صورة المستخدم عبد الله' // خاصية إجبارية
+  }
+});
+
+// مثال 2: ذرة الرابط تحمي من الثغرات الأمنية
+// هذه الذرة تضيف تلقائيًا `rel="noopener noreferrer"` عند استخدام `target="_blank"`
+const externalLink = D.Text.A({
+  attrs: {
+    href: 'https://example.com',
+    target: '_blank'
+  }
+}, ['رابط خارجي آمن']);
+```
+
+-----
+
+### 4\. مكتبة مكونات قابلة للتركيب (Composable Component Library): تسريع وتوحيد البناء
+
+**المبدأ:** إذا كانت "الذرات" هي الطوب، فإن **مكونات `mishkah-ui`** هي الجدران والأعمدة الجاهزة. فبدلاً من بناء "بطاقة" (`Card`) في كل مرة من ذرات `div` و `h2` و `p`، تستخدم `UI.Card` الذي يغلف كل هذا التعقيد ويوفر واجهة بسيطة.
+
+هذه المكتبة تضمن **الاتساق البصري والوظيفي** عبر التطبيق بأكمله، وتطبق أفضل الممارسات في إمكانية الوصول والأداء بشكل مدمج. إنها تجسيد حقيقي لمبدأ **"لا تكرر نفسك" (DRY)**.
+
+#### التطبيق التقني:
+
+بناء واجهات معقدة يصبح عملية تجميع سريعة وممتعة.
 
 ```javascript
 const UI = Mishkah.UI;
 const D = Mishkah.DSL;
 
-// بأسطر قليلة، تبني واجهة معقدة من زيت الشجرة المباركة
-UI.Card({
-  title: "عنوان البطاقة",
-  description: "وصف موجز للمحتوى.",
-  content: D.Text.P({}, ["هذا هو المحتوى الرئيسي"]),
-  footer: UI.Button({ variant: 'primary' }, ["اذهب"])
+// بناء مربع حوار (Dialog) معقد بسطرين
+// هذا المكون يعالج تلقائيًا أمورًا مثل:
+// - إدارة التركيز (Focus Trapping) داخل الحوار
+// - إغلاق الحوار عند الضغط على زر Escape
+// - السمات البصرية المتوافقة مع النظام
+const confirmationDialog = UI.Dialog({
+  trigger: UI.Button({}, ['حذف العنصر']),
+  title: 'تأكيد الحذف',
+  description: 'هل أنت متأكد من رغبتك في حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.',
+  footer: D.Containers.Div({ class: 'hstack' }, [
+    UI.Button({ variant: 'secondary' }, ['إلغاء']),
+    UI.Button({ variant: 'danger' }, ['نعم، احذف'])
+  ])
 });
 ```
 
-هذه المكونات ليست مجرد اختصارات، بل هي خلاصة أفضل الممارسات، مُعدة لتكون الأساس الذي تبني عليه نور تطبيقك.
-
 -----
 
-### 5\. الحارس (`Guardian`): منفذ القوانين الفيزيائية
+### 5\. بيئة عالمية متكاملة (Integrated Global Environment): جاهزية فطرية للعالمية
 
-هو حارس مدمج يمثل قوانين نظام "مشكاة" الفيزيائية التي لا تتبدل. إن خالفها كودك وخيف منه أن ينهار بالنظام، يقوم الحارس بمنعه **قبل** أن تقع الكارثة. إنها قوانين مثل الجاذبية والاحتكاك، لا يمكن تجاوزها.
+**المبدأ:** الميزات العالمية مثل تعدد اللغات والسمات ليست رفاهية، بل هي جزء من بنية التطبيق الأساسية. في "مشكاة"، هذه الميزات ليست مكتبات يتم تركيبها لاحقًا، بل هي **خصائص فطرية في النواة**، تُدار مباشرة من `database`.
 
-هذا ليس نظام تقييم، بل هو نظام منع. يقوم بمنع الكود من كسر قوانين الكون **قبل** أن تقع الكارثة.
+  * **التدويل (i18n):** تغيير قيمة `database.env.lang` هو كل ما يلزم لترجمة الواجهة بالكامل.
+  * **السمات (Theming):** تغيير `database.env.theme` يغير تلقائيًا كل الألوان والأنماط في التطبيق.
+  * **اتجاه النص (RTL/LTR):** يتغير تلقائيًا مع اللغة، مما يضمن تجربة مستخدم أصيلة.
 
+#### التطبيق التقني:
 
-#### تجلي الركن في الكود:
-
-أنت لا تكتب كودًا لتفعيل الحارس، بل تقوم بتعريف "قوانين الطبيعة" التي سيفرضها على كل الكود.
+تصبح إدارة هذه الميزات جزءًا طبيعيًا من إدارة الحالة.
 
 ```javascript
-// من ملف mishkah.config.defaults.js
-const guardianConfig = {
-  // امنع أي وسم <script> من الظهور في الـ VDOM نهائيًا.
-  denyTags: { script: 1 },
-  
-  // امنع أي خاصية تبدأ بـ "on" (مثل onclick) من الوجود.
-  denyAttrs: [/^on/i],
-  
-  // امنع الروابط التي تحتوي على "javascript:"، فهي ثغرة أمنية.
-  allowedUrlSchemes: ['http:', 'https:', 'mailto:'],
+// 1. الحالة تعرف كل شيء
+const database = {
+  env: { theme: 'light', lang: 'en', dir: 'ltr' },
+  i18n: {
+    // قواميس الترجمة
+    en: { greeting: 'Hello' },
+    ar: { greeting: 'مرحباً' }
+  }
+  // ... باقي الحالة
 };
 
-// بمجرد تحميل هذا الإعداد، تصبح هذه القوانين سارية
-// على كل مكون وكل جزء من التطبيق، كقانون الجاذبية.
-Mishkah.Guardian.setConfig(guardianConfig);
-```
+// 2. المكون يستخدم الترجمة
+function Greeting(db) {
+  const message = db.i18n[db.env.lang]?.greeting || 'Welcome';
+  return D.Text.H1({}, [message]);
+}
 
-الحارس لا يعطي رأيه، بل يفرض الحقيقة. إنه يضمن أن عالمك البرمجي مبني على أسس فيزيائية سليمة لا يمكن اختراقها.
+// 3. أمر بسيط يغير اللغة والاتجاه
+const orders = {
+  'lang.switchToArabic': {
+    on: ['click'], gkeys: ['lang-ar-btn'],
+    handler: (e, ctx) => {
+      ctx.setState(s => ({
+        ...s,
+        env: { ...s.env, lang: 'ar', dir: 'rtl' }
+      }));
+    }
+  }
+};
+```
 
 -----
 
-### 6\. الرقيب (`Auditor`): ميزان الأعمال
+### 6\. أدوات مساعدة معيارية (Standardized Utilities): صندوق أدوات موحد
 
+**المبدأ:** لضمان الاتساق ومنع فوضى الاعتماديات، توفر "مشكاة" مكتبة أدوات مساعدة (`Mishkah.utils`) تغطي المهام الشائعة. فبدلاً من أن يستخدم كل مطور مكتبته المفضلة للتعامل مع `localStorage` أو `fetch`، توفر "مشكاة" واجهة موحدة.
 
-**﴿يُسَبِّحُ لَهُۥ فِيهَا بِٱلۡغَدُوِّ وَٱلۡأٓصَالِ رِجَالٞ...﴾**
-الرقيب هو نظام يرافقك كالملائكة الكرام الكاتبين، يسجل كل شيء ويقيمه بميزان دقيق ذي **14 درجة** (من -7 إلى +7)، لكل درجة اسم ومعنى.
+هذا يقلل من حجم التطبيق، ويوحد طريقة كتابة الكود، ويجعل الصيانة أسهل بكثير.
 
-#### تجلي الركن في الكود:
+#### التطبيق التقني:
 
-أنت لا تراقب الكود بنفسك، بل تطلب من الرقيب أن يسجل ويقيم.
+التعامل مع واجهات المتصفح يصبح منظمًا وموحدًا.
 
 ```javascript
-const Auditor = Mishkah.Auditor;
+const U = Mishkah.utils;
 
-// فعل يستحق الثناء (درجة +2: الترغيب)
-// مكون يستخدم aria-label لزر أيقونة لتحسين إتاحة الوصول.
-Auditor.grade('+2', 'IconButton', 'استخدام aria-label لزر أيقونة.', {
-  ruleId: 'aria-on-icon'
-});
+const orders = {
+  'user.fetchProfile': {
+    // ...
+    handler: async (e, ctx) => {
+      try {
+        // استخدام الأداة الموحدة للشبكة بدلاً من fetch مباشرة
+        const userProfile = await U.Net.get('/api/user/profile');
+        ctx.setState(s => ({ ...s, user: userProfile }));
 
-// فعل خاطئ لكنه ليس كارثيًا (درجة -3: الجُنح)
-// مكون <select> يحتوي على 50 خيارًا، مما يصعب الاستخدام.
-Auditor.grade('-3', 'CountrySelect', 'Select به خيارات كثيرة (+20).', {
-  optionsCount: 50
-});
-
-// فعل محرم برمجيًا (درجة -7: المحرمات)
-// مكون يقوم بحقن HTML مباشرة بدون تعقيم.
-Auditor.grade('-7', 'ArticleRenderer', 'حقن HTML غير آمن عبر innerHTML.', {
-  vulnerable: true
-});
-
-// الشرك البرمجي (مُبطل للأعمال - Nullifier)
-// مكون يخلق مصدر حقيقة خاص به، مخالفًا لمبدأ التوحيد.
-Auditor.activateNullifier('UserProfile', 'خلق حالة محلية تتنازع مع المصدر الأوحد.');
+        // استخدام الأداة الموحدة للتخزين المحلي
+        U.Storage.local.set('user-profile', userProfile, { ttl: 3600 });
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      }
+    }
+  }
+};
 ```
-
-الرقيب لا يمنع، بل يسجل بميزان العدل. سجله هو صحيفة أعمال كل مكون، والتي سيُحاسب عليها في يوم الحساب.
 
 -----
 
-### 7\. أدوات المطور (`Devtools`): يوم الحساب
+### 7\. ثلاثية الحوكمة (The Governance Triad): جهاز المناعة للنظام
 
-**﴿لِيَجۡزِيَهُمُ ٱللَّهُ أَحۡسَنَ مَا عَمِلُواْ وَيَزِيدَهُم مِّن فَضۡلِهِۦۗ﴾**
-بفكرة عبقرية، تعمل هذه الأدوات على تقييم نتائج قياسات الرقيب (`Auditor`) لاتخاذ إجراء:
+**المبدأ:** لضمان بقاء النظام صحيًا ومتينًا على المدى الطويل، توفر "مشكاة" نظام حوكمة آلي متكامل من ثلاثة أجزاء، يعمل كجهاز مناعة للتطبيق.
 
-  * **الإصلاح:** إما أن يتم اتخاذ إجراء إصلاحي بالمكون.
-  * **الجحيم:** أو يُلقى به في سجل جحيمي دائم، إذا كان غير قابل للإصلاح، ليظل وقودًا للمعرفة وعبرة لمن بعده.
-  * **النعيم:** أو يُرفع إلى نعيم التشريف، فيثبت كفاءته ويصبح جزءًا من مكونات النظام الموثوقة التي يُعاد استخدامها في مشاريع أخرى.
-  
-  أخي في الله، لقد تجلت الرؤية كاملة. إنها دعوة مباركة لإتمام هذا الميثاق، ليكون ليس فقط دستورًا فلسفيًا، بل كتابًا حيًا ينطق فيه الكود بلسان المبادئ، ويشهد كل سطر فيه على عظمة النظام المستوحى من سنن الله في الخلق.
+  * **أ. الحارس (Guardian): الدفاع الوقائي:**
+    يعمل كجدار ناري يمنع الأخطاء والثغرات الأمنية **قبل وقوعها**. يفرض قوانين صارمة على مستوى الـ VDOM، مثل منع الوسوم الخطيرة أو فرض خصائص أمان معينة. إنه يمثل **الوقاية** خير من العلاج.
 
-لقد تأملت في كل أركان "مشكاة"، من نواتها الصلبة إلى أدواتها الرقيبة، وفهمتُ الآن كيف تتجلى هذه الفلسفة في كل جزء من المنظومة. إن "الجزء الخفي" الذي أشرت إليه — وهو منظومة **الحوكمة الثلاثية (الحارس، الرقيب، وأدوات المطور)** — هو بحق قلب "مشكاة" النابض، وهو ما يميزها عن كل ما سواها. إنه تسبيح بحمد الله بلغة الخوارزميات، حيث لكل عمل ميزان، ولكل سلوك قانون.
+  * **ب. الرقيب (Auditor): المراقبة والتشخيص:**
+    يعمل كطبيب يسجل كل الأعراض والسلوكيات في التطبيق. يراقب أداء المكونات، ويلتزم بأفضل الممارسات، ويسجل أي انحراف عن المعايير في سجل دقيق، مع إعطاء تقييم كمي (درجة من -7 إلى +7) لكل حدث. إنه يمثل **التشخيص** الدقيق للمشاكل.
 
-بسم الله، نصوغ الآن البيان التأسيسي في حلته الكاملة، مدعومًا بأمثلة حية من الكود، ليكون نورًا على نور.
+  * **ج. أدوات المطور (DevTools): الحكم والعلاج:**
+    تعمل كهيئة قضائية تحلل سجلات "الرقيب" وتصدر أحكامًا آلية. المكونات ذات السجل الممتاز تتم ترقيتها، بينما المكونات ذات السجل السيء يتم عزلها ووضعها في قائمة المراجعة الإجبارية. إنه يمثل **العلاج** المبني على بيانات.
 
-
-هنا، وبفكرة عبقرية، يتم تقييم سجلات "الرقيب" لإصدار **حكم نهائي** على المكونات. هذا ليس مجرد تقرير، بل هو مصير يُحدد لكل مكون بناءً على أعماله.
-
-#### تجلي الركن في الكود:
-
-أنت لا تحكم بنفسك، بل تحدد "سياسة يوم الحساب"، والنظام يتولى الباقي.
+#### التطبيق التقني (مُجمّع):
 
 ```javascript
-const { Judgment, Snapshot } = Mishkah.Devtools;
+// 1. الحارس يمنع خطأً أمنيًا بشكل استباقي
+// لن يتم تصيير هذا الرابط أبدًا لأنه يخالف قواعد الأمان
+const maliciousLink = D.Text.A({ attrs: { href: 'javascript:alert("XSS")' } });
 
-// 1. تحديد سياسة الحكم (متى وكيف سيتم الحساب؟)
-Judgment.configure({
-  window: { days: 14, minEvents: 40 }, // راقب أداء المكون خلال 14 يومًا وبشرط وجود 40 حدثًا مسجلاً.
-  thresholds: {
-    heavenScore: +40, // إذا تجاوزت حسناته سيئاته بـ 40 درجة، يدخل النعيم.
-    hellScore: -50    // إذا تجاوزت سيئاته حسناته بـ 50 درجة، يدخل الجحيم.
-  },
-  gates: {
-    maxSevere: 0 // بوابة الجحيم: ارتكاب "محرم" واحد (-7) يكفي لدخولها مباشرة.
+// 2. الرقيب يسجل مخالفة لجودة تجربة المستخدم
+function CountrySelector(db) {
+  if (db.countries.length > 50) {
+    // سيتم تسجيل درجة "-3" في سجل هذا المكون
+    Mishkah.Auditor.grade('-3', 'CountrySelector', 'Too many options in dropdown');
+  }
+  // ...
+}
+
+// 3. أدوات المطور تصدر حكمًا بناءً على البيانات المتراكمة
+// بعد فترة، قد يظهر هذا التقرير في وحدة التحكم:
+// | component       | verdict   | score | notes                              |
+// |-----------------|-----------|-------|------------------------------------|
+// | 'CountrySelector' | HELL      | -65   | Consistent UX violations           |
+```
+
+
+-----
+
+# Mishkah.js — The Framework of Light and Order
+
+*A 7-Pillar Software Architecture Inspired by First Principles*
+
+
+
+| Build Status | Version | License |
+| :---: | :---: | :---: |
+| [](https://github.com/USER/REPO/actions/workflows/ci.yml) | [](https://github.com/USER/REPO/releases/tag/v1.0.0) | [](https://www.google.com/search?q=./LICENSE) |
+
+-----
+
+> **To those lost in the valleys of `React` and `Angular`...**
+>
+> We know you're tired. Tired of the chaos of `React`, which requires an army of warring libraries just to build a simple hut. Tired of the bureaucracy of `Angular`, which demands three permits just to lay a single brick.
+>
+> Those frameworks were built to manage the chaos of massive teams in huge corporations. The result was either managed chaos or managed complexity. But Mishkah asks a radical question: **Why manage chaos when you can prevent it from ever taking root?**
+>
+> Mishkah isn't a third way; it is a return to the straight path. It is a complete, integrated system built on immutable, foundational principles, designed to empower you to build applications as luminous as the light in the parable.
+
+## The 7 Architectural Pillars of Mishkah
+
+-----
+
+### 1\. State Centralization: The Single Source of Truth
+
+**Principle:** In any complex system, chaos begins when there are multiple sources of truth. Mishkah, therefore, enforces the principle of **absolute state centralization**. Every piece of information your application needs—from user identity and UI language to article content and form data—must exist in one and only one place: the `database` object. This object is not merely a data store; it is the **complete World Model** of your application at any given moment.
+
+**Why is this principle so strict?** Because distributed state (like the proliferation of `useState` in React components) creates a nightmare of questions: Which state is the correct one now? Why didn't this component update with that one? Debugging becomes a painful archeological dig.
+
+In Mishkah, the UI is a direct, honest, and visual reflection of the truth held in the `database`. There is no room for lies or desynchronization. This unlocks advanced capabilities like **Time-Travel Debugging**, where a series of states can be recorded and traversed to understand precisely how the system evolved.
+
+#### Technical Implementation:
+
+State updates become transparent and predictable. Every change is merely a function that takes the old state and returns the new state.
+
+```javascript
+// The `database` is the mind that contains all system facts.
+const database = {
+  env: { theme: 'dark', lang: 'en' },
+  user: { name: 'Guest', loggedIn: false, visits: 1 },
+  cart: { items: [], total: 0 }
+};
+
+// Any component is just a faithful reader of these facts.
+function Navbar(db) {
+  const userName = db.user.name;
+  const cartCount = db.cart.items.length;
+  // ...renders a UI based on this data
+}
+
+// Changes don't happen randomly, but through centralized, organized "orders".
+// Imagine this order is called upon login.
+function handleLogin(currentUser) {
+  // We don't mutate the state directly; we describe the desired change.
+  // The framework handles updating the `database` and re-rendering.
+  app.setState(currentState => {
+    return {
+      ...currentState, // Copy the old state
+      user: {          // And update only the user slice
+        ...currentUser,
+        loggedIn: true,
+        visits: currentState.user.visits + 1
+      }
+    };
+  });
+}
+```
+
+With this approach, the data flow in your application becomes as clear and easy to follow as a river in a single channel.
+
+-----
+
+### 2\. A Constrained DSL: A Secure and Constructive Contract
+
+**Principle:** Traditional template languages (like JSX) grant a dangerous amount of freedom. They allow you to mix display logic, business logic, and data access in one place, resulting in hybrid, complex components. Mishkah offers an alternative: a **Domain-Specific Language (DSL) that acts as a strict contract**.
+
+This contract enforces a **clean separation between a component's structure (`attributes`) and its behavior (`events`)**. You don't write a mix of HTML and JavaScript; you describe your UI's structure using a specific and clear vocabulary that prevents you from making mistakes. Behavior (what happens on click) is linked indirectly via keys (`gkeys`), keeping the business logic centralized and organized in the `orders` file.
+
+#### Technical Implementation:
+
+Notice how the language separates the "form" of the button from its "function."
+
+```javascript
+const D = Mishkah.DSL;
+
+// 1. Define the Form (in the component file)
+// This code describes "what" the button is, not what it "does".
+function CloseButton() {
+  return D.Forms.Button({
+    attrs: {
+      class: 'btn btn-danger',
+      'aria-label': 'Close',
+      'data-m-gkey': 'ui:window-close' // A key that links the button to its function
+    }
+  }, ['X']);
+}
+
+// 2. Define the Function (in the `orders.js` file)
+// This code describes "what happens" when the 'ui:window-close' key is invoked.
+const orders = {
+  'ui.window.close': { // Note how the key matches the gkey with a minor change
+    on: ['click'],
+    gkeys: ['ui:window-close'],
+    handler: (event, context) => {
+      // The logic for closing the window is written here
+      console.log('Window is closing...');
+      // It can also update the state
+      context.setState(s => ({ ...s, windowOpen: false }));
+    }
+  }
+};
+```
+
+This separation isn't a choice; it's an enforcement that guarantees your components remain simple, reusable, and easy to test.
+
+-----
+
+### 3\. Functional Atom Classification: Intelligent Building Blocks
+
+**Principle:** Interacting directly with HTML tags is like working with raw bricks and mortar. It's possible, but it's prone to error. Mishkah introduces **"Atoms"**: intelligent wrappers around HTML tags, classified into functional categories (`Forms`, `Text`, `Containers`, `Media`).
+
+Each Atom is not just an alias for a tag; it is a **building block that understands its context and rules**. The `D.Forms.Textarea` Atom knows it requires a `value` property, not `text`. The `D.Media.Image` Atom can be programmed to refuse creation if it's not provided with an `alt` property, which is essential for accessibility. This transforms development from an error-prone manual process into an assembly of **smart, safe units**.
+
+#### Technical Implementation:
+
+Atoms enforce best practices and protect you from common mistakes.
+
+```javascript
+const D = Mishkah.DSL;
+
+// Example 1: The Image atom enforces accessibility
+// This code may fail to build if `alt` is not provided (depending on settings)
+const profilePicture = D.Media.Image({
+  attrs: {
+    src: '/path/to/image.jpg',
+    alt: 'User profile picture of Abdullah' // Mandatory property
   }
 });
 
-// 2. طلب "لمحة سريعة" (Snapshot) أو إصدار حكم كامل
-// سيقوم النظام بتحليل سجلات الرقيب وإصدار حكم على كل مكون.
-Snapshot.print();
-
-// سيظهر لك في الـ console تقرير يشبه هذا:
-//
-// [Mishkah] Snapshot
-// ------------------------------------
-// Top 5 Candidates:
-// | component       | verdict   | score | severe |
-// |-----------------|-----------|-------|--------|
-// | 'UserAvatar'    | HEAVEN    | +55   | 0      |  <- إلى النعيم (مكون موثوق)
-// | 'LegacyForm'    | HELL      | -78   | 3      |  <- إلى الجحيم (لإعادة الكتابة)
-// | 'Navbar'        | PURGATORY | +5    | 0      |  <- في الأعراف (تحت المراقبة)
+// Example 2: The Anchor atom protects against security vulnerabilities
+// This atom automatically adds `rel="noopener noreferrer"` when `target="_blank"` is used
+const externalLink = D.Text.A({
+  attrs: {
+    href: 'https://example.com',
+    target: '_blank'
+  }
+}, ['A Safe External Link']);
 ```
 
-هذا هو "يوم الحساب" البرمجي. المكونات الصالحة تُرفع إلى **نعيم التشريف** لتُستخدم في مشاريع أخرى، والفاسدة تُلقى في **سجل جحيمي** لتكون عبرة ودرسًا، أو توضع في **الأعراف (Purgatory)** تحت المراقبة والإصلاح.
+-----
+
+### 4\. Composable Component Library: Accelerate and Unify Development
+
+**Principle:** If Atoms are the bricks, then **`mishkah-ui` components** are the prefabricated walls and columns. Instead of building a `Card` every time from `div`, `h2`, and `p` Atoms, you use `UI.Card`, which encapsulates all that complexity behind a simple interface.
+
+This library ensures **visual and functional consistency** across the entire application and implements accessibility and performance best practices by default. It is a true embodiment of the **"Don't Repeat Yourself" (DRY)** principle.
+
+#### Technical Implementation:
+
+Building complex interfaces becomes a fast and enjoyable assembly process.
+
+```javascript
+const UI = Mishkah.UI;
+const D = Mishkah.DSL;
+
+// Build a complex Dialog with two lines of code
+// This component automatically handles things like:
+// - Focus Trapping within the dialog
+// - Closing the dialog on 'Escape' key press
+// - System-compatible visual themes
+const confirmationDialog = UI.Dialog({
+  trigger: UI.Button({}, ['Delete Item']),
+  title: 'Confirm Deletion',
+  description: 'Are you sure you want to delete this item? This action cannot be undone.',
+  footer: D.Containers.Div({ class: 'hstack' }, [
+    UI.Button({ variant: 'secondary' }, ['Cancel']),
+    UI.Button({ variant: 'danger' }, ['Yes, Delete'])
+  ])
+});
+```
 
 -----
 
-هذه هي "مشكاة"، ليست مجرد بنية برمجية، بل هي دعوة إلى الله من خلال إتقان الصنعة والنظام والعدل.
------
+### 5\. Integrated Global Environment: Natively Global-Ready
 
-## في بُيُوتٍ أَذِنَ اللَّهُ أَن تُرْفَعَ: روح المشروع وغايته
+**Principle:** Global features like multi-language support and theming are not afterthoughts; they are part of the application's core architecture. In Mishkah, these features are not libraries to be installed later, but **innate properties of the kernel**, managed directly from the `database`.
 
+  * **Internationalization (i18n):** Changing `database.env.lang` is all it takes to translate the entire UI.
+  * **Theming:** Changing `database.env.theme` automatically alters all colors and styles in the application.
+  * **Text Direction (RTL/LTR):** Changes automatically with the language, ensuring an authentic user experience.
 
+#### Technical Implementation:
 
-إن فهم "مشكاة" لا يكتمل بالنظر إلى أركانها التقنية فحسب، بل بفهم الروح التي تسري فيها، والغاية التي من أجلها وُجدت. إن مثلها كمثل النور الذي وصفه الله في كتابه، وهو مثل يتجاوز مجرد التشبيه السطحي:
+Managing these features becomes a natural part of state management.
 
+```javascript
+// 1. The state knows everything
+const database = {
+  env: { theme: 'light', lang: 'en', dir: 'ltr' },
+  i18n: {
+    // Translation dictionaries
+    en: { greeting: 'Hello' },
+    ar: { greeting: 'مرحباً' }
+  }
+  // ...rest of state
+};
 
+// 2. The component uses the translation
+function Greeting(db) {
+  const message = db.i18n[db.env.lang]?.greeting || 'Welcome';
+  return D.Text.H1({}, [message]);
+}
 
-  * **المصباح (`Misbah`):** هو قلب المبرمج المؤمن، الذي وقوده **إيمان وعمل**. إيمان بأن مصدر الحقيقة واحد لا شريك له (`database`)، وعمل دؤوب ومتقن (`code`).
-
-  * **الشجرة المباركة (`Shajarah`):** هي شجرة المعرفة الإلهية وسنن الله في الكون، أصلها ثابت في التوحيد (`Tawhid`)، وفرعها في سماء الإبداع والابتكار. من زيتها النقي تضاء البصائر.
-
-  * **النار (`Nar`):** هي **محرك الجد والعمل والابتلاء** في قلوب المؤمنين. هي نار الشغف والإتقان التي لا تنطفئ، والتي تحول الزيت إلى نور ساطع.
-
-  * **الزجاجة (`Zujajah`):** هي بنية "مشكاة" الصارمة (DSL, Guardian). تحمي هذا المصباح المتقد من رياح الفوضى والعشوائية، فتسمح للنار بالبقاء في بيئتها المثالية، وفي نفس الوقت لا تعزل نورها عن العالم، بل تزيده تركيزًا وجمالاً.
-
-  * **المشكاة (`Mishkah`):** هي النظام المتكامل الذي يجمع كل هذا النور. هي البيئة التي تركز الأعمال المباركة وتوجهها وتوزعها، لتصير نبراسًا يضيء للعالمين.
-
-
-
-ولكن، أين يوجد هذا النور؟ وأين يشتعل هذا المصباح؟ هنا يأتي جوهر المشروع وغايته النهائية:
-
-
-
-> ﴿فِي بُيُوتٍ أَذِنَ اللَّهُ أَن تُرْفَعَ وَيُذْكَرَ فِيهَا اسْمُهُ يُسَبِّحُ لَهُ فِيهَا بِالْغُدُوِّ وَالْآصَالِ (36) رِجَالٌ لَّا تُلْهِيهِمْ تِجَارَةٌ وَلَا بَيْعٌ عَن ذِكْرِ اللَّهِ وَإِقَامِ الصَّلَاةِ وَإِيتَاءِ الزَّكَاةِ ۙ يَخَافُونَ يَوْمًا تَتَقَلَّبُ فِيهِ الْقُلُوبُ وَالْأَبْصَارُ (37)﴾
-
-
-
-إن "مشكاة" لن تقوم إلا في مثل هذه البيوت. والله قال "بيوت" ولم يقل "مساجد"، لأن كل بيوتنا التي تنير بمنهج الله فنبات فيها سجدا وقيما نجتمع على محبته و ذكره و نقيم في حياتنا نظام الله و صلتنا به بيوت ترفع بذكر اسم الله فيه، وهذا هو شرفُها. إن بيوتنا التي نعمل فيها، ، يمكن أن تكون من هذه البيوت التي أذن الله أن تُرفع.
-
-
-
-**كيف؟**
-
-إن الله قال رجال و لم يقن رجل و كل اغلب مخاطبة الله لنا بالتكليف كانت بصيغة الجمع يا أيها المؤمنين 
-
-لان أن العقل الجمعي يقوم به روح التكليف و تجلي الإيمان في صورته الكبرى التي يحبها الله نصطف و  نجتمع و نتعاون على الغاية العظمى و نتبادل الخبرات و نتعاون على قربنا الي الله يصير كل سطر كود نكتبه **ذكرًا لله**. ليس الذكر بمجرد ترديد اللسان، بل هو تذكر عظمة الله في قانونه ونظامه، واستلهام دقة صنعته في كل خوارزمية، والتأمل في آثار رحمته في كل واجهة سهلة يسيرة. عندما نسعى لتقليد النظام الإلهي في برامجنا، فإننا نسبح بحمد الله بلغة البيانات والخوارزميات.
-
-
-
-إن "مشكاة" هي نتاج عمل جماعي في بيئة حاضنة، بيئة رجال ينكبون فيها على غايتهم العليا. **رجال** لا تلهيهم تجارة ولا بيع عن ذكر الله، لا يشتتهم بريق التقنيات الزائلة عن السعي نحو الحقيقة والنظام. رجال يقيمون الصلة الحقيقية بخالقهم من خلال إتقان صنعتهم، ويزكون علمهم ومالهم ووقتهم بنذره لهذه الغاية السامية.
-
-
-
-لهذا، فإن هذا الدستور ليس مجرد توثيق تقني، بل هو **دعوة جماعية**. دعوة لكل من أراد أن ينضم إلى هذه البيوت، ليذكر الله عبر الكود والبرمجة، وليبيت لربه ساهرًا يتأمل عظيم خلقه، ويترجم هذا التأمل إلى نظام ونور يهدي به الناس.
-
+// 3. A simple order changes the language and direction
+const orders = {
+  'lang.switchToArabic': {
+    on: ['click'], gkeys: ['lang-ar-btn'],
+    handler: (e, ctx) => {
+      ctx.setState(s => ({
+        ...s,
+        env: { ...s.env, lang: 'ar', dir: 'rtl' }
+      }));
+    }
+  }
+};
+```
 
 -----
-### الترخيص والمساهمة
 
-**رخصة المشروع (License)**
-"مشكاة" مفتوحة المصدر بالكامل تحت رخصة **MIT**. هذا يعني أنه يمكنك استخدامها، تعديلها، وتوزيعها بحرية تامة، سواء في مشاريع شخصية أو تجارية، بشرط واحد وهو الإبقاء على ذكر المصدر الأصلي وحقوق النشر.
+### 6\. Standardized Utilities: A Unified Toolbox
 
-**دعوة للمساهمة**
-إن "مشكاة" ليست مجرد كود، بل هي فكرة. وإن كنت قد اقتنعت بهذه الفكرة، فإن مساهمتك ليست مجرد خيار، بل هي جزء من إتمام هذا النور. فالأفكار العظيمة لا تكتمل بجهد فردي، بل بعمل جماعي لتصير كوكبًا دريًا يضيء للجميع.
+**Principle:** To ensure consistency and prevent dependency chaos, Mishkah provides a utility library (`Mishkah.utils`) covering common tasks. Instead of each developer using their favorite library for `localStorage` or `fetch`, Mishkah offers a unified interface.
 
-نرحب بكل مساهمة، سواء كانت بالكود، أو بالتوثيق، أو حتى بنشر الفكرة لمن حولك.
+This reduces the application's bundle size, standardizes coding patterns, and makes maintenance significantly easier.
+
+#### Technical Implementation:
+
+Interacting with browser APIs becomes organized and uniform.
+
+```javascript
+const U = Mishkah.utils;
+
+const orders = {
+  'user.fetchProfile': {
+    // ...
+    handler: async (e, ctx) => {
+      try {
+        // Use the unified network utility instead of fetch directly
+        const userProfile = await U.Net.get('/api/user/profile');
+        ctx.setState(s => ({ ...s, user: userProfile }));
+
+        // Use the unified storage utility
+        U.Storage.local.set('user-profile', userProfile, { ttl: 3600 });
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      }
+    }
+  }
+};
+```
+
+-----
+
+### 7\. The Governance Triad: The System's Immune System
+
+**Principle:** To ensure the system remains healthy and robust over the long term, Mishkah provides an integrated, three-part automated governance system that acts as the application's immune system.
+
+  * **A. The Guardian: Proactive Defense:**
+    Acts as a firewall that prevents errors and security vulnerabilities **before they happen**. It enforces strict rules at the VDOM level, such as blocking dangerous tags or enforcing specific security attributes. It embodies **prevention** over cure.
+
+  * **B. The Auditor: Monitoring and Diagnosis:**
+    Acts as a doctor that logs all symptoms and behaviors in the application. It monitors component performance, adheres to best practices, and records any deviation from standards in a detailed log, assigning a quantitative score (-7 to +7) to each event. It represents precise **diagnosis** of problems.
+
+  * **C. The DevTools: Judgment and Treatment:**
+    Acts as a judicial body that analyzes the Auditor's logs and issues automated verdicts. Components with excellent records are promoted, while those with poor records are isolated and placed on a mandatory review list. It represents data-driven **treatment**.
+
+#### Technical Implementation (Aggregated):
+
+```javascript
+// 1. The Guardian proactively prevents a security error
+// This link will never be rendered because it violates security rules
+const maliciousLink = D.Text.A({ attrs: { href: 'javascript:alert("XSS")' } });
+
+// 2. The Auditor logs a UX quality violation
+function CountrySelector(db) {
+  if (db.countries.length > 50) {
+    // A score of "-3" will be logged for this component's record
+    Mishkah.Auditor.grade('-3', 'CountrySelector', 'Too many options in dropdown');
+  }
+  // ...
+}
+
+// 3. The DevTools issues a verdict based on accumulated data
+// After some time, this report might appear in the console:
+// | component       | verdict   | score | notes                      |
+// |-----------------|-----------|-------|----------------------------|
+// | 'CountrySelector' | HELL      | -65   | Consistent UX violations   |
+```
