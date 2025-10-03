@@ -107,7 +107,7 @@ function withClass(attrs, add){ const a=Object.assign({},attrs||{}); a.class = t
 const UI = {};
 
 UI.AppRoot = ({ shell, overlays }) =>
-  h.Containers.Div({ attrs:{ class: tw`${token('surface')} min-h-screen` }}, [ shell, ...(overlays||[]) ]);
+  h.Containers.Div({ attrs:{ class: tw`${token('surface')} flex h-screen min-h-screen flex-col overflow-hidden` }}, [ shell, ...(overlays||[]) ]);
 
 UI.Toolbar = ({ left=[], right=[] }) =>
   h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}` }}, [
