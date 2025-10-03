@@ -310,7 +310,7 @@ function CountrySelector(db) {
 
 | Build Status | Version | License |
 | :---: | :---: | :---: |
-| [](https://github.com/USER/REPO/actions/workflows/ci.yml) | [](https://github.com/USER/REPO/releases/tag/v1.0.0) | [](https://www.google.com/search?q=./LICENSE) |
+| [![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USER/REPO/actions/workflows/ci.yml) | [![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/USER/REPO/releases/tag/v1.0.0) | [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) |
 
 -----
 
@@ -601,4 +601,5 @@ function CountrySelector(db) {
 // |-----------------|-----------|-------|----------------------------|
 // | 'CountrySelector' | HELL      | -65   | Consistent UX violations   |
 ```
+
 
