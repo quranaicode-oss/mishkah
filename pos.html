@@ -723,7 +723,7 @@
         label: localize(cat.label, lang),
         attrs:{ gkey:'pos:menu:category', 'data-category-id':cat.id }
       }));
-      return D.Containers.Section({ attrs:{ class: tw`flex h-full flex-col gap-3 overflow-hidden` }}, [
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3 overflow-hidden` }}, [
         UI.Card({
           variant:'card/soft-1',
           content: D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
@@ -745,7 +745,7 @@
             UI.ChipGroup({ items: chips, activeId: menu.category })
           ])
         }),
-        D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 overflow-hidden` }}, [
+        D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 min-h-0 overflow-hidden` }}, [
           D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/head')}` }}, [
             D.Text.Strong({}, [t.ui.categories]),
             UI.Button({ attrs:{ gkey:'pos:menu:load-more' }, variant:'ghost', size:'sm' }, [t.ui.load_more])
@@ -913,10 +913,10 @@
         label: `${type.icon} ${localize(type.label, db.env.lang)}`,
         attrs:{ gkey:'pos:order:type', 'data-order-type':type.id }
       }));
-      return D.Containers.Section({ attrs:{ class: tw`flex h-full flex-col gap-3 overflow-hidden` }}, [
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3 overflow-hidden` }}, [
         UI.Card({
           variant:'card/soft-1',
-          content: D.Containers.Div({ attrs:{ class: tw`flex h-full flex-col gap-3` }}, [
+          content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
             UI.Segmented({ items: serviceSegments, activeId: order.type }),
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
               D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
@@ -942,7 +942,7 @@
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0` }}, [
               UI.ScrollArea({
-                attrs:{ class: tw`flex h-full flex-1 overflow-auto pr-2` },
+                attrs:{ class: tw`flex h-full min-h-0 flex-1 overflow-auto pr-2` },
                 children:[
                   order.lines && order.lines.length
                     ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
@@ -1562,9 +1562,9 @@
 
     Mishkah.app.setBody(function(db){
       return UI.AppRoot({
-        shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
+        shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
           Header(db),
-          D.Containers.Main({ attrs:{ class: tw`flex-1 grid gap-4 px-4 pb-3 pt-3 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)] overflow-hidden` }}, [
+          D.Containers.Main({ attrs:{ class: tw`flex-1 min-h-0 grid gap-4 px-4 pb-3 pt-3 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)] overflow-hidden` }}, [
             MenuColumn(db),
             OrderColumn(db)
           ]),
