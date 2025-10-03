@@ -13,7 +13,7 @@ def({
   'vstack':         'flex flex-col gap-2',
   'divider':        'h-px bg-[var(--border)]',
   'ring-base':      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
-  'scrollarea':     'overflow-y-auto overscroll-contain [scrollbar-gutter:stable] pr-2',
+  'scrollarea':     'min-h-0 w-full overflow-y-auto overscroll-contain [scrollbar-gutter:stable] pr-2',
   'split':          'flex items-center justify-between gap-2',
   'muted':          'text-[var(--muted-foreground)]',
 
@@ -48,8 +48,8 @@ def({
   'card/desc':      'text-sm text-[var(--muted-foreground)]',
 
   // bars
-  'toolbar':        'flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 85%, transparent)] backdrop-blur-sm',
-  'footerbar':      'flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)]',
+  'toolbar':        'flex shrink-0 items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 85%, transparent)] backdrop-blur-sm',
+  'footerbar':      'flex shrink-0 items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)]',
 
   // inputs
   'input':          'flex h-10 w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:opacity-50 disabled:pointer-events-none',
@@ -107,7 +107,7 @@ function withClass(attrs, add){ const a=Object.assign({},attrs||{}); a.class = t
 const UI = {};
 
 UI.AppRoot = ({ shell, overlays }) =>
-  h.Containers.Div({ attrs:{ class: tw`${token('surface')} min-h-screen` }}, [ shell, ...(overlays||[]) ]);
+  h.Containers.Div({ attrs:{ class: tw`${token('surface')} flex h-screen min-h-screen w-full min-w-full flex-col overflow-hidden` }}, [ shell, ...(overlays||[]) ]);
 
 UI.Toolbar = ({ left=[], right=[] }) =>
   h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}` }}, [

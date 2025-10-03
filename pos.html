@@ -6,10 +6,39 @@
   <title>مشكاة — نقطة البيع للمطاعم</title>
   <style>
     :root { color-scheme: light dark; }
-    html, body { height: 100%; margin: 0; overflow: hidden; background: var(--background, #0f1115); }
-    body { font-family: "Tajawal", "Cairo", system-ui, sans-serif; touch-action: manipulation; }
-    #app { height: 100%; }
-    .pos-shell { height: 100%; }
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      width: 100%;
+      min-width: 100vw;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background, #0f1115);
+    }
+    body {
+      font-family: "Tajawal", "Cairo", system-ui, sans-serif;
+      touch-action: manipulation;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      min-width: 100vw;
+    }
+    #app {
+      flex: 1 1 auto;
+      min-height: 100vh;
+      width: 100%;
+      min-width: 0;
+      display: flex;
+    }
+    .pos-shell {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
   </style>
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
@@ -723,7 +752,7 @@
         label: localize(cat.label, lang),
         attrs:{ gkey:'pos:menu:category', 'data-category-id':cat.id }
       }));
-      return D.Containers.Section({ attrs:{ class: tw`flex h-full flex-col gap-3 overflow-hidden` }}, [
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden` }}, [
         UI.Card({
           variant:'card/soft-1',
           content: D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
@@ -745,13 +774,13 @@
             UI.ChipGroup({ items: chips, activeId: menu.category })
           ])
         }),
-        D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 overflow-hidden` }}, [
+        D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 min-h-0 overflow-hidden` }}, [
           D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/head')}` }}, [
             D.Text.Strong({}, [t.ui.categories]),
             UI.Button({ attrs:{ gkey:'pos:menu:load-more' }, variant:'ghost', size:'sm' }, [t.ui.load_more])
           ]),
           UI.ScrollArea({
-            attrs:{ class: tw`${token('scroll-panel/body')} px-3 pb-3` },
+            attrs:{ class: tw`${token('scroll-panel/body')} h-full px-3 pb-3` },
             children:[
               filtered.length
                 ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3` }}, filtered.map(item=> MenuItemCard(db, item)))
@@ -913,53 +942,58 @@
         label: `${type.icon} ${localize(type.label, db.env.lang)}`,
         attrs:{ gkey:'pos:order:type', 'data-order-type':type.id }
       }));
-      return D.Containers.Section({ attrs:{ class: tw`flex h-full flex-col gap-3 overflow-hidden` }}, [
-        UI.Card({
-          variant:'card/soft-1',
-          content: D.Containers.Div({ attrs:{ class: tw`flex h-full flex-col gap-3` }}, [
-            UI.Segmented({ items: serviceSegments, activeId: order.type }),
-            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
-              D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
-              order.type === 'dine_in'
-                ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
-                    assignedTables.length
-                      ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
-                          UI.Button({
-                            attrs:{
-                              gkey:'pos:order:table:remove',
-                              'data-table-id':table.id,
-                              class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
-                            },
-                            variant:'ghost',
-                            size:'sm'
-                          }, [`🪑 ${table.name}`, '✕'])
-                        ))
-                      : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
-                    UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
-                  ])
-                : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
-              D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
-            ]),
-            D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0` }}, [
-              UI.ScrollArea({
-                attrs:{ class: tw`flex h-full flex-1 overflow-auto pr-2` },
-                children:[
-                  order.lines && order.lines.length
-                    ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
-                    : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
-                ]
-              })
-            ]),
-            CartFooter(db)
-          ])
-        }),
-        PaymentSummary(db),
-        UI.StatCard({
-          title: t.ui.reports,
-          value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}`,
-          meta: `${t.ui.orders_count}: ${db.data.reports.ordersCount}`,
-          footer:[
-            UI.Button({ attrs:{ gkey:'pos:reports:toggle', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col overflow-hidden` }}, [
+        UI.ScrollArea({
+          attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` },
+          children:[
+            UI.Card({
+              variant:'card/soft-1',
+              content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
+                UI.Segmented({ items: serviceSegments, activeId: order.type }),
+                D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
+                  D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
+                  order.type === 'dine_in'
+                    ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
+                        assignedTables.length
+                          ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
+                              UI.Button({
+                                attrs:{
+                                  gkey:'pos:order:table:remove',
+                                  'data-table-id':table.id,
+                                  class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
+                                },
+                                variant:'ghost',
+                                size:'sm'
+                              }, [`🪑 ${table.name}`, '✕'])
+                            ))
+                          : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
+                        UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
+                      ])
+                    : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
+                  D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
+                ]),
+                D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0` }}, [
+                  UI.ScrollArea({
+                    attrs:{ class: tw`flex h-full min-h-0 flex-1 overflow-auto pr-2` },
+                    children:[
+                      order.lines && order.lines.length
+                        ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
+                        : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
+                    ]
+                  })
+                ]),
+                CartFooter(db)
+              ])
+            }),
+            PaymentSummary(db),
+            UI.StatCard({
+              title: t.ui.reports,
+              value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}`,
+              meta: `${t.ui.orders_count}: ${db.data.reports.ordersCount}`,
+              footer:[
+                UI.Button({ attrs:{ gkey:'pos:reports:toggle', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
+              ]
+            })
           ]
         })
       ]);
@@ -1562,9 +1596,9 @@
 
     Mishkah.app.setBody(function(db){
       return UI.AppRoot({
-        shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
+        shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
           Header(db),
-          D.Containers.Main({ attrs:{ class: tw`flex-1 grid gap-4 px-4 pb-3 pt-3 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)] overflow-hidden` }}, [
+          D.Containers.Main({ attrs:{ class: tw`flex-1 min-h-0 w-full min-w-0 grid gap-4 px-4 pb-3 pt-3 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)] overflow-hidden` }}, [
             MenuColumn(db),
             OrderColumn(db)
           ]),
