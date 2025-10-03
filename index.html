@@ -4,10 +4,8 @@
   <meta charset="UTF-8"/>
   <title>مشكاة — تبويبات + لعبة الأمثال</title>
 
-  <!-- نفس أسلوب test-ui.html -->
   <script src="./mishkah-utils.js"></script>
-    <script src="./mishkah.core.js"></script>
-
+  <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
 </head>
 <body>
@@ -19,7 +17,35 @@
     const { tw } = U.twcss;
     const { makeLangLookup } = U.lang;
 
-    /* ===================== i18n ===================== */
+    /*
+    ================================================================
+    |                                                              |
+    |      بسم الله الرحمن الرحيم: رحلة الخلق في "مشكاة"             |
+    |                                                              |
+    ================================================================
+    |
+    | إن بناء هذا التطبيق ليس مجرد كتابة كود، بل هو محاكاة لرحلة
+    | الخلق والتكوين كما تصفها فلسفة "مشكاة". سنمر بمرحلتين
+    | أساسيتين، كل مرحلة تتكون من زوجين:
+    |
+    | 1. الزوج الأول: التصميم والتسوية (تخطيط الجسد)
+    |    - الركن الأول: الطين والذرات (Atoms as Components)
+    |    - الركن الثاني: العلم الفطري (database as DNA)
+    |    النتيجة: جسد مُصوَّر (VDOM) قبل نفخ الروح.
+    |
+    | 2. الزوج الثاني: التمكين والتكليف (نفخ الروح والحياة)
+    |    - الركن الأول: الإيمان (database as State)
+    |    - الركن الثاني: العمل الصالح (Orders)
+    |    النتيجة: كائن حي متكامل يتفاعل ويستجيب.
+    |
+    */
+
+    // ================================================================
+    // المرحلة التمهيدية: جمع المادة الخام للمعرفة
+    // قبل الخلق، نجمع كل المواد الأولية: النصوص، البيانات، والقواعد.
+    // ================================================================
+
+    /* ===================== i18n: المعاجم اللغوية ===================== */
     const dict = {
       'app.title'   : { ar:'مشكاة — تبويبات + لعبة الأمثال', en:'Mishkah — Tabs + Proverbs Game' },
       'nav.about'   : { ar:'عن مشكاة (Markdown)', en:'About Mishkah (Markdown)' },
@@ -39,7 +65,7 @@
       'game.lose'   : { ar:'للأسف خسرت 🙈', en:'You lost 🙈' }
     };
 
-    /* ===================== Markdown (AR/EN) ===================== */
+    /* ===================== Markdown: المحتوى المعرفي ===================== */
     const md_ar = [
       '# بسم الله الرحمن الرحيم: فلسفة ومعمارية مشكاة',
       'مشكاة إطار عمل بواجهة DSL لكتابة الواجهات بشكل منظم ونظيف.',
@@ -54,7 +80,7 @@
       'Includes i18n, head manager, and UI tokens over twcss.'
     ].join('\n\n');
 
-    /* ===================== Game Data ===================== */
+    /* ===================== Game Data: بيانات اللعبة ===================== */
     const PROVERBS = [
       { t:"رجع بخفي حنين", h:"مثل عربي يدل خيبة الأمل" },
       { t:"الي اختشوا ماتوا", h:"مثل مصري عن تبدل الأخلاق" },
@@ -73,37 +99,18 @@
     const AR_ALPHA = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
     const norm = (ch)=> String(ch).replace(/[أإآ]/g,'ا');
 
-    /* ===================== Database ===================== */
-    const database = {
-      env:{ theme:'dark', lang:'ar', dir:'rtl' },
-      i18n:{ lang:'ar', fallback:'en', dict },
-      data:{
-        activeTab: 'about',
-        md:{ ar: md_ar, en: md_en },
-        counter: 0,
-        game:{
-          musicOn: true,
-          timerOn: true,
-          timerSec: 35,
-          timeLeft: 0,
-          triesMax: 5,
-          triesLeft: 5,
-          audioList: [
-            { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' },
-            { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' },
-            { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' }
-          ],
-          audioIdx: 0,
-          proverb: null,
-          guessed: {},
-          intervalId: null,
-          status: 'idle' // idle | running | won | lost
-        }
-      },
-      ui:{ modalOpen:false, drawerOpen:false, toasts:[] }
-    };
 
-    /* ===================== Components ===================== */
+    // ================================================================
+    // الزوج الأول: التصميم والتسوية (تخطيط الجسد)
+    // هنا نصنع الهيكل والشكل الخارجي للتطبيق.
+    // ================================================================
+
+    // ----------------------------------------------------------------
+    // الركن الأول: الطين والذرات (`Atoms` as Components)
+    // هذه هي المكونات، لبنات البناء الأساسية التي تشكل جسد التطبيق.
+    // كل مكون هو "ذرة" أو مجموعة "ذرات" لها شكل ووظيفة محددة.
+    // ----------------------------------------------------------------
+    
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
       return UI.Toolbar({
@@ -192,11 +199,7 @@
       const hearts = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }},
         Array.from({length:g.triesMax}, (_,i)=>{
           const full = i < g.triesLeft;
-          return D.Text.Span(
-		  {      attrs:{ key:'heart-'+i, class: tw`text-4xl ${full?'':'opacity-40'} drop-shadow` } // ← الحجم 4xl + ظل لطيف
-}
-		  
-, [full?'❤️':'💔']);
+          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-4xl ${full?'':'opacity-40'} drop-shadow` }}, [full?'❤️':'💔']);
         })
       );
 
@@ -211,13 +214,8 @@
         UI.Button({ attrs:{ key:'L'+i, gkey:'game:guess', 'data-ch':L, disabled: g.status!=='running' || !!g.guessed[L] }, variant:'soft', size:'sm' }, [L])
       ));
 
-      const result =
-        g.status==='won'  ? TL('game.win')  :
-        g.status==='lost' ? TL('game.lose') : '';
-
-      const audioNode = g.musicOn
-        ? D.Media.Audio({ attrs:{ controls:true, src: g.audioList[g.audioIdx].url, class: tw`w-full` } })
-        : null;
+      const result = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
+      const audioNode = g.musicOn ? D.Media.Audio({ attrs:{ controls:true, src: g.audioList[g.audioIdx].url, class: tw`w-full` } }) : null;
 
       return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
         top,
@@ -246,10 +244,49 @@
       if (tab==='game')    return GamePanel(db);
       return AboutPanel(db);
     }
+    
+    // ----------------------------------------------------------------
+    // الركن الثاني: العلم الفطري (`database` as DNA)
+    // هذه هي قاعدة البيانات الأولية، الشفرة الوراثية للتطبيق.
+    // هي تحدد الصفات الأولية والهيئة التي سيُخلق عليها الجسد.
+    // ----------------------------------------------------------------
+    const database = {
+      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      i18n:{ lang:'ar', fallback:'en', dict },
+      data:{
+        activeTab: 'about',
+        md:{ ar: md_ar, en: md_en },
+        counter: 0,
+        game:{
+          musicOn: true,
+          timerOn: true,
+          timerSec: 35,
+          timeLeft: 0,
+          triesMax: 5,
+          triesLeft: 5,
+          audioList: [
+            { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' },
+            { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' },
+            { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' }
+          ],
+          audioIdx: 0,
+          proverb: null,
+          guessed: {},
+          intervalId: null,
+          status: 'idle' // idle | running | won | lost
+        }
+      },
+      ui:{ modalOpen:false, drawerOpen:false, toasts:[] }
+    };
 
-    /* ===================== Body ===================== */
-    Mishkah.app.setBody(function(db,h){
-      db.head = { title: makeLangLookup(db).TL('app.title') }; // يطبقه ctx.rebuild تلقائياً
+    // ----------------------------------------------------------------
+    // عملية التسوية: `setBody`
+    // هنا يتم دمج "الطين" (المكونات) مع "العلم الفطري" (البيانات)
+    // لإنتاج "جسد مُصوَّر" (Virtual DOM)، وهو مخطط دقيق للتطبيق
+    // قبل أن تدب فيه الحياة.
+    // ----------------------------------------------------------------
+    Mishkah.app.setBody(function(db, h){
+      db.head = { title: makeLangLookup(db).TL('app.title') };
       return UI.AppRoot({
         shell: D.Containers.Div({ attrs:{ class: tw`min-h-screen flex flex-col` }}, [
           HeaderBar(db),
@@ -261,11 +298,24 @@
       });
     });
 
-    /* ===================== App + Auto (CDN/Fonts/Orders) ===================== */
-    const app = Mishkah.app.createApp(database, {});
-    const twx = U.twcss.auto(database, app); // يشغّل التحميل التلقائي + أوامر lang/theme:contentReference[oaicite:2]{index=2}
 
-    /* ===================== Orders (تصحيح: ctx.getState/ctx.setState) ===================== */
+    // ================================================================
+    // الزوج الثاني: التمكين والتكليف (نفخ الروح والحياة)
+    // هنا نمنح الجسد القدرة على التفاعل والنمو.
+    // ================================================================
+
+    // ----------------------------------------------------------------
+    // الركن الأول: الإيمان (`database` as State)
+    // نفس قاعدة البيانات التي كانت "DNA"، أصبحت الآن "الروح" الحية،
+    // وهي مصدر الحقيقة الأوحد الذي يهتدي به التطبيق.
+    // ----------------------------------------------------------------
+    // (ملاحظة: الـ `database` معرف مسبقًا، هنا فقط نوضح دوره الجديد)
+
+    // ----------------------------------------------------------------
+    // الركن الثاني: العمل الصالح (`orders`)
+    // هذه هي الأوامر والأفعال التي تحرك الجسد وتغير من حال "إيمانه".
+    // كل "order" هو عمل صالح يستجيب لأحداث المستخدم ويُحدّث الحالة.
+    // ----------------------------------------------------------------
     const orders = {
       // Routing
       'route:about'  :{ on:['click'], gkeys:['route:about'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'about'  }}); ctx.rebuild(); }},
@@ -274,7 +324,7 @@
 
       // Counter
       'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
-      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-1 }}); ctx.rebuild(); }},
+      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-counter+1 }}); ctx.rebuild(); }},
       'counter:reset':{ on:['click'], gkeys:['counter:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:0 }}); ctx.rebuild(); }},
 
       // Game toggles
@@ -337,11 +387,37 @@
       }}
     };
 
-    // دمج الأوامر: أوامرنا + أوامر UI + أوامر الـauto (lang/theme)
-    app.setOrders({ ...orders, ...UI.orders, ...twx.orders }); /* test-ui style */  // :contentReference[oaicite:3]{index=3}
+    // ----------------------------------------------------------------
+    // عملية الخلق: `createApp`
+    // هنا يتم دمج "الإيمان" (database) مع "العمل الصالح" (orders)
+    // لإنشاء كائن التطبيق الحي (`app`) القادر على التفاعل والنمو.
+    // ----------------------------------------------------------------
+    const app = Mishkah.app.createApp(database, orders);
 
-    // Mount
+    
+    // ================================================================
+    // مرحلة الإعدادات النهائية والبعث
+    // ================================================================
+
+    // ----------------------------------------------------------------
+    // الإعداد التلقائي (Auto)
+    // تهيئة البيئة المحيطة: الخطوط، الثيمات، اللغات، والأوامر المساعدة.
+    // ----------------------------------------------------------------
+    const twx = U.twcss.auto(database, app);
+
+    // ----------------------------------------------------------------
+    // دمج كل الأوامر (setOrders)
+    // نجمع أوامر التطبيق الخاصة + أوامر الواجهة الجاهزة + أوامر البيئة.
+    // ----------------------------------------------------------------
+    app.setOrders({ ...orders, ...UI.orders, ...twx.orders });
+
+    // ----------------------------------------------------------------
+    // البعث (Mount)
+    // اللحظة التي يظهر فيها الكائن الحي إلى العالم (DOM)،
+    // ليبدأ رحلته في التفاعل مع المستخدم.
+    // ----------------------------------------------------------------
     app.mount('#app');
+
   })();
   </script>
 </body>
