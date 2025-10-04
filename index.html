@@ -7,6 +7,252 @@
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
+  <script src="./readme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page-gradient: linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%);
+      --page-overlay-1: radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%);
+      --page-overlay-2: radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%);
+      --panel-glass: rgba(255, 255, 255, 0.78);
+      --panel-border: rgba(99, 102, 241, 0.12);
+      --panel-shadow: 0 25px 50px -20px rgba(15, 23, 42, 0.18);
+      --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
+      --tile-bg-revealed: linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65));
+      --tile-border: rgba(99, 102, 241, 0.25);
+      --letters-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.35);
+      --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
+      --accent-ring: rgba(79, 70, 229, 0.18);
+    }
+
+    :root.dark {
+      --page-gradient: linear-gradient(160deg, #0d1224 0%, #111c3d 100%);
+      --page-overlay-1: radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%);
+      --page-overlay-2: radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%);
+      --panel-glass: rgba(17, 25, 40, 0.75);
+      --panel-border: rgba(148, 163, 184, 0.32);
+      --panel-shadow: 0 25px 50px -18px rgba(15, 23, 42, 0.55);
+      --tile-bg: linear-gradient(160deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.92));
+      --tile-bg-revealed: linear-gradient(160deg, rgba(99, 102, 241, 0.55), rgba(79, 70, 229, 0.38));
+      --tile-border: rgba(148, 163, 184, 0.35);
+      --letters-shadow: 0 20px 40px -18px rgba(148, 163, 184, 0.35);
+      --letters-hover: 0 28px 60px -20px rgba(99, 102, 241, 0.6);
+      --accent-ring: rgba(129, 140, 248, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--page-gradient);
+      color: var(--foreground);
+      position: relative;
+      overflow-x: hidden;
+      transition: background 0.45s ease, color 0.45s ease;
+    }
+
+    body::before,
+    body::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: var(--page-overlay-1);
+      mix-blend-mode: screen;
+      animation: pulseNebula 18s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      background: var(--page-overlay-2);
+      animation-delay: 6s;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+    }
+
+    .glass-panel {
+      background: var(--panel-glass);
+      backdrop-filter: blur(26px) saturate(135%);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--panel-shadow);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    }
+
+    .glow-outline {
+      box-shadow: 0 0 0 1px var(--accent-ring), var(--panel-shadow);
+    }
+
+    .animate-float {
+      animation: floatHalo 14s ease-in-out infinite;
+    }
+
+    .letter-tile {
+      transition: transform 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+      border: 1px solid var(--tile-border);
+      background: var(--tile-bg);
+      color: var(--foreground);
+      text-shadow: 0 2px 12px rgba(15, 23, 42, 0.2);
+    }
+
+    .letter-tile[data-revealed="true"] {
+      transform: translateY(-6px) scale(1.03);
+      box-shadow: 0 18px 40px -22px rgba(79, 70, 229, 0.55);
+      background: var(--tile-bg-revealed);
+      color: #fff;
+    }
+
+    .letters-grid button {
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+      box-shadow: var(--letters-shadow);
+      font-size: 1.25rem;
+      font-weight: 700;
+      border-radius: 0.9rem !important;
+      height: 3.25rem;
+    }
+
+    .letters-grid button:hover:not([disabled]) {
+      transform: translateY(-5px) scale(1.03);
+      box-shadow: var(--letters-hover);
+    }
+
+    .letters-grid button[disabled] {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .md-prose {
+      line-height: 1.8;
+      font-size: 1rem;
+      color: var(--foreground);
+    }
+
+    .md-prose h1,
+    .md-prose h2,
+    .md-prose h3,
+    .md-prose h4,
+    .md-prose h5,
+    .md-prose h6 {
+      font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: color-mix(in oklab, var(--foreground) 92%, var(--primary) 8%);
+      margin: 1.6em 0 0.8em;
+    }
+
+    .md-prose p {
+      margin: 1em 0;
+      color: color-mix(in oklab, var(--foreground) 88%, var(--muted-foreground) 12%);
+    }
+
+    .md-prose ul,
+    .md-prose ol {
+      margin: 1em 0;
+      padding-inline-start: 1.4em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+
+    .md-prose li {
+      position: relative;
+      padding-inline-start: 0.3em;
+    }
+
+    .md-prose blockquote {
+      margin: 1.2em 0;
+      padding: 1.2em 1.5em;
+      border-inline-start: 4px solid color-mix(in oklab, var(--primary) 80%, transparent);
+      background: color-mix(in oklab, var(--surface-1) 80%, transparent);
+      border-radius: 1.2rem;
+      color: color-mix(in oklab, var(--foreground) 80%, var(--muted-foreground) 20%);
+      box-shadow: 0 12px 30px -24px rgba(79, 70, 229, 0.45);
+    }
+
+    .md-prose pre {
+      margin: 1.4em 0;
+      padding: 1.2em 1.4em;
+      border-radius: 1.2rem;
+      background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+      box-shadow: 0 24px 45px -24px rgba(15, 23, 42, 0.45);
+      overflow-x: auto;
+      font-size: 0.92rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .md-prose code {
+      font-family: 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', monospace;
+      background: color-mix(in oklab, var(--surface-2) 85%, transparent);
+      padding: 0.15em 0.4em;
+      border-radius: 0.5em;
+      font-size: 0.92em;
+    }
+
+    .md-prose pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .md-prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+      border-radius: 1.2rem;
+      overflow: hidden;
+      box-shadow: 0 18px 45px -25px rgba(15, 23, 42, 0.35);
+    }
+
+    .md-prose thead {
+      background: color-mix(in oklab, var(--primary) 14%, var(--card));
+      color: var(--primary-foreground);
+    }
+
+    .md-prose th,
+    .md-prose td {
+      padding: 0.85em 1em;
+      border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+      text-align: start;
+    }
+
+    .md-prose a {
+      color: var(--primary);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in oklab, var(--primary) 65%, transparent);
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .md-prose a:hover {
+      color: color-mix(in oklab, var(--primary) 90%, black);
+      border-color: currentColor;
+    }
+
+    .md-prose hr {
+      margin: 2.5em 0;
+      border: none;
+      border-top: 1px dashed color-mix(in oklab, var(--border) 65%, transparent);
+    }
+
+    @keyframes floatHalo {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -18px, 0) scale(1.01); }
+    }
+
+    @keyframes pulseNebula {
+      0% { opacity: 0.45; }
+      50% { opacity: 0.75; }
+      100% { opacity: 0.45; }
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
@@ -47,53 +293,275 @@
 
     /* ===================== i18n: المعاجم اللغوية ===================== */
     const dict = {
-      'app.title'   : { ar:'مشكاة — تبويبات + لعبة الأمثال', en:'Mishkah — Tabs + Proverbs Game' },
-      'nav.about'   : { ar:'عن مشكاة (Markdown)', en:'About Mishkah (Markdown)' },
-      'nav.counter' : { ar:'العداد', en:'Counter' },
-      'nav.game'    : { ar:'لعبة الأمثال', en:'Proverbs Game' },
-      'counter.title':{ ar:'عداد بسيط', en:'Simple Counter' },
-      'counter.reset':{ ar:'إعادة', en:'Reset' },
-      'game.title'  : { ar:'لعبة الأمثال و الحكم', en:'Proverbs & Wisdom Game' },
-      'game.music'  : { ar:'موسيقى', en:'Music' },
-      'game.timer'  : { ar:'تايمر', en:'Timer' },
-      'game.seconds': { ar:'ث', en:'s' },
-      'game.start'  : { ar:'ابدأ اللعبة', en:'Start Game' },
-      'game.new'    : { ar:'مثل جديد', en:'New Proverb' },
-      'game.tries'  : { ar:'عدد المحاولات', en:'Tries Left' },
-      'game.hint'   : { ar:'التلميح', en:'Hint' },
-      'game.win'    : { ar:'ربحت! 🎉', en:'You won! 🎉' },
-      'game.lose'   : { ar:'للأسف خسرت 🙈', en:'You lost 🙈' }
+      'app.title'   : { ar:'مشكاة — مشكاة النور ولعبة الأمثال', en:'Mishkah — Lighthouse Docs & Proverbs Game' },
+      'nav.menu'       : { ar:'التنقل', en:'Navigation' },
+      'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
+      'nav.readmeTec'  : { ar:'وثيقة مشكاة التقنية', en:'Mishkah Technical Charter' },
+      'nav.counter'    : { ar:'العداد', en:'Counter' },
+      'nav.game'       : { ar:'لعبة الأمثال', en:'Proverbs Game' },
+      'doc.base.lead'  : { ar:'رحلة فلسفة مشكاة ومنهج الذكر الأعلى الذي ألهم تصميمها.', en:'The philosophical journey behind Mishkah and the higher remembrance that inspires it.' },
+      'doc.tec.lead'   : { ar:'الدليل التقني الكامل لمعمارية مشكاة ومحركها التعريفي.', en:'The complete technical dossier for Mishkah’s architecture and declarative engine.' },
+      'doc.language.hint': { ar:'بدّل اللغة من الأعلى لتقرأ الوثيقة بلغتك المفضلة.', en:'Use the header controls to switch between Arabic and English.' },
+      'counter.title'  : { ar:'عداد بسيط', en:'Simple Counter' },
+      'counter.reset'  : { ar:'إعادة', en:'Reset' },
+      'game.title'     : { ar:'لعبة الأمثال و الحكم', en:'Proverbs & Wisdom Game' },
+      'game.music'     : { ar:'الموسيقى الغامرة', en:'Mystery Music' },
+      'game.timer'     : { ar:'مؤقت التعلم', en:'Learning Timer' },
+      'game.seconds'   : { ar:'ث', en:'s' },
+      'game.start'     : { ar:'ابدأ اللعبة', en:'Start Game' },
+      'game.new'       : { ar:'مثل جديد', en:'New Proverb' },
+      'game.tries'     : { ar:'المحاولات المتبقية', en:'Tries Left' },
+      'game.hintTitle' : { ar:'التلميح التعليمي', en:'Educational Hint' },
+      'game.win'       : { ar:'ربحت! 🎉', en:'You won! 🎉' },
+      'game.lose'      : { ar:'للأسف خسرت 🙈', en:'You lost 🙈' },
+      'game.reveal'    : { ar:'اكتشف الحكمة', en:'Reveal Wisdom' },
+      'game.solution'  : { ar:'الحل الكامل', en:'Full Solution' },
+      'game.explanation':{ ar:'شرح المثل', en:'Explanation' },
+      'game.lesson'    : { ar:'ما نتعلمه', en:'Key Lesson' },
+      'game.source'    : { ar:'المصدر', en:'Source' },
+      'game.timeLabel' : { ar:'الوقت المتبقي', en:'Time Left' },
+      'game.letters'   : { ar:'الأحرف المتاحة', en:'Available Letters' }
     };
 
     /* ===================== Markdown: المحتوى المعرفي ===================== */
-    const md_ar = [
-      '# بسم الله الرحمن الرحيم: فلسفة ومعمارية مشكاة',
-      'مشكاة إطار عمل بواجهة DSL لكتابة الواجهات بشكل منظم ونظيف.',
-      '- الجسد (VDOM+DSL)، - الإيمان (database)، - العمل (orders).',
-      'يوفر i18n، وإدارة head، وطبقة UI مبسطة، مع twcss tokens.'
-    ].join('\n\n');
-
-    const md_en = [
-      '# Mishkah: Philosophy & Architecture',
-      'A DSL-first UI framework: clean, structured, minimal.',
-      '- Body (VDOM+DSL), - Faith/State (database), - Deeds (orders).',
-      'Includes i18n, head manager, and UI tokens over twcss.'
-    ].join('\n\n');
+    const readmeStore = M.readme || {};
+    const DOCS = {
+      base:{
+        ar: (readmeStore.base && readmeStore.base.ar) || '',
+        en: (readmeStore.base && readmeStore.base.en) || (readmeStore.base && readmeStore.base.ar) || ''
+      },
+      tec:{
+        ar: (readmeStore.tec && readmeStore.tec.ar) || '',
+        en: (readmeStore.tec && readmeStore.tec.en) || (readmeStore.tec && readmeStore.tec.ar) || ''
+      }
+    };
 
     /* ===================== Game Data: بيانات اللعبة ===================== */
     const PROVERBS = [
-      { t:"رجع بخفي حنين", h:"مثل عربي يدل خيبة الأمل" },
-      { t:"الي اختشوا ماتوا", h:"مثل مصري عن تبدل الأخلاق" },
-      { t:"اقلب القدرة على فمها تطلع البنت لامها", h:"البنت تُشبه أمها" },
-      { t:"ابنك على ما تربيه و جوزك على ما تعوديه", h:"السلوك يؤثر على تعامل الابن والزوج" },
-      { t:"ما حك جلدك مثل ظفرك", h:"اعتماد المرء على نفسه أفضل" },
-      { t:"خير الكلام ما قل ودل", h:"الإيجاز أفضل" },
-      { t:"الخبر الي انهرده بفلوس بكرة يبقى ببلاش", h:"الأخبار ستتفشى قريبًا" },
-      { t:"من طلب العلا سهر الليالي", h:"الاجتهاد طريق النجاح" },
-      { t:"الي بيشيل قربة مخرومة بتخر على راسه", h:"إهمالك يضرك أولًا" },
-      { t:"ادي العيش لخبازه ولو كل نصه", h:"أعطِ الصنعة لأهلها" },
-      { t:"لا تؤجل عمل اليوم إلى الغد", h:"خطر التسويف" },
-      { t:"الوقت كالسيف ان لم تقطعه قطعك", h:"أهمية الوقت" }
+      {
+        t:"رجع بخفي حنين",
+        hint:"يُقال لمن عاد بلا نتيجة",
+        explanation:"تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.",
+        lesson:"التخطيط والمرونة في التفاوض يحميان من ضياع الجهد بلا ثمر.",
+        source:"مثل عربي قديم"
+      },
+      {
+        t:"الي اختشوا ماتوا",
+        hint:"يُنتقد فيه ذهاب الحياء",
+        explanation:"نشأ في مصر زمن الحريق حين فضلت بعض النساء المحافظة على حيائهن فمُتن، فصار كناية عن تبدل الأحوال وغياب الخجل.",
+        lesson:"حياء المجتمع ينعكس على سلوكه واستقراره.",
+        source:"مثل مصري شعبي"
+      },
+      {
+        t:"اقلب القدرة على فمها تطلع البنت لامها",
+        hint:"يشير للشبه بين الأجيال",
+        explanation:"يعبر المثل عن أن الفتاة غالبًا ما تشبه أمها في الطباع والسلوك مهما حاولت الاختلاف.",
+        lesson:"القدوة الأسرية تترك بصمتها العميقة على الأبناء.",
+        source:"تراث شعبي مصري"
+      },
+      {
+        t:"ابنك على ما تربيه و جوزك على ما تعوديه",
+        hint:"فيه حديث عن أثر التربية",
+        explanation:"يوضح المثل أن السلوك الذي نزرعه في الأبناء والأزواج ينعكس علينا في المعاملة والنتائج.",
+        lesson:"التربية الواعية والعلاقة الطيبة تصنع استقرار الأسرة.",
+        source:"مثل عربي متداول"
+      },
+      {
+        t:"ما حك جلدك مثل ظفرك",
+        hint:"دعوة للاعتماد على الذات",
+        explanation:"يشجع المثل على القيام بالعمل بنفسك لأنك الأحرص على مصلحتك والأقدر على إدراك حاجتك.",
+        lesson:"المبادرة الذاتية تُختصر بها الطرق وتتحقق النجاحات.",
+        source:"مثل عربي فصيح"
+      },
+      {
+        t:"خير الكلام ما قل ودل",
+        hint:"يتعلق بفصاحة التعبير",
+        explanation:"يحُث المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدل الإطالة المملة.",
+        lesson:"الإيجاز الواضح يبني تواصلًا أقوى وأكثر تأثيرًا.",
+        source:"حكمة عربية قديمة"
+      },
+      {
+        t:"الخبر الي انهرده بفلوس بكرة يبقى ببلاش",
+        hint:"يتناول سرعة انتشار الأخبار",
+        explanation:"يُقال عن أسرار اليوم التي سرعان ما يعرفها الجميع، فلا جدوى من شراء ما سيشيع بلا ثمن.",
+        lesson:"الحذر من التسريب وتقدير قيمة المعلومة في وقتها.",
+        source:"مثل شعبي مصري"
+      },
+      {
+        t:"من طلب العلا سهر الليالي",
+        hint:"يتحدث عن الاجتهاد",
+        explanation:"يدعو المثل إلى المثابرة وبذل الجهد الطويل لتحقيق الأهداف السامية.",
+        lesson:"الطموح يتحقق بالعمل والصبر لا بالتمني.",
+        source:"حكمة تعليمية"
+      },
+      {
+        t:"الي بيشيل قربة مخرومة بتخر على راسه",
+        hint:"تحذير من الإهمال",
+        explanation:"يضرب لمن يتهاون في إصلاح الخلل فيعود عليه بالخسارة والمشقة.",
+        lesson:"علاج المشكلة الصغيرة مبكرًا يمنع كوارث أكبر لاحقًا.",
+        source:"مثل شعبي شاملي"
+      },
+      {
+        t:"ادي العيش لخبازه ولو كل نصه",
+        hint:"يشير إلى التخصص",
+        explanation:"يوصي المثل بإسناد الأمور لأهل الخبرة حتى لو كلف الأمر؛ فالنتيجة ستكون أضمن وأجود.",
+        lesson:"الثقة بالمتخصصين تضمن جودة المخرجات وتختصر الوقت.",
+        source:"مثل عربي دارج"
+      },
+      {
+        t:"لا تؤجل عمل اليوم إلى الغد",
+        hint:"محاربة التسويف",
+        explanation:"ينبه المثل إلى خطورة تأجيل الأعمال لأن تراكمها يسبب ضياع الفرص والاضطراب.",
+        lesson:"الإنجاز الفوري يفتح أبواب النجاح ويقلل التوتر.",
+        source:"حكمة إدارية عالمية"
+      },
+      {
+        t:"الوقت كالسيف ان لم تقطعه قطعك",
+        hint:"يؤكد على قيمة الزمن",
+        explanation:"يشبه المثل الوقت بالسيف الحاد الذي إن لم نحسن استخدامه سيوقع بنا الخسارة.",
+        lesson:"إدارة الوقت محور أساسي للتفوق في الحياة.",
+        source:"مثل عربي مأثور"
+      },
+      {
+        t:"الصبر مفتاح الفرج",
+        hint:"يدعو للتريث",
+        explanation:"يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول المتوقعة وغير المتوقعة.",
+        lesson:"الهدوء والثبات يمنحاننا رؤية أوضح للفرص المختبئة.",
+        source:"حكمة عربية روحانية"
+      },
+      {
+        t:"من جد وجد ومن زرع حصد",
+        hint:"يرتبط بالعمل الجاد",
+        explanation:"يجمع المثل بين بذل الجهد وقطف الثمار كعلاقة سببية لا مفر منها.",
+        lesson:"الاجتهاد المستمر يثمر مهما طال الزمن.",
+        source:"قول مأثور في التربية"
+      },
+      {
+        t:"في التأني السلامة وفي العجلة الندامة",
+        hint:"يحذر من التسرع",
+        explanation:"يظهر المثل أن التأني يمنح السلامة بينما العجلة غير المحسوبة تجر الندم.",
+        lesson:"التروّي قبل القرارات المصيرية يجنّب الأخطاء الكبيرة.",
+        source:"مثل عربي مشترك"
+      },
+      {
+        t:"إذا تم العقل نقص الكلام",
+        hint:"يمجد الصمت الحكيم",
+        explanation:"يرى المثل أن اكتمال الحكمة يجعل صاحبها قليل الكلام لأنه يزن العبارات.",
+        lesson:"الوعي بذاتك يجعلك تختار كلماتك بعناية.",
+        source:"حكمة منسوبة للإمام علي"
+      },
+      {
+        t:"إذا عرف السبب بطل العجب",
+        hint:"عن فهم الخلفيات",
+        explanation:"يؤكد المثل أن معرفة الأسباب تزيل الغرابة وتكشف منطق الأحداث.",
+        lesson:"التحليل العميق للأحداث يمنحنا حلاً أدق وقرارًا أصوب.",
+        source:"مثل عربي قديم"
+      },
+      {
+        t:"درهم وقاية خير من قنطار علاج",
+        hint:"يشجع الوقاية",
+        explanation:"يدعو المثل للاستثمار في الوقاية من الخطر قبل وقوعه لأن العلاج لاحقًا مكلف ومُرهق.",
+        lesson:"الاستباق والتخطيط يقللان الخسائر المادية والمعنوية.",
+        source:"حكمة طبية شائعة"
+      },
+      {
+        t:"لا يموت الذئب ولا تفنى الغنم",
+        hint:"يرصد التعارض بين مصلحتين",
+        explanation:"يضرب لمن يحاول الجمع بين متضادين دون تضحية، وهو أمر مستحيل غالبًا.",
+        lesson:"القرارات الجادة تستلزم اختيارًا واضحًا وتضحية محسوبة.",
+        source:"مثل بدوي"
+      },
+      {
+        t:"إذا كان الكلام من فضة فالسكوت من ذهب",
+        hint:"يفاضل بين الكلام والصمت",
+        explanation:"يشدد المثل على قيمة الصمت في مواضع الحكمة مقارنة بالكلام الزائد.",
+        lesson:"اختيار اللحظة المناسبة للكلام مهارة قيادية مهمة.",
+        source:"قول مأثور عربي"
+      },
+      {
+        t:"رب ضارة نافعة",
+        hint:"يرى الخير في الابتلاء",
+        explanation:"يوضح المثل أن المصائب قد تحمل في طياتها فرصًا وألطافًا لا نراها للوهلة الأولى.",
+        lesson:"تغيير زاوية النظر يحوّل المحن إلى منح وعبر.",
+        source:"حكمة إسلامية شائعة"
+      },
+      {
+        t:"العلم نور",
+        hint:"يُشيد بالمعرفة",
+        explanation:"يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول إلى الصواب.",
+        lesson:"التعلم المستمر يفتح الآفاق ويصون الإنسان من الجهل.",
+        source:"قول تربوي مأثور"
+      },
+      {
+        t:"ليس الفتى من قال كان أبي",
+        hint:"يحث على الإنجاز الشخصي",
+        explanation:"يرفض المثل الاتكاء على أمجاد الآباء ويدعو لصناعة مجد ذاتي.",
+        lesson:"هوية الإنسان تبنى بجهده لا بنسبه فحسب.",
+        source:"بيت من شعر المتنبي"
+      },
+      {
+        t:"من شب على شيء شاب عليه",
+        hint:"يتعلق بالعادات",
+        explanation:"يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه حتى الكبر.",
+        lesson:"تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.",
+        source:"مثل عربي دارج"
+      },
+      {
+        t:"عند الامتحان يكرم المرء أو يهان",
+        hint:"عن لحظات الحسم",
+        explanation:"يشير المثل إلى أن الاختبارات تكشف حقيقة الاستعداد والجدية.",
+        lesson:"الاستعداد المستمر يجعل المواقف الحاسمة فرصة للتألق.",
+        source:"حكمة تعليمية"
+      },
+      {
+        t:"إذا أردت أن تطاع فأمر بما يستطاع",
+        hint:"يوازن بين الطموح والقدرة",
+        explanation:"يعلم المثل القادة أن التكليف بما فوق الطاقة يولد العصيان، أما الواقعية فتجلب الطاعة.",
+        lesson:"الإدارة الحكيمة تراعي طاقة الفريق وحدود الموارد.",
+        source:"قول منسوب لعمر بن الخطاب"
+      },
+      {
+        t:"على قدر أهل العزم تأتي العزائم",
+        hint:"عن قوة الإرادة",
+        explanation:"يشير البيت إلى أن القرارات الكبيرة لا ينهض بها إلا أصحاب الهمم العالية.",
+        lesson:"طموحك يحدد حجم الإنجاز الذي يمكن أن تحققه.",
+        source:"من قصيدة المتنبي"
+      },
+      {
+        t:"الطيور على أشكالها تقع",
+        hint:"يتناول صحبة المتشابهين",
+        explanation:"يقول المثل إن الأفراد يميلون إلى من يشبهونهم في الطباع والقيم.",
+        lesson:"اختر محيطك بعناية لأنه يعكسك ويؤثر عليك.",
+        source:"مثل عالمي مترجم"
+      },
+      {
+        t:"من سار على الدرب وصل",
+        hint:"يتحدث عن المثابرة",
+        explanation:"يجسد المثل قيمة الاستمرار في الطريق رغم طول المسافة حتى نبلغ الهدف.",
+        lesson:"المواظبة اليومية الصغيرة تصنع إنجازًا عظيمًا مع الزمن.",
+        source:"حكمة تطوير ذات"
+      },
+      {
+        t:"رحم الله امرء عرف قدر نفسه",
+        hint:"حول تقدير الذات",
+        explanation:"يشجع المثل على معرفة الإنسان لطاقته وحدوده حتى لا يظلم نفسه ولا يتجاوز قدرته.",
+        lesson:"الوعي بالذات يساعد على اختيار ما يناسبك من فرص ومسؤوليات.",
+        source:"قول مأثور عن عمر بن عبد العزيز"
+      },
+      {
+        t:"القناعة كنز لا يفنى",
+        hint:"يدعو للرضا",
+        explanation:"يبين المثل أن القناعة ثروة داخلية لا تنتهي، لأنها تمنح صاحبها راحة نفسية مستدامة.",
+        lesson:"تقدير النعم الحالية يجلب السكينة ويحفز العمل المتوازن.",
+        source:"مثل عربي متداول"
+      },
+      {
+        t:"إن مع العسر يسرا",
+        hint:"مستمد من القرآن",
+        explanation:"يرسخ المثل القرآني حقيقة أن الضيق يتبعه فرج مزدوج لمن يصبر ويأمل.",
+        lesson:"الأمل والثقة بالله يثبتان القلب في مواجهة المصاعب.",
+        source:"القرآن الكريم — سورة الشرح"
+      }
     ];
 	
     const AR_ALPHA = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
@@ -113,7 +581,7 @@
     
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
-      return UI.Toolbar({
+      const toolbar = UI.Toolbar({
         left:[ D.Text.Span({ attrs:{ class: tw`text-lg font-bold` }}, [TL('app.title')]) ],
         right:[
           UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
@@ -121,6 +589,13 @@
           UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
         ]
       });
+      return D.Containers.Header({ attrs:{ class: tw`px-4 pt-6 pb-4` }}, [
+        D.Containers.Div({ attrs:{ class: tw`max-w-6xl mx-auto w-full` }}, [
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl px-6 py-4 flex items-center justify-between`} glass-panel glow-outline` }}, [
+            toolbar
+          ])
+        ])
+      ]);
     }
 
     function Sidebar(db){
@@ -129,23 +604,43 @@
       const NavBtn = (id,label,icon)=>{
         const active = route===id;
         return UI.Button({
-          attrs:{ gkey:`route:${id}`, class:tw`${active?'bg-[var(--accent)]':''} w-full justify-start text-start` },
+          attrs:{
+            gkey:`route:${id}`,
+            class:`${tw`w-full justify-start text-start rounded-2xl transition-all duration-200`} glass-panel ${active ? 'glow-outline' : 'hover:opacity-90'} ${active?'':'opacity-85'}`
+          },
           variant:'ghost', size:'sm'
         }, [`${icon} `, TL(label)]);
       };
-      return D.Containers.Nav({ attrs:{ class: tw`p-3 space-y-2` }}, [
-        NavBtn('about','nav.about','📖'),
-        NavBtn('counter','nav.counter','🔢'),
-        NavBtn('game','nav.game','🎮')
+      return D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-4 space-y-3`} glass-panel glow-outline` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm uppercase tracking-[0.3em] text-[var(--muted-foreground)]` }}, [TL('nav.menu')]),
+          D.Containers.Nav({ attrs:{ class: tw`space-y-3` }}, [
+            NavBtn('readmeBase','nav.readmeBase','🌌'),
+            NavBtn('readmeTec','nav.readmeTec','🛠️'),
+            NavBtn('counter','nav.counter','🔢'),
+            NavBtn('game','nav.game','🎮')
+          ])
+        ])
       ]);
     }
 
-    function AboutPanel(db){
+    function DocPanel(db, kind){
       const lang = db.env.lang || 'ar';
-      const content = lang==='ar' ? db.data.md.ar : db.data.md.en;
+      const key = kind==='tec' ? 'doc.tec.lead' : 'doc.base.lead';
+      const titleKey = kind==='tec' ? 'nav.readmeTec' : 'nav.readmeBase';
+      const docs = db.data.docs || {};
+      const store = kind==='tec' ? docs.tec || {} : docs.base || {};
+      const fallback = lang==='ar' ? (store.en || '') : (store.ar || '');
+      const content = store[lang] || fallback || '';
+      const { TL } = makeLangLookup(db);
+
       return UI.Card({
-        title: makeLangLookup(db).TL('nav.about'),
-        content: U.UDM({ content, className: tw`prose prose-invert max-w-none` })
+        title: TL(titleKey),
+        description: TL('doc.language.hint'),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          D.Text.P({ attrs:{ class: tw`text-base font-semibold`, style:'color:color-mix(in oklab,var(--foreground) 92%, var(--primary) 8%);' }}, [TL(key)]),
+          UI.Markdown({ content, className: tw`md-prose` })
+        ])
       });
     }
 
@@ -165,84 +660,154 @@
     function GamePanel(db){
       const { TL } = makeLangLookup(db);
       const g = db.data.game;
+      const showSolution = g.revealSolution || g.status==='won';
 
-      const top = UI.Card({
-        content: D.Containers.Div({ attrs:{ class: tw`grid md:grid-cols-3 gap-3` }}, [
-          UI.Card({ variant:'card/soft-1', content:
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 p-3` }}, [
-              UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
-              D.Text.Span({}, [TL('game.music')]),
-              UI.Select({ attrs:{ gkey:'game:music:select' },
-                options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
-            ])
-          }),
-          UI.Card({ variant:'card/soft-1', content:
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 p-3` }}, [
-              UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
-              D.Text.Span({}, [TL('game.timer')]),
-              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:70px', gkey:'game:timer:value' } }),
-              D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
-            ])
-          }),
-          UI.Card({ variant:'card/soft-1', content:
-            D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between p-3` }}, [
-              UI.Button({ attrs:{ gkey:'game:start' }, variant:'destructive', size:'md' },
-                [g.status==='running' ? TL('game.new') : TL('game.start')]),
-              D.Text.Span({ attrs:{ class: tw`text-xl font-bold text-[var(--primary)]` }}, [
-                g.timerOn ? String(g.timeLeft||g.timerSec)+' '+TL('game.seconds') : '—'
-              ])
-            ])
-          }),
-        ])
-      });
+      const timeValue = !g.timerOn ? null : (g.status==='running'
+        ? (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)
+        : (g.status==='lost' ? 0 : g.timerSec));
+      const timeDisplay = g.timerOn ? `${String(timeValue ?? g.timerSec)} ${TL('game.seconds')}` : '—';
+      const pv = g.proverb?.t || '';
 
-      const hearts = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }},
-        Array.from({length:g.triesMax}, (_,i)=>{
+      const heartsRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-2xl`} glass-panel` }},
+        Array.from({ length:g.triesMax }, (_,i)=>{
           const full = i < g.triesLeft;
-          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-4xl ${full?'':'opacity-40'} drop-shadow` }}, [full?'❤️':'💔']);
+          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-3xl ${full?'':'opacity-35'} drop-shadow` }}, [full ? '❤️' : '💔']);
         })
       );
 
-      const pv = g.proverb?.t || '';
-      const boxes = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-1 mt-2` }}, pv.split('').map((raw,idx)=>{
-        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-5` }});
-        const show = g.guessed[norm(raw)];
-        return D.Containers.Div({ attrs:{ key:'bx'+idx, class: tw`w-10 h-12 grid place-items-center rounded border border-[var(--border)] bg-[var(--surface-2)] text-xl font-bold` }}, [ show ? raw : '' ]);
-      }));
+      const tiles = pv.split('').map((raw, idx)=>{
+        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-6 md:w-8` }});
+        const normalized = norm(raw);
+        const revealed = !!g.guessed[normalized];
+        return D.Containers.Div({
+          attrs:{
+            key:'bx'+idx,
+            class: `${tw`w-14 h-16 md:w-16 md:h-20 grid place-items-center rounded-2xl text-2xl md:text-3xl font-semibold letter-tile`}`,
+            'data-revealed': revealed ? 'true' : 'false'
+          }
+        }, [ revealed ? raw : '' ]);
+      });
 
-      const letters = D.Containers.Div({ attrs:{ class: tw`grid grid-cols-8 md:grid-cols-12 gap-1` }}, AR_ALPHA.map((L,i)=>
-        UI.Button({ attrs:{ key:'L'+i, gkey:'game:guess', 'data-ch':L, disabled: g.status!=='running' || !!g.guessed[L] }, variant:'soft', size:'sm' }, [L])
+      const puzzleRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap justify-center gap-3`}` }}, tiles);
+
+      const letters = D.Containers.Div({ attrs:{ class: `${tw`grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-10 gap-2 letters-grid`}` }}, AR_ALPHA.map((L,i)=>
+        UI.Button({
+          attrs:{
+            key:'L'+i,
+            gkey:'game:guess',
+            'data-ch':L,
+            disabled: g.status!=='running' || !!g.guessed[L],
+            class: tw`h-14 sm:h-16 text-xl sm:text-2xl font-extrabold tracking-wider`
+          },
+          variant:'soft',
+          size:'lg'
+        }, [L])
       ));
 
-      const result = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
-      const audioNode = g.musicOn ? D.Media.Audio({ attrs:{ controls:true, src: g.audioList[g.audioIdx].url, class: tw`w-full` } }) : null;
+      const statusText = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
 
-      return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-        top,
-        UI.Card({ content:
-          D.Containers.Div({ attrs:{ class: tw`grid md:grid-cols-[1fr,160px] gap-3` }}, [
-            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [ hearts, boxes, UI.Divider(), letters ]),
-            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
-              result ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg` }}, [result]) }) : null,
-              g.proverb ? UI.Card({ variant:'card/soft-2', content:
-                D.Containers.Div({ attrs:{ class: tw`p-2` }}, [
-                  D.Text.Strong({}, [makeLangLookup(db).TL('game.hint'), ': ']),
-                  D.Text.Span({}, [g.proverb.h])
-                ])
-              }) : null,
-              audioNode
-            ].filter(Boolean))
+      const boardCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between` }}, [
+          heartsRow,
+          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2 text-sm` }}, [
+            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'⏳', text:`${TL('game.timeLabel')}: ${timeDisplay}` }),
+            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'❤️', text:`${TL('game.tries')}: ${g.triesLeft}/${g.triesMax}` })
           ])
-        })
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          puzzleRow,
+          UI.Divider(),
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Strong({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.letters')]),
+            letters
+          ])
+        ])
       ]);
+
+      const hintPanel = g.proverb
+        ? UI.Card({ variant:'card/soft-1', content:
+            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+              UI.Badge({ variant:'badge/ghost', attrs:{ class: tw`w-fit text-xs uppercase tracking-[0.3em]` }, leading:'💡', text:TL('game.hintTitle') }),
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
+            ])
+          })
+        : null;
+
+      const revealPanel = (!showSolution && g.status==='lost')
+        ? UI.Card({ variant:'card/soft-2', content:
+            D.Containers.Div({ attrs:{ class: tw`space-y-3 text-center` }}, [
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lose')]),
+              UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-8 py-3 rounded-full font-semibold text-base` }, variant:'soft', size:'lg' }, [TL('game.reveal')])
+            ])
+          })
+        : null;
+
+      const solutionPanel = (showSolution && g.proverb)
+        ? UI.Card({ variant:'card/soft-2', content:
+            D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+              UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'📜', text:TL('game.solution') }),
+              D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
+              D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source])
+            ])
+          })
+        : null;
+
+      const statusPanel = statusText
+        ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg font-semibold` }}, [statusText]) })
+        : null;
+
+      const infoPanels = [statusPanel, hintPanel, revealPanel, solutionPanel].filter(Boolean);
+      const infoSection = infoPanels.length
+        ? D.Containers.Div({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-4` }}, infoPanels)
+        : null;
+
+      const audioNode = (g.musicOn && g.status==='running')
+        ? D.Media.Audio({ attrs:{ autoplay:true, loop:true, src:g.audioList[g.audioIdx].url, class: tw`hidden`, key:`bgm-${g.soundStamp||0}` }})
+        : null;
+
+      return D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} animate-float` }}, [
+        D.Containers.Div({ attrs:{ class: `${tw`grid gap-5 xl:grid-cols-3`} glass-panel glow-outline p-6 rounded-3xl` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.H3({ attrs:{ class: tw`text-2xl font-bold` }}, [TL('game.title')]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.tries'), ': ', String(g.triesLeft), ' / ', String(g.triesMax)]),
+            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.music')]),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
+              UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
+              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.music')])
+            ]),
+            UI.Select({ attrs:{ gkey:'game:music:select' }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.timer')]),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
+              UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
+              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.timer')])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
+              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
+              D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+            ]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.timeLabel'), ': ', timeDisplay])
+          ])
+        ]),
+        boardCard,
+        infoSection,
+        audioNode
+      ].filter(Boolean));
     }
 
     function MainContent(db){
       const tab = db.data.activeTab;
-      if (tab==='about')   return AboutPanel(db);
+      if (tab==='readmeBase') return DocPanel(db, 'base');
+      if (tab==='readmeTec')  return DocPanel(db, 'tec');
       if (tab==='counter') return CounterPanel(db);
       if (tab==='game')    return GamePanel(db);
-      return AboutPanel(db);
+      return DocPanel(db, 'base');
     }
     
     // ----------------------------------------------------------------
@@ -254,8 +819,8 @@
       env:{ theme:'dark', lang:'ar', dir:'rtl' },
       i18n:{ lang:'ar', fallback:'en', dict },
       data:{
-        activeTab: 'about',
-        md:{ ar: md_ar, en: md_en },
+        activeTab: 'readmeBase',
+        docs: DOCS,
         counter: 0,
         game:{
           musicOn: true,
@@ -273,7 +838,9 @@
           proverb: null,
           guessed: {},
           intervalId: null,
-          status: 'idle' // idle | running | won | lost
+          status: 'idle', // idle | running | won | lost
+          revealSolution: false,
+          soundStamp: 0
         }
       },
       ui:{ modalOpen:false, drawerOpen:false, toasts:[] }
@@ -290,9 +857,16 @@
       return UI.AppRoot({
         shell: D.Containers.Div({ attrs:{ class: tw`min-h-screen flex flex-col` }}, [
           HeaderBar(db),
-          D.Containers.Div({ attrs:{ class: tw`flex flex-1` }}, [
-            D.Containers.Aside({ attrs:{ class: tw`w-[240px] border-s` }}, [ Sidebar(db) ]),
-            D.Containers.Main({ attrs:{ class: tw`flex-1 p-4` }}, [ MainContent(db) ])
+          D.Containers.Div({ attrs:{ class: tw`flex-1 w-full` }}, [
+            D.Containers.Div({ attrs:{ class: `${tw`max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 px-4 pb-12`}` }}, [
+              D.Containers.Aside({ attrs:{ class: tw`lg:w-[260px] hidden lg:block` }}, [
+                D.Containers.Div({ attrs:{ class: tw`sticky top-32` }}, [ Sidebar(db) ])
+              ]),
+              D.Containers.Main({ attrs:{ class: tw`flex-1` }}, [
+                D.Containers.Div({ attrs:{ class: tw`lg:hidden mb-6` }}, [ Sidebar(db) ]),
+                D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, [ MainContent(db) ])
+              ])
+            ])
           ])
         ])
       });
@@ -318,45 +892,62 @@
     // ----------------------------------------------------------------
     const orders = {
       // Routing
-      'route:about'  :{ on:['click'], gkeys:['route:about'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'about'  }}); ctx.rebuild(); }},
-      'route:counter':{ on:['click'], gkeys:['route:counter'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
-      'route:game'   :{ on:['click'], gkeys:['route:game'],    handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
+      'route:readmeBase':{ on:['click'], gkeys:['route:readmeBase'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeBase' }}); ctx.rebuild(); }},
+      'route:readmeTec' :{ on:['click'], gkeys:['route:readmeTec' ], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeTec'  }}); ctx.rebuild(); }},
+      'route:counter'   :{ on:['click'], gkeys:['route:counter'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
+      'route:game'      :{ on:['click'], gkeys:['route:game'],      handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
 
       // Counter
       'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
-      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-counter+1 }}); ctx.rebuild(); }},
+      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-1 }}); ctx.rebuild(); }},
       'counter:reset':{ on:['click'], gkeys:['counter:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:0 }}); ctx.rebuild(); }},
 
       // Game toggles
       'game:music:toggle':{ on:['change'], gkeys:['game:music:toggle'], handler:(e,ctx)=>{
-        const s=ctx.getState(); const g=s.data.game; ctx.setState({...s, data:{...s.data, game:{...g, musicOn: !!e.target.checked }}}); ctx.rebuild();
+        const s=ctx.getState(); const g=s.data.game; const on = !!e.target.checked;
+        const stamp = on ? Date.now() : g.soundStamp;
+        ctx.setState({...s, data:{...s.data, game:{...g, musicOn:on, soundStamp: stamp }}}); ctx.rebuild();
       }},
       'game:music:select':{ on:['change'], gkeys:['game:music:select'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const idx=Math.max(0,parseInt(e.target.value,10)||0);
-        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx }}}); ctx.rebuild();
+        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx, soundStamp: Date.now() }}}); ctx.rebuild();
       }},
       'game:timer:toggle':{ on:['change'], gkeys:['game:timer:toggle'], handler:(e,ctx)=>{
-        const s=ctx.getState(); const g=s.data.game; const on=!!e.target.checked; if(!on && g.intervalId) clearInterval(g.intervalId);
-        ctx.setState({...s, data:{...s.data, game:{...g, timerOn: on }}}); ctx.rebuild();
+        const s=ctx.getState(); const g=s.data.game; const on=!!e.target.checked; if(!on && g.intervalId) try{ clearInterval(g.intervalId); }catch(_){ }
+        const timeLeft = on ? (g.status==='running' ? (typeof g.timeLeft === 'number' && g.timeLeft>0 ? g.timeLeft : g.timerSec) : g.timerSec) : 0;
+        ctx.setState({...s, data:{...s.data, game:{...g, timerOn:on, timeLeft, intervalId: on ? g.intervalId : null }}}); ctx.rebuild();
       }},
       'game:timer:value':{ on:['input','change'], gkeys:['game:timer:value'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const v=Math.max(5, parseInt(e.target.value,10)||g.timerSec);
-        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v }}}); ctx.rebuild();
+        const timeLeft = g.timerOn ? (g.status==='running' ? v : v) : g.timeLeft;
+        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v, timeLeft }}}); ctx.rebuild();
       }},
 
       // Start / New game
       'game:start':{ on:['click'], gkeys:['game:start'], handler:(e,ctx)=>{
-        const s0=ctx.getState(); const g0=s0.data.game; if (g0.intervalId) try{ clearInterval(g0.intervalId) }catch(_){}
+        const s0=ctx.getState(); const g0=s0.data.game; if (g0.intervalId) try{ clearInterval(g0.intervalId); }catch(_){}
         const pv = PROVERBS[Math.floor(Math.random()*PROVERBS.length)];
-        const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft:g0.timerSec, intervalId:null };
+        const stamp = Date.now();
+        const baseTime = g0.timerOn ? g0.timerSec : 0;
+        const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft: baseTime, intervalId:null, revealSolution:false, soundStamp: stamp };
         ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild();
 
         if (g1.timerOn) {
           const iid = setInterval(()=>{
             const s=ctx.getState(); const g=s.data.game; if (g.status!=='running') { clearInterval(iid); return; }
-            let timeLeft = (g.timeLeft||g.timerSec) - 1;
+            let timeLeft = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
             let triesLeft = g.triesLeft; let status = g.status;
-            if (timeLeft<=0) { timeLeft=g.timerSec; triesLeft=Math.max(0, triesLeft-1); if (triesLeft===0){ status='lost'; clearInterval(iid); } }
+            if (timeLeft <= 0) {
+              triesLeft = Math.max(0, triesLeft - 1);
+              if (triesLeft === 0) {
+                status = 'lost';
+                timeLeft = 0;
+                if (g.intervalId) try{ clearInterval(g.intervalId); }catch(_){}
+                clearInterval(iid);
+              } else {
+                timeLeft = g.timerSec;
+              }
+            }
             ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status } }}); ctx.rebuild();
           }, 1000);
           const s1=ctx.getState(); const g2=s1.data.game;
@@ -375,15 +966,24 @@
         const has = target.split('').some(raw => norm(raw)===L);
 
         let triesLeft = g.triesLeft, status = g.status;
-        if (!has) { triesLeft=Math.max(0, triesLeft-1); if (triesLeft===0){ status='lost'; if (g.intervalId) clearInterval(g.intervalId); } }
+        if (!has) {
+          triesLeft=Math.max(0, triesLeft-1);
+          if (triesLeft===0){ status='lost'; if (g.intervalId) try{ clearInterval(g.intervalId); }catch(_){ } }
+        }
         else {
           const letters = new Set(target.split('').map(norm).filter(x=>x.trim()!=='' && x!==' '));
-          const all = Array.from(letters).every(k => guessed[k]); if (all){ status='won'; if (g.intervalId) clearInterval(g.intervalId); }
+          const all = Array.from(letters).every(k => guessed[k]); if (all){ status='won'; if (g.intervalId) try{ clearInterval(g.intervalId); }catch(_){ } }
         }
 
+        const timeLeft = g.timerOn ? (status==='lost' ? 0 : (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)) : 0;
         ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, guessed, triesLeft, status,
-          timeLeft: g.timerOn ? g.timeLeft : 0
+          timeLeft,
+          revealSolution: status==='won' ? true : g.revealSolution
         }}}); ctx.rebuild();
+      }},
+      'game:reveal':{ on:['click'], gkeys:['game:reveal'], handler:(e,ctx)=>{
+        const s=ctx.getState(); const g=s.data.game; if (!g.proverb) return;
+        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}}); ctx.rebuild();
       }}
     };
 
