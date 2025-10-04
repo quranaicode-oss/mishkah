@@ -96,7 +96,7 @@
           reservations_conflict_lock:'الطاولة مرتبطة بطلب آخر.', reservations_tables_required:'اختر طاولة واحدة على الأقل',
           reservations_list_empty:'لا توجد حجوزات في هذا النطاق الزمني.', reservations_hold_label:'سيتم الاحتفاظ حتى',
           tables_manage_log:'سجل التعديلات', print_doc_customer:'إيصال عميل', print_doc_summary:'ملخص الطلب', print_doc_kitchen:'إرسال للمطبخ',
-          print_preview:'معاينة', print_send:'إرسال للطابعة', print_save_profile:'حفظ الإعدادات', print_header_store:'اسم المتجر',
+          print_preview:'معاينة', print_preview_expand:'تكبير المعاينة', print_preview_collapse:'تصغير المعاينة', print_send:'إرسال للطابعة', print_save_profile:'حفظ الإعدادات', print_header_store:'اسم المتجر',
           print_header_address:'العنوان', print_header_phone:'الهاتف', print_footer_thanks:'شكرًا لزيارتكم!',
           print_footer_policy:'سياسة الاستبدال خلال 24 ساعة مع الإيصال.', print_footer_feedback:'شاركنا رأيك',
           print_payments:'المدفوعات', print_change_due:'المتبقي للعميل', print_size_label:'مقاس الطباعة',
@@ -183,7 +183,7 @@
           reservations_conflict_lock:'Table currently locked by another order.', reservations_tables_required:'Select at least one table',
           reservations_list_empty:'No reservations for this time range.', reservations_hold_label:'Hold until',
           tables_manage_log:'Audit trail', print_doc_customer:'Customer receipt', print_doc_summary:'Order summary', print_doc_kitchen:'Kitchen chit',
-          print_preview:'Preview', print_send:'Send to printer', print_save_profile:'Save settings', print_header_store:'Store name',
+          print_preview:'Preview', print_preview_expand:'Expand preview', print_preview_collapse:'Collapse preview', print_send:'Send to printer', print_save_profile:'Save settings', print_header_store:'Store name',
           print_header_address:'Address', print_header_phone:'Phone', print_footer_thanks:'Thanks for visiting!',
           print_footer_policy:'Exchange within 24h with receipt.', print_footer_feedback:'Share your feedback',
           print_payments:'Payments', print_change_due:'Change due', print_size_label:'Print size',
@@ -390,10 +390,10 @@
         return `<div class="row"><span>${label}</span><span>${price}</span></div>`;
       }).join('');
       const sizePresets = {
-        thermal_80:{ width:'320px', padding:'20px 16px', fontSize:'13px', heading:'18px', meta:'12px', total:'16px' },
-        receipt_15:{ width:'380px', padding:'24px 20px', fontSize:'13px', heading:'20px', meta:'13px', total:'17px' },
-        a5:{ width:'520px', padding:'28px 24px', fontSize:'14px', heading:'22px', meta:'14px', total:'18px' },
-        a4:{ width:'720px', padding:'32px 32px', fontSize:'15px', heading:'24px', meta:'15px', total:'20px' }
+        thermal_80:{ width:'72mm', maxWidth:'72mm', padding:'18px 16px', fontSize:'13px', heading:'20px', meta:'12px', total:'16px', bodyBg:'#f4f7fb', border:'1px solid #dbeafe', radius:'20px', shadow:'0 18px 40px rgba(15,23,42,0.12)', page:'@page { size: 80mm auto; margin:4mm; }', bodyPadding:'18px' },
+        receipt_15:{ width:'150mm', maxWidth:'150mm', padding:'24px 20px', fontSize:'13px', heading:'22px', meta:'13px', total:'18px', bodyBg:'#f5f8ff', border:'1px dashed #cbd5f5', radius:'28px', shadow:'0 22px 50px rgba(15,23,42,0.14)', page:'@page { size: 150mm auto; margin:6mm; }', bodyPadding:'24px' },
+        a5:{ width:'100%', maxWidth:'720px', padding:'28px 32px', fontSize:'15px', heading:'26px', meta:'15px', total:'20px', bodyBg:'#f8fafc', border:'1px solid #dbe4f3', radius:'32px', shadow:'0 26px 64px rgba(15,23,42,0.18)', page:'@page { size: A5 landscape; margin:12mm; }', bodyPadding:'36px' },
+        a4:{ width:'100%', maxWidth:'860px', padding:'32px 40px', fontSize:'16px', heading:'28px', meta:'16px', total:'22px', bodyBg:'#ffffff', border:'1px solid #d0dae8', radius:'36px', shadow:'0 30px 70px rgba(15,23,42,0.2)', page:'@page { size: A4 portrait; margin:18mm; }', bodyPadding:'48px' }
       };
       const preset = sizePresets[size] || sizePresets.thermal_80;
       const dirAttr = db.env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
@@ -414,8 +414,9 @@
     <title>${escapeHTML(currentDocLabel)}</title>
     <style>
       :root { color-scheme: light; font-family: 'Tajawal', 'Cairo', system-ui, sans-serif; }
-      body { margin:0; background:#f8fafc; color:#0f172a; display:flex; justify-content:center; padding:32px; direction:${dirAttr}; }
-      .receipt { width:100%; max-width:${preset.width}; padding:${preset.padding}; font-size:${preset.fontSize}; background:#ffffff; border:1px dashed #cbd5f5; border-radius:24px; box-shadow:0 24px 60px rgba(15,23,42,0.16); }
+      ${preset.page || ''}
+      body { margin:0; background:${preset.bodyBg || '#f8fafc'}; color:#0f172a; display:flex; justify-content:center; padding:${preset.bodyPadding || '32px'}; direction:${dirAttr}; }
+      .receipt { width:${preset.width}; max-width:${preset.maxWidth || preset.width}; padding:${preset.padding}; font-size:${preset.fontSize}; background:#ffffff; border:${preset.border || '1px solid #dbe4f3'}; border-radius:${preset.radius || '24px'}; box-shadow:${preset.shadow || '0 24px 60px rgba(15,23,42,0.16)'}; }
       .receipt header { text-align:center; margin-bottom:16px; }
       .receipt h1 { margin:0; font-size:${preset.heading}; font-weight:700; }
       .receipt .meta { margin:4px 0; color:#64748b; font-size:${preset.meta}; }
@@ -929,11 +930,18 @@
       const lang = db.env.lang;
       const menu = db.data.menu;
       const filtered = filterMenu(menu, lang);
-      const chips = menu.categories.map(cat=>({
-        id: cat.id,
-        label: localize(cat.label, lang),
-        attrs:{ gkey:'pos:menu:category', 'data-category-id':cat.id }
-      }));
+      const categories = Array.isArray(menu.categories) ? menu.categories : [];
+      const seenCategories = new Set();
+      const chips = categories.reduce((acc, cat)=>{
+        if(!cat || !cat.id || seenCategories.has(cat.id)) return acc;
+        seenCategories.add(cat.id);
+        acc.push({
+          id: cat.id,
+          label: localize(cat.label, lang),
+          attrs:{ gkey:'pos:menu:category', 'data-category-id':cat.id }
+        });
+        return acc;
+      }, []).sort((a,b)=> (a.id==='all' ? -1 : b.id==='all' ? 1 : 0));
       return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden` }}, [
         UI.Card({
           variant:'card/soft-1',
@@ -1249,11 +1257,11 @@
           }
         }, [
           D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-2` }}, [
-            D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
-              D.Text.Strong({ attrs:{ class: tw`text-lg font-semibold` }}, [runtime.name || runtime.id]),
-              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
-              D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
-              D.Text.Span({ attrs:{ class: tw`text-xs font-medium` }}, [stateLabel])
+            D.Containers.Div({ attrs:{ class: tw`space-y-1.5` }}, [
+              D.Text.Strong({ attrs:{ class: tw`text-xl font-semibold` }}, [runtime.name || runtime.id]),
+              D.Text.Span({ attrs:{ class: tw`text-sm opacity-70` }}, [`${t.ui.tables_zone}: ${runtime.zone || '—'}`]),
+              D.Text.Span({ attrs:{ class: tw`text-sm opacity-70` }}, [`${t.ui.tables_capacity}: ${runtime.capacity}`]),
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [stateLabel])
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-2` }}, [
               chips.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap justify-end gap-1` }}, chips) : null,
@@ -1261,8 +1269,8 @@
             ].filter(Boolean))
           ]),
           runtime.note
-            ? D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, [`📝 ${runtime.note}`])
-            : D.Text.Span({ attrs:{ class: tw`text-[11px] opacity-60` }}, [t.ui.tables_longpress_hint])
+            ? D.Text.Span({ attrs:{ class: tw`text-sm opacity-75` }}, [`📝 ${runtime.note}`])
+            : D.Text.Span({ attrs:{ class: tw`text-sm opacity-60` }}, [t.ui.tables_longpress_hint])
         ]);
       }
 
@@ -1411,6 +1419,7 @@
 
       return UI.Modal({
         open:true,
+        size:'lg',
         title:t.ui.tables,
         description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -1434,6 +1443,7 @@
       const selectedSize = uiPrint.size || profile.size || db.data.print?.size || 'thermal_80';
       const showAdvanced = !!uiPrint.showAdvanced;
       const managePrinters = !!uiPrint.managePrinters;
+      const previewExpanded = !!uiPrint.previewExpanded;
       const newPrinterName = uiPrint.newPrinterName || '';
       const tablesNames = (order.tableIds || []).map(id=>{
         const table = (db.data.tables || []).find(tbl=> tbl.id === id);
@@ -1467,10 +1477,10 @@
       ];
 
       const sizePresets = {
-        thermal_80:{ container:'max-w-[320px] px-4 py-5 text-[13px]', heading:'text-base', meta:'text-[11px]', body:'text-[13px]', total:'text-[14px]' },
-        receipt_15:{ container:'max-w-[380px] px-5 py-6 text-[13px]', heading:'text-lg', meta:'text-[12px]', body:'text-[13px]', total:'text-[15px]' },
-        a5:{ container:'max-w-[520px] px-6 py-7 text-[14px]', heading:'text-xl', meta:'text-sm', body:'text-[14px]', total:'text-[16px]' },
-        a4:{ container:'max-w-[720px] px-8 py-8 text-[15px]', heading:'text-2xl', meta:'text-base', body:'text-[15px]', total:'text-[18px]' }
+        thermal_80:{ container:'max-w-[360px] px-5 py-6 text-[13px]', expandedContainer:'max-w-[460px] px-6 py-7 text-[13px]', heading:'text-xl', meta:'text-xs', body:'text-[13px]', total:'text-[15px]', frame:'border border-sky-200' },
+        receipt_15:{ container:'max-w-[440px] px-6 py-6 text-[13px]', expandedContainer:'max-w-[600px] px-8 py-8 text-[14px]', heading:'text-2xl', meta:'text-sm', body:'text-[14px]', total:'text-[16px]', frame:'border border-dashed border-sky-200' },
+        a5:{ container:'max-w-[640px] px-8 py-7 text-[15px]', expandedContainer:'max-w-[860px] px-10 py-9 text-[15px]', heading:'text-2xl', meta:'text-base', body:'text-[15px]', total:'text-[18px]', frame:'border border-neutral-200' },
+        a4:{ container:'max-w-[760px] px-10 py-8 text-[16px]', expandedContainer:'max-w-[940px] px-12 py-10 text-[16px]', heading:'text-3xl', meta:'text-lg', body:'text-[16px]', total:'text-[20px]', frame:'border border-neutral-200' }
       };
 
       const previewPreset = sizePresets[selectedSize] || sizePresets.thermal_80;
@@ -1483,7 +1493,7 @@
 
       const currentDocLabel = docTypes.find(dt=> dt.id === docType)?.label || t.ui.print_doc_customer;
       const paymentsList = payments.length
-        ? D.Containers.Div({ attrs:{ class: tw`space-y-1 text-[13px] pt-2` }}, payments.map(pay=>{
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-1 ${previewPreset.body} pt-2` }}, payments.map(pay=>{
             const method = (db.data.payments.methods || []).find(m=> m.id === pay.method);
             const label = method ? `${method.icon} ${localize(method.label, lang)}` : pay.method;
             return D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
@@ -1493,7 +1503,8 @@
           }))
         : null;
 
-      const previewContainerClass = tw`mx-auto w-full ${previewPreset.container} rounded-2xl border border-dashed border-neutral-300 bg-white text-neutral-900 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:bg-white dark:text-neutral-900`;
+      const previewContainerBase = previewExpanded ? (previewPreset.expandedContainer || previewPreset.container) : previewPreset.container;
+      const previewContainerClass = tw`mx-auto w-full ${previewContainerBase} ${previewPreset.frame || 'border border-neutral-200'} rounded-3xl bg-white text-neutral-900 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:bg-white dark:text-neutral-900 ${previewExpanded ? 'max-w-none' : ''}`;
       const previewHeadingClass = tw`${previewPreset.heading} font-semibold tracking-wide`;
       const previewMetaClass = tw`${previewPreset.meta} text-neutral-500`;
       const previewDetailsClass = tw`space-y-1 ${previewPreset.body} leading-6`;
@@ -1604,10 +1615,10 @@
               })
             }),
             UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
-              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
-              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview]),
-              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateInside', class: tw`${profile.duplicateInside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateInside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_inside]),
-              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateOutside', class: tw`${profile.duplicateOutside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateOutside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_outside])
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateInside', class: tw`${profile.duplicateInside ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateInside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_inside]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateOutside', class: tw`${profile.duplicateOutside ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateOutside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_outside])
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex items-start gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-xs` }}, [
               D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['ℹ️']),
@@ -1616,15 +1627,18 @@
           ])
         : null;
 
+      const previewCardAttrs = previewExpanded ? { class: tw`w-full` } : {};
       const preview = UI.Card({
         variant:'card/soft-2',
+        attrs: previewCardAttrs,
         title: `${t.ui.print_preview} — ${currentDocLabel}`,
         content: previewReceipt
       });
 
       const toggleRow = UI.HStack({ attrs:{ class: tw`flex-wrap gap-2` }}, [
-        UI.Button({ attrs:{ gkey:'pos:print:advanced-toggle', class: tw`${showAdvanced ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [showAdvanced ? `⬆️ ${t.ui.print_hide_advanced}` : `⚙️ ${t.ui.print_show_advanced}`]),
-        UI.Button({ attrs:{ gkey:'pos:print:manage-toggle', class: tw`${managePrinters ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [managePrinters ? `⬆️ ${t.ui.print_manage_hide}` : `🖨️ ${t.ui.print_manage_printers}`])
+        UI.Button({ attrs:{ gkey:'pos:print:advanced-toggle', class: tw`${showAdvanced ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [showAdvanced ? `⬆️ ${t.ui.print_hide_advanced}` : `⚙️ ${t.ui.print_show_advanced}`]),
+        UI.Button({ attrs:{ gkey:'pos:print:manage-toggle', class: tw`${managePrinters ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [managePrinters ? `⬆️ ${t.ui.print_manage_hide}` : `🖨️ ${t.ui.print_manage_printers}`]),
+        UI.Button({ attrs:{ gkey:'pos:print:preview-expand', class: tw`${previewExpanded ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [previewExpanded ? `🗕 ${t.ui.print_preview_collapse}` : `🗗 ${t.ui.print_preview_expand}`])
       ]);
 
       const modalContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -1641,6 +1655,7 @@
 
       return UI.Modal({
         open:true,
+        size:'xl',
         title: t.ui.print,
         description: t.ui.print_profile,
         content: modalContent,
@@ -1723,7 +1738,7 @@
               attrs:{
                 gkey:'pos:reservations:form:table',
                 'data-table-id':tbl.id,
-                class: tw`rounded-full px-3 py-1 text-sm ${selectedTables.has(tbl.id) ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'bg-[var(--surface-2)]'}`
+                class: tw`rounded-full px-3 py-1 text-sm ${selectedTables.has(tbl.id) ? 'bg-[var(--primary)] text-[var(--foreground)] dark:text-[var(--primary-foreground)]' : 'bg-[var(--surface-2)]'}`
               },
               variant:'ghost',
               size:'sm'
@@ -1761,6 +1776,7 @@
 
       return UI.Modal({
         open:true,
+        size:'lg',
         title:t.ui.reservations,
         description:t.ui.reservations_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -2484,6 +2500,17 @@
           ctx.rebuild();
         }
       },
+      'pos.print.preview-expand':{
+        on:['click'],
+        gkeys:['pos:print:preview-expand'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), previewExpanded: !s.ui?.print?.previewExpanded } }
+          }));
+          ctx.rebuild();
+        }
+      },
       'pos.print.manage-input':{
         on:['input','change'],
         gkeys:['pos:print:manage-input'],
@@ -2641,10 +2668,25 @@
         handler:(e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
-          if(typeof window !== 'undefined'){
-            window.print();
-            UI.pushToast(ctx, { title:t.toast.browser_print_opened, icon:'🖨️' });
+          if(typeof window === 'undefined') return;
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          const profile = state.data.print?.profiles?.[docType] || {};
+          const size = state.ui?.print?.size || profile.size || state.data.print?.size || 'thermal_80';
+          const html = renderPrintableHTML(state, docType, size);
+          const popup = window.open('', '_blank', 'width=960,height=1200');
+          if(!popup){
+            UI.pushToast(ctx, { title:t.toast.browser_popup_blocked, icon:'⚠️' });
+            return;
           }
+          try{
+            popup.document.open();
+            popup.document.write(html);
+            popup.document.close();
+            if(typeof popup.focus === 'function') popup.focus();
+          } catch(err){
+            console.error('Browser print failed', err);
+          }
+          UI.pushToast(ctx, { title:t.toast.browser_print_opened, icon:'🖨️' });
         }
       },
       'pos.reservations.open':{
