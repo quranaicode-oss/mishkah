@@ -94,7 +94,7 @@
           { id:'card', icon:'💳', name:{ ar:'بطاقة', en:'Card' }, type:'card' }
         ];
     const PAYMENT_METHODS = rawPaymentMethods.map(method=>({
-      id: method.id || method.code || String(method.name?.en || method.name?.ar || method.label?.en || method.label?.ar || 'method')),
+      id: method.id || method.code || String(method.name?.en || method.name?.ar || method.label?.en || method.label?.ar || 'method'),
       icon: method.icon || '💳',
       type: method.type || 'other',
       label:{
