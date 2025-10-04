@@ -103,6 +103,20 @@
       }
     }));
 
+    const CAIRO_DISTRICTS = [
+      { id:'heliopolis', ar:'هليوبوليس', en:'Heliopolis' },
+      { id:'nasr_city', ar:'مدينة نصر', en:'Nasr City' },
+      { id:'maadi', ar:'المعادي', en:'Maadi' },
+      { id:'zamalek', ar:'الزمالك', en:'Zamalek' },
+      { id:'dokki', ar:'الدقي', en:'Dokki' },
+      { id:'mohandeseen', ar:'المهندسين', en:'Mohandeseen' },
+      { id:'garden_city', ar:'جاردن سيتي', en:'Garden City' },
+      { id:'shoubra', ar:'شبرا', en:'Shoubra' },
+      { id:'rehab', ar:'الرحاب', en:'Al Rehab' },
+      { id:'fifth_settlement', ar:'التجمع الخامس', en:'Fifth Settlement' },
+      { id:'october', ar:'٦ أكتوبر', en:'6th of October' }
+    ];
+
     const SHIFT_SETTINGS = typeof MOCK.shift_settings === 'object' && MOCK.shift_settings ? MOCK.shift_settings : {};
     const SHIFT_PIN_FALLBACK = typeof SHIFT_SETTINGS.pin === 'string'
       ? SHIFT_SETTINGS.pin
@@ -131,6 +145,16 @@
           shift_cash_summary:'ملخص النقدية', shift_cash_collected:'إجمالي النقدي خلال الوردية',
           order_nav_label:'التنقل بين الفواتير', order_nav_open:'اذهب إلى فاتورة', order_nav_placeholder:'رقم الفاتورة أو الترتيب',
           order_nav_total:'إجمالي الفواتير', order_nav_no_history:'لا توجد فواتير محفوظة بعد',
+          customer_center:'مركز العملاء', customer_search:'ابحث عن عميل', customer_search_placeholder:'الاسم أو رقم الهاتف',
+          customer_tab_search:'بحث', customer_tab_create:'تكويد جديد', customer_new:'عميل جديد', customer_name:'اسم العميل',
+          customer_phones:'أرقام الهاتف', customer_add_phone:'إضافة رقم', customer_remove_phone:'حذف', customer_addresses:'عناوين العميل',
+          customer_add_address:'إضافة عنوان', customer_address_title:'وصف العنوان', customer_address_line:'تفاصيل العنوان',
+          customer_address_notes:'ملاحظات', customer_area:'المنطقة السكنية', customer_attach:'ربط بالطلب', customer_create:'حفظ العميل',
+          customer_no_results:'لا يوجد عملاء مطابقون', customer_multi_phone_hint:'يمكنك إضافة أكثر من رقم هاتف',
+          customer_multi_address_hint:'يمكنك إضافة أكثر من عنوان لنفس العميل', customer_keypad:'لوحة الأرقام',
+          customer_select_address:'اختر العنوان', customer_required_delivery:'مطلوب لطلبات التوصيل', customer_delivery_required:'يرجى ربط طلب التوصيل بعميل وعنوان',
+          customer_edit_action:'تعديل البيانات', customer_use_existing:'اختر من العملاء', customer_form_reset:'إعادة تعيين',
+          customer_edit:'تعديل العميل', customer_remove_address:'حذف العنوان',
           avg_ticket:'متوسط الفاتورة', top_selling:'الأكثر مبيعًا', sales_today:'مبيعات اليوم', save_order:'حفظ الطلب',
           settle_and_print:'تحصيل وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
@@ -196,6 +220,8 @@
           order_additions_blocked:'لا يمكن إضافة أصناف جديدة لهذا النوع من الطلبات بعد الحفظ',
           order_stage_locked:'لا يمكن تعديل الأصناف في هذه المرحلة', orders_loaded:'تم تحديث قائمة الطلبات',
           orders_failed:'تعذر تحميل الطلبات',
+          customer_saved:'تم حفظ بيانات العميل', customer_attach_success:'تم ربط العميل بالطلب',
+          customer_missing_selection:'اختر عميلًا أولًا', customer_missing_address:'اختر عنوانًا لهذا العميل', customer_form_invalid:'أكمل الاسم ورقم الهاتف',
           new_order:'تم إنشاء طلب جديد', order_type_changed:'تم تغيير نوع الطلب', table_assigned:'تم اختيار الطاولة',
           merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري المزامنة مع IndexedDB',
           theme_switched:'تم تغيير الثيم', lang_switched:'تم تغيير اللغة', logout_stub:'تم إنهاء الوردية افتراضيًا',
@@ -236,6 +262,16 @@
           shift_cash_summary:'Cash drawer summary', shift_cash_collected:'Cash collected',
           order_nav_label:'Invoice navigator', order_nav_open:'Go to invoice', order_nav_placeholder:'Invoice number or index',
           order_nav_total:'Total invoices', order_nav_no_history:'No saved invoices yet',
+          customer_center:'Customer hub', customer_search:'Search customers', customer_search_placeholder:'Name or phone number',
+          customer_tab_search:'Search', customer_tab_create:'New customer', customer_new:'New customer', customer_name:'Customer name',
+          customer_phones:'Phone numbers', customer_add_phone:'Add phone', customer_remove_phone:'Remove', customer_addresses:'Customer addresses',
+          customer_add_address:'Add address', customer_address_title:'Address label', customer_address_line:'Address details',
+          customer_address_notes:'Notes', customer_area:'Area', customer_attach:'Link to order', customer_create:'Save customer',
+          customer_no_results:'No matching customers', customer_multi_phone_hint:'Store more than one phone per customer',
+          customer_multi_address_hint:'Store multiple delivery addresses per customer', customer_keypad:'Keypad',
+          customer_select_address:'Select address', customer_required_delivery:'Required for delivery orders', customer_delivery_required:'Please link delivery orders to a customer and address',
+          customer_edit_action:'Edit details', customer_use_existing:'Choose an existing customer', customer_form_reset:'Reset form',
+          customer_edit:'Edit customer', customer_remove_address:'Remove address',
           avg_ticket:'Average ticket', top_selling:'Top seller', sales_today:'Sales today', save_order:'Save order',
           settle_and_print:'Settle & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
           new_order:'New order', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
@@ -302,6 +338,8 @@
           order_additions_blocked:'Cannot add new items to this order type after saving',
           order_stage_locked:'Items cannot be modified at this stage', orders_loaded:'Orders list refreshed',
           orders_failed:'Failed to load orders',
+          customer_saved:'Customer saved successfully', customer_attach_success:'Customer linked to order',
+          customer_missing_selection:'Select a customer first', customer_missing_address:'Select an address for this customer', customer_form_invalid:'Please enter name and phone number',
           new_order:'New order created', order_type_changed:'Order type changed', table_assigned:'Table assigned',
           merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Syncing with IndexedDB…',
           theme_switched:'Theme updated', lang_switched:'Language updated', logout_stub:'Session ended (stub)',
@@ -522,6 +560,52 @@
         orders: ordersList,
         ordersCount,
         countsByType
+      };
+    }
+
+    function computeRealtimeReports(db){
+      const history = Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [];
+      const now = Date.now();
+      const start = new Date(now);
+      start.setHours(0,0,0,0);
+      const startTs = start.getTime();
+      const endTs = startTs + 24 * 60 * 60 * 1000;
+      let salesToday = 0;
+      let ordersCount = 0;
+      const itemCounter = new Map();
+      history.forEach(order=>{
+        if(!order) return;
+        const savedAt = order.savedAt || order.updatedAt || order.createdAt;
+        if(savedAt == null) return;
+        if(savedAt < startTs || savedAt >= endTs) return;
+        const amount = Number(order?.totals?.due || order.total || 0);
+        if(Number.isFinite(amount)){
+          salesToday += amount;
+        }
+        ordersCount += 1;
+        const lines = Array.isArray(order.lines) ? order.lines : [];
+        lines.forEach(line=>{
+          if(!line) return;
+          const key = line.itemId || line.name?.en || line.name?.ar || line.name;
+          if(!key) return;
+          const qty = Number(line.qty) || 0;
+          itemCounter.set(key, (itemCounter.get(key) || 0) + qty);
+        });
+      });
+      let topItemId = null;
+      let maxQty = 0;
+      itemCounter.forEach((qty, key)=>{
+        if(qty > maxQty){
+          maxQty = qty;
+          topItemId = key;
+        }
+      });
+      const avgTicket = ordersCount ? salesToday / ordersCount : 0;
+      return {
+        salesToday: round(salesToday),
+        ordersCount,
+        avgTicket: round(avgTicket),
+        topItemId
       };
     }
 
@@ -1351,7 +1435,13 @@
         allowAdditions,
         lockLineEdits,
         origin:'seed',
-        shiftId: raw.shift_id || header.shift_id || raw.shiftId || null
+        shiftId: raw.shift_id || header.shift_id || raw.shiftId || null,
+        customerId: raw.customer_id || raw.customerId || header.customer_id || header.customerId || null,
+        customerAddressId: raw.address_id || raw.addressId || header.address_id || header.addressId || null,
+        customerName: raw.customer_name || raw.customerName || header.customer_name || header.customerName || '',
+        customerPhone: raw.customer_phone || raw.customerPhone || header.customer_phone || header.customerPhone || '',
+        customerAddress: raw.customer_address || raw.customerAddress || header.customer_address || header.customerAddress || '',
+        customerAreaId: raw.customer_area_id || raw.customerAreaId || header.customer_area_id || header.customerAreaId || null
       };
     }
 
@@ -1394,6 +1484,62 @@
         cashierName: raw.cashier_name || raw.cashierName || '',
         status: closedAt ? 'closed' : 'open'
       };
+    }
+
+    function getDistrictLabel(id, lang){
+      const district = CAIRO_DISTRICTS.find(area=> area.id === id);
+      if(!district) return id || '';
+      return lang === 'ar' ? district.ar : district.en;
+    }
+
+    function createEmptyCustomerForm(){
+      return {
+        id:null,
+        name:'',
+        phones:[''],
+        addresses:[{ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' }]
+      };
+    }
+
+    function createInitialCustomers(){
+      const now = Date.now().toString(36).toUpperCase();
+      return [
+        {
+          id:`CUST-${now}-A`,
+          name:'أحمد خالد',
+          phones:['01000011223','01234567890'],
+          addresses:[
+            { id:`ADDR-${now}-1`, title:'المنزل', areaId:'nasr_city', line:'عمارات الشركة، شارع الطيران، مدينة نصر', notes:'' },
+            { id:`ADDR-${now}-2`, title:'العمل', areaId:'heliopolis', line:'شارع عمر بن الخطاب، هليوبوليس', notes:'التسليم عند البوابة' }
+          ]
+        },
+        {
+          id:`CUST-${now}-B`,
+          name:'سارة مصطفى',
+          phones:['01055667788'],
+          addresses:[
+            { id:`ADDR-${now}-3`, title:'المنزل', areaId:'maadi', line:'شارع 9، المعادي الجديدة', notes:'الطابق الثالث' }
+          ]
+        },
+        {
+          id:`CUST-${now}-C`,
+          name:'Mohamed Adel',
+          phones:['01122334455'],
+          addresses:[
+            { id:`ADDR-${now}-4`, title:'Home', areaId:'fifth_settlement', line:'بيت الوطن، التجمع الخامس', notes:'' }
+          ]
+        }
+      ];
+    }
+
+    function findCustomer(customers, id){
+      if(!id) return null;
+      return (Array.isArray(customers) ? customers : []).find(customer=> customer.id === id) || null;
+    }
+
+    function findCustomerAddress(customer, id){
+      if(!customer || !id) return null;
+      return (Array.isArray(customer.addresses) ? customer.addresses : []).find(address=> address.id === id) || null;
     }
 
     const seedOrders = Array.isArray(MOCK.orders) ? MOCK.orders.map(normalizeMockOrder).filter(Boolean) : [];
@@ -1546,7 +1692,13 @@
           isPersisted:false,
           origin:'pos',
           shiftId:null,
-          payments:[]
+          payments:[],
+          customerId:null,
+          customerAddressId:null,
+          customerName:'',
+          customerPhone:'',
+          customerAddress:'',
+          customerAreaId:null
         },
         orderStages,
         orderStatuses,
@@ -1564,6 +1716,8 @@
           activeMethod: PAYMENT_METHODS[0]?.id || 'cash',
           split:[]
         },
+        customers: createInitialCustomers(),
+        customerAreas: CAIRO_DISTRICTS,
         print:{
           size:'thermal_80',
           docType:'customer',
@@ -1597,12 +1751,7 @@
             }
           }
         },
-        reports:{
-          salesToday:12430,
-          ordersCount:58,
-          avgTicket:214,
-          topItemId: menuItems[0]?.id || null
-        },
+        reports:{ salesToday:0, ordersCount:0, avgTicket:0, topItemId:null },
         ordersHistory: ordersHistorySeed,
         shift:{
           current:null,
@@ -1619,6 +1768,7 @@
         print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' },
         orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } },
         shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null },
+        customer:{ open:false, mode:'search', search:'', keypad:'', selectedCustomerId:null, selectedAddressId:null, form:createEmptyCustomerForm() },
         orderNav:{ showPad:false, value:'' }
       }
     };
@@ -1960,11 +2110,11 @@
       const label = currentSeq ? `#${currentSeq} / ${total}` : `— / ${total}`;
       const disablePrev = currentIndex <= 0;
       const disableNext = currentIndex < 0 || currentIndex >= total - 1;
-      const navigatorRow = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm` }}, [
-        UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev }, variant:'ghost', size:'sm' }, ['←']),
-        D.Text.Span({ attrs:{ class: tw`font-semibold` }}, [label]),
-        UI.Button({ attrs:{ gkey:'pos:order:nav:pad' }, variant:'ghost', size:'sm' }, ['🔢']),
-        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext }, variant:'ghost', size:'sm' }, ['→'])
+      const navigatorRow = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-sm` }}, [
+        UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['⬅️']),
+        D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [label]),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:pad', class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['🔢']),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['➡️'])
       ]);
       const padVisible = !!db.ui.orderNav?.showPad;
       const padValue = db.ui.orderNav?.value || '';
@@ -1986,6 +2136,33 @@
           })
         : null;
       return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [navigatorRow, pad].filter(Boolean));
+    }
+
+    function OrderCustomerPanel(db){
+      const t = getTexts(db);
+      const order = db.data.order || {};
+      const customers = db.data.customers || [];
+      const customer = findCustomer(customers, order.customerId);
+      const address = customer ? findCustomerAddress(customer, order.customerAddressId) : null;
+      const phone = (order.customerPhone || (customer?.phones?.[0] || '')).trim();
+      const areaLabel = address ? getDistrictLabel(address.areaId, db.env.lang) : (order.customerAreaId ? getDistrictLabel(order.customerAreaId, db.env.lang) : '');
+      const summaryParts = [];
+      if(address?.title) summaryParts.push(address.title);
+      if(areaLabel) summaryParts.push(areaLabel);
+      if(address?.line) summaryParts.push(address.line);
+      const summary = summaryParts.join(' • ');
+      const requiresAddress = order.type === 'delivery';
+      const missing = requiresAddress && (!customer || !address);
+      const nameLabel = order.customerName || customer?.name || t.ui.customer_new;
+      return D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[color-mix(in oklab,var(--surface-1) 92%, transparent)] p-3` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+          D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [nameLabel]),
+          UI.Button({ attrs:{ gkey:'pos:customer:open', class: tw`h-9 rounded-full px-3 text-sm` }, variant:'soft', size:'sm' }, ['👤 ', t.ui.customer_attach])
+        ]),
+        phone ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`📞 ${phone}`]) : null,
+        summary ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`📍 ${summary}`]) : null,
+        missing ? UI.Badge({ text:t.ui.customer_required_delivery, variant:'badge' }) : null
+      ].filter(Boolean));
     }
 
     function OrderColumn(db){
@@ -2010,6 +2187,7 @@
                 content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
                   UI.Segmented({ items: serviceSegments, activeId: order.type }),
                   OrderNavigator(db),
+                  OrderCustomerPanel(db),
                   D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
                     D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
                     order.type === 'dine_in'
@@ -2054,7 +2232,7 @@
 
     function FooterBar(db){
       const t = getTexts(db);
-      const reports = db.data.reports || {};
+      const reports = computeRealtimeReports(db);
       const salesToday = new Intl.NumberFormat(getLocale(db)).format(reports.salesToday || 0);
       const currencyLabel = getCurrencySymbol(db);
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
@@ -2071,13 +2249,27 @@
         ],
         right:[
           reportsSummary,
-          UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`min-w-[130px]` }, variant:'ghost', size:'md' }, ['🆕 ', t.ui.new_order]),
-          UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
+          QuickActionButton({ gkey:'pos:order:new', icon:'🆕', label:t.ui.new_order, shortcut:'Ctrl+N', variant:'ghost' }),
+          QuickActionButton({ gkey:'pos:order:save', icon:'💾', label:t.ui.save_order, shortcut:'Ctrl+S', variant:'soft' }),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
           UI.Button({ attrs:{ gkey:'pos:order:export', class: tw`min-w-[150px]` }, variant:'ghost', size:'md' }, [t.ui.export_pdf]),
           UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[120px]` }, variant:'ghost', size:'md' }, [t.ui.print])
         ]
       });
+    }
+
+    function QuickActionButton({ gkey, icon, label, shortcut, variant }){
+      return UI.Button({
+        attrs:{ gkey, class: tw`min-w-[140px]` },
+        variant: variant || 'soft',
+        size:'md'
+      }, [
+        D.Containers.Div({ attrs:{ class: tw`flex w-full flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-2` }}, [
+          icon ? D.Text.Span({ attrs:{ class: tw`text-lg` }}, [icon]) : null,
+          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [label]),
+          shortcut ? UI.Badge({ text:shortcut, variant:'badge/ghost', attrs:{ class: tw`text-[0.7rem]` } }) : null
+        ].filter(Boolean))
+      ]);
     }
 
     function TablesModal(db){
@@ -2290,7 +2482,7 @@
 
       return UI.Modal({
         open:true,
-        size:'lg',
+        size:'full',
         title:t.ui.tables,
         description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -2647,7 +2839,7 @@
 
       return UI.Modal({
         open:true,
-        size:'lg',
+        size:'full',
         title:t.ui.reservations,
         description:t.ui.reservations_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -2912,7 +3104,8 @@
     function ReportsDrawer(db){
       const t = getTexts(db);
       if(!db.ui.modals.reports) return null;
-      const topItem = db.data.reports.topItemId ? (db.data.menu.items || []).find(it=> it.id === db.data.reports.topItemId) : null;
+      const reports = computeRealtimeReports(db);
+      const topItem = reports.topItemId ? (db.data.menu.items || []).find(it=> String(it.id) === String(reports.topItemId)) : null;
       return UI.Drawer({
         open:true,
         side:'start',
@@ -2921,11 +3114,170 @@
           UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, ['×'])
         ]),
         content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-          UI.StatCard({ title: t.ui.sales_today, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrencySymbol(db)}` }),
-          UI.StatCard({ title: t.ui.orders_count, value: String(db.data.reports.ordersCount) }),
-          UI.StatCard({ title: t.ui.avg_ticket, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.avgTicket)} ${getCurrencySymbol(db)}` }),
+          UI.StatCard({ title: t.ui.sales_today, value: `${new Intl.NumberFormat(getLocale(db)).format(reports.salesToday)} ${getCurrencySymbol(db)}` }),
+          UI.StatCard({ title: t.ui.orders_count, value: String(reports.ordersCount) }),
+          UI.StatCard({ title: t.ui.avg_ticket, value: `${new Intl.NumberFormat(getLocale(db)).format(reports.avgTicket)} ${getCurrencySymbol(db)}` }),
           topItem ? UI.StatCard({ title: t.ui.top_selling, value: localize(topItem.name, db.env.lang) }) : null
         ].filter(Boolean))
+      });
+    }
+
+    function CustomersModal(db){
+      const t = getTexts(db);
+      const customerUI = db.ui.customer || {};
+      if(!customerUI.open) return null;
+      const mode = customerUI.mode || 'search';
+      const searchValue = customerUI.search || '';
+      const keypadValue = customerUI.keypad || '';
+      const customers = Array.isArray(db.data.customers) ? db.data.customers : [];
+      const normalizedSearch = searchValue.trim().toLowerCase();
+      const filteredCustomers = normalizedSearch
+        ? customers.filter(customer=>{
+            const nameMatch = (customer.name || '').toLowerCase().includes(normalizedSearch);
+            const phoneMatch = (customer.phones || []).some(phone=> String(phone).includes(normalizedSearch));
+            return nameMatch || phoneMatch;
+          })
+        : customers;
+      let selectedCustomerId = customerUI.selectedCustomerId || db.data.order.customerId || null;
+      if(mode === 'search' && selectedCustomerId && !filteredCustomers.some(customer=> customer.id === selectedCustomerId)){
+        selectedCustomerId = null;
+      }
+      const selectedCustomer = selectedCustomerId ? findCustomer(customers, selectedCustomerId) : null;
+      let selectedAddressId = customerUI.selectedAddressId || db.data.order.customerAddressId || null;
+      if(mode === 'search' && selectedCustomer){
+        if(!selectedAddressId || !(selectedCustomer.addresses || []).some(address=> address.id === selectedAddressId)){
+          selectedAddressId = selectedCustomer.addresses?.[0]?.id || selectedAddressId;
+        }
+      } else if(!selectedCustomer){
+        selectedAddressId = null;
+      }
+      const selectedAddress = selectedCustomer ? findCustomerAddress(selectedCustomer, selectedAddressId) : null;
+      const areaOptions = (db.data.customerAreas || CAIRO_DISTRICTS).map(area=> ({ value: area.id, label: db.env.lang === 'ar' ? area.ar : area.en }));
+      const tabs = UI.Segmented({
+        items:[
+          { id:'search', label:`🔎 ${t.ui.customer_tab_search}`, attrs:{ gkey:'pos:customer:mode', 'data-mode':'search' } },
+          { id:'create', label:`➕ ${t.ui.customer_tab_create}`, attrs:{ gkey:'pos:customer:mode', 'data-mode':'create' } }
+        ],
+        activeId: mode
+      });
+      const customerList = filteredCustomers.length
+        ? UI.List({ children: filteredCustomers.map(customer=> UI.ListItem({
+              leading:'👤',
+              content:[
+                D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [customer.name]),
+                D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [customer.phones.join(' • ')])
+              ],
+              trailing: customer.addresses?.length ? UI.Badge({ text:String(customer.addresses.length), variant:'badge/ghost' }) : null,
+              attrs:{
+                gkey:'pos:customer:select',
+                'data-customer-id': customer.id,
+                class: tw`${customer.id === selectedCustomerId ? 'border-[var(--primary)] bg-[color-mix(in oklab,var(--primary) 10%, var(--surface-1))]' : ''}`
+              }
+            })) })
+        : UI.EmptyState({ icon:'🕵️‍♀️', title:t.ui.customer_no_results, description:t.ui.customer_search_placeholder });
+      const addressList = selectedCustomer && selectedCustomer.addresses?.length
+        ? UI.List({ children: selectedCustomer.addresses.map(address=> UI.ListItem({
+            leading:'📍',
+            content:[
+              D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [address.title || t.ui.customer_address_title]),
+              D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [
+                `${getDistrictLabel(address.areaId, db.env.lang)}${address.line ? ' • ' + address.line : ''}`
+              ])
+            ],
+            trailing: UI.Button({ attrs:{ gkey:'pos:customer:address:select', 'data-address-id':address.id, class: tw`h-8 rounded-full px-3 text-xs` }, variant:'soft', size:'sm' }, [address.id === selectedAddressId ? '✅' : t.ui.customer_select_address]),
+            attrs:{
+              class: tw`${address.id === selectedAddressId ? 'border-[var(--primary)] bg-[color-mix(in oklab,var(--primary) 12%, var(--surface-1))]' : ''}`
+            }
+          })) })
+        : UI.EmptyState({ icon:'📭', title:t.ui.customer_addresses, description:t.ui.customer_multi_address_hint });
+      const selectedDetails = selectedCustomer
+        ? UI.Card({
+            variant:'card/soft-1',
+            title:selectedCustomer.name,
+            content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`${t.ui.customer_phones}: ${selectedCustomer.phones.join(' • ')}`]),
+              addressList,
+              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, [
+                UI.Button({ attrs:{ gkey:'pos:customer:attach', class: tw`flex-1` }, variant:'solid', size:'sm' }, ['✅ ', t.ui.customer_attach]),
+                UI.Button({ attrs:{ gkey:'pos:customer:edit', class: tw`flex-1` }, variant:'ghost', size:'sm' }, ['✏️ ', t.ui.customer_edit_action || t.ui.customer_create])
+              ])
+            ])
+          })
+        : UI.EmptyState({ icon:'👤', title:t.ui.customer_use_existing || t.ui.customer_tab_search, description:t.ui.customer_search_placeholder });
+      const searchColumn = UI.Card({
+        variant:'card/soft-1',
+        title:t.ui.customer_search,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.Input({ attrs:{ type:'search', value: searchValue, placeholder:t.ui.customer_search_placeholder, gkey:'pos:customer:search' } }),
+          UI.NumpadDecimal({
+            attrs:{ class: tw`w-full` },
+            value: keypadValue,
+            placeholder:t.ui.customer_keypad,
+            gkey:'pos:customer:keypad',
+            allowDecimal:false,
+            confirmLabel:t.ui.customer_search,
+            confirmAttrs:{ gkey:'pos:customer:keypad:confirm', variant:'solid', size:'sm', class: tw`w-full` }
+          }),
+          customerList
+        ])
+      });
+      const formState = customerUI.form || createEmptyCustomerForm();
+      const formPhones = Array.isArray(formState.phones) && formState.phones.length ? formState.phones : [''];
+      const formAddresses = Array.isArray(formState.addresses) && formState.addresses.length ? formState.addresses : [createEmptyCustomerForm().addresses[0]];
+      const phoneFields = D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, formPhones.map((phone, index)=> UI.HStack({ attrs:{ class: tw`items-center gap-2` }}, [
+        UI.Input({ attrs:{ value: phone, placeholder:t.ui.customer_phone, gkey:'pos:customer:form:phone', 'data-index':index, inputmode:'tel' } }),
+        formPhones.length > 1 ? UI.Button({ attrs:{ gkey:'pos:customer:form:phone:remove', 'data-index':index, class: tw`h-9 rounded-full px-3 text-xs` }, variant:'ghost', size:'sm' }, ['✕']) : null
+      ].filter(Boolean))));
+      const addressFields = D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, formAddresses.map((address, index)=> UI.Card({
+        variant:'card/soft-2',
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+          UI.Field({ label:t.ui.customer_address_title, control: UI.Input({ attrs:{ value: address.title || '', gkey:'pos:customer:form:address:title', 'data-index':index, placeholder:t.ui.customer_address_title } }) }),
+          UI.Field({ label:t.ui.customer_area, control: UI.Select({ attrs:{ value: address.areaId || '', gkey:'pos:customer:form:address:area', 'data-index':index }, options: areaOptions }) }),
+          UI.Field({ label:t.ui.customer_address_line, control: UI.Input({ attrs:{ value: address.line || '', gkey:'pos:customer:form:address:line', 'data-index':index, placeholder:t.ui.customer_address_line } }) }),
+          UI.Field({ label:t.ui.customer_address_notes, control: UI.Textarea({ attrs:{ value: address.notes || '', gkey:'pos:customer:form:address:notes', 'data-index':index, rows:2, placeholder:t.ui.customer_address_notes } }) }),
+          formAddresses.length > 1 ? UI.Button({ attrs:{ gkey:'pos:customer:form:address:remove', 'data-index':index, class: tw`w-full` }, variant:'ghost', size:'sm' }, ['🗑️ ', t.ui.customer_remove_address]) : null
+        ].filter(Boolean))
+      })));
+      const formColumn = UI.Card({
+        variant:'card/soft-1',
+        title: formState.id ? t.ui.customer_edit : t.ui.customer_new,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.Field({ label:t.ui.customer_name, control: UI.Input({ attrs:{ value: formState.name || '', gkey:'pos:customer:form:name', placeholder:t.ui.customer_name } }) }),
+          D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.customer_multi_phone_hint]),
+          phoneFields,
+          UI.Button({ attrs:{ gkey:'pos:customer:form:phone:add', class: tw`w-full` }, variant:'ghost', size:'sm' }, ['➕ ', t.ui.customer_add_phone]),
+          UI.NumpadDecimal({
+            attrs:{ class: tw`w-full` },
+            value: keypadValue,
+            placeholder:t.ui.customer_keypad,
+            gkey:'pos:customer:keypad',
+            allowDecimal:false,
+            confirmLabel:t.ui.customer_add_phone,
+            confirmAttrs:{ gkey:'pos:customer:form:keypad:confirm', variant:'solid', size:'sm', class: tw`w-full` }
+          }),
+          D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.customer_multi_address_hint]),
+          addressFields,
+          UI.Button({ attrs:{ gkey:'pos:customer:form:address:add', class: tw`w-full` }, variant:'ghost', size:'sm' }, ['➕ ', t.ui.customer_add_address]),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, [
+            UI.Button({ attrs:{ gkey:'pos:customer:save', class: tw`flex-1` }, variant:'solid', size:'sm' }, ['💾 ', t.ui.customer_create]),
+            UI.Button({ attrs:{ gkey:'pos:customer:form:reset', class: tw`flex-1` }, variant:'ghost', size:'sm' }, ['↺ ', t.ui.customer_form_reset || t.ui.clear])
+          ])
+        ])
+      });
+      const bodyContent = mode === 'search'
+        ? D.Containers.Div({ attrs:{ class: tw`grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]` }}, [searchColumn, selectedDetails])
+        : D.Containers.Div({ attrs:{ class: tw`grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]` }}, [formColumn, D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm ${token('muted')}` }}, [t.ui.customer_multi_phone_hint]),
+            D.Text.Span({ attrs:{ class: tw`text-sm ${token('muted')}` }}, [t.ui.customer_multi_address_hint])
+          ])]);
+      return UI.Modal({
+        open:true,
+        size:'full',
+        closeGkey:'pos:customer:close',
+        title:t.ui.customer_center,
+        description: mode === 'search' ? t.ui.customer_use_existing || t.ui.customer_search : t.ui.customer_new,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [tabs, bodyContent]),
+        actions:[UI.Button({ attrs:{ gkey:'pos:customer:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])]
       });
     }
 
@@ -3108,7 +3460,7 @@
       ].filter(Boolean);
       return UI.Modal({
         open:true,
-        size:'lg',
+        size:'full',
         closeGkey:'pos:shift:summary:close',
         title:t.ui.shift_summary,
         description:viewingCurrent ? t.ui.shift_current : t.ui.shift_history,
@@ -3128,6 +3480,7 @@
           FooterBar(db)
         ]),
         overlays:[
+          CustomersModal(db),
           ShiftPinDialog(db),
           ShiftSummaryModal(db),
           TablesModal(db),
@@ -3496,7 +3849,13 @@
                   lockLineEdits:false,
                   isPersisted:false,
                   shiftId: data.shift?.current?.id || null,
-                  payments:[]
+                  payments:[],
+                  customerId:null,
+                  customerAddressId:null,
+                  customerName:'',
+                  customerPhone:'',
+                  customerAddress:'',
+                  customerAreaId:null
                 },
                 payments:{ ...(data.payments || {}), split:[] },
                 tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
@@ -3959,6 +4318,599 @@
           }));
           ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.shift_close_success, icon:'✅' });
+        }
+      },
+      'pos.customer.open':{
+        on:['click'],
+        gkeys:['pos:customer:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const order = s.data.order || {};
+            const customers = Array.isArray(s.data.customers) ? s.data.customers : [];
+            const fallbackCustomerId = current.selectedCustomerId || order.customerId || customers[0]?.id || null;
+            const fallbackCustomer = findCustomer(customers, fallbackCustomerId);
+            const fallbackAddressId = current.selectedAddressId || order.customerAddressId || fallbackCustomer?.addresses?.[0]?.id || null;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...current,
+                  open:true,
+                  mode:'search',
+                  keypad:'',
+                  selectedCustomerId: fallbackCustomerId,
+                  selectedAddressId: fallbackAddressId
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.close':{
+        on:['click'],
+        gkeys:['pos:customer:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), open:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.mode':{
+        on:['click'],
+        gkeys:['pos:customer:mode'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-mode]');
+          if(!btn) return;
+          const mode = btn.getAttribute('data-mode') || 'search';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            let nextForm = current.form || createEmptyCustomerForm();
+            if(mode === 'create' && (!nextForm || typeof nextForm !== 'object')){
+              nextForm = createEmptyCustomerForm();
+            }
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...current,
+                  mode,
+                  keypad:'',
+                  form: nextForm
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.search':{
+        on:['input','change'],
+        gkeys:['pos:customer:search'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const customers = Array.isArray(s.data.customers) ? s.data.customers : [];
+            const normalized = value.trim().toLowerCase();
+            let selectedId = current.selectedCustomerId || s.data.order?.customerId || null;
+            if(normalized){
+              const matches = customers.filter(customer=>{
+                const name = (customer.name || '').toLowerCase();
+                const phoneMatch = (customer.phones || []).some(phone=> String(phone).includes(normalized));
+                return name.includes(normalized) || phoneMatch;
+              }).map(customer=> customer.id);
+              if(matches.length){
+                if(!matches.includes(selectedId)){
+                  selectedId = matches[0];
+                }
+              } else {
+                selectedId = null;
+              }
+            }
+            let selectedAddressId = current.selectedAddressId;
+            if(selectedId){
+              const selectedCustomer = findCustomer(customers, selectedId);
+              if(!selectedCustomer){
+                selectedAddressId = null;
+              } else if(!selectedAddressId || !(selectedCustomer.addresses || []).some(address=> address.id === selectedAddressId)){
+                selectedAddressId = selectedCustomer.addresses?.[0]?.id || null;
+              }
+            } else {
+              selectedAddressId = null;
+            }
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...current,
+                  search:value,
+                  selectedCustomerId:selectedId,
+                  selectedAddressId
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.keypad':{
+        on:['input','change'],
+        gkeys:['pos:customer:keypad'],
+        handler:(e,ctx)=>{
+          const digits = (e.target.value || '').replace(/[^0-9+]/g,'');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), keypad:digits } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.keypad.confirm':{
+        on:['click'],
+        gkeys:['pos:customer:keypad:confirm'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const keypad = (current.keypad || '').trim();
+            const customers = Array.isArray(s.data.customers) ? s.data.customers : [];
+            let selectedId = current.selectedCustomerId || s.data.order?.customerId || null;
+            if(keypad){
+              const matches = customers.filter(customer=>{
+                const name = (customer.name || '').toLowerCase();
+                const phoneMatch = (customer.phones || []).some(phone=> String(phone).includes(keypad));
+                return name.includes(keypad.toLowerCase()) || phoneMatch;
+              }).map(customer=> customer.id);
+              if(matches.length){
+                if(!matches.includes(selectedId)){
+                  selectedId = matches[0];
+                }
+              } else {
+                selectedId = null;
+              }
+            }
+            let selectedAddressId = current.selectedAddressId;
+            if(selectedId){
+              const selectedCustomer = findCustomer(customers, selectedId);
+              if(!selectedCustomer){
+                selectedAddressId = null;
+              } else if(!selectedAddressId || !(selectedCustomer.addresses || []).some(address=> address.id === selectedAddressId)){
+                selectedAddressId = selectedCustomer.addresses?.[0]?.id || null;
+              }
+            } else {
+              selectedAddressId = null;
+            }
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...current,
+                  search: keypad,
+                  keypad:'',
+                  selectedCustomerId:selectedId,
+                  selectedAddressId
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.select':{
+        on:['click'],
+        gkeys:['pos:customer:select'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-customer-id]');
+          if(!btn) return;
+          const id = btn.getAttribute('data-customer-id');
+          ctx.setState(s=>{
+            const customers = s.data.customers || [];
+            const customer = findCustomer(customers, id);
+            const firstAddress = customer?.addresses?.[0]?.id || null;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...(s.ui?.customer || {}),
+                  selectedCustomerId:id,
+                  selectedAddressId: firstAddress || s.ui?.customer?.selectedAddressId || null
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.address.select':{
+        on:['click'],
+        gkeys:['pos:customer:address:select'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-address-id]');
+          if(!btn) return;
+          const id = btn.getAttribute('data-address-id');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), selectedAddressId:id } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.attach':{
+        on:['click'],
+        gkeys:['pos:customer:attach'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const customers = state.data.customers || [];
+          const customerId = state.ui?.customer?.selectedCustomerId || state.data.order?.customerId;
+          const customer = findCustomer(customers, customerId);
+          if(!customer){
+            UI.pushToast(ctx, { title:t.toast.customer_missing_selection, icon:'⚠️' });
+            return;
+          }
+          const addressId = state.ui?.customer?.selectedAddressId || state.data.order?.customerAddressId || null;
+          const address = addressId ? findCustomerAddress(customer, addressId) : null;
+          if(state.data.order?.type === 'delivery' && !address){
+            UI.pushToast(ctx, { title:t.toast.customer_missing_address, icon:'⚠️' });
+            return;
+          }
+          ctx.setState(s=>{
+            const order = s.data.order || {};
+            return {
+              ...s,
+              data:{
+                ...s.data,
+                order:{
+                  ...order,
+                  customerId: customer.id,
+                  customerAddressId: address?.id || null,
+                  customerName: customer.name,
+                  customerPhone: customer.phones?.[0] || '',
+                  customerAddress: address?.line || address?.title || '',
+                  customerAreaId: address?.areaId || null
+                }
+              },
+              ui:{
+                ...(s.ui || {}),
+                customer:{ ...(s.ui?.customer || {}), open:false }
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.customer_attach_success, icon:'✅' });
+        }
+      },
+      'pos.customer.edit':{
+        on:['click'],
+        gkeys:['pos:customer:edit'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const customers = state.data.customers || [];
+          const customerId = state.ui?.customer?.selectedCustomerId || state.data.order?.customerId;
+          const customer = findCustomer(customers, customerId);
+          if(!customer) return;
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              customer:{
+                ...(s.ui?.customer || {}),
+                mode:'create',
+                keypad:'',
+                form:{
+                  id: customer.id,
+                  name: customer.name,
+                  phones: (customer.phones || []).slice(),
+                  addresses: (customer.addresses || []).map(address=> ({ ...address }))
+                }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.reset':{
+        on:['click'],
+        gkeys:['pos:customer:form:reset'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), form:createEmptyCustomerForm(), keypad:'' } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.name':{
+        on:['input','change'],
+        gkeys:['pos:customer:form:name'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            form.name = value;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.phone':{
+        on:['input','change'],
+        gkeys:['pos:customer:form:phone'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          const value = (e.target.value || '').replace(/[^0-9+]/g,'');
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const phones = Array.isArray(form.phones) ? form.phones.slice() : [];
+            while(phones.length <= index) phones.push('');
+            phones[index] = value;
+            form.phones = phones;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.phone.add':{
+        on:['click'],
+        gkeys:['pos:customer:form:phone:add'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const phones = Array.isArray(form.phones) ? form.phones.slice() : [];
+            phones.push('');
+            form.phones = phones;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.phone.remove':{
+        on:['click'],
+        gkeys:['pos:customer:form:phone:remove'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            let phones = Array.isArray(form.phones) ? form.phones.slice() : [];
+            if(phones.length <= 1) return s;
+            phones = phones.filter((_,i)=> i !== index);
+            form.phones = phones.length ? phones : [''];
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address.add':{
+        on:['click'],
+        gkeys:['pos:customer:form:address:add'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            addresses.push({ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' });
+            form.addresses = addresses;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address.remove':{
+        on:['click'],
+        gkeys:['pos:customer:form:address:remove'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            let addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            if(addresses.length <= 1) return s;
+            addresses = addresses.filter((_,i)=> i !== index);
+            form.addresses = addresses.length ? addresses : [{ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' }];
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address:title':{
+        on:['input','change'],
+        gkeys:['pos:customer:form:address:title'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            while(addresses.length <= index) addresses.push({ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' });
+            addresses[index] = { ...(addresses[index] || {}), title:value };
+            form.addresses = addresses;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address:area':{
+        on:['change'],
+        gkeys:['pos:customer:form:address:area'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            while(addresses.length <= index) addresses.push({ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' });
+            addresses[index] = { ...(addresses[index] || {}), areaId:value };
+            form.addresses = addresses;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address:line':{
+        on:['input','change'],
+        gkeys:['pos:customer:form:address:line'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            while(addresses.length <= index) addresses.push({ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' });
+            addresses[index] = { ...(addresses[index] || {}), line:value };
+            form.addresses = addresses;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.address:notes':{
+        on:['input','change'],
+        gkeys:['pos:customer:form:address:notes'],
+        handler:(e,ctx)=>{
+          const index = Number(e.target.getAttribute('data-index')||0);
+          const value = e.target.value || '';
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const addresses = Array.isArray(form.addresses) ? form.addresses.slice() : [];
+            while(addresses.length <= index) addresses.push({ id:null, title:'', areaId: CAIRO_DISTRICTS[0]?.id || '', line:'', notes:'' });
+            addresses[index] = { ...(addresses[index] || {}), notes:value };
+            form.addresses = addresses;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.form.keypad.confirm':{
+        on:['click'],
+        gkeys:['pos:customer:form:keypad:confirm'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const current = s.ui?.customer || {};
+            const digits = (current.keypad || '').trim();
+            if(!digits) return s;
+            const form = current.form ? { ...current.form } : createEmptyCustomerForm();
+            const phones = Array.isArray(form.phones) ? form.phones.slice() : [];
+            if(phones.length && !phones[phones.length - 1]){
+              phones[phones.length - 1] = digits;
+            } else {
+              phones.push(digits);
+            }
+            form.phones = phones;
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), customer:{ ...current, form, keypad:'' } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.customer.save':{
+        on:['click'],
+        gkeys:['pos:customer:save'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const form = state.ui?.customer?.form || createEmptyCustomerForm();
+          const name = (form.name || '').trim();
+          const phones = (form.phones || []).map(phone=> String(phone || '').trim()).filter(Boolean);
+          if(!name || !phones.length){
+            UI.pushToast(ctx, { title:t.toast.customer_form_invalid, icon:'⚠️' });
+            return;
+          }
+          const addresses = (form.addresses || []).map((address, idx)=>({
+            id: address.id || `ADDR-${Date.now().toString(36)}-${idx}`,
+            title: address.title || '',
+            areaId: address.areaId || CAIRO_DISTRICTS[0]?.id || '',
+            line: address.line || '',
+            notes: address.notes || ''
+          }));
+          const customerId = form.id || `CUST-${Date.now().toString(36).toUpperCase()}`;
+          ctx.setState(s=>{
+            const customers = Array.isArray(s.data.customers) ? s.data.customers.slice() : [];
+            const index = customers.findIndex(customer=> customer.id === customerId);
+            const payload = { id: customerId, name, phones, addresses };
+            if(index >= 0){
+              customers[index] = payload;
+            } else {
+              customers.push(payload);
+            }
+            const currentOrder = s.data.order || {};
+            let nextOrder = currentOrder;
+            if(currentOrder.customerId && currentOrder.customerId === payload.id){
+              const attachedAddress = payload.addresses.find(address=> address.id === currentOrder.customerAddressId) || payload.addresses[0] || null;
+              nextOrder = {
+                ...currentOrder,
+                customerName: payload.name,
+                customerPhone: payload.phones[0] || '',
+                customerAddressId: attachedAddress?.id || null,
+                customerAddress: attachedAddress?.line || attachedAddress?.title || '',
+                customerAreaId: attachedAddress?.areaId || null
+              };
+            }
+            return {
+              ...s,
+              data:{ ...(s.data || {}), customers, order: nextOrder },
+              ui:{
+                ...(s.ui || {}),
+                customer:{
+                  ...(s.ui?.customer || {}),
+                  mode:'search',
+                  form:createEmptyCustomerForm(),
+                  keypad:'',
+                  selectedCustomerId: payload.id,
+                  selectedAddressId: nextOrder.customerAddressId || payload.addresses?.[0]?.id || null
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.customer_saved, icon:'💾' });
         }
       },
       'pos.order.nav.prev':{
