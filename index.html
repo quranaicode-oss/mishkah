@@ -26,6 +26,7 @@
       --letters-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.35);
       --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
       --accent-ring: rgba(79, 70, 229, 0.18);
+      --tile-size: 3.1rem;
     }
 
     :root.dark {
@@ -43,6 +44,14 @@
       --accent-ring: rgba(129, 140, 248, 0.35);
     }
 
+    @media (min-width: 640px) {
+      :root { --tile-size: 3.25rem; }
+    }
+
+    @media (min-width: 1024px) {
+      :root { --tile-size: 3.4rem; }
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -50,11 +59,12 @@
     body {
       margin: 0;
       min-height: 100vh;
+      height: 100vh;
       font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--page-gradient);
       color: var(--foreground);
       position: relative;
-      overflow-x: hidden;
+      overflow: hidden;
       transition: background 0.45s ease, color 0.45s ease;
     }
 
@@ -78,6 +88,29 @@
     #app {
       position: relative;
       z-index: 1;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      max-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .content-shell {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .main-region {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-bottom: 4rem;
+      scroll-behavior: smooth;
     }
 
     .glass-panel {
@@ -104,6 +137,16 @@
       text-shadow: 0 2px 12px rgba(15, 23, 42, 0.2);
     }
 
+    .letter-slot {
+      width: var(--tile-size);
+      height: var(--tile-size);
+    }
+
+    .letter-space {
+      width: calc(var(--tile-size) * 0.5);
+      height: var(--tile-size);
+    }
+
     .letter-tile[data-revealed="true"] {
       transform: translateY(-6px) scale(1.03);
       box-shadow: 0 18px 40px -22px rgba(79, 70, 229, 0.55);
@@ -117,7 +160,9 @@
       font-size: 1.25rem;
       font-weight: 700;
       border-radius: 0.9rem !important;
-      height: 3.25rem;
+      height: var(--tile-size);
+      min-height: var(--tile-size);
+      min-width: var(--tile-size);
     }
 
     .letters-grid button:hover:not([disabled]) {
@@ -213,8 +258,8 @@
     }
 
     .md-prose thead {
-      background: color-mix(in oklab, var(--primary) 14%, var(--card));
-      color: var(--primary-foreground);
+      background: color-mix(in oklab, var(--surface-2) 55%, var(--primary) 45%);
+      color: color-mix(in oklab, var(--primary-foreground) 65%, var(--foreground) 35%);
     }
 
     .md-prose th,
@@ -222,6 +267,112 @@
       padding: 0.85em 1em;
       border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
       text-align: start;
+    }
+
+    .md-prose tbody tr:nth-child(even) {
+      background: color-mix(in oklab, var(--surface-1) 80%, transparent);
+    }
+
+    .md-prose img {
+      max-width: 100%;
+      height: auto;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .settings-tile {
+      border-radius: 1.5rem;
+      padding: 1rem 1.25rem;
+      background: color-mix(in oklab, var(--surface-2) 70%, transparent);
+      border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+      box-shadow: 0 12px 35px -22px rgba(15, 23, 42, 0.35);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .game-panel {
+      position: relative;
+    }
+
+    .game-board {
+      position: relative;
+      transition: transform 0.35s ease;
+    }
+
+    .puzzle-row {
+      animation-duration: 0.6s;
+      animation-timing-function: ease-in-out;
+    }
+
+    .game-board.feedback-correct .puzzle-row {
+      animation-name: tilePop;
+    }
+
+    .game-board.feedback-wrong .puzzle-row {
+      animation-name: tileShake;
+    }
+
+    .game-board.feedback-win .puzzle-row {
+      animation-name: tileCelebrate;
+    }
+
+    .game-board.feedback-lose .puzzle-row {
+      animation-name: tileFade;
+    }
+
+    .celebration-card,
+    .gameover-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .celebration-card::after {
+      content: '';
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at 50% 20%, rgba(79, 70, 229, 0.25), transparent 55%);
+      opacity: 0.8;
+      animation: pulseNebula 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .gameover-card::after {
+      content: '';
+      position: absolute;
+      inset: -30%;
+      background: radial-gradient(circle at 50% 80%, rgba(239, 68, 68, 0.25), transparent 65%);
+      opacity: 0.7;
+      animation: overlayPulse 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .game-overlay-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .confetti-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 25;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -10vh;
+      width: 0.55rem;
+      height: 1.6rem;
+      border-radius: 999px;
+      opacity: 0;
+      animation: confettiFall 3.6s ease-in forwards;
+    }
+
+    .confetti-piece:nth-child(odd) {
+      animation-duration: 4s;
     }
 
     .md-prose a {
@@ -251,6 +402,43 @@
       0% { opacity: 0.45; }
       50% { opacity: 0.75; }
       100% { opacity: 0.45; }
+    }
+
+    @keyframes tilePop {
+      0% { transform: scale(0.94); }
+      40% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes tileShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+
+    @keyframes tileCelebrate {
+      0% { transform: translateY(0) scale(1); }
+      30% { transform: translateY(-10px) scale(1.05); }
+      70% { transform: translateY(4px) scale(0.98); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    @keyframes tileFade {
+      0% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    @keyframes overlayPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes confettiFall {
+      0% { opacity: 0; transform: translate3d(0, -20vh, 0) rotate(0deg); }
+      10% { opacity: 1; }
+      100% { opacity: 0; transform: translate3d(0, 110vh, 0) rotate(360deg); }
     }
   </style>
 </head>
@@ -294,6 +482,7 @@
     /* ===================== i18n: المعاجم اللغوية ===================== */
     const dict = {
       'app.title'   : { ar:'مشكاة — مشكاة النور ولعبة الأمثال', en:'Mishkah — Lighthouse Docs & Proverbs Game' },
+      'header.subtitle': { ar:'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال في لوحة واحدة واسعة.', en:'A radiant hub that unifies the docs, controls, and the Proverbs game in a spacious canvas.' },
       'nav.menu'       : { ar:'التنقل', en:'Navigation' },
       'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
       'nav.readmeTec'  : { ar:'وثيقة مشكاة التقنية', en:'Mishkah Technical Charter' },
@@ -320,7 +509,29 @@
       'game.lesson'    : { ar:'ما نتعلمه', en:'Key Lesson' },
       'game.source'    : { ar:'المصدر', en:'Source' },
       'game.timeLabel' : { ar:'الوقت المتبقي', en:'Time Left' },
-      'game.letters'   : { ar:'الأحرف المتاحة', en:'Available Letters' }
+      'game.letters'   : { ar:'الأحرف المتاحة', en:'Available Letters' },
+      'game.statusLabel': { ar:'حالة اللعبة', en:'Game Status' },
+      'game.status.idle': { ar:'جاهزة', en:'Ready' },
+      'game.status.running': { ar:'قيد اللعب', en:'In Progress' },
+      'game.status.won' : { ar:'انتصار', en:'Victory' },
+      'game.status.lost': { ar:'خسارة', en:'Defeat' },
+      'game.feedback.correct': { ar:'أحسنت! حرف صحيح يقترب بك من الحكمة.', en:'Great job! A correct letter brings you closer to the wisdom.' },
+      'game.feedback.wrong'  : { ar:'هذه المحاولة لم تصب الهدف، جرّب مسارًا آخر.', en:'That guess missed the mark—try another path.' },
+      'game.feedback.win'    : { ar:'إبداع! اكتملت الحكمة بالكامل.', en:'Brilliant! The proverb has been unveiled.' },
+      'game.feedback.lose'   : { ar:'انتهت المحاولات، لكن الحكمة ما زالت بانتظارك.', en:'The tries are over, yet the wisdom still awaits you.' },
+      'game.lastMove'        : { ar:'ردة فعل فورية', en:'Instant Feedback' },
+      'game.musicOn'         : { ar:'الموسيقى مفعّلة', en:'Music On' },
+      'game.musicOff'        : { ar:'الموسيقى متوقفة', en:'Music Off' },
+      'game.timerOn'         : { ar:'المؤقت نشط', en:'Timer Enabled' },
+      'game.timerOff'        : { ar:'المؤقت متوقف', en:'Timer Disabled' },
+      'game.overlay.winTitle'    : { ar:'مبروك! لقد فزت 🎉', en:'Bravo! You Won 🎉' },
+      'game.overlay.winSubtitle' : { ar:'جهدك أثمر حكمة مضيئة.', en:'Your effort blossomed into shining wisdom.' },
+      'game.overlay.loseTitle'   : { ar:'انتهت المحاولات', en:'Game Over' },
+      'game.overlay.loseSubtitle': { ar:'لا تيأس، الحكمة تُكافئ من يعاود المحاولة.', en:'Do not despair—the wisdom rewards another try.' },
+      'game.rewardTitle'     : { ar:'مكافأة الحكمة', en:'Wisdom Reward' },
+      'game.tryAgain'        : { ar:'حاول مجددًا', en:'Try Again' },
+      'game.playAgain'       : { ar:'العب مرة أخرى', en:'Play Again' },
+      'game.revealPrompt'    : { ar:'انقر لاكتشاف الحكمة كاملة بعد نهاية الجولة.', en:'Tap to reveal the full wisdom after the round ends.' }
     };
 
     /* ===================== Markdown: المحتوى المعرفي ===================== */
@@ -567,6 +778,13 @@
     const AR_ALPHA = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
     const norm = (ch)=> String(ch).replace(/[أإآ]/g,'ا');
 
+    const SOUND_EFFECTS = {
+      correct: 'https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3',
+      wrong: 'https://assets.mixkit.co/sfx/preview/mixkit-failure-arcade-alert-notification-240.mp3',
+      win: 'https://assets.mixkit.co/sfx/preview/mixkit-small-crowd-cheer-and-applause-518.mp3',
+      lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
+    };
+
 
     // ================================================================
     // الزوج الأول: التصميم والتسوية (تخطيط الجسد)
@@ -581,18 +799,18 @@
     
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
-      const toolbar = UI.Toolbar({
-        left:[ D.Text.Span({ attrs:{ class: tw`text-lg font-bold` }}, [TL('app.title')]) ],
-        right:[
-          UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
-          UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
-          UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
-        ]
-      });
-      return D.Containers.Header({ attrs:{ class: tw`px-4 pt-6 pb-4` }}, [
-        D.Containers.Div({ attrs:{ class: tw`max-w-6xl mx-auto w-full` }}, [
-          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl px-6 py-4 flex items-center justify-between`} glass-panel glow-outline` }}, [
-            toolbar
+      return D.Containers.Header({ attrs:{ class: tw`px-6 pt-6 pb-4` }}, [
+        D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[1600px]` }}, [
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-5`} glass-panel glow-outline` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
+              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+                UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
+                UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
+                UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
+              ])
+            ]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('header.subtitle')])
           ])
         ])
       ]);
@@ -667,53 +885,80 @@
         : (g.status==='lost' ? 0 : g.timerSec));
       const timeDisplay = g.timerOn ? `${String(timeValue ?? g.timerSec)} ${TL('game.seconds')}` : '—';
       const pv = g.proverb?.t || '';
+      const feedbackType = g.feedback && g.feedback.type ? g.feedback.type : 'idle';
+      const feedbackStamp = g.feedback?.stamp || 0;
 
-      const heartsRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-2xl`} glass-panel` }},
+      const heartsRow = D.Containers.Div({ attrs:{ class: tw`flex items-center justify-center gap-1 sm:gap-2 text-2xl sm:text-3xl drop-shadow` }},
         Array.from({ length:g.triesMax }, (_,i)=>{
           const full = i < g.triesLeft;
-          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-3xl ${full?'':'opacity-35'} drop-shadow` }}, [full ? '❤️' : '💔']);
+          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`${full?'':'opacity-35'}` }}, [full ? '❤️' : '💔']);
         })
       );
 
+      const statsRow = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2 text-sm` }}, [
+        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'⏳', text:`${TL('game.timeLabel')}: ${timeDisplay}` }),
+        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'❤️', text:`${TL('game.tries')}: ${g.triesLeft}/${g.triesMax}` }),
+        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'🎯', text:`${TL('game.statusLabel')}: ${TL(`game.status.${g.status}`)}` })
+      ]);
+
+      const musicTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
+        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'🎵', text:TL('game.music') }),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.musicOn ? 'game.musicOn' : 'game.musicOff')])
+        ]),
+        UI.Select({ attrs:{ gkey:'game:music:select', class: tw`min-w-[180px]` }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
+      ]);
+
+      const timerTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
+        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'⏱️', text:TL('game.timer') }),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.timerOn ? 'game.timerOn' : 'game.timerOff')])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
+          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+        ])
+      ]);
+
+      const settingsRow = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-stretch gap-4` }}, [
+        musicTile,
+        timerTile
+      ]);
+
       const tiles = pv.split('').map((raw, idx)=>{
-        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-6 md:w-8` }});
+        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: 'letter-space' }});
         const normalized = norm(raw);
         const revealed = !!g.guessed[normalized];
         return D.Containers.Div({
           attrs:{
             key:'bx'+idx,
-            class: `${tw`w-14 h-16 md:w-16 md:h-20 grid place-items-center rounded-2xl text-2xl md:text-3xl font-semibold letter-tile`}`,
+            class: `${tw`grid place-items-center rounded-2xl text-2xl md:text-3xl font-semibold letter-tile letter-slot`}`,
             'data-revealed': revealed ? 'true' : 'false'
           }
         }, [ revealed ? raw : '' ]);
       });
 
-      const puzzleRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap justify-center gap-3`}` }}, tiles);
+      const puzzleRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap justify-center gap-3`} puzzle-row` }}, tiles);
 
-      const letters = D.Containers.Div({ attrs:{ class: `${tw`grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-10 gap-2 letters-grid`}` }}, AR_ALPHA.map((L,i)=>
+      const letters = D.Containers.Div({ attrs:{ class: `${tw`grid grid-cols-6 sm:grid-cols-8 xl:grid-cols-10 gap-2 letters-grid`}` }}, AR_ALPHA.map((L,i)=>
         UI.Button({
           attrs:{
             key:'L'+i,
             gkey:'game:guess',
             'data-ch':L,
             disabled: g.status!=='running' || !!g.guessed[L],
-            class: tw`h-14 sm:h-16 text-xl sm:text-2xl font-extrabold tracking-wider`
+            class: tw`text-xl sm:text-2xl font-extrabold tracking-wider`
           },
           variant:'soft',
           size:'lg'
         }, [L])
       ));
 
-      const statusText = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
+      const feedbackClass = feedbackType && feedbackType!=='idle' ? ` feedback-${feedbackType}` : '';
 
-      const boardCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between` }}, [
-          heartsRow,
-          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2 text-sm` }}, [
-            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'⏳', text:`${TL('game.timeLabel')}: ${timeDisplay}` }),
-            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'❤️', text:`${TL('game.tries')}: ${g.triesLeft}/${g.triesMax}` })
-          ])
-        ]),
+      const boardCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl game-board${feedbackClass}` }}, [
         D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
           puzzleRow,
           UI.Divider(),
@@ -724,80 +969,134 @@
         ])
       ]);
 
-      const hintPanel = g.proverb
-        ? UI.Card({ variant:'card/soft-1', content:
-            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
-              UI.Badge({ variant:'badge/ghost', attrs:{ class: tw`w-fit text-xs uppercase tracking-[0.3em]` }, leading:'💡', text:TL('game.hintTitle') }),
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
-            ])
-          })
+      const heartsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full md:w-auto` }}, [heartsRow]);
+      const statsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full md:justify-end` }}, [statsRow]);
+
+      const controlCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+            D.Text.H3({ attrs:{ class: tw`text-2xl font-bold` }}, [TL('game.title')]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.statusLabel'), ': ', TL(`game.status.${g.status}`)])
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+          ])
+        ]),
+        settingsRow,
+        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-4` }}, [
+          heartsWrap,
+          statsWrap
+        ])
+      ]);
+
+      const feedbackMessages = {
+        correct: TL('game.feedback.correct'),
+        wrong: TL('game.feedback.wrong'),
+        win: TL('game.feedback.win'),
+        lose: TL('game.feedback.lose')
+      };
+      const feedbackIcons = { correct:'✅', wrong:'⚠️', win:'🏆', lose:'💔' };
+
+      const infoItems = [];
+      if (feedbackType !== 'idle' && feedbackMessages[feedbackType]){
+        infoItems.push(
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, key:'feedback-card' }}, [
+            UI.Badge({ attrs:{ class: tw`w-fit` }, leading: feedbackIcons[feedbackType] || '✨', text:TL('game.lastMove') }),
+            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [feedbackMessages[feedbackType]])
+          ])
+        );
+      }
+
+      if (g.proverb){
+        infoItems.push(
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, key:'hint-card' }}, [
+            UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'💡', text:TL('game.hintTitle') }),
+            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
+          ])
+        );
+      }
+
+      if (!showSolution && g.status==='lost'){
+        infoItems.push(
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-4 text-center`} glass-panel`, key:'reveal-card' }}, [
+            UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🙈', text:TL('game.lose') }),
+            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.revealPrompt')]),
+            UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-8 py-3 rounded-full font-semibold text-base` }, variant:'soft', size:'lg' }, [TL('game.reveal')])
+          ])
+        );
+      }
+
+      if (showSolution && g.proverb){
+        infoItems.push(
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, style:'grid-column: 1 / -1;', key:'solution-card' }}, [
+            UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'📜', text:TL('game.solution') }),
+            D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
+            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
+            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
+            D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source])
+          ])
+        );
+      }
+
+      let infoSection = null;
+      if (infoItems.length){
+        let infoClass = tw`grid gap-4`;
+        if (infoItems.length >= 3) infoClass += ' ' + tw`md:grid-cols-2 xl:grid-cols-3`;
+        else if (infoItems.length === 2) infoClass += ' ' + tw`md:grid-cols-2`;
+        infoSection = D.Containers.Div({ attrs:{ class: infoClass }}, infoItems);
+      }
+
+      const confettiLayer = feedbackType==='win'
+        ? D.Containers.Div({ attrs:{ class:'confetti-layer', key:`confetti-${feedbackStamp}` }},
+            Array.from({ length: 70 }, (_,i)=>{
+              const colors = ['#f97316','#38bdf8','#a855f7','#facc15','#f472b6'];
+              const left = (Math.random()*100).toFixed(2);
+              const delay = (Math.random()*1.2).toFixed(2);
+              return D.Text.Span({ attrs:{ key:`confetti-${i}`, class:'confetti-piece', style:`left:${left}%; background:${colors[i % colors.length]}; animation-delay:${delay}s;` }});
+            })
+          )
         : null;
 
-      const revealPanel = (!showSolution && g.status==='lost')
-        ? UI.Card({ variant:'card/soft-2', content:
-            D.Containers.Div({ attrs:{ class: tw`space-y-3 text-center` }}, [
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lose')]),
-              UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-8 py-3 rounded-full font-semibold text-base` }, variant:'soft', size:'lg' }, [TL('game.reveal')])
-            ])
-          })
-        : null;
-
-      const solutionPanel = (showSolution && g.proverb)
-        ? UI.Card({ variant:'card/soft-2', content:
-            D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-              UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'📜', text:TL('game.solution') }),
+      const resultCard = g.status==='won' && g.proverb
+        ? D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-4 text-center`} glass-panel celebration-card` }}, [
+            D.Containers.Div({ attrs:{ class: `${tw`space-y-3`} game-overlay-content` }}, [
+              UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🎉', text:TL('game.overlay.winTitle') }),
+              D.Text.P({ attrs:{ class: tw`text-base text-[var(--muted-foreground)]` }}, [TL('game.overlay.winSubtitle')]),
               D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
-              D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source])
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [TL('game.rewardTitle'), ': ', g.proverb.lesson]),
+              D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source]),
+              UI.Button({ attrs:{ gkey:'game:start', class: tw`mt-2 px-8 py-3 rounded-full font-semibold` }, variant:'destructive', size:'lg' }, [TL('game.playAgain')])
             ])
-          })
-        : null;
-
-      const statusPanel = statusText
-        ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg font-semibold` }}, [statusText]) })
-        : null;
-
-      const infoPanels = [statusPanel, hintPanel, revealPanel, solutionPanel].filter(Boolean);
-      const infoSection = infoPanels.length
-        ? D.Containers.Div({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-4` }}, infoPanels)
+          ])
+        : g.status==='lost'
+        ? D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-4 text-center`} glass-panel gameover-card` }}, [
+            D.Containers.Div({ attrs:{ class: `${tw`space-y-3`} game-overlay-content` }}, [
+              UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🛑', text:TL('game.overlay.loseTitle') }),
+              D.Text.P({ attrs:{ class: tw`text-base text-[var(--muted-foreground)]` }}, [TL('game.overlay.loseSubtitle')]),
+              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-3 pt-2` }}, [
+                UI.Button({ attrs:{ gkey:'game:start', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'destructive', size:'lg' }, [TL('game.tryAgain')]),
+                (!showSolution ? UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'soft', size:'lg' }, [TL('game.reveal')]) : null)
+              ].filter(Boolean))
+            ])
+          ])
         : null;
 
       const audioNode = (g.musicOn && g.status==='running')
         ? D.Media.Audio({ attrs:{ autoplay:true, loop:true, src:g.audioList[g.audioIdx].url, class: tw`hidden`, key:`bgm-${g.soundStamp||0}` }})
         : null;
 
-      return D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} animate-float` }}, [
-        D.Containers.Div({ attrs:{ class: `${tw`grid gap-5 xl:grid-cols-3`} glass-panel glow-outline p-6 rounded-3xl` }}, [
-          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-            D.Text.H3({ attrs:{ class: tw`text-2xl font-bold` }}, [TL('game.title')]),
-            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.tries'), ': ', String(g.triesLeft), ' / ', String(g.triesMax)]),
-            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
-          ]),
-          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-            D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.music')]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
-              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.music')])
-            ]),
-            UI.Select({ attrs:{ gkey:'game:music:select' }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
-          ]),
-          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-            D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.timer')]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
-              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.timer')])
-            ]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
-              D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
-            ]),
-            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.timeLabel'), ': ', timeDisplay])
-          ])
-        ]),
-        boardCard,
+      const cueAudio = (feedbackType && feedbackType!=='idle' && SOUND_EFFECTS[feedbackType])
+        ? D.Media.Audio({ attrs:{ autoplay:true, src:SOUND_EFFECTS[feedbackType], class: tw`hidden`, key:`cue-${feedbackStamp}` }})
+        : null;
+
+      return D.Containers.Div({ attrs:{ class: `${tw`relative space-y-6`} game-panel` }}, [
+        confettiLayer,
+        resultCard,
+        controlCard,
         infoSection,
-        audioNode
+        boardCard,
+        audioNode,
+        cueAudio
       ].filter(Boolean));
     }
 
@@ -840,7 +1139,8 @@
           intervalId: null,
           status: 'idle', // idle | running | won | lost
           revealSolution: false,
-          soundStamp: 0
+          soundStamp: 0,
+          feedback: null
         }
       },
       ui:{ modalOpen:false, drawerOpen:false, toasts:[] }
@@ -855,16 +1155,16 @@
     Mishkah.app.setBody(function(db, h){
       db.head = { title: makeLangLookup(db).TL('app.title') };
       return UI.AppRoot({
-        shell: D.Containers.Div({ attrs:{ class: tw`min-h-screen flex flex-col` }}, [
+        shell: D.Containers.Div({ attrs:{ class: `${tw`flex flex-col`} app-shell` }}, [
           HeaderBar(db),
-          D.Containers.Div({ attrs:{ class: tw`flex-1 w-full` }}, [
-            D.Containers.Div({ attrs:{ class: `${tw`max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 px-4 pb-12`}` }}, [
-              D.Containers.Aside({ attrs:{ class: tw`lg:w-[260px] hidden lg:block` }}, [
-                D.Containers.Div({ attrs:{ class: tw`sticky top-32` }}, [ Sidebar(db) ])
+          D.Containers.Div({ attrs:{ class: `${tw`flex-1 w-full`} content-shell` }}, [
+            D.Containers.Div({ attrs:{ class: `${tw`w-full mx-auto flex flex-col lg:flex-row gap-8 px-6 pb-12 max-w-[1600px]`}` }}, [
+              D.Containers.Aside({ attrs:{ class: `${tw`hidden lg:flex lg:w-[280px] lg:flex-col`}` }}, [
+                D.Containers.Div({ attrs:{ class: tw`sticky top-28` }}, [ Sidebar(db) ])
               ]),
-              D.Containers.Main({ attrs:{ class: tw`flex-1` }}, [
+              D.Containers.Main({ attrs:{ class: `${tw`flex-1 min-h-0`} main-region`, style:'max-height:100vh;' }}, [
                 D.Containers.Div({ attrs:{ class: tw`lg:hidden mb-6` }}, [ Sidebar(db) ]),
-                D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, [ MainContent(db) ])
+                D.Containers.Div({ attrs:{ class: tw`space-y-8` }}, [ MainContent(db) ])
               ])
             ])
           ])
@@ -929,14 +1229,16 @@
         const pv = PROVERBS[Math.floor(Math.random()*PROVERBS.length)];
         const stamp = Date.now();
         const baseTime = g0.timerOn ? g0.timerSec : 0;
-        const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft: baseTime, intervalId:null, revealSolution:false, soundStamp: stamp };
+        const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft: baseTime, intervalId:null, revealSolution:false, soundStamp: stamp, feedback:null };
         ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild();
 
         if (g1.timerOn) {
           const iid = setInterval(()=>{
             const s=ctx.getState(); const g=s.data.game; if (g.status!=='running') { clearInterval(iid); return; }
             let timeLeft = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
-            let triesLeft = g.triesLeft; let status = g.status;
+            let triesLeft = g.triesLeft;
+            let status = g.status;
+            let feedback = g.feedback;
             if (timeLeft <= 0) {
               triesLeft = Math.max(0, triesLeft - 1);
               if (triesLeft === 0) {
@@ -944,11 +1246,13 @@
                 timeLeft = 0;
                 if (g.intervalId) try{ clearInterval(g.intervalId); }catch(_){}
                 clearInterval(iid);
+                feedback = { type:'lose', stamp: Date.now() };
               } else {
                 timeLeft = g.timerSec;
+                feedback = { type:'wrong', stamp: Date.now() };
               }
             }
-            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status } }}); ctx.rebuild();
+            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status, feedback, revealSolution: status==='won' ? true : g.revealSolution } }}); ctx.rebuild();
           }, 1000);
           const s1=ctx.getState(); const g2=s1.data.game;
           ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.rebuild();
@@ -976,9 +1280,14 @@
         }
 
         const timeLeft = g.timerOn ? (status==='lost' ? 0 : (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)) : 0;
+        let feedbackType = has ? 'correct' : 'wrong';
+        if (status==='won') feedbackType = 'win';
+        if (status==='lost') feedbackType = 'lose';
+        const feedback = feedbackType ? { type: feedbackType, stamp: Date.now() } : null;
         ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, guessed, triesLeft, status,
           timeLeft,
-          revealSolution: status==='won' ? true : g.revealSolution
+          revealSolution: status==='won' ? true : g.revealSolution,
+          feedback
         }}}); ctx.rebuild();
       }},
       'game:reveal':{ on:['click'], gkeys:['game:reveal'], handler:(e,ctx)=>{
