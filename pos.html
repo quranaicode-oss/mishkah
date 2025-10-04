@@ -427,12 +427,12 @@
       .receipt .totals strong { display:flex; justify-content:space-between; margin-top:12px; font-size:${preset.total}; }
       footer { margin-top:24px; text-align:center; color:#94a3b8; font-size:${preset.meta}; }
     </style>
-    <script>
+    ${ "<"  +"script>"}
       window.addEventListener('load', function(){
         window.focus();
         setTimeout(function(){ try{ window.print(); } catch(_){} }, 200);
       });
-    </script>
+    ${ "</"  +"script>"}
   </head>
   <body>
     <article class="receipt">
