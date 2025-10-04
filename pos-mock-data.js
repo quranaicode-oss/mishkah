@@ -28,6 +28,65 @@ const database = {
     }
   },
 
+  // --- إعدادات الوردية ووسائل الدفع ---
+  shift_settings: {
+    opening_float: 500,
+    pin: '2580',
+    pin_length: 4
+  },
+
+  payment_methods: [
+    { id: 'cash', icon: '💵', name: { ar: 'نقدي', en: 'Cash' }, type: 'cash' },
+    { id: 'visa', icon: '💳', name: { ar: 'فيزا', en: 'Visa' }, type: 'card' },
+    { id: 'mastercard', icon: '💳', name: { ar: 'ماستر كارد', en: 'Mastercard' }, type: 'card' },
+    { id: 'insta', icon: '📱', name: { ar: 'InstaPay', en: 'InstaPay' }, type: 'wallet' }
+  ],
+
+  shifts: [
+    {
+      id: 'SHIFT-20240217-AM',
+      opened_at: '2024-02-17T08:00:00Z',
+      closed_at: '2024-02-17T16:00:00Z',
+      cashier_id: 'cashier-01',
+      cashier_name: 'أحمد محمود',
+      opening_float: 400,
+      closing_cash: 1435,
+      totals: {
+        dine_in: 6800,
+        takeaway: 2450,
+        delivery: 3100
+      },
+      payments: {
+        cash: 1035,
+        visa: 2800,
+        mastercard: 1750,
+        insta: 1765
+      },
+      orders: ['ord-1678796400000', 'ord-1678797400000', 'ord-1678798400000']
+    },
+    {
+      id: 'SHIFT-20240218-AM',
+      opened_at: '2024-02-18T07:30:00Z',
+      closed_at: '2024-02-18T15:30:00Z',
+      cashier_id: 'cashier-02',
+      cashier_name: 'سارة علي',
+      opening_float: 450,
+      closing_cash: 1580,
+      totals: {
+        dine_in: 7200,
+        takeaway: 1980,
+        delivery: 2550
+      },
+      payments: {
+        cash: 1130,
+        visa: 3150,
+        mastercard: 1650,
+        insta: 2750
+      },
+      orders: ['ord-1678886400000', 'ord-1678886500000', 'ord-1678886600000']
+    }
+  ],
+
   // --- تعريف الأقسام الرئيسية للمطبخ ---
   kitchen_sections: [
     {

@@ -86,6 +86,27 @@
       }
     }));
 
+    const rawPaymentMethods = Array.isArray(MOCK.payment_methods) && MOCK.payment_methods.length
+      ? MOCK.payment_methods
+      : [
+          { id:'cash', icon:'💵', name:{ ar:'نقدي', en:'Cash' }, type:'cash' },
+          { id:'card', icon:'💳', name:{ ar:'بطاقة', en:'Card' }, type:'card' }
+        ];
+    const PAYMENT_METHODS = rawPaymentMethods.map(method=>({
+      id: method.id || method.code || String(method.name?.en || method.name?.ar || method.label?.en || method.label?.ar || 'method')),
+      icon: method.icon || '💳',
+      type: method.type || 'other',
+      label:{
+        ar: method.name?.ar || method.label?.ar || method.id || 'نقدي',
+        en: method.name?.en || method.label?.en || method.id || 'Cash'
+      }
+    }));
+
+    const SHIFT_SETTINGS = typeof MOCK.shift_settings === 'object' && MOCK.shift_settings ? MOCK.shift_settings : {};
+    const SHIFT_PIN_VALUE = typeof SHIFT_SETTINGS.pin === 'string' ? SHIFT_SETTINGS.pin : (typeof SHIFT_SETTINGS.default_pin === 'string' ? SHIFT_SETTINGS.default_pin : '0000');
+    const SHIFT_PIN_LENGTH = Number(SHIFT_SETTINGS.pin_length || SHIFT_SETTINGS.pinLength || (SHIFT_PIN_VALUE ? SHIFT_PIN_VALUE.length : 4)) || 4;
+    const SHIFT_OPEN_FLOAT_DEFAULT = Number(SHIFT_SETTINGS.opening_float ?? SHIFT_SETTINGS.openingFloat ?? 0);
+
     const TEXTS = {
       ar:{
         ui:{
@@ -97,6 +118,15 @@
           select_table:'اختر طاولة لإسناد الطلب', table_status:'حالة الطاولة', table_available:'متاحة', table_occupied:'مشغولة',
           table_reserved:'محجوزة', table_maintenance:'صيانة', payments:'المدفوعات', split_payments:'تقسيم الدفعات', paid:'المدفوع',
           remaining:'المتبقي', open_payments:'تسجيل دفعة', open_reports:'فتح التقارير', reports:'التقارير', orders_count:'عدد الطلبات',
+          shift_open:'فتح وردية', shift_close:'إغلاق الوردية', shift_summary:'ملخص الوردية', shift_open_prompt:'أدخل الرقم السري لفتح الوردية',
+          shift_cash_start:'رصيد أول المدة', shift_cash_end:'رصيد آخر المدة', shift_total_sales:'إجمالي المبيعات',
+          shift_total_dine_in:'إجمالي طلبات الصالة', shift_total_takeaway:'إجمالي طلبات التيك أواي', shift_total_delivery:'إجمالي طلبات التوصيل',
+          shift_payments:'تحصيلات الوردية', shift_history:'سجل الورديات', shift_history_empty:'لا يوجد سجل ورديات بعد',
+          shift_close_confirm:'إنهاء وإغلاق الوردية', shift_current:'الوردية الحالية', shift_select_history:'اختيار وردية سابقة',
+          shift_open_button:'🔓 فتح وردية', shift_close_button:'🔒 إغلاق وردية', shift_orders_count:'عدد الطلبات في الوردية',
+          shift_cash_summary:'ملخص النقدية', shift_cash_collected:'إجمالي النقدي خلال الوردية',
+          order_nav_label:'التنقل بين الفواتير', order_nav_open:'اذهب إلى فاتورة', order_nav_placeholder:'رقم الفاتورة أو الترتيب',
+          order_nav_total:'إجمالي الفواتير', order_nav_no_history:'لا توجد فواتير محفوظة بعد',
           avg_ticket:'متوسط الفاتورة', top_selling:'الأكثر مبيعًا', sales_today:'مبيعات اليوم', save_order:'حفظ الطلب',
           settle_and_print:'تحصيل وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
@@ -178,7 +208,9 @@
           print_profile_saved:'تم حفظ إعدادات الطباعة', print_sent:'تم إرسال أمر الطباعة', pdf_exported:'تم تجهيز نسخة PDF للحفظ',
           printer_added:'تمت إضافة الطابعة', printer_removed:'تمت إزالة الطابعة', printer_exists:'الطابعة موجودة بالفعل',
           printer_name_required:'يرجى إدخال اسم الطابعة', browser_popup_blocked:'يرجى السماح بالنوافذ المنبثقة لإتمام التصدير',
-          browser_print_opened:'تم فتح أداة الطباعة في المتصفح'
+          browser_print_opened:'تم فتح أداة الطباعة في المتصفح', shift_open_success:'تم فتح الوردية بنجاح',
+          shift_close_success:'تم إغلاق الوردية بنجاح', shift_pin_invalid:'الرقم السري غير صحيح',
+          shift_required:'يجب فتح الوردية قبل حفظ الطلب', order_nav_not_found:'لم يتم العثور على فاتورة بهذا الرقم'
         }
       },
       en:{
@@ -191,6 +223,15 @@
           select_table:'Select a table for this order', table_status:'Table status', table_available:'Available', table_occupied:'Occupied',
           table_reserved:'Reserved', table_maintenance:'Maintenance', payments:'Payments', split_payments:'Split payments', paid:'Paid',
           remaining:'Remaining', open_payments:'Add payment', open_reports:'Open reports', reports:'Reports', orders_count:'Orders',
+          shift_open:'Open shift', shift_close:'Close shift', shift_summary:'Shift summary', shift_open_prompt:'Enter the PIN to open the shift',
+          shift_cash_start:'Opening cash', shift_cash_end:'Closing cash', shift_total_sales:'Total sales',
+          shift_total_dine_in:'Dine-in total', shift_total_takeaway:'Takeaway total', shift_total_delivery:'Delivery total',
+          shift_payments:'Shift payments', shift_history:'Shift history', shift_history_empty:'No shift history yet',
+          shift_close_confirm:'Finish and close shift', shift_current:'Active shift', shift_select_history:'Select a previous shift',
+          shift_open_button:'🔓 Open shift', shift_close_button:'🔒 Close shift', shift_orders_count:'Orders this shift',
+          shift_cash_summary:'Cash drawer summary', shift_cash_collected:'Cash collected',
+          order_nav_label:'Invoice navigator', order_nav_open:'Go to invoice', order_nav_placeholder:'Invoice number or index',
+          order_nav_total:'Total invoices', order_nav_no_history:'No saved invoices yet',
           avg_ticket:'Average ticket', top_selling:'Top seller', sales_today:'Sales today', save_order:'Save order',
           settle_and_print:'Settle & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
           new_order:'New order', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
@@ -273,7 +314,8 @@
           print_profile_saved:'Print profile saved', print_sent:'Print job sent', pdf_exported:'PDF export is ready',
           printer_added:'Printer added', printer_removed:'Printer removed', printer_exists:'Printer already exists',
           printer_name_required:'Please enter a printer name', browser_popup_blocked:'Allow pop-ups to finish the export',
-          browser_print_opened:'Browser print dialog opened'
+          browser_print_opened:'Browser print dialog opened', shift_open_success:'Shift opened successfully', shift_close_success:'Shift closed successfully',
+          shift_pin_invalid:'Invalid PIN', shift_required:'Please open a shift before saving the order', order_nav_not_found:'No invoice matches that number'
         }
       }
     };
@@ -1139,6 +1181,13 @@
       const lines = Array.isArray(raw.lines) ? raw.lines.map(line=> normalizeOrderLine(line, lineContext)).filter(Boolean) : [];
       const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId);
       const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, raw.author_id || header.author_id)).filter(Boolean) : [];
+      const payments = Array.isArray(raw.payments)
+        ? raw.payments.map(entry=>({
+            id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
+            method: entry.method || entry.method_id || entry.methodId || entry.type || 'cash',
+            amount: round(Number(entry.amount) || 0)
+          }))
+        : [];
       const events = Array.isArray(raw.events) ? raw.events.map(evt=>({
         id: evt.id || `${id}::evt::${toMillis(evt.at)}`,
         stage: evt.stage_id || evt.stageId || stageId,
@@ -1158,6 +1207,7 @@
         totals: normalizedTotals,
         lines,
         notes,
+        payments,
         events,
         createdAt,
         updatedAt,
@@ -1165,11 +1215,61 @@
         isPersisted:true,
         allowAdditions,
         lockLineEdits,
-        origin:'seed'
+        origin:'seed',
+        shiftId: raw.shift_id || header.shift_id || raw.shiftId || null
+      };
+    }
+
+    function normalizeMockShift(raw){
+      if(!raw) return null;
+      const id = raw.id || `SHIFT-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+      const openedAt = toMillis(raw.opened_at || raw.openedAt);
+      const closedAt = toMillis(raw.closed_at || raw.closedAt);
+      const openingFloat = Number(raw.opening_float ?? raw.openingFloat ?? 0);
+      const closingCashRaw = Number(raw.closing_cash ?? raw.closingCash ?? 0);
+      const totals = raw.totals && typeof raw.totals === 'object' ? raw.totals : {};
+      const payments = raw.payments && typeof raw.payments === 'object' ? raw.payments : {};
+      const totalsByType = {
+        dine_in: round(Number(totals.dine_in) || 0),
+        takeaway: round(Number(totals.takeaway) || 0),
+        delivery: round(Number(totals.delivery) || 0)
+      };
+      const paymentsByMethod = PAYMENT_METHODS.reduce((acc, method)=>{
+        const value = payments[method.id] ?? payments[method.code] ?? payments[method.name] ?? 0;
+        acc[method.id] = round(Number(value) || 0);
+        return acc;
+      }, {});
+      Object.keys(payments).forEach(key=>{
+        if(!(key in paymentsByMethod)){
+          paymentsByMethod[key] = round(Number(payments[key]) || 0);
+        }
+      });
+      const totalSales = round((totalsByType.dine_in || 0) + (totalsByType.takeaway || 0) + (totalsByType.delivery || 0));
+      return {
+        id,
+        openedAt,
+        closedAt,
+        openingFloat: round(openingFloat),
+        closingCash: closingCashRaw ? round(closingCashRaw) : null,
+        totalsByType,
+        paymentsByMethod,
+        totalSales,
+        orders: Array.isArray(raw.orders) ? raw.orders.slice() : [],
+        cashierId: raw.cashier_id || raw.cashierId || '',
+        cashierName: raw.cashier_name || raw.cashierName || '',
+        status: closedAt ? 'closed' : 'open'
       };
     }
 
     const seedOrders = Array.isArray(MOCK.orders) ? MOCK.orders.map(normalizeMockOrder).filter(Boolean) : [];
+    const rawShifts = Array.isArray(MOCK.shifts) ? MOCK.shifts.map(normalizeMockShift).filter(Boolean) : [];
+    const SHIFT_HISTORY_SEED = rawShifts.filter(shift=> shift.closedAt || shift.status === 'closed');
+    const ordersHistorySeed = seedOrders.map((order, idx)=>({
+      ...order,
+      seq: idx + 1,
+      lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
+      payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
+    }));
     if(posDB.available && seedOrders.length){
       posDB.bootstrap(seedOrders).catch(error=>{
         console.warn('[Mishkah][POS] bootstrap failed', error);
@@ -1253,7 +1353,7 @@
         user:{
           name: cashier.full_name || 'أحمد محمود',
           role: cashier.role || 'cashier',
-          shift:'الصباحية',
+          shift:'—',
           shiftNo:'#103'
         },
         status:{
@@ -1284,7 +1384,9 @@
           allowAdditions:true,
           lockLineEdits:false,
           isPersisted:false,
-          origin:'pos'
+          origin:'pos',
+          shiftId:null,
+          payments:[]
         },
         orderStages,
         orderStatuses,
@@ -1298,13 +1400,8 @@
         ordersQueue,
         auditTrail,
         payments:{
-          methods:[
-            { id:'cash', icon:'💵', label:{ ar:'نقدي', en:'Cash' } },
-            { id:'card', icon:'💳', label:{ ar:'بطاقة', en:'Card' } },
-            { id:'wallet', icon:'📱', label:{ ar:'محفظة', en:'Wallet' } },
-            { id:'voucher', icon:'🎟️', label:{ ar:'قسيمة', en:'Voucher' } }
-          ],
-          activeMethod:'cash',
+          methods: PAYMENT_METHODS,
+          activeMethod: PAYMENT_METHODS[0]?.id || 'cash',
           split:[]
         },
         print:{
@@ -1345,6 +1442,12 @@
           ordersCount:58,
           avgTicket:214,
           topItemId: menuItems[0]?.id || null
+        },
+        ordersHistory: ordersHistorySeed,
+        shift:{
+          current:null,
+          history: SHIFT_HISTORY_SEED,
+          config:{ pin: SHIFT_PIN_VALUE, pinLength: SHIFT_PIN_LENGTH, openingFloat: SHIFT_OPEN_FLOAT_DEFAULT }
         }
       },
       ui:{
@@ -1354,7 +1457,9 @@
         tables:{ view:'assign', filter:'all', search:'', details:null },
         reservations:{ filter:'today', status:'all', editing:null, form:null },
         print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' },
-        orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } }
+        orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } },
+        shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null },
+        orderNav:{ showPad:false, value:'' }
       }
     };
 
@@ -1397,6 +1502,36 @@
       });
     }
 
+    function ShiftControls(db){
+      const t = getTexts(db);
+      const shiftState = db.data.shift || {};
+      const current = shiftState.current;
+      const historyCount = Array.isArray(shiftState.history) ? shiftState.history.length : 0;
+      if(current){
+        const summaryButton = UI.Button({
+          attrs:{ gkey:'pos:shift:summary', class: tw`rounded-full`, title:`${t.ui.shift_current}: ${current.id}` },
+          variant:'soft',
+          size:'sm'
+        }, [t.ui.shift_close_button]);
+        const idBadge = UI.Badge({
+          text: current.id,
+          variant:'badge/ghost',
+          attrs:{ class: tw`hidden sm:inline-flex text-xs` }
+        });
+        return UI.HStack({ attrs:{ class: tw`items-center gap-2` }}, [summaryButton, idBadge]);
+      }
+      const openButton = UI.Button({ attrs:{ gkey:'pos:shift:open', class: tw`rounded-full` }, variant:'solid', size:'sm' }, [t.ui.shift_open_button]);
+      if(historyCount){
+        const historyButton = UI.Button({
+          attrs:{ gkey:'pos:shift:summary', class: tw`rounded-full`, title:t.ui.shift_history },
+          variant:'ghost',
+          size:'sm'
+        }, [t.ui.shift_history]);
+        return UI.HStack({ attrs:{ class: tw`items-center gap-2` }}, [openButton, historyButton]);
+      }
+      return openButton;
+    }
+
     function Header(db){
       const t = getTexts(db);
       const user = db.data.user;
@@ -1407,12 +1542,12 @@
           UI.Badge({ text:`${orderType.icon} ${localize(orderType.label, db.env.lang)}`, variant:'badge/ghost', attrs:{ class: tw`text-sm` } })
         ],
         right:[
+          ShiftControls(db),
           ThemeSwitch(db),
           LangSwitch(db),
           UI.Button({ attrs:{ gkey:'pos:tables:open', title:t.ui.tables }, variant:'ghost', size:'sm' }, ['🪑']),
           UI.Button({ attrs:{ gkey:'pos:reservations:open', title:t.ui.reservations }, variant:'ghost', size:'sm' }, ['📅']),
           UI.Button({ attrs:{ gkey:'pos:orders:open', title:t.ui.orders_queue }, variant:'ghost', size:'sm' }, ['🧾']),
-          UI.Badge({ text:`${t.ui.shift}: ${user.shift}`, leading:'🕑', variant:'badge/ghost' }),
           UI.Badge({ text:`${t.ui.cashier}: ${user.name}`, leading:'👤', variant:'badge/ghost' }),
           UI.Button({ attrs:{ gkey:'pos:session:logout', title:'Logout' }, variant:'ghost', size:'sm' }, ['🚪'])
         ]
@@ -1654,6 +1789,45 @@
       });
     }
 
+    function OrderNavigator(db){
+      const t = getTexts(db);
+      const history = Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [];
+      if(!history.length) return UI.Card({ variant:'card/soft-1', content: UI.EmptyState({ icon:'🧾', title:t.ui.order_nav_label, description:t.ui.order_nav_no_history }) });
+      const currentId = db.data.order?.id;
+      const currentIndex = history.findIndex(entry=> entry.id === currentId);
+      const total = history.length;
+      const currentSeq = currentIndex >= 0 ? (history[currentIndex].seq || currentIndex + 1) : null;
+      const label = currentSeq ? `#${currentSeq} / ${total}` : `— / ${total}`;
+      const disablePrev = currentIndex <= 0;
+      const disableNext = currentIndex < 0 || currentIndex >= total - 1;
+      const navigatorRow = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm` }}, [
+        UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev }, variant:'ghost', size:'sm' }, ['←']),
+        D.Text.Span({ attrs:{ class: tw`font-semibold` }}, [label]),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:pad' }, variant:'ghost', size:'sm' }, ['🔢']),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext }, variant:'ghost', size:'sm' }, ['→'])
+      ]);
+      const padVisible = !!db.ui.orderNav?.showPad;
+      const padValue = db.ui.orderNav?.value || '';
+      const pad = padVisible
+        ? UI.Card({
+            variant:'card/soft-2',
+            title: t.ui.order_nav_open,
+            content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+              UI.NumpadDecimal({
+                value: padValue,
+                placeholder: t.ui.order_nav_placeholder,
+                gkey:'pos:order:nav:input',
+                allowDecimal:false,
+                confirmLabel:t.ui.order_nav_open,
+                confirmAttrs:{ gkey:'pos:order:nav:confirm', variant:'solid', size:'sm', class: tw`w-full` }
+              }),
+              UI.Button({ attrs:{ gkey:'pos:order:nav:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+            ])
+          })
+        : null;
+      return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [navigatorRow, pad].filter(Boolean));
+    }
+
     function OrderColumn(db){
       const t = getTexts(db);
       const order = db.data.order;
@@ -1675,6 +1849,7 @@
                 variant:'card/soft-1',
                 content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
                   UI.Segmented({ items: serviceSegments, activeId: order.type }),
+                  OrderNavigator(db),
                   D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
                     D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
                     order.type === 'dine_in'
@@ -1736,6 +1911,7 @@
         ],
         right:[
           reportsSummary,
+          UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`min-w-[130px]` }, variant:'ghost', size:'md' }, ['🆕 ', t.ui.new_order]),
           UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
           UI.Button({ attrs:{ gkey:'pos:order:export', class: tw`min-w-[150px]` }, variant:'ghost', size:'md' }, [t.ui.export_pdf]),
@@ -2487,6 +2663,58 @@
       });
     }
 
+    function activateOrder(ctx, order, options={}){
+      if(!order) return;
+      const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
+      const safeOrder = {
+        ...order,
+        lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
+        notes: Array.isArray(order.notes) ? order.notes.map(note=> ({ ...note })) : [],
+        payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
+      };
+      ctx.setState(s=>{
+        const data = s.data || {};
+        const modals = { ...(s.ui?.modals || {}) };
+        if(options.closeOrdersModal) modals.orders = false;
+        const orderNavState = { ...(s.ui?.orderNav || {}) };
+        if(options.hideOrderNavPad !== false) orderNavState.showPad = false;
+        if(options.resetOrderNavValue) orderNavState.value = '';
+        const paymentsSplit = safeOrder.payments || [];
+        const nextPayments = {
+          ...(data.payments || {}),
+          split: paymentsSplit
+        };
+        if(!Array.isArray(nextPayments.methods) || !nextPayments.methods.length){
+          nextPayments.methods = PAYMENT_METHODS;
+        }
+        const totals = safeOrder.totals && typeof safeOrder.totals === 'object'
+          ? { ...safeOrder.totals }
+          : calculateTotals(safeOrder.lines || [], data.settings || {}, safeOrder.type || 'dine_in');
+        return {
+          ...s,
+          data:{
+            ...data,
+            order:{
+              ...(data.order || {}),
+              ...safeOrder,
+              totals,
+              allowAdditions: safeOrder.allowAdditions !== undefined ? safeOrder.allowAdditions : !!typeConfig.allowsLineAdditions,
+              lockLineEdits: safeOrder.lockLineEdits !== undefined ? safeOrder.lockLineEdits : true,
+              isPersisted: safeOrder.isPersisted !== undefined ? safeOrder.isPersisted : true
+            },
+            payments: nextPayments
+          },
+          ui:{
+            ...(s.ui || {}),
+            modals,
+            shift:{ ...(s.ui?.shift || {}), showPin:false },
+            orderNav: orderNavState
+          }
+        };
+      });
+      ctx.rebuild();
+    }
+
     function PaymentsSheet(db){
       const t = getTexts(db);
       if(!db.ui.modals.payments) return null;
@@ -2541,6 +2769,161 @@
       });
     }
 
+    function ShiftPinDialog(db){
+      const shiftUI = db.ui.shift || {};
+      if(!shiftUI.showPin) return null;
+      const t = getTexts(db);
+      const openingFloat = shiftUI.openingFloat ?? db.data.shift?.config?.openingFloat ?? SHIFT_OPEN_FLOAT_DEFAULT;
+      return UI.Modal({
+        open:true,
+        size:'sm',
+        title:t.ui.shift_open,
+        description:t.ui.shift_open_prompt,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.NumpadDecimal({
+            value: shiftUI.pin || '',
+            placeholder:'••••',
+            gkey:'pos:shift:pin',
+            allowDecimal:false,
+            confirmLabel:t.ui.shift_open,
+            confirmAttrs:{ gkey:'pos:shift:pin:confirm', variant:'solid', size:'sm', class: tw`w-full` }
+          }),
+          UI.Field({
+            label:t.ui.shift_cash_start,
+            control: UI.Input({ attrs:{ type:'number', step:'0.01', value:String(openingFloat ?? 0), gkey:'pos:shift:opening-float' } })
+          })
+        ]),
+        actions:[
+          UI.Button({ attrs:{ gkey:'pos:shift:pin:cancel', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
+    function ShiftSummaryModal(db){
+      const t = getTexts(db);
+      const shiftUI = db.ui.shift || {};
+      if(!shiftUI.showSummary) return null;
+      const shiftState = db.data.shift || {};
+      const history = Array.isArray(shiftState.history) ? shiftState.history : [];
+      const current = shiftState.current || null;
+      const defaultViewId = shiftUI.viewShiftId || (current ? current.id : (history[history.length-1]?.id || null));
+      let viewingCurrent = false;
+      let shift = null;
+      if(current && current.id === defaultViewId){
+        shift = current;
+        viewingCurrent = true;
+      } else {
+        shift = history.find(item=> item.id === defaultViewId) || (current || history[history.length-1] || null);
+        viewingCurrent = !!(shift && current && shift.id === current.id);
+      }
+      if(!shift){
+        return UI.Modal({
+          open:true,
+          size:'md',
+          title:t.ui.shift_summary,
+          description:t.ui.shift_history_empty,
+          actions:[UI.Button({ attrs:{ gkey:'pos:shift:summary:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])]
+        });
+      }
+      const lang = db.env.lang;
+      const dineInTotal = round(shift.totalsByType?.dine_in || 0);
+      const takeawayTotal = round(shift.totalsByType?.takeaway || 0);
+      const deliveryTotal = round(shift.totalsByType?.delivery || 0);
+      const totalSales = shift.totalSales != null ? round(shift.totalSales) : round(dineInTotal + takeawayTotal + deliveryTotal);
+      const paymentsByMethod = shift.paymentsByMethod || {};
+      const paymentMethods = Array.isArray(db.data.payments?.methods) && db.data.payments.methods.length ? db.data.payments.methods : PAYMENT_METHODS;
+      const paymentRows = paymentMethods.map(method=>{
+        const amount = round(paymentsByMethod[method.id] || 0);
+        return UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+          D.Text.Span({}, [`${method.icon || '💳'} ${localize(method.label, lang)}`]),
+          UI.PriceText({ amount, currency:getCurrency(db), locale:getLocale(db) })
+        ]);
+      });
+      Object.keys(paymentsByMethod).forEach(key=>{
+        if(paymentMethods.some(method=> method.id === key)) return;
+        const amount = round(paymentsByMethod[key] || 0);
+        paymentRows.push(UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+          D.Text.Span({}, [key]),
+          UI.PriceText({ amount, currency:getCurrency(db), locale:getLocale(db) })
+        ]));
+      });
+      const openingFloat = round(shift.openingFloat || 0);
+      const cashCollected = round(paymentsByMethod.cash || 0);
+      const closingCash = shift.closingCash != null ? round(shift.closingCash) : round(openingFloat + cashCollected);
+      const ordersCount = Array.isArray(shift.orders) ? shift.orders.length : 0;
+      const openedLabel = shift.openedAt ? formatDateTime(shift.openedAt, lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+      const closedLabel = shift.closedAt ? formatDateTime(shift.closedAt, lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+      const chipsSection = (()=>{
+        const items = [];
+        if(current){
+          items.push({ id: current.id, label:`${t.ui.shift_current}`, attrs:{ gkey:'pos:shift:view', 'data-shift-id':current.id } });
+        }
+        history.forEach(item=>{
+          const label = item.openedAt ? formatDateTime(item.openedAt, lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : item.id;
+          items.push({ id:item.id, label, attrs:{ gkey:'pos:shift:view', 'data-shift-id':item.id } });
+        });
+        if(!items.length) return null;
+        const labelText = viewingCurrent ? t.ui.shift_current : t.ui.shift_select_history;
+        return D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [labelText]),
+          UI.ChipGroup({ items, activeId: shift.id })
+        ]);
+      })();
+      const totalsCard = UI.Card({
+        variant:'card/soft-1',
+        title:t.ui.shift_total_sales,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [D.Text.Span({}, [t.ui.shift_total_dine_in]), UI.PriceText({ amount:dineInTotal, currency:getCurrency(db), locale:getLocale(db) })]),
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [D.Text.Span({}, [t.ui.shift_total_takeaway]), UI.PriceText({ amount:takeawayTotal, currency:getCurrency(db), locale:getLocale(db) })]),
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [D.Text.Span({}, [t.ui.shift_total_delivery]), UI.PriceText({ amount:deliveryTotal, currency:getCurrency(db), locale:getLocale(db) })]),
+          UI.Divider(),
+          UI.HStack({ attrs:{ class: tw`${token('split')} text-base font-semibold` }}, [D.Text.Span({}, [t.ui.shift_total_sales]), UI.PriceText({ amount:totalSales, currency:getCurrency(db), locale:getLocale(db) })])
+        ])
+      });
+      const paymentsCard = UI.Card({
+        variant:'card/soft-1',
+        title:t.ui.shift_payments,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, paymentRows)
+      });
+      const cashCard = UI.Card({
+        variant:'card/soft-2',
+        title:t.ui.shift_cash_summary,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-sm` }}, [
+          UI.HStack({ attrs:{ class: tw`${token('split')}` }}, [D.Text.Span({}, [t.ui.shift_cash_start]), UI.PriceText({ amount:openingFloat, currency:getCurrency(db), locale:getLocale(db) })]),
+          UI.HStack({ attrs:{ class: tw`${token('split')}` }}, [D.Text.Span({}, [t.ui.shift_cash_collected]), UI.PriceText({ amount:cashCollected, currency:getCurrency(db), locale:getLocale(db) })]),
+          UI.Divider(),
+          UI.HStack({ attrs:{ class: tw`${token('split')} font-semibold` }}, [D.Text.Span({}, [t.ui.shift_cash_end]), UI.PriceText({ amount:closingCash, currency:getCurrency(db), locale:getLocale(db) })])
+        ])
+      });
+      const metaRow = UI.Card({
+        variant:'card/soft-2',
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-xs ${token('muted')}` }}, [
+          D.Text.Span({}, [`${t.ui.shift}: ${shift.id}`]),
+          D.Text.Span({}, [`${t.ui.shift_orders_count}: ${ordersCount}`]),
+          D.Text.Span({}, [`${openedLabel} → ${closedLabel}`])
+        ])
+      });
+      const content = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        chipsSection,
+        totalsCard,
+        paymentsCard,
+        cashCard,
+        metaRow
+      ].filter(Boolean));
+      const actions = [
+        viewingCurrent ? UI.Button({ attrs:{ gkey:'pos:shift:close', class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.shift_close_confirm]) : null,
+        UI.Button({ attrs:{ gkey:'pos:shift:summary:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+      ].filter(Boolean);
+      return UI.Modal({
+        open:true,
+        size:'lg',
+        title:t.ui.shift_summary,
+        description:viewingCurrent ? t.ui.shift_current : t.ui.shift_history,
+        content,
+        actions
+      });
+    }
+
     Mishkah.app.setBody(function(db){
       return UI.AppRoot({
         shell: D.Containers.Div({ attrs:{ class: tw`pos-shell flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)]` }}, [
@@ -2552,6 +2935,8 @@
           FooterBar(db)
         ]),
         overlays:[
+          ShiftPinDialog(db),
+          ShiftSummaryModal(db),
           TablesModal(db),
           ReservationsModal(db),
           PrintModal(db),
@@ -2889,11 +3274,14 @@
         on:['click'],
         gkeys:['pos:order:new'],
         handler:(e,ctx)=>{
-          const t = getTexts(ctx.getState());
+          const state = ctx.getState();
+          const t = getTexts(state);
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
-            const totals = calculateTotals([], data.settings || {}, order.type);
+            const type = order.type || 'dine_in';
+            const typeConfig = getOrderTypeConfig(type);
+            const totals = calculateTotals([], data.settings || {}, type);
             return {
               ...s,
               data:{
@@ -2904,6 +3292,7 @@
                   status:'open',
                   fulfillmentStage:'new',
                   paymentState:'unpaid',
+                  type,
                   lines:[],
                   notes:[],
                   totals,
@@ -2912,8 +3301,11 @@
                   updatedAt: Date.now(),
                   allowAdditions: !!typeConfig.allowsLineAdditions,
                   lockLineEdits:false,
-                  isPersisted:false
+                  isPersisted:false,
+                  shiftId: data.shift?.current?.id || null,
+                  payments:[]
                 },
+                payments:{ ...(data.payments || {}), split:[] },
                 tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
               }
             };
@@ -3060,6 +3452,16 @@
             UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
             return;
           }
+          const currentShift = state.data.shift?.current;
+          if(!currentShift){
+            UI.pushToast(ctx, { title:t.toast.shift_required, icon:'🔒' });
+            ctx.setState(s=>({
+              ...s,
+              ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'' } }
+            }));
+            ctx.rebuild();
+            return;
+          }
           const order = state.data.order || {};
           const now = Date.now();
           const safeLines = (order.lines || []).map(line=>({
@@ -3069,12 +3471,27 @@
             notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
             updatedAt: now
           }));
+          const totals = calculateTotals(safeLines, state.data.settings || {}, order.type || 'dine_in');
+          const paymentSplit = Array.isArray(state.data.payments?.split) ? state.data.payments.split : [];
+          const normalizedPayments = paymentSplit.map(entry=>({
+            id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
+            method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
+            amount: round(Number(entry.amount) || 0)
+          })).filter(entry=> entry.amount > 0);
+          const effectivePayments = normalizedPayments.length ? normalizedPayments : [{
+            id:`pm-${now.toString(36)}`,
+            method: state.data.payments?.activeMethod || 'cash',
+            amount: round(Number(totals?.due || 0))
+          }];
           const orderPayload = {
             ...order,
             lines: safeLines,
             notes: Array.isArray(order.notes) ? order.notes : (order.notes ? [order.notes] : []),
             updatedAt: now,
             savedAt: now,
+            totals,
+            payments: effectivePayments,
+            shiftId: currentShift.id,
             isPersisted:true
           };
           try{
@@ -3082,22 +3499,67 @@
             await posDB.markSync();
             const latestOrders = await posDB.listOrders({ onlyActive:true });
             const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
-            ctx.setState(s=>({
-              ...s,
-              data:{
-                ...s.data,
-                order:{
-                  ...orderPayload,
-                  allowAdditions: !!typeConfig.allowsLineAdditions,
-                  lockLineEdits:true
-                },
-                ordersQueue: latestOrders,
-                status:{
-                  ...s.data.status,
-                  indexeddb:{ state:'online', lastSync: now }
-                }
+            ctx.setState(s=>{
+              const data = s.data || {};
+              const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
+              const historyIndex = history.findIndex(entry=> entry.id === orderPayload.id);
+              const seq = historyIndex >= 0 ? (history[historyIndex].seq || historyIndex + 1) : history.length + 1;
+              const historyEntry = { ...orderPayload, seq, payments: orderPayload.payments.map(pay=> ({ ...pay })) };
+              if(historyIndex >= 0){
+                history[historyIndex] = historyEntry;
+              } else {
+                history.push(historyEntry);
               }
-            }));
+              let nextShift = data.shift?.current ? { ...data.shift.current } : null;
+              if(nextShift){
+                const totalsByType = { ...(nextShift.totalsByType || {}) };
+                const typeKey = order.type || 'dine_in';
+                totalsByType[typeKey] = round((totalsByType[typeKey] || 0) + (orderPayload.totals?.due || 0));
+                const paymentsByMethod = { ...(nextShift.paymentsByMethod || {}) };
+                orderPayload.payments.forEach(payment=>{
+                  paymentsByMethod[payment.method] = round((paymentsByMethod[payment.method] || 0) + payment.amount);
+                });
+                const existingShiftOrderIndex = Array.isArray(nextShift.orders) ? nextShift.orders.findIndex(entry=> entry.id === orderPayload.id) : -1;
+                let shiftOrders = Array.isArray(nextShift.orders) ? nextShift.orders.slice() : [];
+                const shiftOrderEntry = { id: orderPayload.id, total: orderPayload.totals?.due || 0, savedAt: orderPayload.savedAt };
+                if(existingShiftOrderIndex >= 0){
+                  shiftOrders[existingShiftOrderIndex] = shiftOrderEntry;
+                } else {
+                  shiftOrders = shiftOrders.concat([shiftOrderEntry]);
+                }
+                nextShift = {
+                  ...nextShift,
+                  totalsByType,
+                  paymentsByMethod,
+                  totalSales: round(Object.values(totalsByType).reduce((sum,val)=> sum + (Number(val)||0), 0)),
+                  orders: shiftOrders,
+                  closingCash: round((nextShift.openingFloat || 0) + (paymentsByMethod.cash || 0))
+                };
+              }
+              return {
+                ...s,
+                data:{
+                  ...data,
+                  order:{
+                    ...orderPayload,
+                    allowAdditions: !!typeConfig.allowsLineAdditions,
+                    lockLineEdits:true
+                  },
+                  ordersQueue: latestOrders,
+                  ordersHistory: history,
+                  payments:{ ...(data.payments || {}), split:[] },
+                  shift:{ ...(data.shift || {}), current: nextShift },
+                  status:{
+                    ...data.status,
+                    indexeddb:{ state:'online', lastSync: now }
+                  }
+                },
+                ui:{
+                  ...(s.ui || {}),
+                  paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount:'' }
+                }
+              };
+            });
             ctx.rebuild();
             UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
           } catch(error){
@@ -3114,6 +3576,273 @@
             }));
             ctx.rebuild();
           }
+        }
+      },
+      'pos.shift.open':{
+        on:['click'],
+        gkeys:['pos:shift:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'', openingFloat: s.ui?.shift?.openingFloat ?? s.data?.shift?.config?.openingFloat ?? SHIFT_OPEN_FLOAT_DEFAULT } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.pin':{
+        on:['input','change'],
+        gkeys:['pos:shift:pin'],
+        handler:(e,ctx)=>{
+          const raw = e.target.value || '';
+          const value = raw.replace(/\D/g,'').slice(0, SHIFT_PIN_LENGTH);
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), pin:value } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.opening-float':{
+        on:['input','change'],
+        gkeys:['pos:shift:opening-float'],
+        handler:(e,ctx)=>{
+          const value = parseFloat(e.target.value);
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), openingFloat: Number.isFinite(value) ? value : 0 } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.pin.confirm':{
+        on:['click'],
+        gkeys:['pos:shift:pin:confirm'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const pinValue = String(state.ui?.shift?.pin || '').trim();
+          const config = state.data.shift?.config || {};
+          const expectedPin = config.pin || SHIFT_PIN_VALUE;
+          const pinLength = config.pinLength || SHIFT_PIN_LENGTH;
+          if(!pinValue || pinValue.length !== pinLength || pinValue !== expectedPin){
+            UI.pushToast(ctx, { title:t.toast.shift_pin_invalid, icon:'⚠️' });
+            return;
+          }
+          const now = Date.now();
+          const openingFloat = Number(state.ui?.shift?.openingFloat ?? config.openingFloat ?? 0);
+          const user = state.data.user || {};
+          const newShift = {
+            id:`SHIFT-${now.toString(36).toUpperCase()}`,
+            openedAt: now,
+            openingFloat: round(openingFloat),
+            totalsByType:{ dine_in:0, takeaway:0, delivery:0 },
+            paymentsByMethod:{},
+            totalSales:0,
+            orders:[],
+            cashierId: user.id || user.role || 'cashier',
+            cashierName: user.name || '',
+            status:'open',
+            closingCash:null
+          };
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              user:{ ...(s.data.user || {}), shift:newShift.id },
+              order:{ ...(s.data.order || {}), shiftId:newShift.id },
+              shift:{ ...(s.data.shift || {}), current:newShift }
+            },
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:newShift.id } }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.shift_open_success, icon:'✅' });
+        }
+      },
+      'pos.shift.pin.cancel':{
+        on:['click'],
+        gkeys:['pos:shift:pin:cancel'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'' } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.summary':{
+        on:['click'],
+        gkeys:['pos:shift:summary'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const current = state.data.shift?.current;
+          const history = state.data.shift?.history || [];
+          const defaultId = current?.id || (history.length ? history[history.length-1].id : null);
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId: s.ui?.shift?.viewShiftId || defaultId } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.summary.close':{
+        on:['click'],
+        gkeys:['pos:shift:summary:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.view':{
+        on:['click'],
+        gkeys:['pos:shift:view'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-shift-id]');
+          if(!btn) return;
+          const shiftId = btn.getAttribute('data-shift-id');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), viewShiftId:shiftId } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.close':{
+        on:['click'],
+        gkeys:['pos:shift:close'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const currentShift = state.data.shift?.current;
+          if(!currentShift){
+            ctx.setState(s=>({
+              ...s,
+              ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:false } }
+            }));
+            ctx.rebuild();
+            return;
+          }
+          const paymentsByMethod = currentShift.paymentsByMethod || {};
+          const closingCash = currentShift.closingCash != null ? round(currentShift.closingCash) : round((currentShift.openingFloat || 0) + (paymentsByMethod.cash || 0));
+          const closedShift = {
+            ...currentShift,
+            totalsByType:{ ...(currentShift.totalsByType || {}) },
+            paymentsByMethod:{ ...paymentsByMethod },
+            orders: Array.isArray(currentShift.orders) ? currentShift.orders.slice() : [],
+            totalSales: round(currentShift.totalSales || 0),
+            closingCash,
+            closedAt: Date.now(),
+            status:'closed'
+          };
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              user:{ ...(s.data.user || {}), shift:'—' },
+              shift:{
+                ...(s.data.shift || {}),
+                current:null,
+                history:[ ...(s.data.shift?.history || []), closedShift ]
+              }
+            },
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:closedShift.id } }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.shift_close_success, icon:'✅' });
+        }
+      },
+      'pos.order.nav.prev':{
+        on:['click'],
+        gkeys:['pos:order:nav:prev'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const history = state.data.ordersHistory || [];
+          if(!history.length) return;
+          const currentId = state.data.order?.id;
+          const index = history.findIndex(entry=> entry.id === currentId);
+          if(index <= 0) return;
+          const target = history[index - 1];
+          if(target) activateOrder(ctx, target, { hideOrderNavPad:true, resetOrderNavValue:true });
+        }
+      },
+      'pos.order.nav.next':{
+        on:['click'],
+        gkeys:['pos:order:nav:next'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const history = state.data.ordersHistory || [];
+          if(!history.length) return;
+          const currentId = state.data.order?.id;
+          const index = history.findIndex(entry=> entry.id === currentId);
+          if(index < 0 || index >= history.length - 1) return;
+          const target = history[index + 1];
+          if(target) activateOrder(ctx, target, { hideOrderNavPad:true, resetOrderNavValue:true });
+        }
+      },
+      'pos.order.nav.pad':{
+        on:['click'],
+        gkeys:['pos:order:nav:pad'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.order.nav.close':{
+        on:['click'],
+        gkeys:['pos:order:nav:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.order.nav.input':{
+        on:['input','change'],
+        gkeys:['pos:order:nav:input'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), value } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.order.nav.confirm':{
+        on:['click'],
+        gkeys:['pos:order:nav:confirm'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const value = (state.ui?.orderNav?.value || '').trim();
+          const history = state.data.ordersHistory || [];
+          if(!value){
+            ctx.setState(s=>({
+              ...s,
+              ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:false } }
+            }));
+            ctx.rebuild();
+            return;
+          }
+          let target = history.find(entry=> String(entry.id).toLowerCase() === value.toLowerCase());
+          if(!target){
+            const seq = parseInt(value, 10);
+            if(!Number.isNaN(seq)){
+              target = history.find(entry=> (entry.seq || history.indexOf(entry) + 1) === seq);
+            }
+          }
+          if(!target){
+            UI.pushToast(ctx, { title:t.toast.order_nav_not_found, icon:'❓' });
+            return;
+          }
+          activateOrder(ctx, target, { hideOrderNavPad:true, resetOrderNavValue:true });
         }
       },
       'pos.order.print':{
@@ -3819,22 +4548,7 @@
             order = [state.data.order, ...(state.data.ordersQueue || [])].find(ord=> ord && ord.id === orderId);
           }
           if(!order) return;
-          const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
-          ctx.setState(s=>({
-            ...s,
-            data:{
-              ...(s.data || {}),
-              order:{
-                ...(s.data.order || {}),
-                ...order,
-                allowAdditions: order.allowAdditions !== undefined ? order.allowAdditions : !!typeConfig.allowsLineAdditions,
-                lockLineEdits: order.lockLineEdits !== undefined ? order.lockLineEdits : true,
-                isPersisted: order.isPersisted !== undefined ? order.isPersisted : true
-              }
-            },
-            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
-          }));
-          ctx.rebuild();
+          activateOrder(ctx, order, { closeOrdersModal:true, resetOrderNavValue:true });
         }
       },
       'pos.tables.open':{
