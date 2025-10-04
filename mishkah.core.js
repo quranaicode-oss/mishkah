@@ -671,6 +671,31 @@
           applyEnv(_database);
           var head = _database && _database.head; if (head) Head.batch(head);
 
+          var keepScrollEntries = [];
+          var keepScrollTargets = toArr(opts && opts.keepScroll);
+          if (keepScrollTargets.length && global && global.document){
+            for (var i=0;i<keepScrollTargets.length;i++){
+              var target = keepScrollTargets[i];
+              if (!target) continue;
+              var node = null;
+              var selector = null;
+              if (typeof Element !== 'undefined' && target instanceof Element){ node = target; }
+              else if (typeof target === 'string'){ try { node = global.document.querySelector(target); } catch(_){ node = null; } }
+              if (!node) continue;
+              if (typeof target === 'string') {
+                selector = target;
+              } else if (node && node.getAttribute) {
+                var pathAttr = node.getAttribute('data-m-path');
+                if (pathAttr){ selector = '[data-m-path="' + String(pathAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+                if (!selector){
+                  var keyAttr = node.getAttribute('data-m-key');
+                  if (keyAttr){ selector = '[data-m-key="' + String(keyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+                }
+              }
+              keepScrollEntries.push({ node: node, selector: selector, top: node.scrollTop, left: node.scrollLeft });
+            }
+          }
+
           var options = { freeze: new Set(toArr(opts && opts.except)), only: new Set(toArr(opts && opts.buildonly)) };
           var self = this;
           M.Devtools.scheduleRebuild(self, function(){
@@ -680,6 +705,24 @@
             _vApp = next;
             try { M.RuleCenter && M.RuleCenter.evaluate && M.RuleCenter.evaluate('afterRender', { rootEl:_$root, db:_database }, _ctx); } catch(eAR){ M.Auditor.warn('W-AFTER','afterRender rules error', {error:String(eAR)}); }
             if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
+            if (keepScrollEntries.length){
+              for (var j=0;j<keepScrollEntries.length;j++){
+                var entry = keepScrollEntries[j];
+                if (!entry) continue;
+                var nodeRef = entry.node;
+                if (nodeRef && entry.selector && (!nodeRef.isConnected || nodeRef.parentNode==null)){
+                  try {
+                    var found = global.document.querySelector(entry.selector);
+                    if (found) nodeRef = entry.node = found;
+                  } catch(_){ }
+                }
+                if (!nodeRef) continue;
+                try {
+                  if (entry.top != null) nodeRef.scrollTop = entry.top;
+                  if (entry.left != null) nodeRef.scrollLeft = entry.left;
+                } catch(_){ }
+              }
+            }
           });
         },
         batch: function(fn){ if (typeof fn==='function') fn(this); this.rebuild(); }
