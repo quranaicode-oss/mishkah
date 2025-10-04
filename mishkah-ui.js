@@ -67,6 +67,16 @@ def({
   'modal/body':     'flex-1 overflow-y-auto bg-[var(--card)] px-6 py-5',
   'modal/footer':   'flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:flex-row',
 
+  // numpad
+  'numpad/root':      'flex flex-col gap-4',
+  'numpad/display':   'rounded-[var(--radius)] border-2 border-[color-mix(in oklab,var(--primary) 45%, transparent)] bg-[color-mix(in oklab,var(--card) 88%, var(--primary)/10%)] px-6 py-6 text-center text-4xl font-bold tracking-[0.6em] text-[var(--foreground)] shadow-[0_22px_48px_-24px_rgba(15,23,42,0.65)] transition-all',
+  'numpad/grid':      'grid grid-cols-3 gap-3',
+  'numpad/key':       'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--foreground)] shadow-[0_18px_40px_-24px_rgba(15,23,42,0.55)] transition-transform duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_26px_48px_-20px_rgba(15,23,42,0.55)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] select-none',
+  'numpad/key-disabled':'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--muted-foreground)] opacity-60',
+  'numpad/actions':   'flex items-center gap-3',
+  'numpad/utility':   'inline-flex h-16 flex-1 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-lg font-semibold text-[var(--foreground)] shadow-[0_18px_36px_-22px_rgba(15,23,42,0.55)] transition-transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[0_26px_48px_-18px_rgba(15,23,42,0.55)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] select-none',
+  'numpad/confirm':   'rounded-2xl shadow-[0_24px_54px_-22px_rgba(59,130,246,0.65)] hover:-translate-y-0.5 active:translate-y-0',
+
   // tabs
   'tabs/row':       'flex items-center gap-2 flex-wrap',
   'tabs/btn':       'px-3 py-1.5 rounded-full hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
@@ -154,13 +164,24 @@ UI.Label    = ({ attrs, forId, text }) => {
   const a=Object.assign({},attrs||{}); if(forId) a.for=forId;
   return h.Forms.Label({ attrs: withClass(a, token('label')) }, [text||'']);
 };
-UI.NumpadDecimal = ({ attrs={}, value='', placeholder='0', gkey, confirmLabel='OK', confirmAttrs={}, title, inputAttrs={}, allowDecimal=true })=>{
-  const rootAttrs = withClass(attrs, tw`flex flex-col gap-3`);
+UI.NumpadDecimal = ({ attrs={}, value='', placeholder='0', gkey, confirmLabel='OK', confirmAttrs={}, title, inputAttrs={}, allowDecimal=true, masked=false, maskChar='•', maskLength })=>{
+  const rootAttrs = withClass(attrs, token('numpad/root'));
   rootAttrs['data-numpad-root'] = 'decimal';
   if(!allowDecimal) rootAttrs['data-numpad-no-decimal'] = 'true';
   const current = value === undefined || value === null ? '' : String(value);
-  const display = current !== '' ? current : placeholder || '0';
-  const hiddenAttrs = Object.assign({ type:'text', value: current, 'data-numpad-input':'true', class: tw`hidden` }, inputAttrs || {});
+  const placeholderLength = Math.max(maskLength || (current ? current.length : 0) || 0, 4);
+  const effectivePlaceholder = masked
+    ? (placeholder && placeholder.length ? placeholder : maskChar.repeat(placeholderLength))
+    : (placeholder || '0');
+  const displayValue = masked
+    ? (current ? maskChar.repeat(current.length) : effectivePlaceholder)
+    : (current !== '' ? current : effectivePlaceholder);
+  const hiddenAttrs = Object.assign({
+    type: masked ? 'password' : 'text',
+    value: current,
+    'data-numpad-input':'true',
+    class: tw`hidden`
+  }, inputAttrs || {});
   if(gkey) hiddenAttrs.gkey = gkey;
   const digits = ['7','8','9','4','5','6','1','2','3','0','.'];
   const confirmVariant = confirmAttrs.variant || 'solid';
@@ -170,22 +191,36 @@ UI.NumpadDecimal = ({ attrs={}, value='', placeholder='0', gkey, confirmLabel='O
   delete confirmButtonAttrs.size;
   if(!('data-numpad-confirm' in confirmButtonAttrs)) confirmButtonAttrs['data-numpad-confirm'] = 'true';
   if(!('gkey' in confirmButtonAttrs)) confirmButtonAttrs.gkey = 'ui:numpad:decimal:confirm';
-  confirmButtonAttrs.class = tw(cx('flex-1', confirmButtonAttrs.class || ''));
+  confirmButtonAttrs.type = confirmButtonAttrs.type || 'button';
+  confirmButtonAttrs.class = tw(cx(
+    token('btn'),
+    token(`btn/${confirmVariant}`),
+    token(`btn/${confirmSize}`),
+    'flex-1 h-16 rounded-2xl text-lg font-semibold transition-transform duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0',
+    token('numpad/confirm'),
+    confirmButtonAttrs.class || ''
+  ));
   return h.Containers.Div({ attrs: rootAttrs }, [
     h.Inputs.Input({ attrs: hiddenAttrs }),
     title ? h.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [title]) : null,
-    h.Containers.Div({ attrs:{ class: tw`rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-5 text-center text-3xl font-semibold tracking-widest text-[var(--foreground)]` }}, [display]),
-    h.Containers.Div({ attrs:{ class: tw`grid grid-cols-3 gap-2` }},
+    h.Containers.Div({ attrs:{ class: tw`${token('numpad/display')}`, 'aria-live':'polite' }}, [displayValue || effectivePlaceholder || '']),
+    h.Containers.Div({ attrs:{ class: tw`${token('numpad/grid')}` }},
       digits.map(key=>{
-        const btnAttrs = { gkey:'ui:numpad:decimal:key', 'data-numpad-key':key };
-        if(key === '.' && !allowDecimal){ btnAttrs.disabled = true; }
-        return UI.Button({ attrs: btnAttrs, variant:'ghost', size:'lg' }, [key]);
+        const btnAttrs = { type:'button', gkey:'ui:numpad:decimal:key', 'data-numpad-key':key };
+        let btnClass = token('numpad/key');
+        if(key === '.' && !allowDecimal){
+          btnAttrs.disabled = true;
+          btnClass = token('numpad/key-disabled');
+        }
+        return h.Forms.Button({ attrs: withClass(btnAttrs, btnClass) }, [
+          h.Text.Span({}, [key])
+        ]);
       })
     ),
-    UI.HStack({ attrs:{ class: tw`gap-2` }}, [
-      UI.Button({ attrs:{ gkey:'ui:numpad:decimal:clear', 'data-numpad-clear':'true' }, variant:'ghost', size:'md' }, ['C']),
-      UI.Button({ attrs:{ gkey:'ui:numpad:decimal:backspace', 'data-numpad-backspace':'true' }, variant:'ghost', size:'md' }, ['⌫']),
-      UI.Button({ attrs: confirmButtonAttrs, variant: confirmVariant, size: confirmSize }, [confirmLabel || 'OK'])
+    h.Containers.Div({ attrs:{ class: tw`${token('numpad/actions')}` }}, [
+      h.Forms.Button({ attrs: withClass({ type:'button', gkey:'ui:numpad:decimal:clear', 'data-numpad-clear':'true' }, token('numpad/utility')) }, ['C']),
+      h.Forms.Button({ attrs: withClass({ type:'button', gkey:'ui:numpad:decimal:backspace', 'data-numpad-backspace':'true' }, token('numpad/utility')) }, ['⌫']),
+      h.Forms.Button({ attrs: confirmButtonAttrs }, [confirmLabel || 'OK'])
     ])
   ].filter(Boolean));
 };
@@ -346,7 +381,7 @@ UI.Drawer = ({ open=false, side='start', header, content })=>{
   ]);
 };
 
-UI.Modal = ({ open=false, title, description, content, actions=[], size='md' })=>{
+UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close' })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const uid = Math.random().toString(36).slice(2,8);
   const titleId = title ? `modal-${uid}-title` : undefined;
@@ -354,7 +389,7 @@ UI.Modal = ({ open=false, title, description, content, actions=[], size='md' })=
   const closeBtn = h.Forms.Button({
     attrs: withClass({
       type:'button',
-      gkey:'ui:modal:close',
+      gkey:closeGkey,
       'aria-label':'Close dialog'
     }, cx(token('btn'), token('btn/ghost'), token('btn/icon')))
   }, ['✕']);
@@ -379,7 +414,7 @@ UI.Modal = ({ open=false, title, description, content, actions=[], size='md' })=
   if(titleId) modalAttrs['aria-labelledby'] = titleId;
   if(descriptionId) modalAttrs['aria-describedby'] = descriptionId;
   return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}`, role:'presentation' }}, [
-    h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:'ui:modal:close' }}),
+    h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:closeGkey }}, []),
     h.Containers.Section({ attrs: modalAttrs }, [
       h.Containers.Div({ attrs:{ class: tw`${token('modal/header')}` }}, headerContent.filter(Boolean)),
       content ? h.Containers.Div({ attrs:{ class: tw`${token('modal/body')}` }}, [content]) : null,
