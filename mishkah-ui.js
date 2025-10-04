@@ -150,6 +150,41 @@ UI.Label    = ({ attrs, forId, text }) => {
   const a=Object.assign({},attrs||{}); if(forId) a.for=forId;
   return h.Forms.Label({ attrs: withClass(a, token('label')) }, [text||'']);
 };
+UI.NumpadDecimal = ({ attrs={}, value='', placeholder='0', gkey, confirmLabel='OK', confirmAttrs={}, title, inputAttrs={}, allowDecimal=true })=>{
+  const rootAttrs = withClass(attrs, tw`flex flex-col gap-3`);
+  rootAttrs['data-numpad-root'] = 'decimal';
+  if(!allowDecimal) rootAttrs['data-numpad-no-decimal'] = 'true';
+  const current = value === undefined || value === null ? '' : String(value);
+  const display = current !== '' ? current : placeholder || '0';
+  const hiddenAttrs = Object.assign({ type:'text', value: current, 'data-numpad-input':'true', class: tw`hidden` }, inputAttrs || {});
+  if(gkey) hiddenAttrs.gkey = gkey;
+  const digits = ['7','8','9','4','5','6','1','2','3','0','.'];
+  const confirmVariant = confirmAttrs.variant || 'solid';
+  const confirmSize = confirmAttrs.size || 'md';
+  const confirmButtonAttrs = Object.assign({}, confirmAttrs || {});
+  delete confirmButtonAttrs.variant;
+  delete confirmButtonAttrs.size;
+  if(!('data-numpad-confirm' in confirmButtonAttrs)) confirmButtonAttrs['data-numpad-confirm'] = 'true';
+  if(!('gkey' in confirmButtonAttrs)) confirmButtonAttrs.gkey = 'ui:numpad:decimal:confirm';
+  confirmButtonAttrs.class = tw(cx('flex-1', confirmButtonAttrs.class || ''));
+  return h.Containers.Div({ attrs: rootAttrs }, [
+    h.Inputs.Input({ attrs: hiddenAttrs }),
+    title ? h.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [title]) : null,
+    h.Containers.Div({ attrs:{ class: tw`rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-5 text-center text-3xl font-semibold tracking-widest text-[var(--foreground)]` }}, [display]),
+    h.Containers.Div({ attrs:{ class: tw`grid grid-cols-3 gap-2` }},
+      digits.map(key=>{
+        const btnAttrs = { gkey:'ui:numpad:decimal:key', 'data-numpad-key':key };
+        if(key === '.' && !allowDecimal){ btnAttrs.disabled = true; }
+        return UI.Button({ attrs: btnAttrs, variant:'ghost', size:'lg' }, [key]);
+      })
+    ),
+    UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+      UI.Button({ attrs:{ gkey:'ui:numpad:decimal:clear', 'data-numpad-clear':'true' }, variant:'ghost', size:'md' }, ['C']),
+      UI.Button({ attrs:{ gkey:'ui:numpad:decimal:backspace', 'data-numpad-backspace':'true' }, variant:'ghost', size:'md' }, ['⌫']),
+      UI.Button({ attrs: confirmButtonAttrs, variant: confirmVariant, size: confirmSize }, [confirmLabel || 'OK'])
+    ])
+  ].filter(Boolean));
+};
 UI.Field = ({ id, label, control, helper }) =>
   UI.VStack({ attrs:{ class: tw`gap-1` }}, [
     label && UI.Label({ forId:id, text:label }),

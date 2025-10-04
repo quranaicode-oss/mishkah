@@ -9,7 +9,7 @@
     html, body {
       height: 100%;
       min-height: 100vh;
-      width: 100%;
+      width: 100vw;
       margin: 0;
       overflow: hidden;
       background: var(--background, #0f1115);
@@ -19,15 +19,15 @@
       touch-action: manipulation;
       display: flex;
       min-height: 100vh;
-      width: 100%;
+      width: 100vw;
     }
     #app {
       flex: 1 1 auto;
       min-height: 100vh;
-      width: 100%;
+      width: 100vw;
       display: flex;
     }
-    .pos-shell { flex: 1 1 auto; width: 100%; }
+    .pos-shell { flex: 1 1 auto; width: 100vw; }
   </style>
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
@@ -966,53 +966,52 @@
         label: `${type.icon} ${localize(type.label, db.env.lang)}`,
         attrs:{ gkey:'pos:order:type', 'data-order-type':type.id }
       }));
-      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden` }}, [
-        UI.Card({
-          variant:'card/soft-1',
-          content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
-            UI.Segmented({ items: serviceSegments, activeId: order.type }),
-            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
-              D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
-              order.type === 'dine_in'
-                ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
-                    assignedTables.length
-                      ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
-                          UI.Button({
-                            attrs:{
-                              gkey:'pos:order:table:remove',
-                              'data-table-id':table.id,
-                              class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
-                            },
-                            variant:'ghost',
-                            size:'sm'
-                          }, [`🪑 ${table.name}`, '✕'])
-                        ))
-                      : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
-                    UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
-                  ])
-                : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
-              D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
-            ]),
-            D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0 w-full` }}, [
-              UI.ScrollArea({
-                attrs:{ class: tw`h-full min-h-0 w-full flex-1` },
-                children:[
-                  order.lines && order.lines.length
-                    ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
-                    : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
-                ]
-              })
-            ]),
-            CartFooter(db)
-          ])
-        }),
-        PaymentSummary(db),
-        UI.StatCard({
-          title: t.ui.reports,
-          value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}`,
-          meta: `${t.ui.orders_count}: ${db.data.reports.ordersCount}`,
-          footer:[
-            UI.Button({ attrs:{ gkey:'pos:reports:toggle', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
+      return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col overflow-hidden` }}, [
+        UI.ScrollArea({
+          attrs:{ class: tw`flex-1 min-h-0 w-full` },
+          children:[
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 pe-1 pb-4` }}, [
+              UI.Card({
+                variant:'card/soft-1',
+                content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
+                  UI.Segmented({ items: serviceSegments, activeId: order.type }),
+                  D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
+                    D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
+                    order.type === 'dine_in'
+                      ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
+                          assignedTables.length
+                            ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, assignedTables.map(table=>
+                                UI.Button({
+                                  attrs:{
+                                    gkey:'pos:order:table:remove',
+                                    'data-table-id':table.id,
+                                    class: tw`h-8 rounded-full bg-[var(--accent)] px-3 text-xs sm:text-sm flex items-center gap-2`
+                                  },
+                                  variant:'ghost',
+                                  size:'sm'
+                                }, [`🪑 ${table.name}`, '✕'])
+                              ))
+                            : D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.select_table]),
+                          UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
+                        ])
+                      : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
+                    D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
+                  ]),
+                  D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0 w-full` }}, [
+                    UI.ScrollArea({
+                      attrs:{ class: tw`h-full min-h-0 w-full flex-1` },
+                      children:[
+                        order.lines && order.lines.length
+                          ? UI.List({ children: order.lines.map(line=> OrderLine(db, line)) })
+                          : UI.EmptyState({ icon:'🧺', title:t.ui.cart_empty, description:t.ui.choose_items })
+                      ]
+                    })
+                  ]),
+                  CartFooter(db)
+                ])
+              }),
+              PaymentSummary(db)
+            ])
           ]
         })
       ]);
@@ -1026,6 +1025,15 @@
         { id:'a5', label:`📄 ${t.ui.a5}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a5' } },
         { id:'a4', label:`🗒️ ${t.ui.a4}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a4' } }
       ];
+      const reports = db.data.reports || {};
+      const salesToday = new Intl.NumberFormat(getLocale(db)).format(reports.salesToday || 0);
+      const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${getCurrency(db)}`]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          D.Text.Span({}, [`${t.ui.orders_count}: ${reports.ordersCount || 0}`]),
+          UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
+        ])
+      ]);
       const printSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 items-stretch` }}, [
         D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_size_label]),
         UI.Segmented({ items: printOptions, activeId: db.data.print?.size || 'thermal_80' })
@@ -1036,6 +1044,7 @@
           statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
         ],
         right:[
+          reportsSummary,
           printSelector,
           UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
@@ -1432,7 +1441,15 @@
         }),
         UI.Field({
           label: t.ui.print_copies,
-          control: UI.Input({ attrs:{ type:'number', min:'1', step:'1', value: profile.copies || 1, gkey:'pos:print:profile-field', 'data-print-field':'copies' } })
+          control: UI.NumpadDecimal({
+            value: profile.copies || 1,
+            placeholder:'1',
+            gkey:'pos:print:profile-field',
+            inputAttrs:{ 'data-print-field':'copies' },
+            allowDecimal:false,
+            confirmLabel: t.ui.close,
+            confirmAttrs:{ variant:'soft', size:'sm' }
+          })
         }),
         UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
           UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
@@ -1507,7 +1524,18 @@
         content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
           UI.Field({ label:t.ui.reservations_customer, control: UI.Input({ attrs:{ value: formState.customerName || '', gkey:'pos:reservations:form', 'data-field':'customerName', placeholder:t.ui.reservations_customer } }) }),
           UI.Field({ label:t.ui.reservations_phone, control: UI.Input({ attrs:{ value: formState.phone || '', gkey:'pos:reservations:form', 'data-field':'phone', placeholder:'010...' } }) }),
-          UI.Field({ label:t.ui.reservations_party_size, control: UI.Input({ attrs:{ value: formState.partySize || 2, type:'number', min:'1', gkey:'pos:reservations:form', 'data-field':'partySize' } }) }),
+          UI.Field({
+            label:t.ui.reservations_party_size,
+            control: UI.NumpadDecimal({
+              value: formState.partySize || 2,
+              placeholder:'0',
+              gkey:'pos:reservations:form',
+              inputAttrs:{ 'data-field':'partySize' },
+              allowDecimal:false,
+              confirmLabel: t.ui.close,
+              confirmAttrs:{ variant:'soft', size:'sm' }
+            })
+          }),
           UI.Field({ label:t.ui.reservations_time, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.scheduledAt), gkey:'pos:reservations:form', 'data-field':'scheduledAt' } }) }),
           UI.Field({ label:t.ui.reservations_hold_until, control: UI.Input({ attrs:{ type:'datetime-local', value: toInputDateTime(formState.holdUntil), gkey:'pos:reservations:form', 'data-field':'holdUntil' } }) }),
           D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
@@ -1636,15 +1664,14 @@
             })),
             activeId: db.data.payments.activeMethod
           }),
-          UI.Input({ attrs:{
-            type:'number',
-            min:'0',
-            step:'0.01',
+          UI.NumpadDecimal({
+            attrs:{ class: tw`w-full` },
             value: db.ui.paymentDraft?.amount || '',
             placeholder: t.ui.amount,
-            gkey:'pos:payments:amount'
-          }}),
-          UI.Button({ attrs:{ gkey:'pos:payments:capture', class: tw`w-full` }, variant:'solid', size:'md' }, [t.ui.capture_payment])
+            gkey:'pos:payments:amount',
+            confirmLabel: t.ui.capture_payment,
+            confirmAttrs:{ gkey:'pos:payments:capture', variant:'solid', size:'md', class: tw`w-full` }
+          })
         ])
       });
     }
@@ -2895,6 +2922,78 @@
             });
             return { ...s, data:{ ...(s.data || {}), tables } };
           });
+          ctx.rebuild();
+        }
+      },
+      'ui.numpad.decimal.key':{
+        on:['click'],
+        gkeys:['ui:numpad:decimal:key'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-numpad-key]');
+          if(!btn || btn.disabled) return;
+          const key = btn.getAttribute('data-numpad-key');
+          if(!key) return;
+          const container = btn.closest('[data-numpad-root]');
+          if(!container) return;
+          if(key === '.' && container.hasAttribute('data-numpad-no-decimal')) return;
+          const input = container.querySelector('[data-numpad-input]');
+          if(!input) return;
+          let value = input.value || '';
+          if(key === '.' && value.includes('.')) return;
+          if(value === '' && key === '.') value = '0.';
+          else if(value === '0' && key !== '.') value = key;
+          else value = `${value}${key}`;
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles:true }));
+          input.dispatchEvent(new Event('change', { bubbles:true }));
+          ctx.rebuild();
+        }
+      },
+      'ui.numpad.decimal.clear':{
+        on:['click'],
+        gkeys:['ui:numpad:decimal:clear'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-numpad-clear]');
+          if(!btn) return;
+          const container = btn.closest('[data-numpad-root]');
+          if(!container) return;
+          const input = container.querySelector('[data-numpad-input]');
+          if(!input) return;
+          input.value = '';
+          input.dispatchEvent(new Event('input', { bubbles:true }));
+          input.dispatchEvent(new Event('change', { bubbles:true }));
+          ctx.rebuild();
+        }
+      },
+      'ui.numpad.decimal.backspace':{
+        on:['click'],
+        gkeys:['ui:numpad:decimal:backspace'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-numpad-backspace]');
+          if(!btn) return;
+          const container = btn.closest('[data-numpad-root]');
+          if(!container) return;
+          const input = container.querySelector('[data-numpad-input]');
+          if(!input) return;
+          const value = input.value || '';
+          input.value = value.length ? value.slice(0, -1) : '';
+          input.dispatchEvent(new Event('input', { bubbles:true }));
+          input.dispatchEvent(new Event('change', { bubbles:true }));
+          ctx.rebuild();
+        }
+      },
+      'ui.numpad.decimal.confirm':{
+        on:['click'],
+        gkeys:['ui:numpad:decimal:confirm'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-numpad-confirm]');
+          if(!btn) return;
+          const container = btn.closest('[data-numpad-root]');
+          if(!container) return;
+          const input = container.querySelector('[data-numpad-input]');
+          if(input){
+            input.dispatchEvent(new Event('change', { bubbles:true }));
+          }
           ctx.rebuild();
         }
       },
