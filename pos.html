@@ -46,18 +46,50 @@
 
     const MOCK = window.database || {};
     const settings = MOCK.settings || {};
-    const currencyMap = settings.currency || { ar:'ج.م', en:'EGP' };
+    const currencyConfig = settings.currency || {};
+    const FALLBACK_CURRENCY = 'EGP';
+    const normalizeCurrencyCode = (value)=>{
+      if(typeof value !== 'string') return null;
+      const upper = value.trim().toUpperCase();
+      return /^[A-Z]{3}$/.test(upper) ? upper : null;
+    };
+    const currencyCode = normalizeCurrencyCode(currencyConfig.code)
+      || normalizeCurrencyCode(currencyConfig.default)
+      || FALLBACK_CURRENCY;
+    const baseSymbols = typeof currencyConfig.symbols === 'object' && currencyConfig.symbols ? currencyConfig.symbols : {};
+    const currencySymbols = {
+      ar: currencyConfig.ar || baseSymbols.ar || baseSymbols['ar-EG'] || 'ج.م',
+      en: currencyConfig.en || baseSymbols.en || baseSymbols['en-GB'] || 'E£',
+      ...baseSymbols
+    };
+    if(!currencySymbols.en) currencySymbols.en = currencyCode;
+    if(!currencySymbols.ar) currencySymbols.ar = currencySymbols.en;
+    const currencyDisplayMode = currencyConfig.display || 'symbol';
 
-    const ORDER_TYPES = [
-      { id:'dine_in', icon:'🍽️', label:{ ar:'صالة', en:'Dine-in' } },
-      { id:'delivery', icon:'🚚', label:{ ar:'دليفري', en:'Delivery' } },
-      { id:'cashier', icon:'🧾', label:{ ar:'كاشير', en:'Counter' } }
+    const ORDER_TYPE_ICON_MAP = { dine_in:'🍽️', delivery:'🚚', takeaway:'🧾', cash:'🧾' };
+    const rawOrderTypes = Array.isArray(MOCK.order_types) && MOCK.order_types.length ? MOCK.order_types : [
+      { id:'dine_in', type_name:{ ar:'صالة', en:'Dine-in' }, allows_save:true, allows_finalize_later:true, allows_line_additions:true, allows_returns:true, workflow:'multi-step' },
+      { id:'delivery', type_name:{ ar:'دليفري', en:'Delivery' }, allows_save:false, allows_finalize_later:false, allows_line_additions:false, allows_returns:false, workflow:'single-step' },
+      { id:'takeaway', type_name:{ ar:'تيك أواي', en:'Takeaway' }, allows_save:false, allows_finalize_later:false, allows_line_additions:false, allows_returns:false, workflow:'single-step' }
     ];
+    const ORDER_TYPES = rawOrderTypes.map(type=>({
+      id: type.id,
+      icon: ORDER_TYPE_ICON_MAP[type.id] || '🧾',
+      workflow: type.workflow || 'single-step',
+      allowsSave: type.allows_save !== false,
+      allowsFinalizeLater: !!type.allows_finalize_later,
+      allowsLineAdditions: !!type.allows_line_additions,
+      allowsReturns: !!type.allows_returns,
+      label:{
+        ar: type.type_name?.ar || type.id,
+        en: type.type_name?.en || type.id
+      }
+    }));
 
     const TEXTS = {
       ar:{
         ui:{
-          shift:'الوردية', cashier:'الكاشير', dine_in:'صالة', delivery:'توصيل', cashier_mode:'كاشير',
+          shift:'الوردية', cashier:'الكاشير', dine_in:'صالة', delivery:'توصيل', takeaway:'تيك أواي', cashier_mode:'كاشير',
           search:'ابحث في المنيو', favorites:'المفضلة', favorites_only:'المفضلة فقط', categories:'التصنيفات', load_more:'عرض المزيد',
           indexeddb:'قاعدة البيانات المحلية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
           subtotal:'الإجمالي الفرعي', service:'خدمة', vat:'ضريبة', discount:'خصم', delivery_fee:'رسوم التوصيل', total:'الإجمالي المستحق',
@@ -113,6 +145,10 @@
           receipt_15:'رول ‎15 سم‎', export_pdf:'تصدير PDF',
           orders_queue:'الطلبات المفتوحة', orders_queue_hint:'الطلبات المعلقة/المفتوحة', orders_queue_empty:'لا توجد طلبات في الانتظار.',
           orders_queue_open:'فتح الطلب', orders_queue_status_open:'مفتوح', orders_queue_status_held:'معلّق',
+          orders_tab_all:'كل الطلبات', orders_tab_dine_in:'طلبات الصالة', orders_tab_delivery:'طلبات الدليفري', orders_tab_takeaway:'طلبات التيك أواي',
+          orders_stage:'المرحلة', orders_status:'الحالة', orders_type:'نوع الطلب', orders_total:'الإجمالي', orders_updated:'آخر تحديث',
+          orders_payment:'حالة الدفع', orders_line_count:'عدد الأصناف', orders_notes:'ملاحظات', orders_search_placeholder:'ابحث برقم الطلب أو الطاولة أو القسم',
+          orders_refresh:'تحديث القائمة', orders_no_results:'لا توجد طلبات متاحة في هذه القائمة.',
           tables_bulk_activate:'تفعيل', tables_bulk_maintenance:'وضع صيانة'
         },
         toast:{
@@ -122,6 +158,10 @@
           indexeddb_error:'تعذر حفظ البيانات محليًا', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
           discount_stub:'سيتم تفعيل الخصومات لاحقًا', notes_updated:'تم تحديث الملاحظات', add_note:'أدخل ملاحظة ترسل للمطبخ',
           set_qty:'أدخل الكمية الجديدة', line_actions:'سيتم فتح إجراءات السطر لاحقًا', confirm_clear:'هل تريد مسح الطلب الحالي؟',
+          order_locked:'لا يمكن تعديل هذا الطلب بعد حفظه', line_locked:'لا يمكن تعديل هذا السطر بعد حفظه',
+          order_additions_blocked:'لا يمكن إضافة أصناف جديدة لهذا النوع من الطلبات بعد الحفظ',
+          order_stage_locked:'لا يمكن تعديل الأصناف في هذه المرحلة', orders_loaded:'تم تحديث قائمة الطلبات',
+          orders_failed:'تعذر تحميل الطلبات',
           new_order:'تم إنشاء طلب جديد', order_type_changed:'تم تغيير نوع الطلب', table_assigned:'تم اختيار الطاولة',
           merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري المزامنة مع IndexedDB',
           theme_switched:'تم تغيير الثيم', lang_switched:'تم تغيير اللغة', logout_stub:'تم إنهاء الوردية افتراضيًا',
@@ -143,7 +183,7 @@
       },
       en:{
         ui:{
-          shift:'Shift', cashier:'Cashier', dine_in:'Dine-in', delivery:'Delivery', cashier_mode:'Counter',
+          shift:'Shift', cashier:'Cashier', dine_in:'Dine-in', delivery:'Delivery', takeaway:'Takeaway', cashier_mode:'Counter',
           search:'Search menu', favorites:'Favorites', favorites_only:'Only favorites', categories:'Categories', load_more:'Load more',
           indexeddb:'Local database', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
           service:'Service', vat:'VAT', discount:'Discount', delivery_fee:'Delivery fee', total:'Amount due',
@@ -200,6 +240,10 @@
           receipt_15:'15 cm roll', export_pdf:'Export PDF',
           orders_queue:'Open orders', orders_queue_hint:'Held / open orders in progress', orders_queue_empty:'No orders waiting.',
           orders_queue_open:'Open order', orders_queue_status_open:'Open', orders_queue_status_held:'Held',
+          orders_tab_all:'All orders', orders_tab_dine_in:'Dining room', orders_tab_delivery:'Delivery', orders_tab_takeaway:'Takeaway',
+          orders_stage:'Stage', orders_status:'Status', orders_type:'Order type', orders_total:'Total due', orders_updated:'Last update',
+          orders_payment:'Payment state', orders_line_count:'Line items', orders_notes:'Notes', orders_search_placeholder:'Search by order, table or section',
+          orders_refresh:'Refresh list', orders_no_results:'No orders match the current filters.',
           tables_bulk_activate:'Activate', tables_bulk_maintenance:'Mark maintenance'
         },
         toast:{
@@ -209,6 +253,10 @@
           indexeddb_error:'Failed to persist locally', print_stub:'Printer integration coming soon',
           discount_stub:'Discount workflow coming soon', notes_updated:'Notes updated', add_note:'Add a note for the kitchen',
           set_qty:'Enter the new quantity', line_actions:'Line actions coming soon', confirm_clear:'Clear the current order?',
+          order_locked:'This order is locked after saving', line_locked:'This line can no longer be modified',
+          order_additions_blocked:'Cannot add new items to this order type after saving',
+          order_stage_locked:'Items cannot be modified at this stage', orders_loaded:'Orders list refreshed',
+          orders_failed:'Failed to load orders',
           new_order:'New order created', order_type_changed:'Order type changed', table_assigned:'Table assigned',
           merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Syncing with IndexedDB…',
           theme_switched:'Theme updated', lang_switched:'Language updated', logout_stub:'Session ended (stub)',
@@ -256,8 +304,12 @@
     }
 
     function getCurrency(db){
-      const lang = db.env.lang;
-      return currencyMap[lang] || currencyMap.ar || currencyMap.en || 'EGP';
+      return currencyCode;
+    }
+
+    function getCurrencySymbol(db){
+      const lang = db.env?.lang || (db.env && db.env.lang) || document.documentElement.lang || 'ar';
+      return currencySymbols[lang] || currencySymbols.en || currencyCode;
     }
 
     function getLocale(db){
@@ -269,7 +321,7 @@
         return new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(Number(amount)||0);
       } catch(_){
         const numeric = (Number(amount)||0).toFixed(2);
-        return `${numeric} ${getCurrency(db)}`;
+        return `${numeric} ${getCurrencySymbol(db)}`;
       }
     }
 
@@ -296,19 +348,27 @@
       };
     }
 
-    function createOrderLine(item, qty){
+    function createOrderLine(item, qty, overrides){
       const quantity = qty || 1;
       const price = Number(item.price) || 0;
+      const now = Date.now();
+      const uniqueId = overrides?.id || `ln-${item.id}-${now.toString(36)}-${Math.random().toString(16).slice(2,6)}`;
       return {
-        id: `line-${item.id}`,
+        id: uniqueId,
         itemId: item.id,
         name: item.name,
         description: item.description,
         price,
         qty: quantity,
         total: round(price * quantity),
-        modifiers: [],
-        notes: ''
+        modifiers: overrides?.modifiers || [],
+        notes: overrides?.notes || [],
+        status: overrides?.status || 'draft',
+        stage: overrides?.stage || 'new',
+        kitchenSection: overrides?.kitchenSection || item.kitchenSection || null,
+        locked: overrides?.locked || false,
+        createdAt: overrides?.createdAt || now,
+        updatedAt: overrides?.updatedAt || now
       };
     }
 
@@ -351,8 +411,6 @@
       const t = getTexts(db);
       const order = db.data.order || {};
       const lang = db.env.lang;
-      const locale = getLocale(db);
-      const currency = getCurrency(db);
       const tablesNames = (order.tableIds || []).map(id=>{
         const table = (db.data.tables || []).find(tbl=> tbl.id === id);
         return table?.name || id;
@@ -376,17 +434,17 @@
       const currentDocLabel = docLabels[docType] || t.ui.print_doc_customer;
       const lineItems = (order.lines || []).map(line=>{
         const name = `${escapeHTML(localize(line.name, lang))} × ${Number(line.qty)||0}`;
-        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(line.total)||0);
+        const price = formatCurrencyValue(db, line.total);
         return `<div class="row"><span>${name}</span><span>${price}</span></div>`;
       }).join('');
       const totalsHtml = totalsRows.map(row=> {
-        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(row.value)||0);
+        const price = formatCurrencyValue(db, row.value);
         return `<div class="row"><span>${escapeHTML(row.label)}</span><span>${price}</span></div>`;
       }).join('');
       const paymentsHtml = payments.map(entry=>{
         const method = (db.data.payments?.methods || []).find(m=> m.id === entry.method);
         const label = method ? `${escapeHTML(localize(method.label, lang))}` : escapeHTML(entry.method || '');
-        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(entry.amount)||0);
+        const price = formatCurrencyValue(db, entry.amount);
         return `<div class="row"><span>${label}</span><span>${price}</span></div>`;
       }).join('');
       const sizePresets = {
@@ -489,7 +547,9 @@
           available:false,
           async saveOrder(){ return false; },
           async listOrders(){ return []; },
-          async markSync(){ return false; }
+          async getOrder(){ return null; },
+          async markSync(){ return false; },
+          async bootstrap(){ return false; }
         };
       }
       let dbPromise = null;
@@ -499,9 +559,53 @@
           const request = window.indexedDB.open(name, version);
           request.onupgradeneeded = (event)=>{
             const db = event.target.result;
+            const txn = event.target.transaction;
+            let ordersStore;
             if(!db.objectStoreNames.contains('orders')){
-              db.createObjectStore('orders', { keyPath:'id' });
+              ordersStore = db.createObjectStore('orders', { keyPath:'id' });
+            } else {
+              ordersStore = txn.objectStore('orders');
             }
+            if(ordersStore && !ordersStore.indexNames.contains('by_status')){
+              ordersStore.createIndex('by_status', 'status', { unique:false });
+            }
+            if(ordersStore && !ordersStore.indexNames.contains('by_stage')){
+              ordersStore.createIndex('by_stage', 'fulfillmentStage', { unique:false });
+            }
+            if(ordersStore && !ordersStore.indexNames.contains('by_type')){
+              ordersStore.createIndex('by_type', 'type', { unique:false });
+            }
+
+            let linesStore;
+            if(!db.objectStoreNames.contains('orderLines')){
+              linesStore = db.createObjectStore('orderLines', { keyPath:'uid' });
+            } else {
+              linesStore = txn.objectStore('orderLines');
+            }
+            if(linesStore && !linesStore.indexNames.contains('by_order')){
+              linesStore.createIndex('by_order', 'orderId', { unique:false });
+            }
+
+            let notesStore;
+            if(!db.objectStoreNames.contains('orderNotes')){
+              notesStore = db.createObjectStore('orderNotes', { keyPath:'id' });
+            } else {
+              notesStore = txn.objectStore('orderNotes');
+            }
+            if(notesStore && !notesStore.indexNames.contains('by_order')){
+              notesStore.createIndex('by_order', 'orderId', { unique:false });
+            }
+
+            let eventsStore;
+            if(!db.objectStoreNames.contains('orderEvents')){
+              eventsStore = db.createObjectStore('orderEvents', { keyPath:'id' });
+            } else {
+              eventsStore = txn.objectStore('orderEvents');
+            }
+            if(eventsStore && !eventsStore.indexNames.contains('by_order')){
+              eventsStore.createIndex('by_order', 'orderId', { unique:false });
+            }
+
             if(!db.objectStoreNames.contains('syncLog')){
               db.createObjectStore('syncLog', { keyPath:'ts' });
             }
@@ -511,34 +615,269 @@
         });
         return dbPromise;
       }
-      async function saveOrder(order){
-        const db = await openDB();
+
+      function wrap(request){
         return new Promise((resolve, reject)=>{
-          const tx = db.transaction('orders', 'readwrite');
-          tx.oncomplete = ()=> resolve(true);
-          tx.onerror = ()=> reject(tx.error);
-          tx.objectStore('orders').put({ id: order.id, updatedAt: Date.now(), status: order.status || 'draft', payload: order });
+          request.onsuccess = ()=> resolve(request.result);
+          request.onerror = ()=> reject(request.error);
         });
       }
-      async function listOrders(){
-        const db = await openDB();
+
+      function toTimestamp(value){
+        if(value == null) return Date.now();
+        if(typeof value === 'number') return value;
+        const parsed = new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : Date.now();
+      }
+
+      function clearByIndex(store, indexName, key){
         return new Promise((resolve, reject)=>{
-          const tx = db.transaction('orders', 'readonly');
-          const req = tx.objectStore('orders').getAll();
-          req.onsuccess = ()=> resolve(req.result || []);
+          const index = store.index(indexName);
+          const range = window.IDBKeyRange.only(key);
+          const req = index.openCursor(range);
+          req.onsuccess = (event)=>{
+            const cursor = event.target.result;
+            if(cursor){
+              cursor.delete();
+              cursor.continue();
+            } else {
+              resolve(true);
+            }
+          };
           req.onerror = ()=> reject(req.error);
         });
       }
-      async function markSync(){
-        const db = await openDB();
+
+      function collectByIndex(store, indexName, key){
         return new Promise((resolve, reject)=>{
-          const tx = db.transaction('syncLog', 'readwrite');
-          tx.oncomplete = ()=> resolve(true);
-          tx.onerror = ()=> reject(tx.error);
-          tx.objectStore('syncLog').put({ ts: Date.now() });
+          const results = [];
+          const index = store.index(indexName);
+          const range = window.IDBKeyRange.only(key);
+          const req = index.openCursor(range);
+          req.onsuccess = (event)=>{
+            const cursor = event.target.result;
+            if(cursor){
+              results.push(cursor.value);
+              cursor.continue();
+            } else {
+              resolve(results);
+            }
+          };
+          req.onerror = ()=> reject(req.error);
         });
       }
-      return { available:true, saveOrder, listOrders, markSync };
+
+      async function saveOrder(order){
+        if(!order || !order.id) throw new Error('Order payload requires an id');
+        const db = await openDB();
+        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readwrite');
+        const orderStore = tx.objectStore('orders');
+        const lineStore = tx.objectStore('orderLines');
+        const noteStore = tx.objectStore('orderNotes');
+        const eventStore = tx.objectStore('orderEvents');
+        const now = Date.now();
+        const header = {
+          id: order.id,
+          type: order.type || 'dine_in',
+          status: order.status || 'open',
+          fulfillmentStage: order.fulfillmentStage || order.stage || 'new',
+          paymentState: order.paymentState || 'unpaid',
+          tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
+          guests: order.guests || 0,
+          totals: order.totals || {},
+          createdAt: order.createdAt || now,
+          updatedAt: order.updatedAt || now,
+          savedAt: order.savedAt || now,
+          allowAdditions: order.allowAdditions !== undefined ? !!order.allowAdditions : true,
+          lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : true,
+          isPersisted: order.isPersisted !== undefined ? !!order.isPersisted : true,
+          origin: order.origin || 'pos',
+          metadata:{
+            version:2,
+            linesCount: Array.isArray(order.lines) ? order.lines.length : 0,
+            notesCount: Array.isArray(order.notes) ? order.notes.length : 0
+          }
+        };
+        await wrap(orderStore.put(header));
+
+        await clearByIndex(lineStore, 'by_order', order.id);
+        const lines = Array.isArray(order.lines) ? order.lines : [];
+        for(const line of lines){
+          const record = {
+            uid: line.uid || line.storageId || `${order.id}::${line.id || line.itemId || Math.random().toString(16).slice(2,8)}`,
+            id: line.id || `${order.id}::${line.itemId || Math.random().toString(16).slice(2,8)}`,
+            orderId: order.id,
+            itemId: line.itemId,
+            name: line.name || null,
+            description: line.description || null,
+            qty: Number(line.qty) || 0,
+            price: Number(line.price) || 0,
+            total: Number(line.total) || 0,
+            status: line.status || 'draft',
+            stage: line.stage || header.fulfillmentStage,
+            kitchenSection: line.kitchenSection || null,
+            locked: line.locked !== undefined ? !!line.locked : header.lockLineEdits,
+            notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
+            createdAt: line.createdAt || header.createdAt,
+            updatedAt: line.updatedAt || header.updatedAt
+          };
+          await wrap(lineStore.put(record));
+        }
+
+        await clearByIndex(noteStore, 'by_order', order.id);
+        const notes = Array.isArray(order.notes) ? order.notes : [];
+        for(const note of notes){
+          const noteRecord = {
+            id: note.id || `${order.id}::note::${toTimestamp(note.createdAt)}`,
+            orderId: order.id,
+            message: note.message || '',
+            authorId: note.authorId || 'system',
+            authorName: note.authorName || '',
+            createdAt: toTimestamp(note.createdAt)
+          };
+          await wrap(noteStore.put(noteRecord));
+        }
+
+        const eventRecord = {
+          id: `${order.id}::event::${header.updatedAt}`,
+          orderId: order.id,
+          stage: header.fulfillmentStage,
+          status: header.status,
+          at: header.updatedAt,
+          actorId: order.updatedBy || order.authorId || 'pos'
+        };
+        await wrap(eventStore.put(eventRecord));
+
+        return new Promise((resolve, reject)=>{
+          tx.oncomplete = ()=> resolve(true);
+          tx.onerror = ()=> reject(tx.error);
+        });
+      }
+
+      function hydrateLine(record){
+        return {
+          id: record.id,
+          itemId: record.itemId,
+          name: record.name,
+          description: record.description,
+          qty: record.qty,
+          price: record.price,
+          total: record.total,
+          status: record.status,
+          stage: record.stage,
+          kitchenSection: record.kitchenSection,
+          locked: !!record.locked,
+          notes: Array.isArray(record.notes) ? record.notes : [],
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt
+        };
+      }
+
+      async function hydrateOrder(header, lineStore, noteStore, eventStore){
+        const [linesRaw, notesRaw, eventsRaw] = await Promise.all([
+          collectByIndex(lineStore, 'by_order', header.id),
+          collectByIndex(noteStore, 'by_order', header.id),
+          collectByIndex(eventStore, 'by_order', header.id)
+        ]);
+        const order = {
+          ...header,
+          lines: linesRaw.map(hydrateLine),
+          notes: notesRaw.map(note=>({
+            id: note.id,
+            message: note.message,
+            authorId: note.authorId,
+            authorName: note.authorName,
+            createdAt: note.createdAt
+          })),
+          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+        };
+        return order;
+      }
+
+      async function listOrders(options={}){
+        const db = await openDB();
+        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readonly');
+        const orderStore = tx.objectStore('orders');
+        const lineStore = tx.objectStore('orderLines');
+        const noteStore = tx.objectStore('orderNotes');
+        const eventStore = tx.objectStore('orderEvents');
+        const headers = await wrap(orderStore.getAll());
+        const onlyActive = options.onlyActive !== false;
+        const typeFilter = options.type;
+        const stageFilter = options.stage;
+        const idFilter = options.ids;
+        const orders = [];
+        for(const header of headers){
+          const status = header.status || header.payload?.status || 'open';
+          if(onlyActive && (status === 'closed')) continue;
+          if(typeFilter){
+            const typeId = header.type || header.payload?.type || 'dine_in';
+            if(Array.isArray(typeFilter)){ if(!typeFilter.includes(typeId)) continue; }
+            else if(typeId !== typeFilter) continue;
+          }
+          if(stageFilter){
+            const stageId = header.fulfillmentStage || header.payload?.fulfillmentStage || 'new';
+            if(Array.isArray(stageFilter)){ if(!stageFilter.includes(stageId)) continue; }
+            else if(stageId !== stageFilter) continue;
+          }
+          if(idFilter && !idFilter.includes(header.id)) continue;
+          if(header.payload){
+            const legacy = header.payload;
+            orders.push({
+              ...legacy,
+              id: header.id,
+              updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
+            });
+            continue;
+          }
+          const order = await hydrateOrder(header, lineStore, noteStore, eventStore);
+          orders.push(order);
+        }
+        return orders;
+      }
+
+      async function getOrder(orderId){
+        if(!orderId) return null;
+        const db = await openDB();
+        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readonly');
+        const orderStore = tx.objectStore('orders');
+        const lineStore = tx.objectStore('orderLines');
+        const noteStore = tx.objectStore('orderNotes');
+        const eventStore = tx.objectStore('orderEvents');
+        const header = await wrap(orderStore.get(orderId));
+        if(!header) return null;
+        if(header.payload){
+          const legacy = header.payload;
+          return {
+            ...legacy,
+            id: header.id,
+            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
+          };
+        }
+        return hydrateOrder(header, lineStore, noteStore, eventStore);
+      }
+
+      async function markSync(){
+        const db = await openDB();
+        const tx = db.transaction('syncLog', 'readwrite');
+        tx.objectStore('syncLog').put({ ts: Date.now() });
+        return new Promise((resolve, reject)=>{
+          tx.oncomplete = ()=> resolve(true);
+          tx.onerror = ()=> reject(tx.error);
+        });
+      }
+
+      async function bootstrap(initialOrders){
+        if(!Array.isArray(initialOrders) || !initialOrders.length) return false;
+        const existing = await listOrders({ onlyActive:false });
+        if(existing.length) return false;
+        for(const order of initialOrders){
+          try { await saveOrder(order); } catch(_){ }
+        }
+        return true;
+      }
+
+      return { available:true, saveOrder, listOrders, getOrder, markSync, bootstrap };
     }
 
     function createKDSBridge(url){
@@ -624,29 +963,218 @@
       };
     }
 
-    const posDB = createIndexedDBAdapter('mishkah-pos', 1);
+    const posDB = createIndexedDBAdapter('mishkah-pos', 2);
     const kdsBridge = createKDSBridge('wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q');
 
-    const menuCategories = [{ id:'all', translations:{ ar:'الكل', en:'All' } }].concat(MOCK.categories || []);
-    const categories = menuCategories.map(cat=>({
-      id: cat.id,
-      label:{ ar: cat.translations?.ar || cat.id, en: cat.translations?.en || cat.id }
-    }));
+    const kitchenSections = Array.isArray(MOCK.kitchen_sections) ? MOCK.kitchen_sections.map(section=>({
+      id: section.id,
+      name:{ ar: section.section_name?.ar || section.id, en: section.section_name?.en || section.id },
+      description: section.description || {}
+    })) : [];
 
-    const menuItems = (MOCK.items || []).map(item=>({
-      id: item.id,
-      category: item.category || 'all',
-      price: item.price || 0,
-      image: item.image,
-      name:{
-        ar: item.translations?.ar?.name || item.translations?.en?.name || String(item.id),
-        en: item.translations?.en?.name || item.translations?.ar?.name || String(item.id)
-      },
-      description:{
-        ar: item.translations?.ar?.description || '',
-        en: item.translations?.en?.description || item.translations?.ar?.description || ''
-      }
+    const categorySections = Array.isArray(MOCK.category_sections) ? MOCK.category_sections : [];
+    const categorySectionMap = new Map(categorySections.map(entry=> [entry.category_id || entry.categoryId, entry.section_id || entry.sectionId]));
+
+    const rawCategories = Array.isArray(MOCK.categories) ? MOCK.categories.slice() : [];
+    if(!rawCategories.some(cat=> cat.id === 'all')){
+      rawCategories.unshift({ id:'all', category_name:{ ar:'الكل', en:'All' }, section_id:'expo' });
+    }
+    const categories = rawCategories.map(cat=>{
+      const sectionId = cat.section_id || categorySectionMap.get(cat.id) || null;
+      return {
+        id: cat.id,
+        sectionId,
+        label:{ ar: cat.category_name?.ar || cat.id, en: cat.category_name?.en || cat.id }
+      };
+    });
+
+    const menuItems = (MOCK.items || []).map(item=>{
+      const categoryId = item.category_id || item.category || 'all';
+      const price = item.pricing && typeof item.pricing.base !== 'undefined' ? Number(item.pricing.base) : Number(item.price) || 0;
+      const kitchenSection = item.kitchen_section_id || categorySectionMap.get(categoryId) || 'expo';
+      return {
+        id: item.id,
+        category: categoryId,
+        price,
+        image: item.media?.image || item.image || '',
+        kitchenSection,
+        name:{
+          ar: item.item_name?.ar || item.item_name?.en || String(item.id),
+          en: item.item_name?.en || item.item_name?.ar || String(item.id)
+        },
+        description:{
+          ar: item.item_description?.ar || '',
+          en: item.item_description?.en || item.item_description?.ar || ''
+        }
+      };
+    });
+
+    const menuIndex = new Map(menuItems.map(item=> [String(item.id), item]));
+
+    const orderStages = (Array.isArray(MOCK.order_stages) && MOCK.order_stages.length ? MOCK.order_stages : [
+      { id:'new', stage_name:{ ar:'جديد', en:'New' }, sequence:1, lock_line_edits:false },
+      { id:'preparing', stage_name:{ ar:'جاري التجهيز', en:'Preparing' }, sequence:2, lock_line_edits:true },
+      { id:'prepared', stage_name:{ ar:'تم التجهيز', en:'Prepared' }, sequence:3, lock_line_edits:true },
+      { id:'delivering', stage_name:{ ar:'جاري التسليم', en:'Delivering' }, sequence:4, lock_line_edits:true },
+      { id:'delivered', stage_name:{ ar:'تم التسليم', en:'Delivered' }, sequence:5, lock_line_edits:true },
+      { id:'paid', stage_name:{ ar:'تم الدفع', en:'Paid' }, sequence:6, lock_line_edits:true },
+      { id:'closed', stage_name:{ ar:'تم الإغلاق', en:'Closed' }, sequence:7, lock_line_edits:true }
+    ]).map(stage=>({
+      id: stage.id,
+      name:{ ar: stage.stage_name?.ar || stage.id, en: stage.stage_name?.en || stage.id },
+      sequence: typeof stage.sequence === 'number' ? stage.sequence : 0,
+      lockLineEdits: stage.lock_line_edits !== undefined ? !!stage.lock_line_edits : true,
+      description: stage.description || {}
     }));
+    const orderStageMap = new Map(orderStages.map(stage=> [stage.id, stage]));
+
+    const orderStatuses = (Array.isArray(MOCK.order_statuses) && MOCK.order_statuses.length ? MOCK.order_statuses : [
+      { id:'open', status_name:{ ar:'مفتوح', en:'Open' } },
+      { id:'held', status_name:{ ar:'معلّق', en:'Held' } },
+      { id:'finalized', status_name:{ ar:'منتهي', en:'Finalized' } },
+      { id:'closed', status_name:{ ar:'مغلق', en:'Closed' } }
+    ]).map(status=>({
+      id: status.id,
+      name:{ ar: status.status_name?.ar || status.id, en: status.status_name?.en || status.id }
+    }));
+    const orderStatusMap = new Map(orderStatuses.map(status=> [status.id, status]));
+
+    const orderPaymentStates = (Array.isArray(MOCK.order_payment_states) && MOCK.order_payment_states.length ? MOCK.order_payment_states : [
+      { id:'unpaid', payment_name:{ ar:'غير مدفوع', en:'Unpaid' } },
+      { id:'partial', payment_name:{ ar:'مدفوع جزئيًا', en:'Partially Paid' } },
+      { id:'paid', payment_name:{ ar:'مدفوع', en:'Paid' } }
+    ]).map(state=>({
+      id: state.id,
+      name:{ ar: state.payment_name?.ar || state.id, en: state.payment_name?.en || state.id }
+    }));
+    const orderPaymentMap = new Map(orderPaymentStates.map(state=> [state.id, state]));
+
+    const orderLineStatuses = (Array.isArray(MOCK.order_line_statuses) && MOCK.order_line_statuses.length ? MOCK.order_line_statuses : [
+      { id:'draft', status_name:{ ar:'مسودة', en:'Draft' } },
+      { id:'queued', status_name:{ ar:'بانتظار التحضير', en:'Queued' } },
+      { id:'preparing', status_name:{ ar:'جاري التحضير', en:'Preparing' } },
+      { id:'ready', status_name:{ ar:'جاهز', en:'Ready' } },
+      { id:'served', status_name:{ ar:'مقدّم', en:'Served' } }
+    ]).map(status=>({
+      id: status.id,
+      name:{ ar: status.status_name?.ar || status.id, en: status.status_name?.en || status.id }
+    }));
+    const orderLineStatusMap = new Map(orderLineStatuses.map(status=> [status.id, status]));
+
+    function toMillis(value, fallback){
+      if(!value && fallback != null) return fallback;
+      if(!value) return Date.now();
+      if(typeof value === 'number') return value;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : (fallback != null ? fallback : Date.now());
+    }
+
+    function cloneName(value){
+      if(!value) return { ar:'', en:'' };
+      if(typeof value === 'string') return { ar:value, en:value };
+      return {
+        ar: value.ar || value.en || '',
+        en: value.en || value.ar || ''
+      };
+    }
+
+    function normalizeNote(raw, fallbackAuthor){
+      if(!raw) return null;
+      const message = raw.message || raw.text || '';
+      if(!message) return null;
+      const createdAt = toMillis(raw.created_at || raw.createdAt);
+      return {
+        id: raw.id || `note-${Math.random().toString(16).slice(2,8)}`,
+        message,
+        authorId: raw.author_id || raw.authorId || fallbackAuthor || 'system',
+        authorName: raw.author_name || raw.authorName || '',
+        createdAt
+      };
+    }
+
+    function normalizeOrderLine(raw, context){
+      if(!raw) return null;
+      const itemId = raw.item_id || raw.itemId;
+      const menuItem = menuIndex.get(String(itemId));
+      const qty = Math.max(1, Number(raw.qty) || 1);
+      const price = raw.price != null ? Number(raw.price) : menuItem?.price || 0;
+      const total = raw.total != null ? Number(raw.total) : round(price * qty);
+      const stageId = raw.stage_id || raw.stageId || context.stageId || 'new';
+      const statusId = raw.status_id || raw.statusId || 'draft';
+      const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, context.actorId)).filter(Boolean) : [];
+      const kitchenSection = raw.kitchen_section_id || raw.kitchenSectionId || menuItem?.kitchenSection || context.kitchenSection || null;
+      return {
+        id: raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`,
+        itemId,
+        name: menuItem ? menuItem.name : cloneName(raw.name),
+        description: menuItem ? menuItem.description : cloneName(raw.description),
+        qty,
+        price,
+        total: round(total),
+        status: statusId,
+        stage: stageId,
+        kitchenSection,
+        locked: raw.locked !== undefined ? !!raw.locked : (orderStageMap.get(stageId)?.lockLineEdits ?? true),
+        notes,
+        createdAt: toMillis(raw.created_at || raw.createdAt, context.createdAt),
+        updatedAt: toMillis(raw.updated_at || raw.updatedAt, context.updatedAt)
+      };
+    }
+
+    function normalizeMockOrder(raw){
+      if(!raw) return null;
+      const header = raw.header || {};
+      const id = raw.id || header.id || `ORD-${Date.now()}`;
+      const createdAt = toMillis(header.created_at || raw.createdAt);
+      const updatedAt = toMillis(header.updated_at || raw.updatedAt, createdAt);
+      const typeId = header.type_id || header.typeId || raw.type || 'dine_in';
+      const stageId = header.stage_id || header.stageId || raw.fulfillmentStage || 'new';
+      const statusId = header.status_id || header.statusId || raw.status || 'open';
+      const paymentStateId = header.payment_state_id || header.paymentStateId || raw.payment_state || 'unpaid';
+      const tableIds = Array.isArray(header.table_ids) ? header.table_ids.slice() : Array.isArray(raw.tableIds) ? raw.tableIds.slice() : [];
+      const guests = header.guests || raw.guests || 0;
+      const allowAdditions = header.allow_line_additions !== undefined ? !!header.allow_line_additions : (ORDER_TYPES.find(t=> t.id === typeId)?.allowsLineAdditions ?? (typeId === 'dine_in'));
+      const lockLineEdits = header.locked_line_edits !== undefined ? !!header.locked_line_edits : (orderStageMap.get(stageId)?.lockLineEdits ?? true);
+      const lineContext = { orderId:id, stageId, createdAt, updatedAt };
+      const lines = Array.isArray(raw.lines) ? raw.lines.map(line=> normalizeOrderLine(line, lineContext)).filter(Boolean) : [];
+      const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId);
+      const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, raw.author_id || header.author_id)).filter(Boolean) : [];
+      const events = Array.isArray(raw.events) ? raw.events.map(evt=>({
+        id: evt.id || `${id}::evt::${toMillis(evt.at)}`,
+        stage: evt.stage_id || evt.stageId || stageId,
+        status: evt.status_id || evt.statusId || statusId,
+        at: toMillis(evt.at, createdAt),
+        actorId: evt.actor_id || evt.actorId || 'system'
+      })) : [];
+      const normalizedTotals = totals && typeof totals === 'object' ? totals : calculateTotals(lines, settings, typeId);
+      return {
+        id,
+        status: statusId,
+        fulfillmentStage: stageId,
+        paymentState: paymentStateId,
+        type: typeId,
+        tableIds,
+        guests,
+        totals: normalizedTotals,
+        lines,
+        notes,
+        events,
+        createdAt,
+        updatedAt,
+        savedAt: updatedAt,
+        isPersisted:true,
+        allowAdditions,
+        lockLineEdits,
+        origin:'seed'
+      };
+    }
+
+    const seedOrders = Array.isArray(MOCK.orders) ? MOCK.orders.map(normalizeMockOrder).filter(Boolean) : [];
+    if(posDB.available && seedOrders.length){
+      posDB.bootstrap(seedOrders).catch(error=>{
+        console.warn('[Mishkah][POS] bootstrap failed', error);
+      });
+    }
 
     const baseTables = Array.isArray(MOCK.tables) ? MOCK.tables : [];
     const tables = baseTables.map((tbl, idx)=>({
@@ -683,15 +1211,7 @@
       active: lock.active !== false
     })) : [];
 
-    const ordersQueue = Array.isArray(MOCK.orders) ? MOCK.orders.map(order=>({
-      id: order.id,
-      status: order.status || 'open',
-      tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
-      guests: order.guests || 0,
-      createdAt: order.createdAt ? new Date(order.createdAt).getTime() : Date.now(),
-      updatedAt: order.updatedAt ? new Date(order.updatedAt).getTime() : Date.now(),
-      totals: order.totals || {}
-    })) : [];
+    const ordersQueue = seedOrders.slice();
 
     const reservations = Array.isArray(MOCK.reservations) ? MOCK.reservations.map(res=>({
       id: res.id || `res-${Math.random().toString(36).slice(2,6)}`,
@@ -729,7 +1249,7 @@
       env:{ theme:'dark', lang:'ar', dir:'rtl' },
       data:{
         settings,
-        currency: currencyMap,
+        currency:{ code: currencyCode, symbols: currencySymbols, display: currencyDisplayMode },
         user:{
           name: cashier.full_name || 'أحمد محمود',
           role: cashier.role || 'cashier',
@@ -751,14 +1271,27 @@
         order:{
           id: generateOrderId(),
           status:'open',
+          fulfillmentStage:'new',
+          paymentState:'unpaid',
           type:'dine_in',
           tableIds:[],
           guests:2,
           lines:[],
+          notes:[],
           totals: initialTotals,
           createdAt: Date.now(),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
+          allowAdditions:true,
+          lockLineEdits:false,
+          isPersisted:false,
+          origin:'pos'
         },
+        orderStages,
+        orderStatuses,
+        orderPaymentStates,
+        orderLineStatuses,
+        kitchenSections,
+        categorySections,
         tables,
         tableLocks,
         reservations,
@@ -820,7 +1353,8 @@
         paymentDraft:{ amount:'' },
         tables:{ view:'assign', filter:'all', search:'', details:null },
         reservations:{ filter:'today', status:'all', editing:null, form:null },
-        print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' }
+        print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' },
+        orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } }
       }
     };
 
@@ -1187,8 +1721,9 @@
       const t = getTexts(db);
       const reports = db.data.reports || {};
       const salesToday = new Intl.NumberFormat(getLocale(db)).format(reports.salesToday || 0);
+      const currencyLabel = getCurrencySymbol(db);
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${getCurrency(db)}`]),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${currencyLabel}`]),
         D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
           D.Text.Span({}, [`${t.ui.orders_count}: ${reports.ordersCount || 0}`]),
           UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
@@ -1794,46 +2329,161 @@
       });
     }
 
-    function OrdersQueueDrawer(db){
+    function OrdersQueueModal(db){
       const t = getTexts(db);
       if(!db.ui.modals.orders) return null;
-      const orders = [db.data.order, ...(db.data.ordersQueue || [])].filter(Boolean).reduce((acc, order)=>{
-        if(acc.some(o=> o.id === order.id)) return acc;
-        acc.push(order);
-        return acc;
-      }, []);
-      const lang = db.env.lang;
-      const items = orders.map(order=>{
-        const tablesNames = (order.tableIds || []).map(id=>{
-          const table = (db.data.tables || []).find(tbl=> tbl.id === id);
-          return table?.name || id;
-        }).join(', ');
-        const status = order.status || 'open';
-        const statusLabel = status === 'held' ? t.ui.orders_queue_status_held : t.ui.orders_queue_status_open;
-        return UI.ListItem({
-          leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
-          content:[
-            D.Text.Strong({}, [order.id]),
-            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${statusLabel} • ${formatDateTime(order.updatedAt || order.createdAt, lang, { hour:'2-digit', minute:'2-digit' })}`]),
-            tablesNames ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [tablesNames]) : null
-          ].filter(Boolean),
-          trailing:[
-            UI.PriceText({ amount: order.totals?.due || 0, currency:getCurrency(db), locale:getLocale(db) }),
-            UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])
-          ]
-        });
+      const tablesIndex = new Map((db.data.tables || []).map(tbl=> [tbl.id, tbl]));
+      const ordersState = db.ui.orders || { tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } };
+      const activeTab = ordersState.tab || 'all';
+      const searchTerm = (ordersState.search || '').trim().toLowerCase();
+      const sortState = ordersState.sort || { field:'updatedAt', direction:'desc' };
+      const mergedOrders = [];
+      const seen = new Set();
+      [db.data.order, ...(db.data.ordersQueue || [])].forEach(order=>{
+        if(!order || !order.id || seen.has(order.id)) return;
+        seen.add(order.id);
+        mergedOrders.push(order);
       });
-      return UI.Drawer({
+
+      const matchesTab = (order)=>{
+        if(activeTab === 'all') return true;
+        const typeId = order.type || order.orderType || 'dine_in';
+        return typeId === activeTab;
+      };
+
+      const matchesSearch = (order)=>{
+        if(!searchTerm) return true;
+        const typeLabel = localize(getOrderTypeConfig(order.type || 'dine_in').label, db.env.lang);
+        const stageLabel = localize(orderStageMap.get(order.fulfillmentStage)?.name || { ar: order.fulfillmentStage, en: order.fulfillmentStage }, db.env.lang);
+        const statusLabel = localize(orderStatusMap.get(order.status)?.name || { ar: order.status, en: order.status }, db.env.lang);
+        const tableNames = (order.tableIds || []).map(id=> tablesIndex.get(id)?.name || id).join(' ');
+        const paymentLabel = localize(orderPaymentMap.get(order.paymentState)?.name || { ar: order.paymentState || '', en: order.paymentState || '' }, db.env.lang);
+        const haystack = [order.id, typeLabel, stageLabel, statusLabel, paymentLabel, tableNames].join(' ').toLowerCase();
+        return haystack.includes(searchTerm);
+      };
+
+      const filtered = mergedOrders.filter(order=> matchesTab(order) && matchesSearch(order));
+
+      const getSortValue = (order, field)=>{
+        switch(field){
+          case 'order': return order.id;
+          case 'type': return order.type || 'dine_in';
+          case 'stage': return order.fulfillmentStage || 'new';
+          case 'status': return order.status || 'open';
+          case 'payment': return order.paymentState || 'unpaid';
+          case 'tables': return (order.tableIds || []).join(',');
+          case 'guests': return order.guests || 0;
+          case 'lines': return order.lines ? order.lines.length : 0;
+          case 'notes': return order.notes ? order.notes.length : 0;
+          case 'total': {
+            const totals = order.totals && typeof order.totals === 'object' ? order.totals : calculateTotals(order.lines || [], settings, order.type || 'dine_in');
+            return Number(totals?.due || 0);
+          }
+          case 'updatedAt':
+          default:
+            return order.updatedAt || order.createdAt || 0;
+        }
+      };
+
+      const sorted = filtered.slice().sort((a,b)=>{
+        const field = sortState.field || 'updatedAt';
+        const direction = sortState.direction === 'asc' ? 1 : -1;
+        const av = getSortValue(a, field);
+        const bv = getSortValue(b, field);
+        if(av == null && bv == null) return 0;
+        if(av == null) return -1 * direction;
+        if(bv == null) return 1 * direction;
+        if(typeof av === 'number' && typeof bv === 'number'){
+          if(av === bv) return 0;
+          return av > bv ? direction : -direction;
+        }
+        const as = String(av).toLowerCase();
+        const bs = String(bv).toLowerCase();
+        if(as === bs) return 0;
+        return as > bs ? direction : -direction;
+      });
+
+      const columns = [
+        { id:'order', label:t.ui.order_id, sortable:true },
+        { id:'type', label:t.ui.orders_type, sortable:true },
+        { id:'stage', label:t.ui.orders_stage, sortable:true },
+        { id:'status', label:t.ui.orders_status, sortable:true },
+        { id:'payment', label:t.ui.orders_payment, sortable:true },
+        { id:'tables', label:t.ui.tables, sortable:false },
+        { id:'guests', label:t.ui.guests, sortable:true },
+        { id:'lines', label:t.ui.orders_line_count, sortable:true },
+        { id:'notes', label:t.ui.orders_notes, sortable:true },
+        { id:'total', label:t.ui.orders_total, sortable:true },
+        { id:'updatedAt', label:t.ui.orders_updated, sortable:true },
+        { id:'actions', label:'', sortable:false }
+      ];
+
+      const headerRow = D.Tables.Tr({}, columns.map(col=>{
+        if(!col.sortable){
+          return D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]` }}, [col.label]);
+        }
+        const isActive = (sortState.field || 'updatedAt') === col.id;
+        const icon = isActive ? (sortState.direction === 'asc' ? '↑' : '↓') : '↕';
+        return D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]` }}, [
+          UI.Button({ attrs:{ gkey:'pos:orders:sort', 'data-sort-field':col.id, class: tw`flex items-center gap-1 text-xs` }, variant:'ghost', size:'sm' }, [col.label, D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [icon])])
+        ]);
+      }));
+
+      const rows = sorted.map(order=>{
+        const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
+        const stageMeta = orderStageMap.get(order.fulfillmentStage) || null;
+        const statusMeta = orderStatusMap.get(order.status) || null;
+        const paymentMeta = orderPaymentMap.get(order.paymentState) || null;
+        const totals = order.totals && typeof order.totals === 'object' ? order.totals : calculateTotals(order.lines || [], settings, order.type || 'dine_in');
+        const totalDue = Number(totals?.due || 0);
+        const tableNames = (order.tableIds || []).map(id=> tablesIndex.get(id)?.name || id).join(', ');
+        const updatedStamp = order.updatedAt || order.createdAt;
+        return D.Tables.Tr({ attrs:{ key:order.id, class: tw`bg-[var(--surface-1)]` }}, [
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm font-semibold` }}, [order.id]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [localize(typeConfig.label, db.env.lang)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.Badge({ text: localize(stageMeta?.name || { ar: order.fulfillmentStage, en: order.fulfillmentStage }, db.env.lang), variant:'badge/ghost' })]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.Badge({ text: localize(statusMeta?.name || { ar: order.status, en: order.status }, db.env.lang), variant:'badge/ghost' })]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [localize(paymentMeta?.name || { ar: order.paymentState || '', en: order.paymentState || '' }, db.env.lang)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [tableNames || '—']),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.guests || 0)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.lines ? order.lines.length : 0)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.notes ? order.notes.length : 0)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: totalDue, currency:getCurrency(db), locale:getLocale(db) })]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-xs ${token('muted')}` }}, [formatDateTime(updatedStamp, db.env.lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) || '—']),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-right` }}, [UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])])
+        ]);
+      });
+
+      const table = sorted.length
+        ? D.Tables.Table({ attrs:{ class: tw`w-full border-separate [border-spacing:0_8px] text-sm` }}, [
+            D.Tables.Thead({}, [headerRow]),
+            D.Tables.Tbody({}, rows)
+          ])
+        : UI.EmptyState({ icon:'🧾', title:t.ui.orders_no_results, description:t.ui.orders_queue_hint });
+
+      const tabItems = [
+        { id:'all', label:t.ui.orders_tab_all },
+        { id:'dine_in', label:t.ui.orders_tab_dine_in },
+        { id:'delivery', label:t.ui.orders_tab_delivery },
+        { id:'takeaway', label:t.ui.orders_tab_takeaway }
+      ];
+
+      return UI.Modal({
         open:true,
-        side:'end',
-        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
-          D.Text.Strong({}, [t.ui.orders_queue]),
-          UI.Button({ attrs:{ gkey:'pos:orders:toggle' }, variant:'ghost', size:'sm' }, ['×'])
-        ]),
-        content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.orders_queue_hint]),
-          items.length ? UI.List({ children: items }) : UI.EmptyState({ icon:'🧾', title:t.ui.orders_queue_empty })
-        ])
+        size:'xl',
+        title:t.ui.orders_queue,
+        description:t.ui.orders_queue_hint,
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          UI.Tabs({ items: tabItems, activeId: activeTab, gkey:'pos:orders:tab' }),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 md:flex-row md:items-center md:justify-between` }}, [
+            UI.Input({ attrs:{ type:'search', value: ordersState.search || '', placeholder:t.ui.orders_search_placeholder, gkey:'pos:orders:search' } }),
+            UI.Button({ attrs:{ gkey:'pos:orders:refresh' }, variant:'ghost', size:'sm' }, ['🔄 ', t.ui.orders_refresh])
+          ]),
+          table
+        ].filter(Boolean)),
+        actions:[
+          UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
+        ]
       });
     }
 
@@ -1883,9 +2533,9 @@
           UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, ['×'])
         ]),
         content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-          UI.StatCard({ title: t.ui.sales_today, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrency(db)}` }),
+          UI.StatCard({ title: t.ui.sales_today, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.salesToday)} ${getCurrencySymbol(db)}` }),
           UI.StatCard({ title: t.ui.orders_count, value: String(db.data.reports.ordersCount) }),
-          UI.StatCard({ title: t.ui.avg_ticket, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.avgTicket)} ${getCurrency(db)}` }),
+          UI.StatCard({ title: t.ui.avg_ticket, value: `${new Intl.NumberFormat(getLocale(db)).format(db.data.reports.avgTicket)} ${getCurrencySymbol(db)}` }),
           topItem ? UI.StatCard({ title: t.ui.top_selling, value: localize(topItem.name, db.env.lang) }) : null
         ].filter(Boolean))
       });
@@ -1907,7 +2557,7 @@
           PrintModal(db),
           PaymentsSheet(db),
           ReportsDrawer(db),
-          OrdersQueueDrawer(db),
+          OrdersQueueModal(db),
           db.ui?.toasts ? UI.ToastHost({ toasts: db.ui.toasts }) : null
         ].filter(Boolean)
       });
@@ -2003,22 +2653,37 @@
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
+            const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
+            const isPersisted = !!order.isPersisted;
+            const allowAdditions = order.allowAdditions !== undefined ? order.allowAdditions : !!typeConfig.allowsLineAdditions;
+            if(isPersisted && !allowAdditions){
+              UI.pushToast(ctx, { title:t.toast.order_additions_blocked, icon:'🚫' });
+              return s;
+            }
             const lines = (order.lines || []).map(line=> ({ ...line }));
-            const idx = lines.findIndex(line=> String(line.itemId) === String(item.id));
+            const canMerge = !isPersisted;
+            const idx = canMerge ? lines.findIndex(line=> String(line.itemId) === String(item.id)) : -1;
             if(idx >= 0){
               const line = { ...lines[idx] };
               line.qty += 1;
               line.total = round(line.qty * line.price);
+              line.updatedAt = Date.now();
               lines[idx] = line;
             } else {
-              lines.push(createOrderLine(item, 1));
+              lines.push(createOrderLine(item, 1, { kitchenSection: item.kitchenSection }));
             }
             const totals = calculateTotals(lines, data.settings || {}, order.type);
             return {
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals }
+                order:{
+                  ...order,
+                  lines,
+                  totals,
+                  updatedAt: Date.now(),
+                  allowAdditions: allowAdditions
+                }
               }
             };
           });
@@ -2082,10 +2747,19 @@
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
-            const lines = (order.lines || []).map(line=>{
-              if(line.id !== lineId) return line;
-              const next = { ...line, qty: line.qty + 1 };
+            const line = (order.lines || []).find(l=> l.id === lineId);
+            if(!line){
+              return s;
+            }
+            if(line.locked || (order.isPersisted && order.lockLineEdits) || (line.status && line.status !== 'draft')){
+              UI.pushToast(ctx, { title:getTexts(s).toast.line_locked, icon:'🔒' });
+              return s;
+            }
+            const lines = (order.lines || []).map(l=>{
+              if(l.id !== lineId) return l;
+              const next = { ...l, qty: l.qty + 1 };
               next.total = round(next.qty * next.price);
+              next.updatedAt = Date.now();
               return next;
             });
             const totals = calculateTotals(lines, data.settings || {}, order.type);
@@ -2093,7 +2767,7 @@
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals }
+                order:{ ...order, lines, totals, updatedAt: Date.now() }
               }
             };
           });
@@ -2110,6 +2784,14 @@
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
+            const target = (order.lines || []).find(l=> l.id === lineId);
+            if(!target){
+              return s;
+            }
+            if(target.locked || (order.isPersisted && order.lockLineEdits) || (target.status && target.status !== 'draft')){
+              UI.pushToast(ctx, { title:getTexts(s).toast.line_locked, icon:'🔒' });
+              return s;
+            }
             const lines = [];
             for(const line of (order.lines || [])){
               if(line.id !== lineId){
@@ -2117,7 +2799,7 @@
                 continue;
               }
               if(line.qty <= 1) continue;
-              const next = { ...line, qty: line.qty - 1 };
+              const next = { ...line, qty: line.qty - 1, updatedAt: Date.now() };
               next.total = round(next.qty * next.price);
               lines.push(next);
             }
@@ -2126,7 +2808,7 @@
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals }
+                order:{ ...order, lines, totals, updatedAt: Date.now() }
               }
             };
           });
@@ -2143,6 +2825,10 @@
           const state = ctx.getState();
           const t = getTexts(state);
           const current = (state.data.order.lines || []).find(line=> line.id === lineId);
+          if(current && (current.locked || (state.data.order.isPersisted && state.data.order.lockLineEdits) || (current.status && current.status !== 'draft'))){
+            UI.pushToast(ctx, { title:t.toast.line_locked, icon:'🔒' });
+            return;
+          }
           const nextValue = window.prompt(t.toast.set_qty, current ? current.qty : 1);
           if(nextValue == null) return;
           const qty = Math.max(1, parseInt(nextValue, 10) || 1);
@@ -2153,6 +2839,7 @@
               if(line.id !== lineId) return line;
               const next = { ...line, qty };
               next.total = round(next.qty * next.price);
+              next.updatedAt = Date.now();
               return next;
             });
             const totals = calculateTotals(lines, data.settings || {}, order.type);
@@ -2160,7 +2847,7 @@
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals }
+                order:{ ...order, lines, totals, updatedAt: Date.now() }
               }
             };
           });
@@ -2181,14 +2868,15 @@
         handler:(e,ctx)=>{
           const t = getTexts(ctx.getState());
           if(!window.confirm(t.toast.confirm_clear)) return;
-          ctx.setState(s=>{
-            const data = s.data || {};
-            const order = data.order || {};
-            const totals = calculateTotals([], data.settings || {}, order.type);
-            return {
-              ...s,
-              data:{
-                ...data,
+            ctx.setState(s=>{
+              const data = s.data || {};
+              const order = data.order || {};
+              const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
+              const totals = calculateTotals([], data.settings || {}, order.type);
+              return {
+                ...s,
+                data:{
+                  ...data,
                 order:{ ...order, lines:[], totals }
               }
             };
@@ -2210,7 +2898,22 @@
               ...s,
               data:{
                 ...data,
-                order:{ ...order, id: generateOrderId(), lines:[], totals, tableIds:[] },
+                order:{
+                  ...order,
+                  id: generateOrderId(),
+                  status:'open',
+                  fulfillmentStage:'new',
+                  paymentState:'unpaid',
+                  lines:[],
+                  notes:[],
+                  totals,
+                  tableIds:[],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                  allowAdditions: !!typeConfig.allowsLineAdditions,
+                  lockLineEdits:false,
+                  isPersisted:false
+                },
                 tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
               }
             };
@@ -2258,15 +2961,37 @@
           const t = getTexts(state);
           const note = window.prompt(t.toast.add_note);
           if(note == null) return;
+          const trimmed = note.trim();
+          if(!trimmed){
+            return;
+          }
+          const now = Date.now();
+          const user = state.data.user || {};
+          const noteEntry = {
+            id: `note-${now.toString(36)}`,
+            message: trimmed,
+            authorId: user.id || user.role || 'pos',
+            authorName: user.name || '',
+            createdAt: now
+          };
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
-            const lines = (order.lines || []).map(line=> ({ ...line, notes: note }));
+            const lines = (order.lines || []).map(line=> ({
+              ...line,
+              notes: Array.isArray(line.notes) ? line.notes.concat([noteEntry]) : line.notes ? [line.notes, noteEntry] : [noteEntry],
+              updatedAt: now
+            }));
             return {
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines }
+                order:{
+                  ...order,
+                  notes: Array.isArray(order.notes) ? order.notes.concat([noteEntry]) : [noteEntry],
+                  lines,
+                  updatedAt: now
+                }
               }
             };
           });
@@ -2335,16 +3060,41 @@
             UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
             return;
           }
+          const order = state.data.order || {};
+          const now = Date.now();
+          const safeLines = (order.lines || []).map(line=>({
+            ...line,
+            locked:true,
+            status: line.status || 'draft',
+            notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
+            updatedAt: now
+          }));
+          const orderPayload = {
+            ...order,
+            lines: safeLines,
+            notes: Array.isArray(order.notes) ? order.notes : (order.notes ? [order.notes] : []),
+            updatedAt: now,
+            savedAt: now,
+            isPersisted:true
+          };
           try{
-            await posDB.saveOrder(state.data.order);
+            await posDB.saveOrder(orderPayload);
             await posDB.markSync();
+            const latestOrders = await posDB.listOrders({ onlyActive:true });
+            const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
             ctx.setState(s=>({
               ...s,
               data:{
                 ...s.data,
+                order:{
+                  ...orderPayload,
+                  allowAdditions: !!typeConfig.allowsLineAdditions,
+                  lockLineEdits:true
+                },
+                ordersQueue: latestOrders,
                 status:{
                   ...s.data.status,
-                  indexeddb:{ state:'online', lastSync: Date.now() }
+                  indexeddb:{ state:'online', lastSync: now }
                 }
               }
             }));
@@ -2873,7 +3623,25 @@
           const t = getTexts(state);
           const reservation = (state.data.reservations || []).find(res=> res.id === resId);
           if(!reservation) return;
-          const newOrder = { id: generateOrderId(), status:'open', tableIds: reservation.tableIds.slice(), guests: reservation.partySize, createdAt: Date.now(), updatedAt: Date.now(), totals:{ due:0 } };
+          const totals = calculateTotals([], state.data.settings || {}, 'dine_in');
+          const dineInConfig = getOrderTypeConfig('dine_in');
+          const newOrder = {
+            id: generateOrderId(),
+            status:'open',
+            fulfillmentStage:'new',
+            paymentState:'unpaid',
+            type:'dine_in',
+            tableIds: reservation.tableIds.slice(),
+            guests: reservation.partySize,
+            lines:[],
+            notes:[],
+            totals,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            allowAdditions: !!dineInConfig.allowsLineAdditions,
+            lockLineEdits:false,
+            isPersisted:false
+          };
           ctx.setState(s=>({
             ...s,
             data:{
@@ -2924,10 +3692,30 @@
       'pos.orders.open':{
         on:['click'],
         gkeys:['pos:orders:open'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const defaultOrdersUi = { tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } };
+          if(posDB.available){
+            try{
+              const orders = await posDB.listOrders({ onlyActive:true });
+              ctx.setState(s=>({
+                ...s,
+                data:{ ...(s.data || {}), ordersQueue: orders },
+                ui:{ ...(s.ui || {}), orders: defaultOrdersUi, modals:{ ...(s.ui?.modals || {}), orders:true } }
+              }));
+              ctx.rebuild();
+              UI.pushToast(ctx, { title:t.toast.orders_loaded, icon:'📥' });
+              return;
+            } catch(error){
+              UI.pushToast(ctx, { title:t.toast.orders_failed, message:String(error), icon:'🛑' });
+            }
+          } else {
+            UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
+          }
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:true } }
+            ui:{ ...(s.ui || {}), orders: defaultOrdersUi, modals:{ ...(s.ui?.modals || {}), orders:true } }
           }));
           ctx.rebuild();
         }
@@ -2943,19 +3731,107 @@
           ctx.rebuild();
         }
       },
+      'pos.orders.tab':{
+        on:['click'],
+        gkeys:['pos:orders:tab'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tab-id]');
+          if(!btn) return;
+          const tabId = btn.getAttribute('data-tab-id');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), tab: tabId }, modals:{ ...(s.ui?.modals || {}), orders:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.search':{
+        on:['input'],
+        gkeys:['pos:orders:search'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), search:value }, modals:{ ...(s.ui?.modals || {}), orders:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.sort':{
+        on:['click'],
+        gkeys:['pos:orders:sort'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-sort-field]');
+          if(!btn) return;
+          const field = btn.getAttribute('data-sort-field') || 'updatedAt';
+          ctx.setState(s=>{
+            const current = (s.ui?.orders?.sort) || { field:'updatedAt', direction:'desc' };
+            const direction = current.field === field && current.direction === 'desc' ? 'asc' : 'desc';
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), sort:{ field, direction } }, modals:{ ...(s.ui?.modals || {}), orders:true } }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.orders.refresh':{
+        on:['click'],
+        gkeys:['pos:orders:refresh'],
+        handler: async (e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          if(!posDB.available){
+            UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
+            return;
+          }
+          try{
+            const orders = await posDB.listOrders({ onlyActive:true });
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...(s.data || {}), ordersQueue: orders }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.toast.orders_loaded, icon:'📥' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t.toast.orders_failed, message:String(error), icon:'🛑' });
+          }
+        }
+      },
       'pos.orders.open-order':{
         on:['click'],
         gkeys:['pos:orders:open-order'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const btn = e.target.closest('[data-order-id]');
           if(!btn) return;
           const orderId = btn.getAttribute('data-order-id');
           const state = ctx.getState();
-          const order = [state.data.order, ...(state.data.ordersQueue || [])].find(ord=> ord && ord.id === orderId);
+          const t = getTexts(state);
+          let order = null;
+          if(posDB.available){
+            try{
+              order = await posDB.getOrder(orderId);
+            } catch(error){
+              UI.pushToast(ctx, { title:t.toast.orders_failed, message:String(error), icon:'🛑' });
+            }
+          }
+          if(!order){
+            order = [state.data.order, ...(state.data.ordersQueue || [])].find(ord=> ord && ord.id === orderId);
+          }
           if(!order) return;
+          const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
           ctx.setState(s=>({
             ...s,
-            data:{ ...(s.data || {}), order:{ ...(s.data.order || {}), ...order } },
+            data:{
+              ...(s.data || {}),
+              order:{
+                ...(s.data.order || {}),
+                ...order,
+                allowAdditions: order.allowAdditions !== undefined ? order.allowAdditions : !!typeConfig.allowsLineAdditions,
+                lockLineEdits: order.lockLineEdits !== undefined ? order.lockLineEdits : true,
+                isPersisted: order.isPersisted !== undefined ? order.isPersisted : true
+              }
+            },
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
           }));
           ctx.rebuild();
