@@ -105,6 +105,11 @@
           print_printers_info:'لا يستطيع المتصفح مشاركة أسماء الطابعات تلقائيًا بدون حوار الطباعة، لذا اختر الطابعة يدويًا لكل ملف.',
           print_copies:'عدد النسخ', print_duplicate_inside:'نسخة للداخل', print_duplicate_outside:'نسخة للخارج',
           print_auto_send:'إرسال مباشر للطابعة الحرارية', print_show_preview:'عرض المعاينة قبل الطباعة',
+          print_show_advanced:'إظهار الإعدادات المتقدمة', print_hide_advanced:'إخفاء الإعدادات المتقدمة',
+          print_manage_printers:'إدارة الطابعات', print_manage_hide:'إخفاء إدارة الطابعات', print_manage_title:'قائمة الطابعات المحفوظة',
+          print_manage_add:'إضافة طابعة', print_manage_placeholder:'أدخل اسم الطابعة كما يظهر في النظام',
+          print_manage_empty:'لا توجد طابعات محفوظة بعد', print_browser_preview:'طباعة عبر المتصفح',
+          print_printer_select:'اختر الطابعة للطباعة السريعة', print_printers_manage_hint:'حدث قائمة الطابعات لتسهيل الوصول السريع.',
           receipt_15:'رول ‎15 سم‎', export_pdf:'تصدير PDF',
           orders_queue:'الطلبات المفتوحة', orders_queue_hint:'الطلبات المعلقة/المفتوحة', orders_queue_empty:'لا توجد طلبات في الانتظار.',
           orders_queue_open:'فتح الطلب', orders_queue_status_open:'مفتوح', orders_queue_status_held:'معلّق',
@@ -130,7 +135,10 @@
           table_has_sessions:'لا يمكن حذف طاولة عليها طلبات', table_state_updated:'تم تحديث حالة الطاولة',
           table_unlock_partial:'تم فك قفل الطاولة للطلب المحدد', reservation_created:'تم إنشاء الحجز', reservation_updated:'تم تحديث الحجز',
           reservation_cancelled:'تم إلغاء الحجز', reservation_converted:'تم تحويل الحجز إلى طلب', reservation_no_show:'تم وسم الحجز بعدم الحضور',
-          print_profile_saved:'تم حفظ إعدادات الطباعة', print_sent:'تم إرسال أمر الطباعة', pdf_exported:'تم تجهيز نسخة PDF للحفظ'
+          print_profile_saved:'تم حفظ إعدادات الطباعة', print_sent:'تم إرسال أمر الطباعة', pdf_exported:'تم تجهيز نسخة PDF للحفظ',
+          printer_added:'تمت إضافة الطابعة', printer_removed:'تمت إزالة الطابعة', printer_exists:'الطابعة موجودة بالفعل',
+          printer_name_required:'يرجى إدخال اسم الطابعة', browser_popup_blocked:'يرجى السماح بالنوافذ المنبثقة لإتمام التصدير',
+          browser_print_opened:'تم فتح أداة الطباعة في المتصفح'
         }
       },
       en:{
@@ -184,6 +192,11 @@
           print_printers_info:'Browsers only expose printer names through the print dialog. Configure the matching printer manually for each profile.',
           print_copies:'Copies', print_duplicate_inside:'Duplicate for inside', print_duplicate_outside:'Duplicate for outside',
           print_auto_send:'Auto send to thermal printer', print_show_preview:'Show preview before printing',
+          print_show_advanced:'Show advanced settings', print_hide_advanced:'Hide advanced settings',
+          print_manage_printers:'Manage printers', print_manage_hide:'Hide printer manager', print_manage_title:'Saved printers',
+          print_manage_add:'Add printer', print_manage_placeholder:'Enter the printer name exactly as the OS shows it',
+          print_manage_empty:'No saved printers yet', print_browser_preview:'Browser print dialog',
+          print_printer_select:'Pick the printer for quick printing', print_printers_manage_hint:'Maintain the printer names you rely on here.',
           receipt_15:'15 cm roll', export_pdf:'Export PDF',
           orders_queue:'Open orders', orders_queue_hint:'Held / open orders in progress', orders_queue_empty:'No orders waiting.',
           orders_queue_open:'Open order', orders_queue_status_open:'Open', orders_queue_status_held:'Held',
@@ -209,7 +222,10 @@
           table_has_sessions:'Cannot remove a table with linked orders', table_state_updated:'Table state updated',
           table_unlock_partial:'Table unlocked for the selected order', reservation_created:'Reservation created', reservation_updated:'Reservation updated',
           reservation_cancelled:'Reservation cancelled', reservation_converted:'Reservation converted to order', reservation_no_show:'Reservation marked as no-show',
-          print_profile_saved:'Print profile saved', print_sent:'Print job sent', pdf_exported:'PDF export is ready'
+          print_profile_saved:'Print profile saved', print_sent:'Print job sent', pdf_exported:'PDF export is ready',
+          printer_added:'Printer added', printer_removed:'Printer removed', printer_exists:'Printer already exists',
+          printer_name_required:'Please enter a printer name', browser_popup_blocked:'Allow pop-ups to finish the export',
+          browser_print_opened:'Browser print dialog opened'
         }
       }
     };
@@ -227,6 +243,18 @@
       return String(value);
     }
 
+    function escapeHTML(value){
+      if(value == null) return '';
+      const map = {
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;'
+      };
+      map['"'] = '&quot;';
+      map['\''] = '&#39;';
+      return String(value).replace(/[&<>"']/g, ch=> map[ch]);
+    }
+
     function getCurrency(db){
       const lang = db.env.lang;
       return currencyMap[lang] || currencyMap.ar || currencyMap.en || 'EGP';
@@ -234,6 +262,15 @@
 
     function getLocale(db){
       return db.env.lang === 'ar' ? 'ar-EG' : 'en-US';
+    }
+
+    function formatCurrencyValue(db, amount){
+      try{
+        return new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(Number(amount)||0);
+      } catch(_){
+        const numeric = (Number(amount)||0).toFixed(2);
+        return `${numeric} ${getCurrency(db)}`;
+      }
     }
 
     function round(value){
@@ -308,6 +345,127 @@
       } catch(_){
         return new Date(ts).toLocaleString();
       }
+    }
+
+    function renderPrintableHTML(db, docType, size){
+      const t = getTexts(db);
+      const order = db.data.order || {};
+      const lang = db.env.lang;
+      const locale = getLocale(db);
+      const currency = getCurrency(db);
+      const tablesNames = (order.tableIds || []).map(id=>{
+        const table = (db.data.tables || []).find(tbl=> tbl.id === id);
+        return table?.name || id;
+      });
+      const payments = db.data.payments?.split || [];
+      const totalPaid = payments.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
+      const due = order.totals?.due || 0;
+      const changeDue = Math.max(0, round(totalPaid - due));
+      const totalsRows = [
+        { label:t.ui.subtotal, value: order.totals?.subtotal || 0 },
+        order.totals?.service ? { label:t.ui.service, value: order.totals.service } : null,
+        { label:t.ui.vat, value: order.totals?.vat || 0 },
+        order.totals?.deliveryFee ? { label:t.ui.delivery_fee, value: order.totals.deliveryFee } : null,
+        order.totals?.discount ? { label:t.ui.discount, value: order.totals.discount } : null
+      ].filter(Boolean);
+      const docLabels = {
+        customer: t.ui.print_doc_customer,
+        summary: t.ui.print_doc_summary,
+        kitchen: t.ui.print_doc_kitchen
+      };
+      const currentDocLabel = docLabels[docType] || t.ui.print_doc_customer;
+      const lineItems = (order.lines || []).map(line=>{
+        const name = `${escapeHTML(localize(line.name, lang))} × ${Number(line.qty)||0}`;
+        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(line.total)||0);
+        return `<div class="row"><span>${name}</span><span>${price}</span></div>`;
+      }).join('');
+      const totalsHtml = totalsRows.map(row=> {
+        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(row.value)||0);
+        return `<div class="row"><span>${escapeHTML(row.label)}</span><span>${price}</span></div>`;
+      }).join('');
+      const paymentsHtml = payments.map(entry=>{
+        const method = (db.data.payments?.methods || []).find(m=> m.id === entry.method);
+        const label = method ? `${escapeHTML(localize(method.label, lang))}` : escapeHTML(entry.method || '');
+        const price = new Intl.NumberFormat(locale, { style:'currency', currency }).format(Number(entry.amount)||0);
+        return `<div class="row"><span>${label}</span><span>${price}</span></div>`;
+      }).join('');
+      const sizePresets = {
+        thermal_80:{ width:'320px', padding:'20px 16px', fontSize:'13px', heading:'18px', meta:'12px', total:'16px' },
+        receipt_15:{ width:'380px', padding:'24px 20px', fontSize:'13px', heading:'20px', meta:'13px', total:'17px' },
+        a5:{ width:'520px', padding:'28px 24px', fontSize:'14px', heading:'22px', meta:'14px', total:'18px' },
+        a4:{ width:'720px', padding:'32px 32px', fontSize:'15px', heading:'24px', meta:'15px', total:'20px' }
+      };
+      const preset = sizePresets[size] || sizePresets.thermal_80;
+      const dirAttr = db.env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
+      const tablesLine = tablesNames.length ? `${escapeHTML(t.ui.tables)}: ${escapeHTML(tablesNames.join(', '))}` : '';
+      const orderMeta = [
+        `${escapeHTML(t.ui.order_id)} ${escapeHTML(order.id || '—')}`,
+        `${escapeHTML(t.ui.guests)}: ${order.guests || 0}`,
+        tablesLine,
+        formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+      ].filter(Boolean).map(val=> `<p class="meta">${escapeHTML(val)}</p>`).join('');
+      const noItems = `<p class="muted">${escapeHTML(t.ui.cart_empty)}</p>`;
+      const changeRow = payments.length ? `<div class="row"><span>${escapeHTML(t.ui.print_change_due)}</span><span>${formatCurrencyValue(db, changeDue)}</span></div>` : '';
+      const paidRow = payments.length ? `<div class="row"><span>${escapeHTML(t.ui.paid)}</span><span>${formatCurrencyValue(db, totalPaid)}</span></div>` : '';
+      const html = `<!DOCTYPE html>
+<html lang="${lang}" dir="${dirAttr}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>${escapeHTML(currentDocLabel)}</title>
+    <style>
+      :root { color-scheme: light; font-family: 'Tajawal', 'Cairo', system-ui, sans-serif; }
+      body { margin:0; background:#f8fafc; color:#0f172a; display:flex; justify-content:center; padding:32px; direction:${dirAttr}; }
+      .receipt { width:100%; max-width:${preset.width}; padding:${preset.padding}; font-size:${preset.fontSize}; background:#ffffff; border:1px dashed #cbd5f5; border-radius:24px; box-shadow:0 24px 60px rgba(15,23,42,0.16); }
+      .receipt header { text-align:center; margin-bottom:16px; }
+      .receipt h1 { margin:0; font-size:${preset.heading}; font-weight:700; }
+      .receipt .meta { margin:4px 0; color:#64748b; font-size:${preset.meta}; }
+      .receipt .rows { margin:16px 0; }
+      .receipt .row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin:8px 0; font-size:${preset.fontSize}; }
+      .receipt .row span:last-child { font-weight:600; }
+      .receipt .separator { height:1px; background:#e2e8f0; margin:16px 0; }
+      .receipt .muted { text-align:center; color:#cbd5f5; margin:24px 0; }
+      .receipt .totals strong { display:flex; justify-content:space-between; margin-top:12px; font-size:${preset.total}; }
+      footer { margin-top:24px; text-align:center; color:#94a3b8; font-size:${preset.meta}; }
+    </style>
+    <script>
+      window.addEventListener('load', function(){
+        window.focus();
+        setTimeout(function(){ try{ window.print(); } catch(_){} }, 200);
+      });
+    </script>
+  </head>
+  <body>
+    <article class="receipt">
+      <header>
+        <h1>Mishkah Restaurant</h1>
+        <p class="meta">${escapeHTML(t.ui.print_header_address)}: 12 Nile Street</p>
+        <p class="meta">${escapeHTML(t.ui.print_header_phone)}: 0100000000</p>
+        <p class="meta">${escapeHTML(currentDocLabel)}</p>
+      </header>
+      <section>
+        ${orderMeta}
+      </section>
+      <div class="separator"></div>
+      <section class="rows">
+        ${lineItems || noItems}
+      </section>
+      <div class="separator"></div>
+      <section class="rows totals">
+        ${totalsHtml}
+        <strong><span>${escapeHTML(t.ui.total)}</span><span>${formatCurrencyValue(db, due)}</span></strong>
+        ${paidRow}
+        ${changeRow}
+        ${paymentsHtml}
+      </section>
+      <footer>
+        <p>${escapeHTML(t.ui.print_footer_thanks)}</p>
+        <p>${escapeHTML(t.ui.print_footer_policy)}</p>
+        <p>${escapeHTML(t.ui.print_footer_feedback)} • QR</p>
+      </footer>
+    </article>
+  </body>
+</html>`;
+      return html;
     }
 
     function toInputDateTime(ts){
@@ -661,7 +819,7 @@
         paymentDraft:{ amount:'' },
         tables:{ view:'assign', filter:'all', search:'', details:null },
         reservations:{ filter:'today', status:'all', editing:null, form:null },
-        print:{ docType:'customer', size:'thermal_80', showPreview:false }
+        print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' }
       }
     };
 
@@ -1019,12 +1177,6 @@
 
     function FooterBar(db){
       const t = getTexts(db);
-      const printOptions = [
-        { id:'thermal_80', label:`🧾 ${t.ui.thermal_80}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'thermal_80' } },
-        { id:'receipt_15', label:`🧾 ${t.ui.receipt_15}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'receipt_15' } },
-        { id:'a5', label:`📄 ${t.ui.a5}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a5' } },
-        { id:'a4', label:`🗒️ ${t.ui.a4}`, attrs:{ gkey:'pos:print:size', 'data-print-size':'a4' } }
-      ];
       const reports = db.data.reports || {};
       const salesToday = new Intl.NumberFormat(getLocale(db)).format(reports.salesToday || 0);
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
@@ -1034,10 +1186,6 @@
           UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
         ])
       ]);
-      const printSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 items-stretch` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')} hidden lg:inline` }}, [t.ui.print_size_label]),
-        UI.Segmented({ items: printOptions, activeId: db.data.print?.size || 'thermal_80' })
-      ]);
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
@@ -1045,7 +1193,6 @@
         ],
         right:[
           reportsSummary,
-          printSelector,
           UI.Button({ attrs:{ gkey:'pos:order:save', class: tw`min-w-[140px]` }, variant:'soft', size:'md' }, [t.ui.save_order]),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
           UI.Button({ attrs:{ gkey:'pos:order:export', class: tw`min-w-[150px]` }, variant:'ghost', size:'md' }, [t.ui.export_pdf]),
@@ -1280,9 +1427,14 @@
       const t = getTexts(db);
       if(!db.ui.modals.print) return null;
       const order = db.data.order || {};
-      const docType = db.ui.print?.docType || db.data.print?.docType || 'customer';
-      const selectedSize = db.ui.print?.size || db.data.print?.size || 'thermal_80';
-      const profile = (db.data.print?.profiles || {})[docType] || {};
+      const uiPrint = db.ui.print || {};
+      const docType = uiPrint.docType || db.data.print?.docType || 'customer';
+      const profiles = db.data.print?.profiles || {};
+      const profile = profiles[docType] || {};
+      const selectedSize = uiPrint.size || profile.size || db.data.print?.size || 'thermal_80';
+      const showAdvanced = !!uiPrint.showAdvanced;
+      const managePrinters = !!uiPrint.managePrinters;
+      const newPrinterName = uiPrint.newPrinterName || '';
       const tablesNames = (order.tableIds || []).map(id=>{
         const table = (db.data.tables || []).find(tbl=> tbl.id === id);
         return table?.name || id;
@@ -1350,7 +1502,7 @@
       const previewTotalsTotalClass = tw`flex items-center justify-between ${previewPreset.total} font-semibold`;
       const previewFooterClass = tw`mt-6 space-y-1 text-center ${previewPreset.meta} text-neutral-500`;
 
-      const previewReceipt = D.Containers.Div({ attrs:{ class: previewContainerClass }}, [
+      const previewReceipt = D.Containers.Div({ attrs:{ class: previewContainerClass, 'data-print-preview':'receipt' }}, [
         D.Containers.Div({ attrs:{ class: tw`space-y-1 text-center` }}, [
           D.Text.Strong({ attrs:{ class: previewHeadingClass }}, ['Mishkah Restaurant']),
           D.Text.Span({ attrs:{ class: previewMetaClass }}, [`${t.ui.print_header_address}: 12 Nile Street`]),
@@ -1394,72 +1546,98 @@
         ])
       ]);
 
+      const availablePrinters = Array.isArray(db.data.print?.availablePrinters) ? db.data.print.availablePrinters : [];
+      const printerOptions = [
+        { value:'', label:t.ui.print_printer_placeholder },
+        ...availablePrinters.map(item=> ({ value:item.id, label:item.label || item.id }))
+      ];
+      const printerSelectField = (fieldKey, labelText, helperText, currentValue)=>
+        UI.Field({
+          label: labelText,
+          helper: helperText,
+          control: UI.Select({
+            attrs:{ value: currentValue || '', gkey:'pos:print:printer-select', 'data-print-field':fieldKey },
+            options: printerOptions
+          })
+        });
+
+      const printerField = printerSelectField('defaultPrinter', t.ui.print_printer_default, t.ui.print_printer_select, profile.defaultPrinter);
+
+      const manageControls = managePrinters
+        ? UI.Card({
+            variant:'card/soft-2',
+            title: t.ui.print_manage_title,
+            description: t.ui.print_printers_manage_hint,
+            content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+              UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+                UI.Input({ attrs:{ value: newPrinterName, placeholder: t.ui.print_manage_placeholder, gkey:'pos:print:manage-input' } }),
+                UI.Button({ attrs:{ gkey:'pos:print:manage-add', class: tw`whitespace-nowrap` }, variant:'solid', size:'sm' }, [t.ui.print_manage_add])
+              ]),
+              availablePrinters.length
+                ? UI.List({ children: availablePrinters.map(item=> UI.ListItem({
+                    content: D.Text.Span({}, [item.label || item.id]),
+                    trailing: UI.Button({ attrs:{ gkey:'pos:print:manage-remove', 'data-printer-id':item.id }, variant:'ghost', size:'sm' }, ['🗑️'])
+                  })) })
+                : UI.EmptyState({ icon:'🖨️', title:t.ui.print_manage_empty, description:'' })
+            ])
+          })
+        : null;
+
+      const advancedControls = showAdvanced
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-4` }}, [
+            UI.Segmented({
+              items: sizeOptions.map(opt=>({ id: opt.id, label: opt.label, attrs:{ gkey:'pos:print:size', 'data-print-size':opt.id } })),
+              activeId: selectedSize
+            }),
+            printerSelectField('insidePrinter', t.ui.print_printer_inside, t.ui.print_printer_hint, profile.insidePrinter),
+            printerSelectField('outsidePrinter', t.ui.print_printer_outside, t.ui.print_printer_hint, profile.outsidePrinter),
+            UI.Field({
+              label: t.ui.print_copies,
+              control: UI.NumpadDecimal({
+                value: profile.copies || 1,
+                placeholder:'1',
+                gkey:'pos:print:profile-field',
+                inputAttrs:{ 'data-print-field':'copies' },
+                allowDecimal:false,
+                confirmLabel: t.ui.close,
+                confirmAttrs:{ variant:'soft', size:'sm' }
+              })
+            }),
+            UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateInside', class: tw`${profile.duplicateInside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateInside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_inside]),
+              UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateOutside', class: tw`${profile.duplicateOutside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateOutside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_outside])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex items-start gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-xs` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['ℹ️']),
+              D.Text.Span({ attrs:{ class: tw`leading-relaxed` }}, [t.ui.print_printers_info])
+            ])
+          ])
+        : null;
+
       const preview = UI.Card({
         variant:'card/soft-2',
         title: `${t.ui.print_preview} — ${currentDocLabel}`,
         content: previewReceipt
       });
 
-      const printerSuggestions = db.data.print?.availablePrinters || [];
-      const printerChips = printerSuggestions.length
-        ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, printerSuggestions.map(item=>
-            UI.Badge({ text:item.label, variant:'badge/ghost' })
-          ))
-        : null;
-
-      const printersInfo = D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex items-start gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-xs` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['ℹ️']),
-          D.Text.Span({ attrs:{ class: tw`leading-relaxed` }}, [t.ui.print_printers_info])
-        ]),
-        printerChips
-      ].filter(Boolean));
+      const toggleRow = UI.HStack({ attrs:{ class: tw`flex-wrap gap-2` }}, [
+        UI.Button({ attrs:{ gkey:'pos:print:advanced-toggle', class: tw`${showAdvanced ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [showAdvanced ? `⬆️ ${t.ui.print_hide_advanced}` : `⚙️ ${t.ui.print_show_advanced}`]),
+        UI.Button({ attrs:{ gkey:'pos:print:manage-toggle', class: tw`${managePrinters ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [managePrinters ? `⬆️ ${t.ui.print_manage_hide}` : `🖨️ ${t.ui.print_manage_printers}`])
+      ]);
 
       const modalContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
         UI.Segmented({
           items: docTypes.map(dt=>({ id: dt.id, label: dt.label, attrs:{ gkey:'pos:print:doc', 'data-doc-type':dt.id } })),
           activeId: docType
         }),
-        UI.Segmented({
-          items: sizeOptions.map(opt=>({ id: opt.id, label: opt.label, attrs:{ gkey:'pos:print:size', 'data-print-size':opt.id } })),
-          activeId: selectedSize
-        }),
-        UI.Field({
-          label: t.ui.print_printer_default,
-          helper: t.ui.print_printer_hint,
-          control: UI.Input({ attrs:{ value: profile.defaultPrinter || '', placeholder:t.ui.print_printer_placeholder, gkey:'pos:print:profile-field', 'data-print-field':'defaultPrinter' } })
-        }),
-        UI.Field({
-          label: t.ui.print_printer_inside,
-          helper: t.ui.print_printer_hint,
-          control: UI.Input({ attrs:{ value: profile.insidePrinter || '', placeholder:t.ui.print_printer_placeholder, gkey:'pos:print:profile-field', 'data-print-field':'insidePrinter' } })
-        }),
-        UI.Field({
-          label: t.ui.print_printer_outside,
-          helper: t.ui.print_printer_hint,
-          control: UI.Input({ attrs:{ value: profile.outsidePrinter || '', placeholder:t.ui.print_printer_placeholder, gkey:'pos:print:profile-field', 'data-print-field':'outsidePrinter' } })
-        }),
-        UI.Field({
-          label: t.ui.print_copies,
-          control: UI.NumpadDecimal({
-            value: profile.copies || 1,
-            placeholder:'1',
-            gkey:'pos:print:profile-field',
-            inputAttrs:{ 'data-print-field':'copies' },
-            allowDecimal:false,
-            confirmLabel: t.ui.close,
-            confirmAttrs:{ variant:'soft', size:'sm' }
-          })
-        }),
-        UI.HStack({ attrs:{ class: tw`flex-wrap gap-2 text-xs` }}, [
-          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'autoSend', class: tw`${profile.autoSend ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.autoSend ? '✅ ' : '⬜︎ ', t.ui.print_auto_send]),
-          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'preview', class: tw`${profile.preview ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.preview ? '✅ ' : '⬜︎ ', t.ui.print_show_preview]),
-          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateInside', class: tw`${profile.duplicateInside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateInside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_inside]),
-          UI.Button({ attrs:{ gkey:'pos:print:toggle', 'data-print-toggle':'duplicateOutside', class: tw`${profile.duplicateOutside ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : ''}` }, variant:'ghost', size:'sm' }, [profile.duplicateOutside ? '✅ ' : '⬜︎ ', t.ui.print_duplicate_outside])
-        ]),
-        printersInfo,
+        printerField,
+        toggleRow,
+        manageControls,
+        advancedControls,
         preview
-      ]);
+      ].filter(Boolean));
 
       return UI.Modal({
         open:true,
@@ -1467,9 +1645,10 @@
         description: t.ui.print_profile,
         content: modalContent,
         actions:[
-          UI.Button({ attrs:{ gkey:'pos:print:save', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.print_save_profile]),
           UI.Button({ attrs:{ gkey:'pos:print:send', class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.print_send]),
+          UI.Button({ attrs:{ gkey:'pos:print:browser', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.print_browser_preview]),
           UI.Button({ attrs:{ gkey:'pos:order:export', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.export_pdf]),
+          UI.Button({ attrs:{ gkey:'pos:print:save', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.print_save_profile]),
           UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
         ]
       });
@@ -2188,8 +2367,28 @@
         handler:(e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          const profile = state.data.print?.profiles?.[docType] || {};
+          const size = state.ui?.print?.size || profile.size || state.data.print?.size || 'thermal_80';
+          if(typeof window === 'undefined'){
+            UI.pushToast(ctx, { title:t.toast.pdf_exported, icon:'📄' });
+            return;
+          }
+          const html = renderPrintableHTML(state, docType, size);
+          const popup = window.open('', '_blank', 'width=900,height=1200');
+          if(!popup){
+            UI.pushToast(ctx, { title:t.toast.browser_popup_blocked, icon:'⚠️' });
+            return;
+          }
+          try{
+            popup.document.open();
+            popup.document.write(html);
+            popup.document.close();
+            if(typeof popup.focus === 'function') popup.focus();
+          } catch(err){
+            console.error('PDF export failed', err);
+          }
           UI.pushToast(ctx, { title:t.toast.pdf_exported, icon:'📄' });
-          console.info('Export invoice as PDF (stub)', state.data?.order?.id);
         }
       },
       'pos.print.size':{
@@ -2199,11 +2398,22 @@
           const btn = e.target.closest('[data-print-size]');
           if(!btn) return;
           const size = btn.getAttribute('data-print-size') || 'thermal_80';
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
           ctx.setState(s=>({
             ...s,
             data:{
               ...s.data,
-              print:{ ...(s.data.print || {}), size }
+              print:(()=>{
+                const current = { ...(s.data.print || {}) };
+                current.size = size;
+                const profiles = { ...(current.profiles || {}) };
+                const profile = { ...(profiles[docType] || {}) };
+                profile.size = size;
+                profiles[docType] = profile;
+                current.profiles = profiles;
+                return current;
+              })()
             },
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), size } }
           }));
@@ -2225,6 +2435,130 @@
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), docType:doc } }
           }));
           ctx.rebuild();
+        }
+      },
+      'pos.print.printer-select':{
+        on:['change'],
+        gkeys:['pos:print:printer-select'],
+        handler:(e,ctx)=>{
+          const select = e.target.closest('select');
+          if(!select) return;
+          const field = select.getAttribute('data-print-field');
+          if(!field) return;
+          const value = select.value || '';
+          const state = ctx.getState();
+          const docType = state.ui?.print?.docType || state.data.print?.docType || 'customer';
+          ctx.setState(s=>{
+            const printState = { ...(s.data.print || {}) };
+            const profiles = { ...(printState.profiles || {}) };
+            const profile = { ...(profiles[docType] || {}) };
+            profile[field] = value;
+            profiles[docType] = profile;
+            printState.profiles = profiles;
+            return {
+              ...s,
+              data:{ ...(s.data || {}), print: printState }
+            };
+          });
+        }
+      },
+      'pos.print.advanced-toggle':{
+        on:['click'],
+        gkeys:['pos:print:advanced-toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), showAdvanced: !s.ui?.print?.showAdvanced } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.manage-toggle':{
+        on:['click'],
+        gkeys:['pos:print:manage-toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), managePrinters: !s.ui?.print?.managePrinters } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.print.manage-input':{
+        on:['input','change'],
+        gkeys:['pos:print:manage-input'],
+        handler:(e,ctx)=>{
+          const value = e.target.value || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), newPrinterName:value } }
+          }));
+        }
+      },
+      'pos.print.manage-add':{
+        on:['click'],
+        gkeys:['pos:print:manage-add'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const rawName = (state.ui?.print?.newPrinterName || '').trim();
+          if(!rawName){
+            UI.pushToast(ctx, { title:t.toast.printer_name_required, icon:'⚠️' });
+            return;
+          }
+          const existing = Array.isArray(state.data.print?.availablePrinters) ? state.data.print.availablePrinters : [];
+          const normalized = rawName.toLowerCase();
+          if(existing.some(item=> (item.label || item.id || '').toLowerCase() === normalized)){
+            UI.pushToast(ctx, { title:t.toast.printer_exists, icon:'ℹ️' });
+            return;
+          }
+          const sanitizedIdBase = rawName.replace(/\s+/g, '-').replace(/[^\w\-]/g, '');
+          let id = sanitizedIdBase ? sanitizedIdBase.slice(0, 64) : `printer-${Date.now()}`;
+          if(existing.some(item=> item.id === id)){
+            id = `${id}-${Date.now()}`;
+          }
+          ctx.setState(s=>{
+            const printers = Array.isArray(s.data.print?.availablePrinters) ? s.data.print.availablePrinters.slice() : [];
+            printers.push({ id, label: rawName });
+            const printState = { ...(s.data.print || {}), availablePrinters: printers };
+            return {
+              ...s,
+              data:{ ...(s.data || {}), print: printState },
+              ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), newPrinterName:'' } }
+            };
+          });
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.printer_added, icon:'🖨️' });
+        }
+      },
+      'pos.print.manage-remove':{
+        on:['click'],
+        gkeys:['pos:print:manage-remove'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-printer-id]');
+          if(!btn) return;
+          const printerId = btn.getAttribute('data-printer-id');
+          ctx.setState(s=>{
+            const current = { ...(s.data.print || {}) };
+            const printers = Array.isArray(current.availablePrinters) ? current.availablePrinters.filter(item=> item.id !== printerId) : [];
+            const profiles = { ...(current.profiles || {}) };
+            Object.keys(profiles).forEach(key=>{
+              const profile = { ...(profiles[key] || {}) };
+              ['defaultPrinter','insidePrinter','outsidePrinter'].forEach(field=>{
+                if(profile[field] === printerId) profile[field] = '';
+              });
+              profiles[key] = profile;
+            });
+            current.availablePrinters = printers;
+            current.profiles = profiles;
+            return {
+              ...s,
+              data:{ ...(s.data || {}), print: current }
+            };
+          });
+          ctx.rebuild();
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.toast.printer_removed, icon:'🗑️' });
         }
       },
       'pos.print.profile-field':{
@@ -2299,6 +2633,18 @@
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
           }));
           ctx.rebuild();
+        }
+      },
+      'pos.print.browser':{
+        on:['click'],
+        gkeys:['pos:print:browser'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          if(typeof window !== 'undefined'){
+            window.print();
+            UI.pushToast(ctx, { title:t.toast.browser_print_opened, icon:'🖨️' });
+          }
         }
       },
       'pos.reservations.open':{
