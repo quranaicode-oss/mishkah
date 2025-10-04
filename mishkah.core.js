@@ -671,6 +671,20 @@
           applyEnv(_database);
           var head = _database && _database.head; if (head) Head.batch(head);
 
+          var keepScrollEntries = [];
+          var keepScrollTargets = toArr(opts && opts.keepScroll);
+          if (keepScrollTargets.length && global && global.document){
+            for (var i=0;i<keepScrollTargets.length;i++){
+              var target = keepScrollTargets[i];
+              if (!target) continue;
+              var node = null;
+              if (typeof Element !== 'undefined' && target instanceof Element){ node = target; }
+              else if (typeof target === 'string'){ try { node = global.document.querySelector(target); } catch(_){ node = null; } }
+              if (!node) continue;
+              keepScrollEntries.push({ node: node, top: node.scrollTop, left: node.scrollLeft });
+            }
+          }
+
           var options = { freeze: new Set(toArr(opts && opts.except)), only: new Set(toArr(opts && opts.buildonly)) };
           var self = this;
           M.Devtools.scheduleRebuild(self, function(){
@@ -680,6 +694,16 @@
             _vApp = next;
             try { M.RuleCenter && M.RuleCenter.evaluate && M.RuleCenter.evaluate('afterRender', { rootEl:_$root, db:_database }, _ctx); } catch(eAR){ M.Auditor.warn('W-AFTER','afterRender rules error', {error:String(eAR)}); }
             if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
+            if (keepScrollEntries.length){
+              for (var j=0;j<keepScrollEntries.length;j++){
+                var entry = keepScrollEntries[j];
+                if (!entry || !entry.node) continue;
+                try {
+                  if (entry.top != null) entry.node.scrollTop = entry.top;
+                  if (entry.left != null) entry.node.scrollLeft = entry.left;
+                } catch(_){ }
+              }
+            }
           });
         },
         batch: function(fn){ if (typeof fn==='function') fn(this); this.rebuild(); }

@@ -1081,6 +1081,11 @@
           ])
         : null;
 
+      const playItems = [resultCard, boardCard].filter(Boolean);
+      const playSection = playItems.length > 1
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, playItems)
+        : boardCard;
+
       const audioNode = (g.musicOn && g.status==='running')
         ? D.Media.Audio({ attrs:{ autoplay:true, loop:true, src:g.audioList[g.audioIdx].url, class: tw`hidden`, key:`bgm-${g.soundStamp||0}` }})
         : null;
@@ -1091,10 +1096,9 @@
 
       return D.Containers.Div({ attrs:{ class: `${tw`relative space-y-6`} game-panel` }}, [
         confettiLayer,
-        resultCard,
         controlCard,
+        playSection,
         infoSection,
-        boardCard,
         audioNode,
         cueAudio
       ].filter(Boolean));
@@ -1190,6 +1194,8 @@
     // هذه هي الأوامر والأفعال التي تحرك الجسد وتغير من حال "إيمانه".
     // كل "order" هو عمل صالح يستجيب لأحداث المستخدم ويُحدّث الحالة.
     // ----------------------------------------------------------------
+    const KEEP_MAIN_SCROLL = { keepScroll:['.main-region'] };
+
     const orders = {
       // Routing
       'route:readmeBase':{ on:['click'], gkeys:['route:readmeBase'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeBase' }}); ctx.rebuild(); }},
@@ -1206,21 +1212,21 @@
       'game:music:toggle':{ on:['change'], gkeys:['game:music:toggle'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const on = !!e.target.checked;
         const stamp = on ? Date.now() : g.soundStamp;
-        ctx.setState({...s, data:{...s.data, game:{...g, musicOn:on, soundStamp: stamp }}}); ctx.rebuild();
+        ctx.setState({...s, data:{...s.data, game:{...g, musicOn:on, soundStamp: stamp }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }},
       'game:music:select':{ on:['change'], gkeys:['game:music:select'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const idx=Math.max(0,parseInt(e.target.value,10)||0);
-        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx, soundStamp: Date.now() }}}); ctx.rebuild();
+        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx, soundStamp: Date.now() }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }},
       'game:timer:toggle':{ on:['change'], gkeys:['game:timer:toggle'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const on=!!e.target.checked; if(!on && g.intervalId) try{ clearInterval(g.intervalId); }catch(_){ }
         const timeLeft = on ? (g.status==='running' ? (typeof g.timeLeft === 'number' && g.timeLeft>0 ? g.timeLeft : g.timerSec) : g.timerSec) : 0;
-        ctx.setState({...s, data:{...s.data, game:{...g, timerOn:on, timeLeft, intervalId: on ? g.intervalId : null }}}); ctx.rebuild();
+        ctx.setState({...s, data:{...s.data, game:{...g, timerOn:on, timeLeft, intervalId: on ? g.intervalId : null }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }},
       'game:timer:value':{ on:['input','change'], gkeys:['game:timer:value'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const v=Math.max(5, parseInt(e.target.value,10)||g.timerSec);
         const timeLeft = g.timerOn ? (g.status==='running' ? v : v) : g.timeLeft;
-        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v, timeLeft }}}); ctx.rebuild();
+        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v, timeLeft }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }},
 
       // Start / New game
@@ -1230,7 +1236,7 @@
         const stamp = Date.now();
         const baseTime = g0.timerOn ? g0.timerSec : 0;
         const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft: baseTime, intervalId:null, revealSolution:false, soundStamp: stamp, feedback:null };
-        ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild();
+        ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild(KEEP_MAIN_SCROLL);
 
         if (g1.timerOn) {
           const iid = setInterval(()=>{
@@ -1252,10 +1258,10 @@
                 feedback = { type:'wrong', stamp: Date.now() };
               }
             }
-            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status, feedback, revealSolution: status==='won' ? true : g.revealSolution } }}); ctx.rebuild();
+            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status, feedback, revealSolution: status==='won' ? true : g.revealSolution } }}); ctx.rebuild(KEEP_MAIN_SCROLL);
           }, 1000);
           const s1=ctx.getState(); const g2=s1.data.game;
-          ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.rebuild();
+          ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
         }
       }},
 
@@ -1288,11 +1294,11 @@
           timeLeft,
           revealSolution: status==='won' ? true : g.revealSolution,
           feedback
-        }}}); ctx.rebuild();
+        }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }},
       'game:reveal':{ on:['click'], gkeys:['game:reveal'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; if (!g.proverb) return;
-        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}}); ctx.rebuild();
+        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
       }}
     };
 
