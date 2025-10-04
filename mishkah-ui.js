@@ -63,6 +63,7 @@ def({
   'modal/md':       'w-[min(640px,94vw)]',
   'modal/lg':       'w-[min(820px,96vw)]',
   'modal/xl':       'w-[min(980px,96vw)]',
+  'modal/full':     'w-[min(1220px,98vw)] max-h-[94vh]',
   'modal/header':   'flex items-start justify-between gap-4 border-b border-[var(--border)] bg-[var(--card)] px-6 pt-6 pb-4 backdrop-blur-sm',
   'modal/body':     'flex-1 overflow-y-auto bg-[var(--card)] px-6 py-5',
   'modal/footer':   'flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:flex-row',
