@@ -748,7 +748,7 @@ const database = {
 // أي مكون هو عبدٌ مطيع يقرأ من هذا المصدر، لا يخلق حقيقة من عنده.
 function Navbar(db) {
   const userName = db.user.name;
-  return D.Text.Span({}, [\`مرحباً يا ${userName}\`]);
+  return D.Text.Span({}, [\`مرحباً يا \${userName}\`]);
 }
 
 // التغيير لا يحدث إلا بأمر مركزي (Order)، يصف التحول من حالة إلى أخرى.
@@ -1083,7 +1083,7 @@ const database = {
 // Every component is an obedient servant that reads from this source, never creating its own truth.
 function Navbar(db) {
   const userName = db.user.name;
-  return D.Text.Span({}, [\`Welcome, ${userName}\`]);
+  return D.Text.Span({}, [\`Welcome, \${userName}\`]);
 }
 
 // Change only occurs through a central "Order" that describes the transformation from one state to another.
