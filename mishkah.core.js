@@ -678,10 +678,21 @@
               var target = keepScrollTargets[i];
               if (!target) continue;
               var node = null;
+              var selector = null;
               if (typeof Element !== 'undefined' && target instanceof Element){ node = target; }
               else if (typeof target === 'string'){ try { node = global.document.querySelector(target); } catch(_){ node = null; } }
               if (!node) continue;
-              keepScrollEntries.push({ node: node, top: node.scrollTop, left: node.scrollLeft });
+              if (typeof target === 'string') {
+                selector = target;
+              } else if (node && node.getAttribute) {
+                var pathAttr = node.getAttribute('data-m-path');
+                if (pathAttr){ selector = '[data-m-path="' + String(pathAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+                if (!selector){
+                  var keyAttr = node.getAttribute('data-m-key');
+                  if (keyAttr){ selector = '[data-m-key="' + String(keyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+                }
+              }
+              keepScrollEntries.push({ node: node, selector: selector, top: node.scrollTop, left: node.scrollLeft });
             }
           }
 
@@ -697,10 +708,18 @@
             if (keepScrollEntries.length){
               for (var j=0;j<keepScrollEntries.length;j++){
                 var entry = keepScrollEntries[j];
-                if (!entry || !entry.node) continue;
+                if (!entry) continue;
+                var nodeRef = entry.node;
+                if (nodeRef && entry.selector && (!nodeRef.isConnected || nodeRef.parentNode==null)){
+                  try {
+                    var found = global.document.querySelector(entry.selector);
+                    if (found) nodeRef = entry.node = found;
+                  } catch(_){ }
+                }
+                if (!nodeRef) continue;
                 try {
-                  if (entry.top != null) entry.node.scrollTop = entry.top;
-                  if (entry.left != null) entry.node.scrollLeft = entry.left;
+                  if (entry.top != null) nodeRef.scrollTop = entry.top;
+                  if (entry.left != null) nodeRef.scrollLeft = entry.left;
                 } catch(_){ }
               }
             }
