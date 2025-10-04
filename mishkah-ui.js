@@ -34,7 +34,7 @@ def({
   'badge':          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)]',
   'badge/ghost':    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-transparent text-[var(--muted-foreground)] border border-[var(--border)]',
   'chip':           'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm transition-colors cursor-pointer bg-[var(--surface-1)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
-  'chip/active':    'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--shadow)]',
+  'chip/active':    'bg-[var(--primary)] text-[var(--foreground)] font-semibold shadow-[var(--shadow)] border border-[color-mix(in oklab,var(--primary) 65%, transparent)] dark:text-[var(--primary-foreground)]',
   'pill':           'inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs text-[var(--muted-foreground)]',
 
   // card / panels
@@ -57,16 +57,20 @@ def({
 
   // overlay
   'modal-root':     'fixed inset-0 z-50 grid place-items-center px-4 py-8 sm:py-12 overflow-y-auto',
-  'backdrop':       'absolute inset-0 bg-black/70 backdrop-blur-sm',
-  'modal-card':     'relative z-10 w-[min(680px,94vw)] max-h-[90vh] card flex flex-col overflow-hidden shadow-[0_20px_40px_-20px_rgba(0,0,0,0.45)]',
-  'modal/header':   'flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--card) 96%, transparent)]',
-  'modal/body':     'flex-1 overflow-y-auto px-6 py-4',
-  'modal/footer':   'flex flex-col sm:flex-row gap-2 px-6 py-4 border-t border-[var(--border)] bg-[color-mix(in oklab,var(--card) 96%, transparent)]',
+  'backdrop':       'absolute inset-0 bg-black/60 backdrop-blur-sm',
+  'modal-card':     'relative z-10 max-h-[92vh] flex flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[0_24px_48px_-16px_rgba(15,23,42,0.45)]',
+  'modal/sm':       'w-[min(420px,92vw)]',
+  'modal/md':       'w-[min(640px,94vw)]',
+  'modal/lg':       'w-[min(820px,96vw)]',
+  'modal/xl':       'w-[min(980px,96vw)]',
+  'modal/header':   'flex items-start justify-between gap-4 border-b border-[var(--border)] bg-[var(--card)] px-6 pt-6 pb-4 backdrop-blur-sm',
+  'modal/body':     'flex-1 overflow-y-auto bg-[var(--card)] px-6 py-5',
+  'modal/footer':   'flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:flex-row',
 
   // tabs
   'tabs/row':       'flex items-center gap-2 flex-wrap',
   'tabs/btn':       'px-3 py-1.5 rounded-full hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
-  'tabs/btn-active':'bg-[var(--primary)] text-[var(--primary-foreground)]',
+  'tabs/btn-active':'bg-[var(--primary)] text-[var(--foreground)] font-semibold shadow-[var(--shadow)] dark:text-[var(--primary-foreground)]',
 
   // drawer
   'drawer/side':    'fixed inset-y-0 w-[280px] border-s bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
@@ -95,9 +99,9 @@ def({
   'scroll-panel/footer': 'px-4 py-3 border-t border-[var(--border)]',
 
   // toast
-  'toast/host':     'fixed z-50 bottom-3 inset-x-0 px-3',
-  'toast/col':      'flex flex-col gap-2 max-w-[560px] mx-auto',
-  'toast/item':     'card p-3 flex items-center gap-2'
+  'toast/host':     'fixed inset-x-0 bottom-4 z-[60] px-3 pointer-events-none',
+  'toast/col':      'flex flex-col gap-2 max-w-[560px] mx-auto pointer-events-none',
+  'toast/item':     'p-3 flex items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)] pointer-events-auto'
 });
 
 /* ===================== Helpers ===================== */
@@ -128,9 +132,9 @@ UI.Divider = ()=> h.Containers.Div({ attrs:{ class: tw`${token('divider')}` }});
 UI.Button = ({ attrs={}, variant='soft', size='md' }, children)=>
   h.Forms.Button({ attrs: withClass(attrs, cx(token('btn'), token(`btn/${variant}`), token(`btn/${size}`))) }, children||[]);
 
-UI.Card = ({ title, description, content, footer, variant='card' })=>{
+UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
   const root = token(variant)||token('card');
-  return h.Containers.Section({ attrs:{ class: tw`${root}` }}, [
+  return h.Containers.Section({ attrs: withClass(attrs, root) }, [
     (title||description) && h.Containers.Div({ attrs:{ class: tw`${token('card/header')}` }}, [
       title && h.Text.H3({ attrs:{ class: tw`${token('card/title')}` }}, [title]),
       description && h.Text.P({ attrs:{ class: tw`${token('card/desc')}` }}, [description])
@@ -342,7 +346,7 @@ UI.Drawer = ({ open=false, side='start', header, content })=>{
   ]);
 };
 
-UI.Modal = ({ open=false, title, description, content, actions=[] })=>{
+UI.Modal = ({ open=false, title, description, content, actions=[], size='md' })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const uid = Math.random().toString(36).slice(2,8);
   const titleId = title ? `modal-${uid}-title` : undefined;
@@ -368,7 +372,7 @@ UI.Modal = ({ open=false, title, description, content, actions=[] })=>{
   headerContent.push(closeBtn);
   const actionNodes = (actions||[]).filter(Boolean);
   const modalAttrs = {
-    class: tw`${token('modal-card')}`,
+    class: tw`${token('modal-card')} ${token(`modal/${size}`)||token('modal/md')}`,
     role:'dialog',
     'aria-modal':'true'
   };
@@ -395,7 +399,7 @@ UI.Table = ({ columns=[], rows=[] })=>
   ]);
 
 UI.ToastHost = ({ toasts=[] })=>
-  h.Containers.Div({ attrs:{ class: tw`${token('toast/host')}` }}, [
+  h.Containers.Div({ attrs:{ class: tw`${token('toast/host')}`, 'aria-live':'polite', 'aria-atomic':'true' }}, [
     h.Containers.Div({ attrs:{ class: tw`${token('toast/col')}` }}, toasts.map((t)=>(
       h.Containers.Div({ attrs:{ key:`to-${t.id}`, class: tw`${token('toast/item')}` }}, [
         t.icon && h.Text.Span({}, [t.icon]),
