@@ -1,6 +1,5 @@
  (function (window) {
    const M = window.Mishkah = window.Mishkah || {};
-   const R = M.readme = M.readme || {};
  
    let arREADME = ` بسم الله نبدأ.
 
@@ -1379,7 +1378,7 @@ Mishkah is fully open-source under the **MIT License**. If you are convinced by 
 
 `;
 
-R ={base:{ar:ar_README_BASE ,en:en_README_BASE} ,tec:{ar:arREADME,en:enREADME}}
+  Mishkah.readme  ={base:{ar:ar_README_BASE ,en:en_README_BASE} ,tec:{ar:arREADME,en:enREADME}}
 
 
 })(window);

@@ -520,196 +520,324 @@ M.UI.posOrders = POS_ORDERS;
 //markdown
 
 
-(function(window) {
-    'use strict';
-    const M = window.Mishkah = window.Mishkah || {};
-    const U = M.utils = M.utils || {};
-	const h = M.DSL;
-	const tw = U.twcss.tw;
-    const SimpleMarkdownRenderer = ({ content }) => {
-        if (!content) return h.Text.P({}, ["لا يوجد محتوى"]);
-        
-        const lines = content.split('\n');
-        const elements = [];
-        let inCodeBlock = false;
-        let codeContent = [];
-        let currentList = null;
+(function(window){
+  'use strict';
+  const M = window.Mishkah = window.Mishkah || {};
+  const U = M.utils = M.utils || {};
+  const h = M.DSL;
+  const tw = U.twcss.tw;
 
-        const createTextElement = (text) => {
-            if (!text || text.trim() === '') return null;
-            
-            // معالجة النص الغني
-            const parts = [];
-            let buffer = '';
-            let inBold = false;
-            let inCode = false;
+  const headingTags = [null, h.Text.H1, h.Text.H2, h.Text.H3, h.Text.H4, h.Text.H5, h.Text.H6];
+  const headingClasses = {
+    1: tw`text-4xl sm:text-5xl font-bold tracking-tight`,
+    2: tw`text-3xl sm:text-4xl font-semibold`,
+    3: tw`text-2xl font-semibold`,
+    4: tw`text-xl font-semibold`,
+    5: tw`text-lg font-semibold`,
+    6: tw`text-base font-semibold uppercase tracking-[0.2em]`
+  };
 
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                const nextChar = text[i + 1];
+  const isHeading = line => /^ {0,3}#{1,6}\s+/.test(line);
+  const isHr = line => /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line);
+  const isFence = line => /^ {0,3}(```|~~~)/.test(line);
+  const isBlockquote = line => /^ {0,3}>\s?/.test(line);
+  const isListItem = line => /^ {0,3}([\*\+-]|\d+\.)\s+/.test(line);
+  const isTableDivider = line => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line.trim());
+  const hasTablePipe = line => /\|/.test(line || '');
 
-                if (char === '`' && !inBold) {
-                    if (inCode) {
-                        parts.push(h.Text.Code({ 
-                            attrs: { class: tw`md-code` } 
-                        }, [buffer]));
-                        buffer = '';
-                        inCode = false;
-                    } else {
-                        if (buffer) parts.push(buffer);
-                        buffer = '';
-                        inCode = true;
-                    }
-                } else if (char === '*' && nextChar === '*' && !inCode) {
-                    if (inBold) {
-                        parts.push(h.Text.Strong({}, [buffer]));
-                        buffer = '';
-                        inBold = false;
-                        i++;
-                    } else {
-                        if (buffer) parts.push(buffer);
-                        buffer = '';
-                        inBold = true;
-                        i++;
-                    }
-                } else {
-                    buffer += char;
-                }
-            }
+  function splitTableRow(row){
+    let trimmed = String(row||'').trim();
+    if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
+    if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
+    const cells = [];
+    let cur = '';
+    let escape = false;
+    for (const ch of trimmed){
+      if (escape){ cur += ch; escape = false; continue; }
+      if (ch === '\\'){ escape = true; continue; }
+      if (ch === '|'){ cells.push(cur.trim()); cur = ''; continue; }
+      cur += ch;
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
 
-            if (buffer) {
-                if (inBold) {
-                    parts.push(h.Text.Strong({}, [buffer]));
-                } else if (inCode) {
-                    parts.push(h.Text.Code({ 
-                        attrs: { class: tw`md-code` } 
-                    }, [buffer]));
-                } else {
-                    parts.push(buffer);
-                }
-            }
+  function parseAlignRow(row){
+    return splitTableRow(row).map(cell => {
+      const value = cell.trim();
+      const left = value.startsWith(':');
+      const right = value.endsWith(':');
+      if (left && right) return 'center';
+      if (right) return 'right';
+      if (left) return 'left';
+      return 'left';
+    });
+  }
 
-            return parts.length === 1 ? parts[0] : parts;
-        };
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            if (inCodeBlock) {
-                if (line.startsWith('```')) {
-                    elements.push(
-                        h.Text.Pre({
-                            attrs: { 
-                                class: tw`md-pre`,
-                                key: `pre-${elements.length}`
-                            }
-                        }, [
-                            h.Text.Code({}, codeContent.join('\n'))
-                        ])
-                    );
-                    inCodeBlock = false;
-                    codeContent = [];
-                } else {
-                    codeContent.push(lines[i]); // حفظ السطر كما هو مع المسافات
-                }
-                continue;
-            }
-
-            if (line.startsWith('```')) {
-                inCodeBlock = true;
-                continue;
-            }
-
-            if (line.startsWith('# ')) {
-                elements.push(
-                    h.Text.H1({
-                        attrs: { 
-                            class: tw`md-h1`,
-                            key: `h1-${elements.length}`
-                        }
-                    }, [line.substring(2)])
-                );
-                continue;
-            }
-
-            if (line.startsWith('## ')) {
-                elements.push(
-                    h.Text.H2({
-                        attrs: { 
-                            class: tw`md-h2`,
-                            key: `h2-${elements.length}`
-                        }
-                    }, [line.substring(3)])
-                );
-                continue;
-            }
-
-            if (line.startsWith('### ')) {
-                elements.push(
-                    h.Text.H3({
-                        attrs: { 
-                            class: tw`md-h3`,
-                            key: `h3-${elements.length}`
-                        }
-                    }, [line.substring(4)])
-                );
-                continue;
-            }
-
-            if (line.startsWith('> ')) {
-                elements.push(
-                    h.Text.Blockquote({
-                        attrs: { 
-                            class: tw`md-blockquote`,
-                            key: `blockquote-${elements.length}`
-                        }
-                    }, [
-                        h.Text.P({}, [createTextElement(line.substring(2))])
-                    ])
-                );
-                continue;
-            }
-
-            if (line.startsWith('- ') || line.startsWith('* ')) {
-                if (!currentList) {
-                    currentList = h.Lists.Ul({
-                        attrs: { 
-                            key: `ul-${elements.length}`
-                        }
-                    }, []);
-                    elements.push(currentList);
-                }
-                const listItem = h.Lists.Li({}, [createTextElement(line.substring(2))]);
-                currentList.children = currentList.children ? [...currentList.children, listItem] : [listItem];
-                continue;
-            }
-
-            if (line === '') {
-                currentList = null;
-                continue;
-            }
-
-            // النص العادي
-            if (line.trim()) {
-                elements.push(
-                    h.Text.P({
-                        attrs: { 
-                            class: tw`md-p`,
-                            key: `p-${elements.length}`
-                        }
-                    }, [createTextElement(line)])
-                );
-            }
+  function parseInline(text){
+    const str = String(text||'');
+    if (!str) return [];
+    const pattern = /(!?\[[^\]]*]\([^\)\s]+(?:\s+"[^"]*")?\)|`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^\s][^*]*\*|_[^\s][^_]*_)/g;
+    const tokens = [];
+    let lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(str)) !== null){
+      const index = match.index;
+      if (index > lastIndex){
+        tokens.push({ type:'text', text: str.slice(lastIndex, index) });
+      }
+      const token = match[0];
+      if (token.startsWith('![')){
+        const m = token.match(/^!\[([^\]]*)]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
+        if (m){
+          tokens.push({ type:'image', alt:m[1]||'', src:m[2], title:m[3]||'' });
+        } else {
+          tokens.push({ type:'text', text: token });
         }
+      } else if (token.startsWith('[')){
+        const m = token.match(/^\[([^\]]*)]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
+        if (m){
+          tokens.push({ type:'link', href:m[2], title:m[3]||'', children: parseInline(m[1]) });
+        } else {
+          tokens.push({ type:'text', text: token });
+        }
+      } else if (token.startsWith('**') || token.startsWith('__')){
+        tokens.push({ type:'strong', children: parseInline(token.slice(2, -2)) });
+      } else if (token.startsWith('~~')){
+        tokens.push({ type:'del', children: parseInline(token.slice(2, -2)) });
+      } else if (token.startsWith('*') || token.startsWith('_')){
+        tokens.push({ type:'em', children: parseInline(token.slice(1, -1)) });
+      } else if (token.startsWith('`')){
+        tokens.push({ type:'code', text: token.slice(1, -1) });
+      } else {
+        tokens.push({ type:'text', text: token });
+      }
+      lastIndex = pattern.lastIndex;
+    }
+    if (lastIndex < str.length){
+      tokens.push({ type:'text', text: str.slice(lastIndex) });
+    }
+    return tokens;
+  }
 
-        return h.Containers.Article({
-            attrs: { 
-                class: tw`md-container`,
-                key: 'markdown-article'
+  function renderInlines(tokens, keyPrefix){
+    return (tokens||[]).map((token, idx)=>{
+      const key = `${keyPrefix}-${idx}`;
+      switch (token.type){
+        case 'text':
+          return token.text;
+        case 'strong':
+          return h.Text.Strong({ attrs:{ key }}, renderInlines(token.children, key));
+        case 'em':
+          return h.Text.Em({ attrs:{ key }}, renderInlines(token.children, key));
+        case 'del':
+          return h.Text.Del({ attrs:{ key }}, renderInlines(token.children, key));
+        case 'code':
+          return h.Text.Code({ attrs:{ key, class: tw`text-sm` }}, [token.text]);
+        case 'link':
+          return h.Text.A({ attrs:{ key, href: token.href, target:'_blank', rel:'noopener noreferrer', class: tw`underline decoration-dotted underline-offset-4` }}, renderInlines(token.children, key));
+        case 'image':
+          return h.Media.Img({ attrs:{ key, src: token.src, alt: token.alt || '', title: token.title || '', class: tw`rounded-xl shadow-[var(--shadow)] max-w-full` }});
+        default:
+          return token.text || '';
+      }
+    });
+  }
+
+  function parseBlocks(markdown){
+    const lines = String(markdown||'').replace(/\r\n?/g, '\n').split('\n');
+    const blocks = [];
+    let i = 0;
+    while (i < lines.length){
+      let line = lines[i];
+      if (!line || !line.trim()){ i++; continue; }
+      if (isFence(line)){
+        const fence = line.match(/^ {0,3}(```|~~~)(.*)$/);
+        const lang = fence && fence[2] ? fence[2].trim() : '';
+        i++;
+        const codeLines = [];
+        while (i < lines.length && !isFence(lines[i])){
+          codeLines.push(lines[i]);
+          i++;
+        }
+        if (i < lines.length) i++;
+        blocks.push({ type:'code', lang, code: codeLines.join('\n') });
+        continue;
+      }
+      if (isHr(line)){
+        blocks.push({ type:'hr' });
+        i++;
+        continue;
+      }
+      if (isHeading(line)){
+        const match = line.match(/^ {0,3}(#{1,6})\s+(.*)$/);
+        blocks.push({ type:'heading', level: match[1].length, text: match[2].trim() });
+        i++;
+        continue;
+      }
+      if (isBlockquote(line)){
+        const quoteLines = [];
+        while (i < lines.length && isBlockquote(lines[i])){
+          quoteLines.push(lines[i].replace(/^ {0,3}>\s?/, ''));
+          i++;
+        }
+        blocks.push({ type:'blockquote', blocks: parseBlocks(quoteLines.join('\n')) });
+        continue;
+      }
+      if (hasTablePipe(line) && i + 1 < lines.length && isTableDivider(lines[i+1])){
+        const header = splitTableRow(line);
+        const aligns = parseAlignRow(lines[i+1]);
+        i += 2;
+        const rows = [];
+        while (i < lines.length && hasTablePipe(lines[i]) && !isTableDivider(lines[i])){
+          if (!lines[i].trim()){ i++; break; }
+          rows.push(splitTableRow(lines[i]));
+          i++;
+        }
+        blocks.push({ type:'table', header, aligns, rows });
+        continue;
+      }
+      if (isListItem(line)){
+        const ordered = /\d+\./.test(line);
+        const items = [];
+        while (i < lines.length){
+          const current = lines[i];
+          if (!isListItem(current)) break;
+          const match = current.match(/^ {0,3}([\*\+-]|\d+\.)\s+(.*)$/);
+          i++;
+          const buffer = [match[2]];
+          while (i < lines.length){
+            const next = lines[i];
+            if (!next.trim()){ buffer.push(''); i++; continue; }
+            if (isListItem(next) || isHeading(next) || isFence(next) || isBlockquote(next) || isHr(next) || (hasTablePipe(next) && isTableDivider(lines[i+1]||''))) break;
+            buffer.push(next.replace(/^ {1,4}/, ''));
+            i++;
+          }
+          while (buffer.length && buffer[buffer.length-1] === '') buffer.pop();
+          const text = buffer.join('\n');
+          const taskMatch = text.match(/^\[([ xX])]\s+([\s\S]*)$/);
+          if (taskMatch){
+            items.push({ type:'task', done: taskMatch[1].toLowerCase() === 'x', blocks: parseBlocks(taskMatch[2]) });
+          } else {
+            items.push({ type:'item', blocks: parseBlocks(text) });
+          }
+        }
+        blocks.push({ type:'list', ordered, items });
+        continue;
+      }
+      const paragraph = [line];
+      i++;
+      while (i < lines.length){
+        const next = lines[i];
+        if (!next.trim()){ i++; break; }
+        if (isFence(next) || isHeading(next) || isBlockquote(next) || isListItem(next) || isHr(next) || (hasTablePipe(next) && isTableDivider(lines[i+1]||''))) break;
+        paragraph.push(next);
+        i++;
+      }
+      blocks.push({ type:'paragraph', text: paragraph.join('\n') });
+    }
+    return blocks;
+  }
+
+  function renderBlocks(blocks, keyPrefix){
+    const out = [];
+    (blocks||[]).forEach((block, idx)=>{
+      const key = `${keyPrefix}-${idx}`;
+      switch (block.type){
+        case 'heading': {
+          const level = Math.max(1, Math.min(6, block.level || 1));
+          const Tag = headingTags[level] || h.Text.H3;
+          out.push(Tag({ attrs:{ class: headingClasses[level] || tw`text-xl font-semibold`, key }}, renderInlines(parseInline(block.text), key)));
+          break;
+        }
+        case 'paragraph': {
+          const inlineTokens = parseInline(block.text);
+          out.push(h.Text.P({ attrs:{ class: tw`leading-8 text-[color-mix(in oklab,var(--foreground) 85%, var(--muted-foreground) 15%)]`, key }}, renderInlines(inlineTokens, key)));
+          break;
+        }
+        case 'blockquote': {
+          const children = renderBlocks(block.blocks, `${key}-bq`);
+          out.push(h.Text.Blockquote({ attrs:{ class: tw`space-y-2`, key }}, children.length ? children : [h.Text.P({}, [''])]));
+          break;
+        }
+        case 'list': {
+          const listChildren = (block.items||[]).map((item, itemIdx)=>{
+            const itemKey = `${key}-item-${itemIdx}`;
+            let inner = renderBlocks(item.blocks, itemKey);
+            if (!inner.length) inner = [''];
+            if (item.type === 'task'){
+              inner = [h.Containers.Div({ attrs:{ class: tw`flex items-start gap-3` }}, [
+                h.Inputs.Input({ attrs:{ type:'checkbox', checked:item.done ? 'checked' : undefined, disabled:true, class: tw`mt-1` } }),
+                h.Containers.Div({ attrs:{ class: tw`space-y-2` }}, inner)
+              ])];
             }
-        }, elements.filter(Boolean));
-    };
+            return h.Lists.Li({ attrs:{ key:itemKey }}, inner);
+          });
+          const ListTag = block.ordered ? h.Lists.Ol : h.Lists.Ul;
+          out.push(ListTag({ attrs:{ class: tw`space-y-2`, key }}, listChildren));
+          break;
+        }
+        case 'code': {
+          out.push(h.Text.Pre({ attrs:{ class: tw`overflow-auto`, key, 'data-lang': block.lang || undefined }}, [
+            h.Text.Code({ attrs:{ class: tw`block text-sm leading-7` }}, [block.code || ''])
+          ]));
+          break;
+        }
+        case 'table': {
+          const align = (block.aligns || []).map(a => {
+            if (a === 'center') return 'center';
+            if (a === 'right') return 'right';
+            return 'start';
+          });
+          const headerCells = (block.header || []).map((cell, ci)=>
+            h.Tables.Th({ attrs:{ key:`${key}-h-${ci}`, style:`text-align:${align[ci]||'start'};` }}, renderInlines(parseInline(cell), `${key}-h-${ci}`))
+          );
+          const bodyRows = (block.rows || []).map((row, ri)=>
+            h.Tables.Tr({ attrs:{ key:`${key}-r-${ri}` }}, row.map((cell, ci)=>
+              h.Tables.Td({ attrs:{ key:`${key}-c-${ri}-${ci}`, style:`text-align:${align[ci]||'start'};` }}, renderInlines(parseInline(cell), `${key}-c-${ri}-${ci}`))
+            ))
+          );
+          out.push(h.Tables.Table({ attrs:{ class: tw`w-full text-sm`, key }}, [
+            h.Tables.Thead({}, [h.Tables.Tr({ attrs:{ key:`${key}-thead` }}, headerCells)]),
+            h.Tables.Tbody({}, bodyRows)
+          ]));
+          break;
+        }
+        case 'hr': {
+          out.push(h.Containers.Div({ attrs:{ class: tw`h-px bg-[color-mix(in oklab,var(--border) 70%, transparent)] my-10`, key }}));
+          break;
+        }
+        default: {
+          if (block && block.text){
+            out.push(h.Text.P({ attrs:{ key }}, [block.text]));
+          }
+        }
+      }
+    });
+    return out;
+  }
 
-    U.UDM = SimpleMarkdownRenderer;
-    
+  function joinClass(base, extra){
+    const a = (base || '').trim();
+    const b = (extra || '').trim();
+    if (a && b) return `${a} ${b}`;
+    return a || b || '';
+  }
+
+  function MarkdownRenderer(opts){
+    const content = opts && typeof opts.content === 'string' ? opts.content : '';
+    const className = joinClass(opts && opts.className, tw`md-prose`);
+    if (!content.trim()){
+      return h.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, ['—']);
+    }
+    const blocks = parseBlocks(content);
+    const children = renderBlocks(blocks, 'md');
+    return h.Containers.Article({ attrs:{ class: className, key:'markdown-article' }}, children);
+  }
+
+  M.UI = M.UI || {};
+  M.UI.Markdown = (opts={}) => MarkdownRenderer(opts);
+  U.UDM = MarkdownRenderer;
 })(window);
+
+

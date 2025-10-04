@@ -7,19 +7,40 @@
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
+  <script src="./readme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: dark;
-      --nebula-from: #0d1224;
-      --nebula-to: #111c3d;
-      --accent-glow: rgba(99, 102, 241, 0.55);
-      --card-glass: rgba(17, 25, 40, 0.55);
-      --card-border: rgba(148, 163, 184, 0.25);
-      --text-primary: #f8fafc;
-      --text-muted: #94a3b8;
+      color-scheme: light dark;
+      --page-gradient: linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%);
+      --page-overlay-1: radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%);
+      --page-overlay-2: radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%);
+      --panel-glass: rgba(255, 255, 255, 0.78);
+      --panel-border: rgba(99, 102, 241, 0.12);
+      --panel-shadow: 0 25px 50px -20px rgba(15, 23, 42, 0.18);
+      --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
+      --tile-bg-revealed: linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65));
+      --tile-border: rgba(99, 102, 241, 0.25);
+      --letters-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.35);
+      --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
+      --accent-ring: rgba(79, 70, 229, 0.18);
+    }
+
+    :root.dark {
+      --page-gradient: linear-gradient(160deg, #0d1224 0%, #111c3d 100%);
+      --page-overlay-1: radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%);
+      --page-overlay-2: radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%);
+      --panel-glass: rgba(17, 25, 40, 0.75);
+      --panel-border: rgba(148, 163, 184, 0.32);
+      --panel-shadow: 0 25px 50px -18px rgba(15, 23, 42, 0.55);
+      --tile-bg: linear-gradient(160deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.92));
+      --tile-bg-revealed: linear-gradient(160deg, rgba(99, 102, 241, 0.55), rgba(79, 70, 229, 0.38));
+      --tile-border: rgba(148, 163, 184, 0.35);
+      --letters-shadow: 0 20px 40px -18px rgba(148, 163, 184, 0.35);
+      --letters-hover: 0 28px 60px -20px rgba(99, 102, 241, 0.6);
+      --accent-ring: rgba(129, 140, 248, 0.35);
     }
 
     * {
@@ -30,12 +51,11 @@
       margin: 0;
       min-height: 100vh;
       font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at top, rgba(99, 102, 241, 0.12), transparent 35%),
-                  radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.18), transparent 40%),
-                  linear-gradient(160deg, var(--nebula-from), var(--nebula-to));
-      color: var(--text-primary);
+      background: var(--page-gradient);
+      color: var(--foreground);
       position: relative;
       overflow-x: hidden;
+      transition: background 0.45s ease, color 0.45s ease;
     }
 
     body::before,
@@ -45,13 +65,13 @@
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      background: radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.2), transparent 55%);
+      background: var(--page-overlay-1);
       mix-blend-mode: screen;
       animation: pulseNebula 18s ease-in-out infinite alternate;
     }
 
     body::after {
-      background: radial-gradient(circle at 10% 80%, rgba(56, 189, 248, 0.16), transparent 60%);
+      background: var(--page-overlay-2);
       animation-delay: 6s;
     }
 
@@ -61,14 +81,15 @@
     }
 
     .glass-panel {
-      background: var(--card-glass);
-      backdrop-filter: blur(20px) saturate(120%);
-      border: 1px solid var(--card-border);
-      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.55);
+      background: var(--panel-glass);
+      backdrop-filter: blur(26px) saturate(135%);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--panel-shadow);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
     }
 
     .glow-outline {
-      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.25), 0 20px 45px -18px rgba(59, 130, 246, 0.55);
+      box-shadow: 0 0 0 1px var(--accent-ring), var(--panel-shadow);
     }
 
     .animate-float {
@@ -76,31 +97,149 @@
     }
 
     .letter-tile {
-      transition: transform 0.35s ease, box-shadow 0.35s ease;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      background: linear-gradient(140deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.95));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      transition: transform 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+      border: 1px solid var(--tile-border);
+      background: var(--tile-bg);
+      color: var(--foreground);
+      text-shadow: 0 2px 12px rgba(15, 23, 42, 0.2);
     }
 
     .letter-tile[data-revealed="true"] {
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 12px 30px -18px rgba(129, 140, 248, 0.95);
-      background: linear-gradient(160deg, rgba(99, 102, 241, 0.45), rgba(79, 70, 229, 0.2));
+      transform: translateY(-6px) scale(1.03);
+      box-shadow: 0 18px 40px -22px rgba(79, 70, 229, 0.55);
+      background: var(--tile-bg-revealed);
+      color: #fff;
     }
 
     .letters-grid button {
-      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-      box-shadow: 0 10px 30px -20px rgba(148, 163, 184, 0.9);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+      box-shadow: var(--letters-shadow);
+      font-size: 1.25rem;
+      font-weight: 700;
+      border-radius: 0.9rem !important;
+      height: 3.25rem;
     }
 
     .letters-grid button:hover:not([disabled]) {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px -18px rgba(148, 163, 184, 0.85);
+      transform: translateY(-5px) scale(1.03);
+      box-shadow: var(--letters-hover);
     }
 
     .letters-grid button[disabled] {
       opacity: 0.35;
       cursor: not-allowed;
+    }
+
+    .md-prose {
+      line-height: 1.8;
+      font-size: 1rem;
+      color: var(--foreground);
+    }
+
+    .md-prose h1,
+    .md-prose h2,
+    .md-prose h3,
+    .md-prose h4,
+    .md-prose h5,
+    .md-prose h6 {
+      font-family: 'Cairo', 'Tajawal', system-ui, sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: color-mix(in oklab, var(--foreground) 92%, var(--primary) 8%);
+      margin: 1.6em 0 0.8em;
+    }
+
+    .md-prose p {
+      margin: 1em 0;
+      color: color-mix(in oklab, var(--foreground) 88%, var(--muted-foreground) 12%);
+    }
+
+    .md-prose ul,
+    .md-prose ol {
+      margin: 1em 0;
+      padding-inline-start: 1.4em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+
+    .md-prose li {
+      position: relative;
+      padding-inline-start: 0.3em;
+    }
+
+    .md-prose blockquote {
+      margin: 1.2em 0;
+      padding: 1.2em 1.5em;
+      border-inline-start: 4px solid color-mix(in oklab, var(--primary) 80%, transparent);
+      background: color-mix(in oklab, var(--surface-1) 80%, transparent);
+      border-radius: 1.2rem;
+      color: color-mix(in oklab, var(--foreground) 80%, var(--muted-foreground) 20%);
+      box-shadow: 0 12px 30px -24px rgba(79, 70, 229, 0.45);
+    }
+
+    .md-prose pre {
+      margin: 1.4em 0;
+      padding: 1.2em 1.4em;
+      border-radius: 1.2rem;
+      background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+      box-shadow: 0 24px 45px -24px rgba(15, 23, 42, 0.45);
+      overflow-x: auto;
+      font-size: 0.92rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .md-prose code {
+      font-family: 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', monospace;
+      background: color-mix(in oklab, var(--surface-2) 85%, transparent);
+      padding: 0.15em 0.4em;
+      border-radius: 0.5em;
+      font-size: 0.92em;
+    }
+
+    .md-prose pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .md-prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+      border-radius: 1.2rem;
+      overflow: hidden;
+      box-shadow: 0 18px 45px -25px rgba(15, 23, 42, 0.35);
+    }
+
+    .md-prose thead {
+      background: color-mix(in oklab, var(--primary) 14%, var(--card));
+      color: var(--primary-foreground);
+    }
+
+    .md-prose th,
+    .md-prose td {
+      padding: 0.85em 1em;
+      border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+      text-align: start;
+    }
+
+    .md-prose a {
+      color: var(--primary);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in oklab, var(--primary) 65%, transparent);
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .md-prose a:hover {
+      color: color-mix(in oklab, var(--primary) 90%, black);
+      border-color: currentColor;
+    }
+
+    .md-prose hr {
+      margin: 2.5em 0;
+      border: none;
+      border-top: 1px dashed color-mix(in oklab, var(--border) 65%, transparent);
     }
 
     @keyframes floatHalo {
@@ -154,11 +293,15 @@
 
     /* ===================== i18n: المعاجم اللغوية ===================== */
     const dict = {
-      'app.title'   : { ar:'مشكاة — تبويبات + لعبة الأمثال', en:'Mishkah — Tabs + Proverbs Game' },
+      'app.title'   : { ar:'مشكاة — مشكاة النور ولعبة الأمثال', en:'Mishkah — Lighthouse Docs & Proverbs Game' },
       'nav.menu'       : { ar:'التنقل', en:'Navigation' },
-      'nav.about'      : { ar:'عن مشكاة (Markdown)', en:'About Mishkah (Markdown)' },
+      'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
+      'nav.readmeTec'  : { ar:'وثيقة مشكاة التقنية', en:'Mishkah Technical Charter' },
       'nav.counter'    : { ar:'العداد', en:'Counter' },
       'nav.game'       : { ar:'لعبة الأمثال', en:'Proverbs Game' },
+      'doc.base.lead'  : { ar:'رحلة فلسفة مشكاة ومنهج الذكر الأعلى الذي ألهم تصميمها.', en:'The philosophical journey behind Mishkah and the higher remembrance that inspires it.' },
+      'doc.tec.lead'   : { ar:'الدليل التقني الكامل لمعمارية مشكاة ومحركها التعريفي.', en:'The complete technical dossier for Mishkah’s architecture and declarative engine.' },
+      'doc.language.hint': { ar:'بدّل اللغة من الأعلى لتقرأ الوثيقة بلغتك المفضلة.', en:'Use the header controls to switch between Arabic and English.' },
       'counter.title'  : { ar:'عداد بسيط', en:'Simple Counter' },
       'counter.reset'  : { ar:'إعادة', en:'Reset' },
       'game.title'     : { ar:'لعبة الأمثال و الحكم', en:'Proverbs & Wisdom Game' },
@@ -181,19 +324,17 @@
     };
 
     /* ===================== Markdown: المحتوى المعرفي ===================== */
-    const md_ar = [
-      '# بسم الله الرحمن الرحيم: فلسفة ومعمارية مشكاة',
-      'مشكاة إطار عمل بواجهة DSL لكتابة الواجهات بشكل منظم ونظيف.',
-      '- الجسد (VDOM+DSL)، - الإيمان (database)، - العمل (orders).',
-      'يوفر i18n، وإدارة head، وطبقة UI مبسطة، مع twcss tokens.'
-    ].join('\n\n');
-
-    const md_en = [
-      '# Mishkah: Philosophy & Architecture',
-      'A DSL-first UI framework: clean, structured, minimal.',
-      '- Body (VDOM+DSL), - Faith/State (database), - Deeds (orders).',
-      'Includes i18n, head manager, and UI tokens over twcss.'
-    ].join('\n\n');
+    const readmeStore = M.readme || {};
+    const DOCS = {
+      base:{
+        ar: (readmeStore.base && readmeStore.base.ar) || '',
+        en: (readmeStore.base && readmeStore.base.en) || (readmeStore.base && readmeStore.base.ar) || ''
+      },
+      tec:{
+        ar: (readmeStore.tec && readmeStore.tec.ar) || '',
+        en: (readmeStore.tec && readmeStore.tec.en) || (readmeStore.tec && readmeStore.tec.ar) || ''
+      }
+    };
 
     /* ===================== Game Data: بيانات اللعبة ===================== */
     const PROVERBS = [
@@ -474,7 +615,8 @@
         D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-4 space-y-3`} glass-panel glow-outline` }}, [
           D.Text.Span({ attrs:{ class: tw`text-sm uppercase tracking-[0.3em] text-[var(--muted-foreground)]` }}, [TL('nav.menu')]),
           D.Containers.Nav({ attrs:{ class: tw`space-y-3` }}, [
-            NavBtn('about','nav.about','📖'),
+            NavBtn('readmeBase','nav.readmeBase','🌌'),
+            NavBtn('readmeTec','nav.readmeTec','🛠️'),
             NavBtn('counter','nav.counter','🔢'),
             NavBtn('game','nav.game','🎮')
           ])
@@ -482,12 +624,23 @@
       ]);
     }
 
-    function AboutPanel(db){
+    function DocPanel(db, kind){
       const lang = db.env.lang || 'ar';
-      const content = lang==='ar' ? db.data.md.ar : db.data.md.en;
+      const key = kind==='tec' ? 'doc.tec.lead' : 'doc.base.lead';
+      const titleKey = kind==='tec' ? 'nav.readmeTec' : 'nav.readmeBase';
+      const docs = db.data.docs || {};
+      const store = kind==='tec' ? docs.tec || {} : docs.base || {};
+      const fallback = lang==='ar' ? (store.en || '') : (store.ar || '');
+      const content = store[lang] || fallback || '';
+      const { TL } = makeLangLookup(db);
+
       return UI.Card({
-        title: makeLangLookup(db).TL('nav.about'),
-        content: U.UDM({ content, className: tw`prose prose-invert max-w-none` })
+        title: TL(titleKey),
+        description: TL('doc.language.hint'),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          D.Text.P({ attrs:{ class: tw`text-base font-semibold`, style:'color:color-mix(in oklab,var(--foreground) 92%, var(--primary) 8%);' }}, [TL(key)]),
+          UI.Markdown({ content, className: tw`md-prose` })
+        ])
       });
     }
 
@@ -512,49 +665,87 @@
       const timeValue = !g.timerOn ? null : (g.status==='running'
         ? (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)
         : (g.status==='lost' ? 0 : g.timerSec));
-      const timeDisplay = g.timerOn ? String(timeValue ?? g.timerSec) + ' ' + TL('game.seconds') : '—';
+      const timeDisplay = g.timerOn ? `${String(timeValue ?? g.timerSec)} ${TL('game.seconds')}` : '—';
       const pv = g.proverb?.t || '';
 
-      const hearts = D.Containers.Div({ attrs:{ class: `${tw`flex items-center gap-1`} glow-outline px-3 py-2 rounded-full glass-panel` }},
+      const heartsRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-2xl`} glass-panel` }},
         Array.from({ length:g.triesMax }, (_,i)=>{
           const full = i < g.triesLeft;
-          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-3xl ${full?'':'opacity-35'} drop-shadow` }}, [full?'❤️':'💔']);
+          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`text-3xl ${full?'':'opacity-35'} drop-shadow` }}, [full ? '❤️' : '💔']);
         })
       );
 
-      const boxes = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap gap-2 justify-center md:justify-start mt-3`}` }}, pv.split('').map((raw,idx)=>{
-        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-4 md:w-5` }});
+      const tiles = pv.split('').map((raw, idx)=>{
+        if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: tw`w-6 md:w-8` }});
         const normalized = norm(raw);
         const revealed = !!g.guessed[normalized];
-        return D.Containers.Div({ attrs:{
-          key:'bx'+idx,
-          class: `${tw`w-11 h-14 md:w-12 md:h-16 grid place-items-center rounded-xl text-2xl font-semibold text-white tracking-wide uppercase letter-tile`}`,
-          'data-revealed': revealed ? 'true' : 'false'
-        }}, [ revealed ? raw : '' ]);
-      }));
+        return D.Containers.Div({
+          attrs:{
+            key:'bx'+idx,
+            class: `${tw`w-14 h-16 md:w-16 md:h-20 grid place-items-center rounded-2xl text-2xl md:text-3xl font-semibold letter-tile`}`,
+            'data-revealed': revealed ? 'true' : 'false'
+          }
+        }, [ revealed ? raw : '' ]);
+      });
 
-      const letters = D.Containers.Div({ attrs:{ class: `${tw`grid grid-cols-8 md:grid-cols-12 gap-1 letters-grid`}` }}, AR_ALPHA.map((L,i)=>
-        UI.Button({ attrs:{ key:'L'+i, gkey:'game:guess', 'data-ch':L, disabled: g.status!=='running' || !!g.guessed[L] }, variant:'soft', size:'sm' }, [L])
+      const puzzleRow = D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap justify-center gap-3`}` }}, tiles);
+
+      const letters = D.Containers.Div({ attrs:{ class: `${tw`grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-10 gap-2 letters-grid`}` }}, AR_ALPHA.map((L,i)=>
+        UI.Button({
+          attrs:{
+            key:'L'+i,
+            gkey:'game:guess',
+            'data-ch':L,
+            disabled: g.status!=='running' || !!g.guessed[L],
+            class: tw`h-14 sm:h-16 text-xl sm:text-2xl font-extrabold tracking-wider`
+          },
+          variant:'soft',
+          size:'lg'
+        }, [L])
       ));
 
-      const result = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
-      const audioNode = (g.musicOn && g.status==='running')
-        ? D.Media.Audio({ attrs:{ autoplay:true, loop:true, src:g.audioList[g.audioIdx].url, class: tw`hidden`, key:`bgm-${g.soundStamp||0}` }})
+      const statusText = g.status==='won' ? TL('game.win') : g.status==='lost' ? TL('game.lose') : '';
+
+      const boardCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between` }}, [
+          heartsRow,
+          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2 text-sm` }}, [
+            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'⏳', text:`${TL('game.timeLabel')}: ${timeDisplay}` }),
+            UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'❤️', text:`${TL('game.tries')}: ${g.triesLeft}/${g.triesMax}` })
+          ])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          puzzleRow,
+          UI.Divider(),
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Strong({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.letters')]),
+            letters
+          ])
+        ])
+      ]);
+
+      const hintPanel = g.proverb
+        ? UI.Card({ variant:'card/soft-1', content:
+            D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+              UI.Badge({ variant:'badge/ghost', attrs:{ class: tw`w-fit text-xs uppercase tracking-[0.3em]` }, leading:'💡', text:TL('game.hintTitle') }),
+              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
+            ])
+          })
         : null;
 
       const revealPanel = (!showSolution && g.status==='lost')
         ? UI.Card({ variant:'card/soft-2', content:
-            D.Containers.Div({ attrs:{ class: `${tw`space-y-3 text-center`}` }}, [
+            D.Containers.Div({ attrs:{ class: tw`space-y-3 text-center` }}, [
               D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lose')]),
-              UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-6 py-2 rounded-full font-semibold tracking-wide` }, variant:'soft', size:'md' }, [TL('game.reveal')])
+              UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-8 py-3 rounded-full font-semibold text-base` }, variant:'soft', size:'lg' }, [TL('game.reveal')])
             ])
           })
         : null;
 
       const solutionPanel = (showSolution && g.proverb)
         ? UI.Card({ variant:'card/soft-2', content:
-            D.Containers.Div({ attrs:{ class: `${tw`space-y-2`}` }}, [
-              D.Text.Strong({ attrs:{ class: tw`text-base` }}, [TL('game.solution')]),
+            D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+              UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'📜', text:TL('game.solution') }),
               D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
               D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
               D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
@@ -563,70 +754,60 @@
           })
         : null;
 
-      const hintPanel = g.proverb
-        ? UI.Card({ variant:'card/soft-1', content:
-            D.Containers.Div({ attrs:{ class: `${tw`space-y-1`}` }}, [
-              D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [TL('game.hintTitle')]),
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [g.proverb.hint])
-            ])
-          })
+      const statusPanel = statusText
+        ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg font-semibold` }}, [statusText]) })
         : null;
 
-      return D.Containers.Div({ attrs:{ class: `${tw`space-y-5`} animate-float` }}, [
-        D.Containers.Div({ attrs:{ class: `${tw`grid gap-4 md:grid-cols-3`} glass-panel glow-outline p-4 rounded-3xl` }}, [
+      const infoPanels = [statusPanel, hintPanel, revealPanel, solutionPanel].filter(Boolean);
+      const infoSection = infoPanels.length
+        ? D.Containers.Div({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-4` }}, infoPanels)
+        : null;
+
+      const audioNode = (g.musicOn && g.status==='running')
+        ? D.Media.Audio({ attrs:{ autoplay:true, loop:true, src:g.audioList[g.audioIdx].url, class: tw`hidden`, key:`bgm-${g.soundStamp||0}` }})
+        : null;
+
+      return D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} animate-float` }}, [
+        D.Containers.Div({ attrs:{ class: `${tw`grid gap-5 xl:grid-cols-3`} glass-panel glow-outline p-6 rounded-3xl` }}, [
           D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
-            D.Text.H3({ attrs:{ class: tw`text-xl font-bold` }}, [TL('game.title')]),
+            D.Text.H3({ attrs:{ class: tw`text-2xl font-bold` }}, [TL('game.title')]),
             D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.tries'), ': ', String(g.triesLeft), ' / ', String(g.triesMax)]),
-            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-6 py-2 font-semibold tracking-wide` }, variant:'destructive', size:'md' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
           ]),
           D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
             D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.music')]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
               UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
-              D.Text.Span({}, [TL('game.music')])
+              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.music')])
             ]),
             UI.Select({ attrs:{ gkey:'game:music:select' }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
           ]),
           D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
             D.Text.Strong({ attrs:{ class: tw`text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]` }}, [TL('game.timer')]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
               UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
-              D.Text.Span({}, [TL('game.timer')])
+              D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL('game.timer')])
             ]),
-            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:80px', gkey:'game:timer:value' } }),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
+              UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
               D.Text.Span({ attrs:{ class: tw`text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
             ]),
-            D.Containers.Div({ attrs:{ class: `${tw`mt-1 text-sm text-[var(--muted-foreground)]`}` }}, [TL('game.timeLabel'), ': ', timeDisplay])
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.timeLabel'), ': ', timeDisplay])
           ])
         ]),
-        D.Containers.Div({ attrs:{ class: `${tw`grid gap-4 lg:grid-cols-[2fr,1fr]`}` }}, [
-          D.Containers.Div({ attrs:{ class: `${tw`space-y-4`} glass-panel glow-outline p-5 rounded-3xl` }}, [
-            hearts,
-            boxes,
-            UI.Divider(),
-            D.Containers.Div({ attrs:{ class: `${tw`space-y-2`}` }}, [
-              D.Text.Strong({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.letters')]),
-              letters
-            ])
-          ]),
-          D.Containers.Div({ attrs:{ class: `${tw`space-y-4`}` }}, [
-            result ? UI.Card({ variant:'card/soft-2', content: D.Text.P({ attrs:{ class: tw`text-center text-lg font-semibold` }}, [result]) }) : null,
-            hintPanel,
-            revealPanel,
-            solutionPanel,
-            audioNode
-          ].filter(Boolean))
-        ])
-      ]);
+        boardCard,
+        infoSection,
+        audioNode
+      ].filter(Boolean));
     }
 
     function MainContent(db){
       const tab = db.data.activeTab;
-      if (tab==='about')   return AboutPanel(db);
+      if (tab==='readmeBase') return DocPanel(db, 'base');
+      if (tab==='readmeTec')  return DocPanel(db, 'tec');
       if (tab==='counter') return CounterPanel(db);
       if (tab==='game')    return GamePanel(db);
-      return AboutPanel(db);
+      return DocPanel(db, 'base');
     }
     
     // ----------------------------------------------------------------
@@ -638,8 +819,8 @@
       env:{ theme:'dark', lang:'ar', dir:'rtl' },
       i18n:{ lang:'ar', fallback:'en', dict },
       data:{
-        activeTab: 'about',
-        md:{ ar: md_ar, en: md_en },
+        activeTab: 'readmeBase',
+        docs: DOCS,
         counter: 0,
         game:{
           musicOn: true,
@@ -711,9 +892,10 @@
     // ----------------------------------------------------------------
     const orders = {
       // Routing
-      'route:about'  :{ on:['click'], gkeys:['route:about'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'about'  }}); ctx.rebuild(); }},
-      'route:counter':{ on:['click'], gkeys:['route:counter'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
-      'route:game'   :{ on:['click'], gkeys:['route:game'],    handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
+      'route:readmeBase':{ on:['click'], gkeys:['route:readmeBase'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeBase' }}); ctx.rebuild(); }},
+      'route:readmeTec' :{ on:['click'], gkeys:['route:readmeTec' ], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeTec'  }}); ctx.rebuild(); }},
+      'route:counter'   :{ on:['click'], gkeys:['route:counter'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
+      'route:game'      :{ on:['click'], gkeys:['route:game'],      handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
 
       // Counter
       'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
