@@ -625,6 +625,15 @@ M.UI.posOrders = POS_ORDERS;
       const key = `${keyPrefix}-${idx}`;
       switch (token.type){
         case 'text':
+          if (typeof token.text === 'string'){ 
+            const trimmed = token.text.trim();
+            const imagePattern = /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|svg|webp))(\?[^\s]*)?$/i;
+            if (trimmed && imagePattern.test(trimmed)){
+              const match = trimmed.match(imagePattern);
+              const src = match ? match[1] + (match[2] || '') : trimmed;
+              return h.Media.Img({ attrs:{ key:`${key}-img`, src, alt:'', class: tw`inline-block h-6 align-middle rounded-lg shadow-[0_8px_20px_-12px_rgba(79,70,229,0.55)]` } });
+            }
+          }
           return token.text;
         case 'strong':
           return h.Text.Strong({ attrs:{ key }}, renderInlines(token.children, key));
