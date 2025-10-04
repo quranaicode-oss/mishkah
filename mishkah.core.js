@@ -656,6 +656,157 @@
     }
 
     function createContext(){
+      function captureScrollTarget(target){
+        var doc = global && global.document;
+        if (!doc || !target) return null;
+
+        if (typeof target === 'function'){
+          try { target = target(); } catch(_){ return null; }
+          if (!target) return null;
+        }
+
+        var node = null;
+        var selector = null;
+        var isWindow = false;
+
+        if (target === 'window' || target === global || (global && target === global.window)){
+          var scrollNode = doc.scrollingElement || doc.documentElement || doc.body;
+          var winTop = (typeof global.scrollY === 'number') ? global.scrollY : (scrollNode ? scrollNode.scrollTop : 0);
+          var winLeft = (typeof global.scrollX === 'number') ? global.scrollX : (scrollNode ? scrollNode.scrollLeft : 0);
+          return { node: scrollNode, selector: null, top: winTop, left: winLeft, isWindow: true };
+        }
+
+        if (typeof Element !== 'undefined' && target instanceof Element){ node = target; }
+        else if (target && target.nodeType === 1){ node = target; }
+        else if (isObj(target)){
+          if (!node && target.node && typeof Element !== 'undefined' && target.node instanceof Element){ node = target.node; }
+          if (!selector && target.selector!=null){ selector = String(target.selector); }
+          if (!node && typeof target.get === 'function'){
+            try {
+              var got = target.get();
+              if (typeof Element !== 'undefined' && got instanceof Element){ node = got; }
+              else if (got && got.nodeType === 1){ node = got; }
+              else if (!selector && typeof got === 'string'){ selector = got; }
+            } catch(_g){ }
+          }
+        }
+
+        if (!node && typeof target === 'string'){ selector = selector || String(target); }
+
+        if (!node && selector){
+          try { node = doc.querySelector(selector); } catch(_q){ node = null; }
+        } else if (!node && typeof target === 'string'){
+          try { node = doc.querySelector(String(target)); } catch(_s){ node = null; }
+        }
+
+        if (!node) return null;
+
+        if (!selector && node.getAttribute){
+          var pathAttr = node.getAttribute('data-m-path');
+          if (pathAttr){ selector = '[data-m-path="' + String(pathAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+          if (!selector){
+            var keyAttr = node.getAttribute('data-m-key');
+            if (keyAttr){ selector = '[data-m-key="' + String(keyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+          }
+        }
+
+        var top = (typeof node.scrollTop === 'number') ? node.scrollTop : 0;
+        var left = (typeof node.scrollLeft === 'number') ? node.scrollLeft : 0;
+        if (node === doc.body || node === doc.documentElement){
+          if (typeof global.scrollY === 'number') top = global.scrollY;
+          if (typeof global.scrollX === 'number') left = global.scrollX;
+        }
+
+        return { node: node, selector: selector, top: top, left: left, isWindow: isWindow };
+      }
+
+      function restoreScrollEntry(entry){
+        if (!entry) return;
+        var doc = global && global.document;
+        if (entry.isWindow){
+          var topWin = entry.top != null ? entry.top : 0;
+          var leftWin = entry.left != null ? entry.left : 0;
+          try {
+            if (typeof global.scrollTo === 'function'){
+              try { global.scrollTo({ top: topWin, left: leftWin, behavior:'instant' }); }
+              catch(_o){ try { global.scrollTo(leftWin, topWin); } catch(_p){} }
+            } else if (doc && doc.scrollingElement){
+              if (entry.top != null) doc.scrollingElement.scrollTop = entry.top;
+              if (entry.left != null) doc.scrollingElement.scrollLeft = entry.left;
+            }
+          } catch(_w){ }
+          return;
+        }
+
+        var nodeRef = entry.node;
+        if (entry.selector && (!nodeRef || !nodeRef.isConnected || nodeRef.parentNode==null)){
+          if (doc){
+            try {
+              var found = doc.querySelector(entry.selector);
+              if (found) nodeRef = entry.node = found;
+            } catch(_r){ }
+          }
+        }
+        if (!nodeRef) return;
+
+        var prevBehavior = null;
+        var behaviorApplied = false;
+        try {
+          if (nodeRef.style && typeof nodeRef.style === 'object'){
+            prevBehavior = nodeRef.style.scrollBehavior;
+            nodeRef.style.scrollBehavior = 'auto';
+            behaviorApplied = true;
+          }
+        } catch(_sb){ behaviorApplied = false; }
+
+        try {
+          if (typeof nodeRef.scrollTo === 'function'){
+            var topVal = entry.top != null ? entry.top : nodeRef.scrollTop;
+            var leftVal = entry.left != null ? entry.left : nodeRef.scrollLeft;
+            try {
+              nodeRef.scrollTo({ top: topVal, left: leftVal, behavior:'instant' });
+            } catch(_cObj){
+              try { nodeRef.scrollTo(leftVal, topVal); } catch(_n){}
+              if (entry.top != null) nodeRef.scrollTop = entry.top;
+              if (entry.left != null) nodeRef.scrollLeft = entry.left;
+            }
+          } else {
+            if (entry.top != null) nodeRef.scrollTop = entry.top;
+            if (entry.left != null) nodeRef.scrollLeft = entry.left;
+          }
+        } catch(_ap){
+          try {
+            if (entry.top != null) nodeRef.scrollTop = entry.top;
+            if (entry.left != null) nodeRef.scrollLeft = entry.left;
+          } catch(_aq){ }
+        } finally {
+          if (behaviorApplied && nodeRef && nodeRef.style){
+            try {
+              if (prevBehavior && prevBehavior.length){ nodeRef.style.scrollBehavior = prevBehavior; }
+              else if (typeof nodeRef.style.removeProperty === 'function'){ nodeRef.style.removeProperty('scroll-behavior'); }
+              else nodeRef.style.scrollBehavior = '';
+            } catch(_be){ }
+          }
+        }
+      }
+
+      function restoreScrollEntries(entries){
+        if (!entries || !entries.length) return;
+        for (var i=0;i<entries.length;i++) restoreScrollEntry(entries[i]);
+        var raf = global && typeof global.requestAnimationFrame === 'function' ? global.requestAnimationFrame : null;
+        if (raf){
+          raf(function(){
+            for (var j=0;j<entries.length;j++) restoreScrollEntry(entries[j]);
+            raf(function(){ for (var k=0;k<entries.length;k++) restoreScrollEntry(entries[k]); });
+          });
+        } else if (global && typeof global.setTimeout === 'function'){
+          global.setTimeout(function(){
+            for (var j2=0;j2<entries.length;j2++) restoreScrollEntry(entries[j2]);
+            global.setTimeout(function(){ for (var k2=0;k2<entries.length;k2++) restoreScrollEntry(entries[k2]); }, 16);
+          }, 0);
+        }
+      }
+
       return {
         root: _$root,
         getState: function(){ return _database; },
@@ -675,13 +826,8 @@
           var keepScrollTargets = toArr(opts && opts.keepScroll);
           if (keepScrollTargets.length && global && global.document){
             for (var i=0;i<keepScrollTargets.length;i++){
-              var target = keepScrollTargets[i];
-              if (!target) continue;
-              var node = null;
-              if (typeof Element !== 'undefined' && target instanceof Element){ node = target; }
-              else if (typeof target === 'string'){ try { node = global.document.querySelector(target); } catch(_){ node = null; } }
-              if (!node) continue;
-              keepScrollEntries.push({ node: node, top: node.scrollTop, left: node.scrollLeft });
+              var entry = captureScrollTarget(keepScrollTargets[i]);
+              if (entry) keepScrollEntries.push(entry);
             }
           }
 
@@ -694,16 +840,7 @@
             _vApp = next;
             try { M.RuleCenter && M.RuleCenter.evaluate && M.RuleCenter.evaluate('afterRender', { rootEl:_$root, db:_database }, _ctx); } catch(eAR){ M.Auditor.warn('W-AFTER','afterRender rules error', {error:String(eAR)}); }
             if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
-            if (keepScrollEntries.length){
-              for (var j=0;j<keepScrollEntries.length;j++){
-                var entry = keepScrollEntries[j];
-                if (!entry || !entry.node) continue;
-                try {
-                  if (entry.top != null) entry.node.scrollTop = entry.top;
-                  if (entry.left != null) entry.node.scrollLeft = entry.left;
-                } catch(_){ }
-              }
-            }
+            if (keepScrollEntries.length) restoreScrollEntries(keepScrollEntries);
           });
         },
         batch: function(fn){ if (typeof fn==='function') fn(this); this.rebuild(); }
