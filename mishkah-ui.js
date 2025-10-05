@@ -155,6 +155,67 @@ UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
   ].filter(Boolean))
 };
 
+const SWEET_TONES = {
+  info: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(59,130,246,0.45)] border-[color-mix(in oklab,var(--border) 55%, transparent)]',
+    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05))'
+  },
+  success: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(16,185,129,0.55)] border-[rgba(16,185,129,0.25)]',
+    gradient: 'linear-gradient(145deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))'
+  },
+  warning: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(234,179,8,0.45)] border-[rgba(234,179,8,0.22)]',
+    gradient: 'linear-gradient(145deg, rgba(234,179,8,0.18), rgba(234,179,8,0.08))'
+  },
+  danger: {
+    ring: 'shadow-[0_24px_52px_-24px_rgba(239,68,68,0.55)] border-[rgba(239,68,68,0.28)]',
+    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08))'
+  }
+};
+
+UI.SweetNotice = ({
+  attrs={},
+  tone='info',
+  icon,
+  title,
+  message,
+  hint,
+  actions=[],
+  footer
+})=>{
+  const toneMeta = SWEET_TONES[tone] || SWEET_TONES.info;
+  const rootAttrs = withClass(attrs, cx(
+    'relative overflow-hidden rounded-[var(--radius)] border px-6 py-8 text-center space-y-4 glass-panel',
+    toneMeta.ring
+  ));
+  const style = attrs && attrs.style ? String(attrs.style) + ';' : '';
+  rootAttrs.style = style + (toneMeta.gradient ? `background:${toneMeta.gradient};` : '');
+
+  const layers = [
+    h.Containers.Div({ attrs:{ class: tw`pointer-events-none absolute inset-0 opacity-70` }}, [
+      h.Containers.Div({ attrs:{ class: tw`absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.25),transparent_60%)]` }})
+    ])
+  ];
+
+  const body = h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-col items-center gap-3` }}, [
+    icon ? h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]) : null,
+    title ? h.Text.H3({ attrs:{ class: tw`text-2xl font-bold tracking-tight` }}, [title]) : null,
+    message ? h.Text.P({ attrs:{ class: tw`text-sm leading-relaxed text-[var(--muted-foreground)]` }}, [message]) : null,
+    hint ? h.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [hint]) : null
+  ].filter(Boolean));
+
+  const actionRow = actions && actions.length
+    ? h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-wrap items-center justify-center gap-3` }}, actions)
+    : null;
+
+  const footnote = footer
+    ? h.Text.P({ attrs:{ class: tw`relative z-10 text-xs text-[var(--muted-foreground)]` }}, [footer])
+    : null;
+
+  return h.Containers.Section({ attrs: rootAttrs }, [...layers, body, actionRow, footnote].filter(Boolean));
+};
+
 UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });
 UI.Textarea = ({ attrs }) => h.Inputs.Textarea({ attrs: withClass(attrs, token('input')) });
 UI.Select   = ({ attrs={}, options=[] }) =>
