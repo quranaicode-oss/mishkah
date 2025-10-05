@@ -32,6 +32,7 @@
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah-schema.js"></script>
   <script src="./pos-mock-data.js"></script>
 </head>
 <body>
@@ -42,6 +43,7 @@
     const UI = M.UI;
     const U = M.utils;
     const D = M.DSL;
+    const Schema = M.schema;
     const { tw, token } = U.twcss;
     const BASE_PALETTE = U.twcss?.PALETTE || {};
 
@@ -59,6 +61,38 @@
     const posLabel = rawPosConfig.label || rawPosConfig.name || `POS ${posNumber}`;
     const posPrefix = rawPosConfig.prefix || posId;
     const POS_INFO = { id: posId, number: posNumber, label: posLabel, prefix: String(posPrefix || posId) };
+    const SHIFT_TABLE = Schema.defineTable({
+      name:'pos_shift',
+      label:'POS Shift Session',
+      comment:'Lifecycle of a POS cashier shift bound to orders and payments.',
+      fields:[
+        { name:'id', columnName:'shift_id', type:'string', primaryKey:true, nullable:false, maxLength:64, comment:'Unique shift identifier composed of POS id and encoded timestamp.' },
+        { name:'posId', columnName:'pos_id', type:'string', nullable:false, maxLength:32, comment:'Terminal identifier hosting the shift.' },
+        { name:'posLabel', columnName:'pos_label', type:'string', nullable:false, maxLength:96, comment:'Friendly terminal label for reports.' },
+        { name:'posNumber', columnName:'pos_number', type:'integer', nullable:false, comment:'Numeric terminal number for invoice sequencing.' },
+        { name:'openedAt', columnName:'opened_at', type:'timestamp', nullable:false, comment:'Shift opening timestamp.' },
+        { name:'closedAt', columnName:'closed_at', type:'timestamp', nullable:true, comment:'Shift closing timestamp.' },
+        { name:'openingFloat', columnName:'opening_float', type:'decimal', precision:12, scale:2, nullable:false, defaultValue:0, comment:'Opening cash float captured when the shift starts.' },
+        { name:'closingCash', columnName:'closing_cash', type:'decimal', precision:12, scale:2, nullable:true, comment:'Closing cash drawer balance.' },
+        { name:'cashierId', columnName:'cashier_id', type:'string', nullable:false, maxLength:64, comment:'Employee identifier operating the shift.' },
+        { name:'cashierName', columnName:'cashier_name', type:'string', nullable:false, maxLength:128, comment:'Display name of the cashier.' },
+        { name:'cashierRole', columnName:'cashier_role', type:'string', nullable:false, defaultValue:'cashier', comment:'Role assigned to the cashier during the shift.' },
+        { name:'employeeId', columnName:'employee_id', type:'string', nullable:false, maxLength:64, comment:'Employee id linked to payroll records.' },
+        { name:'status', columnName:'status', type:'string', nullable:false, defaultValue:'open', comment:'Shift lifecycle state.' },
+        { name:'isClosed', columnName:'is_closed', type:'boolean', nullable:false, defaultValue:false, comment:'Flag signalling whether the shift is closed.' },
+        { name:'totalsByType', columnName:'totals_by_type', type:'json', nullable:false, defaultValue:()=>({}), comment:'Aggregated sales totals grouped by order type.' },
+        { name:'paymentsByMethod', columnName:'payments_by_method', type:'json', nullable:false, defaultValue:()=>({}), comment:'Aggregated payments grouped by method.' },
+        { name:'countsByType', columnName:'counts_by_type', type:'json', nullable:false, defaultValue:()=>({}), comment:'Order counts grouped by type.' },
+        { name:'ordersCount', columnName:'orders_count', type:'integer', nullable:false, defaultValue:0, comment:'Number of orders captured during the shift.' },
+        { name:'orders', columnName:'orders_payload', type:'json', nullable:false, defaultValue:()=>([]), comment:'Optional persisted snapshot for audit or offline sync.' },
+        { name:'totalSales', columnName:'total_sales', type:'decimal', precision:14, scale:2, nullable:false, defaultValue:0, comment:'Total sales amount for the shift.' }
+      ],
+      indexes:[
+        { name:'idx_pos_shift_pos_status', columns:['pos_id','is_closed','opened_at'] },
+        { name:'idx_pos_shift_opened_at', columns:['opened_at'] }
+      ]
+    });
+    const SHIFT_SCHEMA_REGISTRY = new Schema.Registry({ tables:[SHIFT_TABLE] });
     const FALLBACK_CURRENCY = 'EGP';
     const normalizeCurrencyCode = (value)=>{
       if(typeof value !== 'string') return null;
@@ -853,7 +887,8 @@
             const base = `${prefix || posId || 'POS'}-${Date.now()}`;
             return { value: Date.now(), id: base };
           },
-          async peekInvoiceCounter(){ return 0; }
+          async peekInvoiceCounter(){ return 0; },
+          async resetAll(){ return false; }
         };
       }
 
@@ -1003,6 +1038,15 @@
       async function peekInvoiceCounter(posId){
         const meta = await ensureInvoiceCounter(posId);
         return Number(meta.invoiceCounter || 0);
+      }
+
+      async function resetAll(){
+        try{
+          await ensureReady();
+        } catch(_){ }
+        await db.destroy();
+        readyPromise = null;
+        return true;
       }
 
       function hydrateLine(record){
@@ -1225,7 +1269,8 @@
         openShiftRecord,
         closeShiftRecord,
         nextInvoiceNumber,
-        peekInvoiceCounter
+        peekInvoiceCounter,
+        resetAll
       };
     }
 
@@ -1709,12 +1754,6 @@
       lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
       payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
     }));
-    if(posDB.available && seedOrders.length){
-      posDB.bootstrap(seedOrders).catch(error=>{
-        console.warn('[Mishkah][POS] bootstrap failed', error);
-      });
-    }
-
     const baseTables = Array.isArray(MOCK.tables) ? MOCK.tables : [];
     const tables = baseTables.map((tbl, idx)=>({
       id: tbl.id || `T${idx+1}`,
@@ -1965,6 +2004,126 @@
         orderNav:{ showPad:false, value:'' }
       }
     };
+
+    let appRef = null;
+
+    async function refreshPersistentSnapshot(options={}){
+      if(!posDB.available) return null;
+      const { focusCurrent=false, syncOrders=true } = options;
+      try{
+        const [allOrders, activeShiftRaw, shiftListRaw, activeOrdersOnly] = await Promise.all([
+          posDB.listOrders({ onlyActive:false }),
+          posDB.getActiveShift(POS_INFO.id),
+          posDB.listShifts({ posId: POS_INFO.id, limit: 100 }),
+          posDB.listOrders({ onlyActive:true })
+        ]);
+        const historyOrders = Array.isArray(allOrders) ? allOrders.map((order, idx)=>({
+          ...order,
+          seq: idx + 1,
+          payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
+          lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
+        })) : [];
+        const summarySource = historyOrders;
+        let currentShift = null;
+        if(activeShiftRaw){
+          const sanitizedActive = SHIFT_TABLE.createRecord({
+            ...activeShiftRaw,
+            totalsByType: activeShiftRaw.totalsByType || {},
+            paymentsByMethod: activeShiftRaw.paymentsByMethod || {},
+            countsByType: activeShiftRaw.countsByType || {},
+            orders: Array.isArray(activeShiftRaw.orders) ? activeShiftRaw.orders : []
+          });
+          const activeSummary = summarizeShiftOrders(summarySource, sanitizedActive);
+          currentShift = {
+            ...sanitizedActive,
+            totalsByType: activeSummary.totalsByType,
+            paymentsByMethod: activeSummary.paymentsByMethod,
+            totalSales: activeSummary.totalSales,
+            orders: activeSummary.orders,
+            ordersCount: activeSummary.ordersCount,
+            countsByType: activeSummary.countsByType,
+            payments: activeSummary.payments,
+            refunds: activeSummary.refunds,
+            returns: activeSummary.returns
+          };
+        }
+        const history = Array.isArray(shiftListRaw) ? shiftListRaw
+          .filter(item=> !currentShift || item.id !== currentShift.id)
+          .map(entry=>{
+            const sanitized = SHIFT_TABLE.createRecord({
+              ...entry,
+              totalsByType: entry.totalsByType || {},
+              paymentsByMethod: entry.paymentsByMethod || {},
+              countsByType: entry.countsByType || {},
+              orders: Array.isArray(entry.orders) ? entry.orders : []
+            });
+            const summary = summarizeShiftOrders(summarySource, sanitized);
+            return {
+              ...sanitized,
+              totalsByType: summary.totalsByType,
+              paymentsByMethod: summary.paymentsByMethod,
+              totalSales: summary.totalSales,
+              orders: summary.orders,
+              ordersCount: summary.ordersCount,
+              countsByType: summary.countsByType,
+              payments: summary.payments,
+              refunds: summary.refunds,
+              returns: summary.returns
+            };
+          }) : [];
+        const activeOrders = Array.isArray(activeOrdersOnly) ? activeOrdersOnly.slice() : [];
+        const stateSource = appRef && typeof appRef.getState === 'function'
+          ? appRef.getState()
+          : posState;
+        const previousData = stateSource?.data || {};
+        const nextData = {
+          ...previousData,
+          ordersQueue: activeOrders,
+          ordersHistory: syncOrders ? historyOrders : previousData.ordersHistory,
+          shift:{
+            ...(previousData.shift || {}),
+            current: currentShift,
+            history
+          },
+          user:{
+            ...(previousData.user || {}),
+            shift: currentShift?.id || '—',
+            shiftNo: currentShift?.id || previousData.user?.shiftNo || '—'
+          },
+          order:{
+            ...(previousData.order || {}),
+            shiftId: currentShift?.id || null
+          },
+          status:{
+            ...(previousData.status || {}),
+            indexeddb:{ state:'online', lastSync: Date.now() }
+          }
+        };
+        const nextUi = {
+          ...(stateSource?.ui || {}),
+          shift:{
+            ...(stateSource?.ui?.shift || {}),
+            viewShiftId: focusCurrent && currentShift ? currentShift.id : (stateSource?.ui?.shift?.viewShiftId || currentShift?.id || null)
+          }
+        };
+        posState.data = nextData;
+        posState.ui = nextUi;
+        if(appRef && typeof appRef.setState === 'function'){
+          appRef.setState(prev=>({
+            ...prev,
+            data: nextData,
+            ui: nextUi
+          }));
+        }
+        if(appRef && typeof appRef.rebuild === 'function'){
+          appRef.rebuild();
+        }
+        return { current: currentShift, history, orders: historyOrders };
+      } catch(error){
+        console.warn('[Mishkah][POS] refreshPersistentSnapshot failed', error);
+        return null;
+      }
+    }
 
     function getOrderTypeConfig(type){
       return ORDER_TYPES.find(o=> o.id === type) || ORDER_TYPES[0];
@@ -3866,6 +4025,35 @@
     });
 
     const app = M.app.createApp(posState, {});
+    appRef = app;
+    const POS_DEV_TOOLS = {
+      async resetIndexedDB(){
+        if(!posDB.available || typeof posDB.resetAll !== 'function'){
+          console.info('[Mishkah][POS] IndexedDB is not available in this environment.');
+          return false;
+        }
+        await posDB.resetAll();
+        invoiceSequence = 0;
+        await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
+        console.info('[Mishkah][POS] Local IndexedDB cleared.');
+        return true;
+      },
+      async refresh(){
+        return refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+      },
+      schema:{
+        registry: SHIFT_SCHEMA_REGISTRY,
+        toJSON(){ return SHIFT_SCHEMA_REGISTRY.toJSON(); },
+        generateSQL(options){ return SHIFT_SCHEMA_REGISTRY.generateSQL(options || {}); }
+      }
+    };
+    Object.defineProperty(window, '__MishkahPOSDev__', {
+      value: POS_DEV_TOOLS,
+      configurable:true,
+      enumerable:false,
+      writable:false
+    });
+    console.info('%c[Mishkah POS] Developer helpers ready → use __MishkahPOSDev__.resetIndexedDB() to wipe local data.', 'color:#fbbf24;font-weight:bold;');
     const auto = U.twcss.auto(posState, app, { pageScaffold:true });
 
     function closeActiveModals(ctx){
@@ -4617,6 +4805,7 @@
               };
             });
             ctx.rebuild();
+            await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
             UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
@@ -4701,7 +4890,7 @@
           }, {});
           let persistedShift = null;
           try{
-            const baseShift = {
+            const baseShiftInput = {
               id: `${POS_INFO.id}-S${now.toString(36).toUpperCase()}`,
               posId: POS_INFO.id,
               posLabel: POS_INFO.label,
@@ -4722,9 +4911,10 @@
               closingCash:null,
               isClosed:false
             };
+            const validatedShift = SHIFT_TABLE.createRecord(baseShiftInput);
             persistedShift = posDB.available
-              ? await posDB.openShiftRecord(baseShift)
-              : baseShift;
+              ? await posDB.openShiftRecord(validatedShift)
+              : validatedShift;
           } catch(error){
             console.warn('[Mishkah][POS] shift open failed', error);
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
@@ -4734,6 +4924,13 @@
             UI.pushToast(ctx, { title:t.toast.shift_pin_invalid, icon:'⚠️' });
             return;
           }
+          const normalizedShift = SHIFT_TABLE.createRecord({
+            ...persistedShift,
+            totalsByType: persistedShift.totalsByType || {},
+            paymentsByMethod: persistedShift.paymentsByMethod || {},
+            countsByType: persistedShift.countsByType || {},
+            orders: Array.isArray(persistedShift.orders) ? persistedShift.orders : []
+          });
           ctx.setState(s=>({
             ...s,
             data:{
@@ -4744,14 +4941,15 @@
                 name: matchedEmployee.name,
                 role: matchedEmployee.role,
                 allowedDiscountRate: matchedEmployee.allowedDiscountRate ?? s.data.user?.allowedDiscountRate,
-                shift:persistedShift.id
+                shift:normalizedShift.id
               },
-              order:{ ...(s.data.order || {}), shiftId:persistedShift.id },
-              shift:{ ...(s.data.shift || {}), current:persistedShift }
+              order:{ ...(s.data.order || {}), shiftId:normalizedShift.id },
+              shift:{ ...(s.data.shift || {}), current:normalizedShift }
             },
-            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:persistedShift.id } }
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:normalizedShift.id } }
           }));
           ctx.rebuild();
+          await refreshPersistentSnapshot({ focusCurrent:true });
           UI.pushToast(ctx, { title:t.toast.shift_open_success, icon:'✅' });
         }
       },
@@ -4769,7 +4967,8 @@
       'pos.shift.summary':{
         on:['click'],
         gkeys:['pos:shift:summary'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
+          await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
           const state = ctx.getState();
           const current = state.data.shift?.current;
           const history = state.data.shift?.history || [];
@@ -4821,11 +5020,18 @@
             ctx.rebuild();
             return;
           }
-          const summary = summarizeShiftOrders(state.data.ordersHistory, currentShift);
-          const paymentsByMethod = summary.paymentsByMethod || {};
-          const closingCash = currentShift.closingCash != null ? round(currentShift.closingCash) : round((currentShift.openingFloat || 0) + (paymentsByMethod.cash || 0));
-          const baseClosed = {
+          const sanitizedCurrent = SHIFT_TABLE.createRecord({
             ...currentShift,
+            totalsByType: currentShift.totalsByType || {},
+            paymentsByMethod: currentShift.paymentsByMethod || {},
+            countsByType: currentShift.countsByType || {},
+            orders: Array.isArray(currentShift.orders) ? currentShift.orders : []
+          });
+          const summary = summarizeShiftOrders(state.data.ordersHistory, sanitizedCurrent);
+          const paymentsByMethod = summary.paymentsByMethod || {};
+          const closingCash = currentShift.closingCash != null ? round(currentShift.closingCash) : round((sanitizedCurrent.openingFloat || 0) + (paymentsByMethod.cash || 0));
+          const baseClosed = {
+            ...sanitizedCurrent,
             totalsByType: summary.totalsByType,
             paymentsByMethod,
             orders: summary.orders,
@@ -4847,6 +5053,13 @@
               return;
             }
           }
+          const normalizedClosed = SHIFT_TABLE.createRecord({
+            ...closedShift,
+            totalsByType: closedShift.totalsByType || summary.totalsByType,
+            paymentsByMethod: closedShift.paymentsByMethod || paymentsByMethod,
+            countsByType: closedShift.countsByType || summary.countsByType,
+            orders: Array.isArray(closedShift.orders) ? closedShift.orders : summary.orders
+          });
           ctx.setState(s=>({
             ...s,
             data:{
@@ -4856,12 +5069,13 @@
               shift:{
                 ...(s.data.shift || {}),
                 current:null,
-                history:[ ...(s.data.shift?.history || []), closedShift ]
+                history:[ ...(s.data.shift?.history || []), normalizedClosed ]
               }
             },
-            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:closedShift.id } }
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:normalizedClosed.id } }
           }));
           ctx.rebuild();
+          await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
           UI.pushToast(ctx, { title:t.toast.shift_close_success, icon:'✅' });
         }
       },
@@ -6889,6 +7103,9 @@
 
     app.setOrders(Object.assign({}, UI.orders, auto.orders, posOrders));
     app.mount('#app');
+    if(posDB.available){
+      await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+    }
   })();
   </script>
 </body>

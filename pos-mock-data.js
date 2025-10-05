@@ -43,48 +43,30 @@ const database = {
   ],
 
   shifts: [
-    {
-      id: 'SHIFT-20240217-AM',
-      opened_at: '2024-02-17T08:00:00Z',
-      closed_at: '2024-02-17T16:00:00Z',
-      cashier_id: 'cashier-01',
-      cashier_name: 'أحمد محمود',
-      opening_float: 400,
-      closing_cash: 1435,
-      totals: {
-        dine_in: 6800,
-        takeaway: 2450,
-        delivery: 3100
-      },
-      payments: {
-        cash: 1035,
-        visa: 2800,
-        mastercard: 1750,
-        insta: 1765
-      },
-      orders: ['ord-1678796400000', 'ord-1678797400000', 'ord-1678798400000']
-    },
-    {
-      id: 'SHIFT-20240218-AM',
-      opened_at: '2024-02-18T07:30:00Z',
-      closed_at: '2024-02-18T15:30:00Z',
-      cashier_id: 'cashier-02',
-      cashier_name: 'سارة علي',
-      opening_float: 450,
-      closing_cash: 1580,
-      totals: {
-        dine_in: 7200,
-        takeaway: 1980,
-        delivery: 2550
-      },
-      payments: {
-        cash: 1130,
-        visa: 3150,
-        mastercard: 1650,
-        insta: 2750
-      },
-      orders: ['ord-1678886400000', 'ord-1678886500000', 'ord-1678886600000']
-    }
+    // يوضح المثال التالي شكل كائن الوردية عند الاعتماد على مخطط SHIFT_TABLE في mishkah-schema.js
+    // احتفظ به كمرجع فقط ولا تضف بيانات فعلية أثناء الاختبار.
+    // {
+    //   id: 'P001-SABC123',
+    //   pos_id: 'P001',
+    //   pos_label: 'POS 1',
+    //   pos_number: 1,
+    //   opened_at: '2024-02-17T08:00:00Z',
+    //   closed_at: null,
+    //   opening_float: 500,
+    //   closing_cash: null,
+    //   cashier_id: 'cashier-01',
+    //   cashier_name: 'أحمد محمود',
+    //   cashier_role: 'cashier',
+    //   employee_id: 'cashier-01',
+    //   status: 'open',
+    //   is_closed: false,
+    //   totals_by_type: { dine_in: 0, takeaway: 0, delivery: 0 },
+    //   payments_by_method: { cash: 0, visa: 0 },
+    //   counts_by_type: { dine_in: 0, takeaway: 0, delivery: 0 },
+    //   orders_count: 0,
+    //   orders_payload: [],
+    //   total_sales: 0
+    // }
   ],
 
   // --- تعريف الأقسام الرئيسية للمطبخ ---
@@ -317,242 +299,13 @@ const database = {
     { id: 'T20', name: 'طاولة 20', seats: 6, state: 'active', zone: 'Terrace', displayOrder: 20 }
   ],
 
-  tableLocks: [
-    { id: 'lock-001', tableId: 'T2', orderId: 'ord-1678886400000', lockedBy: 'e7a8f0b4', lockedAt: '2024-02-18T15:30:00Z', source: 'pos', active: true },
-    { id: 'lock-002', tableId: 'T6', orderId: 'ord-1678886500000', lockedBy: 'e7a8f0b4', lockedAt: '2024-02-18T15:40:00Z', source: 'pos', active: true },
-    { id: 'lock-003', tableId: 'T6', orderId: 'ord-1678886600000', lockedBy: 'f3c9d8e1', lockedAt: '2024-02-18T15:45:00Z', source: 'pos', active: true },
-    { id: 'lock-004', tableId: 'T13', orderId: 'ord-1678886700000', lockedBy: 'a1b2c3d4', lockedAt: '2024-02-18T16:10:00Z', source: 'pos', active: true }
-  ],
+  tableLocks: [],
 
-  // --- الطلبات الأولية (محاكاة بيانات حقيقية) ---
-  orders: [
-    {
-      id: 'ord-1678886400000',
-      header: {
-        type_id: 'dine_in',
-        status_id: 'open',
-        stage_id: 'preparing',
-        payment_state_id: 'unpaid',
-        table_ids: ['T2'],
-        guests: 3,
-        created_at: '2024-02-18T15:30:00Z',
-        updated_at: '2024-02-18T15:45:00Z',
-        locked_line_edits: true,
-        allow_line_additions: true,
-        totals: {
-          subtotal: 360.0,
-          service: 43.2,
-          vat: 50.4,
-          discount: 0.0,
-          deliveryFee: 0.0,
-          due: 453.6
-        }
-      },
-      lines: [
-        {
-          id: 'ln-1001',
-          item_id: 5,
-          qty: 2,
-          price: 100.0,
-          stage_id: 'preparing',
-          status_id: 'preparing',
-          kitchen_section_id: 'hot_line',
-          notes: [
-            { id: 'note-ln-1001-1', author_id: 'e7a8f0b4', message: 'بدون بصل', created_at: '2024-02-18T15:32:00Z' }
-          ]
-        },
-        {
-          id: 'ln-1002',
-          item_id: 24,
-          qty: 1,
-          price: 525.0,
-          stage_id: 'preparing',
-          status_id: 'preparing',
-          kitchen_section_id: 'grill_line',
-          notes: []
-        },
-        {
-          id: 'ln-1003',
-          item_id: 26,
-          qty: 2,
-          price: 68.0,
-          stage_id: 'queued',
-          status_id: 'queued',
-          kitchen_section_id: 'buffet_bar',
-          notes: []
-        }
-      ],
-      notes: [
-        { id: 'ord-note-1001', author_id: 'e7a8f0b4', message: 'ضيف مخلل إضافي مع الطلب.', created_at: '2024-02-18T15:33:00Z' }
-      ],
-      events: [
-        { id: 'ord-1678886400000-evt-1', stage_id: 'new', status_id: 'open', at: '2024-02-18T15:30:00Z', actor_id: 'e7a8f0b4' },
-        { id: 'ord-1678886400000-evt-2', stage_id: 'preparing', status_id: 'open', at: '2024-02-18T15:34:00Z', actor_id: 'kitchen' }
-      ]
-    },
-    {
-      id: 'ord-1678886500000',
-      header: {
-        type_id: 'dine_in',
-        status_id: 'held',
-        stage_id: 'new',
-        payment_state_id: 'unpaid',
-        table_ids: ['T6'],
-        guests: 6,
-        created_at: '2024-02-18T15:35:00Z',
-        updated_at: '2024-02-18T16:00:00Z',
-        locked_line_edits: true,
-        allow_line_additions: true,
-        totals: {
-          subtotal: 875.0,
-          service: 105.0,
-          vat: 137.6,
-          discount: 0.0,
-          deliveryFee: 0.0,
-          due: 1117.6
-        }
-      },
-      lines: [
-        {
-          id: 'ln-2001',
-          item_id: 14,
-          qty: 4,
-          price: 149.0,
-          stage_id: 'new',
-          status_id: 'queued',
-          kitchen_section_id: 'hot_line',
-          notes: []
-        },
-        {
-          id: 'ln-2002',
-          item_id: 24,
-          qty: 1,
-          price: 525.0,
-          stage_id: 'new',
-          status_id: 'queued',
-          kitchen_section_id: 'grill_line',
-          notes: []
-        },
-        {
-          id: 'ln-2003',
-          item_id: 26,
-          qty: 3,
-          price: 68.0,
-          stage_id: 'new',
-          status_id: 'queued',
-          kitchen_section_id: 'buffet_bar',
-          notes: []
-        }
-      ],
-      notes: [],
-      events: [
-        { id: 'ord-1678886500000-evt-1', stage_id: 'new', status_id: 'held', at: '2024-02-18T15:35:00Z', actor_id: 'f3c9d8e1' }
-      ]
-    },
-    {
-      id: 'ord-1678886600000',
-      header: {
-        type_id: 'takeaway',
-        status_id: 'open',
-        stage_id: 'new',
-        payment_state_id: 'unpaid',
-        table_ids: [],
-        guests: 1,
-        created_at: '2024-02-18T15:45:00Z',
-        updated_at: '2024-02-18T15:55:00Z',
-        locked_line_edits: true,
-        allow_line_additions: false,
-        totals: {
-          subtotal: 210.0,
-          service: 0.0,
-          vat: 29.4,
-          discount: 0.0,
-          deliveryFee: 0.0,
-          due: 239.4
-        }
-      },
-      lines: [
-        {
-          id: 'ln-3001',
-          item_id: 9,
-          qty: 2,
-          price: 55.0,
-          stage_id: 'new',
-          status_id: 'queued',
-          kitchen_section_id: 'hot_line',
-          notes: []
-        },
-        {
-          id: 'ln-3002',
-          item_id: 26,
-          qty: 1,
-          price: 68.0,
-          stage_id: 'new',
-          status_id: 'queued',
-          kitchen_section_id: 'buffet_bar',
-          notes: []
-        }
-      ],
-      notes: [
-        { id: 'ord-note-3001', author_id: 'f3c9d8e1', message: 'العميل سيصل بعد 10 دقائق، جهّز الطلب.', created_at: '2024-02-18T15:50:00Z' }
-      ],
-      events: [
-        { id: 'ord-1678886600000-evt-1', stage_id: 'new', status_id: 'open', at: '2024-02-18T15:45:00Z', actor_id: 'f3c9d8e1' }
-      ]
-    },
-    {
-      id: 'ord-1678886700000',
-      header: {
-        type_id: 'delivery',
-        status_id: 'open',
-        stage_id: 'prepared',
-        payment_state_id: 'partial',
-        table_ids: [],
-        guests: 2,
-        created_at: '2024-02-18T16:05:00Z',
-        updated_at: '2024-02-18T16:15:00Z',
-        locked_line_edits: true,
-        allow_line_additions: false,
-        totals: {
-          subtotal: 650.0,
-          service: 0.0,
-          vat: 91.0,
-          discount: 0.0,
-          deliveryFee: 30.0,
-          due: 771.0
-        }
-      },
-      lines: [
-        {
-          id: 'ln-4001',
-          item_id: 24,
-          qty: 1,
-          price: 525.0,
-          stage_id: 'prepared',
-          status_id: 'ready',
-          kitchen_section_id: 'grill_line',
-          notes: []
-        },
-        {
-          id: 'ln-4002',
-          item_id: 25,
-          qty: 1,
-          price: 325.0,
-          stage_id: 'prepared',
-          status_id: 'ready',
-          kitchen_section_id: 'grill_line',
-          notes: []
-        }
-      ],
-      notes: [
-        { id: 'ord-note-4001', author_id: 'delivery-dispatch', message: 'التوصيل خلال 25 دقيقة إلى المعادي.', created_at: '2024-02-18T16:10:00Z' }
-      ],
-      events: [
-        { id: 'ord-1678886700000-evt-1', stage_id: 'new', status_id: 'open', at: '2024-02-18T16:05:00Z', actor_id: 'call-center' },
-        { id: 'ord-1678886700000-evt-2', stage_id: 'prepared', status_id: 'open', at: '2024-02-18T16:12:00Z', actor_id: 'kitchen' }
-      ]
-    }
-  ],
+  // --- الطلبات الأولية ---
+  // اترك هذه القائمة فارغة، فكل الطلبات يجب أن تُنشأ عبر الطبقات الجديدة (ORM الصغيرة) حتى تُربط بالوردية الصحيحة.
+  orders: [],
+
+
 
   reservations: [
     { id: 'res-001', customerName: 'محمد سامي', phone: '01000200300', partySize: 4, scheduledAt: '2024-02-18T19:00:00Z', holdUntil: '2024-02-18T19:20:00Z', tableIds: ['T7'], status: 'booked', note: 'عيد ميلاد' },
