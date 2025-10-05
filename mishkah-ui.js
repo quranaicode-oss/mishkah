@@ -143,6 +143,43 @@ UI.Divider = ()=> h.Containers.Div({ attrs:{ class: tw`${token('divider')}` }});
 UI.Button = ({ attrs={}, variant='soft', size='md' }, children)=>
   h.Forms.Button({ attrs: withClass(attrs, cx(token('btn'), token(`btn/${variant}`), token(`btn/${size}`))) }, children||[]);
 
+UI.Switcher = ({ attrs={}, value, options=[] })=>{
+  const rootAttrs = Object.assign({}, attrs);
+  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} ui-switcher` : 'ui-switcher';
+  const items = (options || []).map((opt, idx)=>{
+    if (!opt) return null;
+    const active = opt.value === value;
+    const optAttrs = Object.assign({ key: opt.key || `switch-opt-${idx}` }, opt.attrs || {});
+    if (opt.gkey) optAttrs.gkey = opt.gkey;
+    if (opt.value != null) optAttrs['data-value'] = opt.value;
+    if (opt.title) optAttrs.title = opt.title;
+    const baseClass = optAttrs.class ? String(optAttrs.class) : '';
+    optAttrs.class = `${baseClass} ${active ? 'active' : ''}`.trim();
+    optAttrs.type = optAttrs.type || 'button';
+    return h.Forms.Button({ attrs: optAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
+  }).filter(Boolean);
+  return h.Containers.Div({ attrs: rootAttrs }, items);
+};
+
+UI.SegmentedSwitch = ({ attrs={}, value, options=[] })=>{
+  const rootAttrs = Object.assign({}, attrs);
+  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} segmented-switch` : 'segmented-switch';
+  const buttons = (options || []).map((opt, idx)=>{
+    if (!opt) return null;
+    const active = opt.value === value;
+    const btnAttrs = Object.assign({ type:'button', key: opt.key || `segment-${idx}` }, opt.attrs || {});
+    if (!('type' in btnAttrs)) btnAttrs.type = 'button';
+    if (opt.gkey && !('gkey' in btnAttrs)) btnAttrs.gkey = opt.gkey;
+    if (opt.value != null) btnAttrs['data-value'] = opt.value;
+    if (opt.title && !('title' in btnAttrs)) btnAttrs.title = opt.title;
+    btnAttrs['aria-pressed'] = active ? 'true' : 'false';
+    const baseClass = btnAttrs.class ? `${btnAttrs.class} ` : '';
+    btnAttrs.class = `${baseClass}segmented-switch__option${active ? ' is-active' : ''}`;
+    return h.Forms.Button({ attrs: btnAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
+  }).filter(Boolean);
+  return h.Containers.Div({ attrs: rootAttrs }, buttons);
+};
+
 UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
   const root = token(variant)||token('card');
   return h.Containers.Section({ attrs: withClass(attrs, root) }, [
@@ -153,6 +190,68 @@ UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
     content && h.Containers.Div({ attrs:{ class: tw`${token('card/content')}` }}, [content]),
     footer && h.Containers.Div({ attrs:{ class: tw`${token('card/footer')}` }}, [footer]),
   ].filter(Boolean))
+};
+
+const SWEET_TONES = {
+  info: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(59,130,246,0.45)] border-[color-mix(in oklab,var(--border) 55%, transparent)]',
+    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05))'
+  },
+  success: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(16,185,129,0.55)] border-[rgba(16,185,129,0.25)]',
+    gradient: 'linear-gradient(145deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))'
+  },
+  warning: {
+    ring: 'shadow-[0_24px_48px_-24px_rgba(234,179,8,0.45)] border-[rgba(234,179,8,0.22)]',
+    gradient: 'linear-gradient(145deg, rgba(234,179,8,0.18), rgba(234,179,8,0.08))'
+  },
+  danger: {
+    ring: 'shadow-[0_24px_52px_-24px_rgba(239,68,68,0.55)] border-[rgba(239,68,68,0.28)]',
+    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08))'
+  }
+};
+
+UI.SweetNotice = ({
+  attrs={},
+  tone='info',
+  icon,
+  title,
+  message,
+  hint,
+  actions=[],
+  footer
+})=>{
+  const toneMeta = SWEET_TONES[tone] || SWEET_TONES.info;
+  const rootAttrs = withClass(attrs, cx(
+    'relative overflow-hidden rounded-[var(--radius)] border px-6 py-8 text-center space-y-4 glass-panel sweet-notice-card',
+    toneMeta.ring
+  ));
+  const style = attrs && attrs.style ? String(attrs.style) + ';' : '';
+  rootAttrs.style = style + (toneMeta.gradient ? `background:${toneMeta.gradient};` : '');
+
+  const layers = [
+    h.Containers.Div({ attrs:{ class: tw`pointer-events-none absolute inset-0 opacity-70` }}, [
+      h.Containers.Div({ attrs:{ class: tw`absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.25),transparent_60%)]` }})
+    ])
+  ];
+
+  const body = h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-col items-center gap-3` }}, [
+    icon ? h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]) : null,
+    title ? h.Text.H3({ attrs:{ class: tw`text-2xl font-bold tracking-tight` }}, [title]) : null,
+    message ? h.Text.P({ attrs:{ class:'game-info-text text-center' }}, [message]) : null,
+    hint ? h.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [hint]) : null
+  ].filter(Boolean));
+
+  const actionRow = actions && actions.length
+    ? h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-wrap items-center justify-center gap-3` }}, actions)
+    : null;
+
+  const footnote = footer
+    ? h.Text.P({ attrs:{ class: tw`relative z-10 text-xs text-[var(--muted-foreground)]` }}, [footer])
+    : null;
+
+  const card = h.Containers.Section({ attrs: rootAttrs }, [...layers, body, actionRow, footnote].filter(Boolean));
+  return h.Containers.Div({ attrs:{ class:'sweet-notice-overlay' }}, [card]);
 };
 
 UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });
