@@ -800,10 +800,11 @@
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
-    const hasIndexedDB = typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
+    const hasIndexedDB = !!((U && (U.IndexedDBX || U.IndexedDB)) && typeof window !== 'undefined' && window.indexedDB);
 
     function createIndexedDBAdapter(name, version){
-      if(!hasIndexedDB){
+      const IndexedDBX = U && (U.IndexedDBX || U.IndexedDB);
+      if(!hasIndexedDB || !IndexedDBX){
         return {
           available:false,
           async saveOrder(){ return false; },
@@ -813,76 +814,40 @@
           async bootstrap(){ return false; }
         };
       }
-      let dbPromise = null;
-      function openDB(){
-        if(dbPromise) return dbPromise;
-        dbPromise = new Promise((resolve, reject)=>{
-          const request = window.indexedDB.open(name, version);
-          request.onupgradeneeded = (event)=>{
-            const db = event.target.result;
-            const txn = event.target.transaction;
-            let ordersStore;
-            if(!db.objectStoreNames.contains('orders')){
-              ordersStore = db.createObjectStore('orders', { keyPath:'id' });
-            } else {
-              ordersStore = txn.objectStore('orders');
-            }
-            if(ordersStore && !ordersStore.indexNames.contains('by_status')){
-              ordersStore.createIndex('by_status', 'status', { unique:false });
-            }
-            if(ordersStore && !ordersStore.indexNames.contains('by_stage')){
-              ordersStore.createIndex('by_stage', 'fulfillmentStage', { unique:false });
-            }
-            if(ordersStore && !ordersStore.indexNames.contains('by_type')){
-              ordersStore.createIndex('by_type', 'type', { unique:false });
-            }
 
-            let linesStore;
-            if(!db.objectStoreNames.contains('orderLines')){
-              linesStore = db.createObjectStore('orderLines', { keyPath:'uid' });
-            } else {
-              linesStore = txn.objectStore('orderLines');
-            }
-            if(linesStore && !linesStore.indexNames.contains('by_order')){
-              linesStore.createIndex('by_order', 'orderId', { unique:false });
-            }
+      const db = new IndexedDBX({
+        name,
+        version: Math.max(1, version|0) || 1,
+        autoBumpVersion:true,
+        schema:{
+          stores:{
+            orders:{
+              keyPath:'id',
+              indices:[
+                { name:'by_status', keyPath:'status' },
+                { name:'by_stage', keyPath:'fulfillmentStage' },
+                { name:'by_type', keyPath:'type' }
+              ]
+            },
+            orderLines:{ keyPath:'uid', indices:[{ name:'by_order', keyPath:'orderId' }] },
+            orderNotes:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
+            orderEvents:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
+            syncLog:{ keyPath:'ts' }
+          }
+        }
+      });
 
-            let notesStore;
-            if(!db.objectStoreNames.contains('orderNotes')){
-              notesStore = db.createObjectStore('orderNotes', { keyPath:'id' });
-            } else {
-              notesStore = txn.objectStore('orderNotes');
-            }
-            if(notesStore && !notesStore.indexNames.contains('by_order')){
-              notesStore.createIndex('by_order', 'orderId', { unique:false });
-            }
-
-            let eventsStore;
-            if(!db.objectStoreNames.contains('orderEvents')){
-              eventsStore = db.createObjectStore('orderEvents', { keyPath:'id' });
-            } else {
-              eventsStore = txn.objectStore('orderEvents');
-            }
-            if(eventsStore && !eventsStore.indexNames.contains('by_order')){
-              eventsStore.createIndex('by_order', 'orderId', { unique:false });
-            }
-
-            if(!db.objectStoreNames.contains('syncLog')){
-              db.createObjectStore('syncLog', { keyPath:'ts' });
-            }
-          };
-          request.onsuccess = ()=> resolve(request.result);
-          request.onerror = ()=> reject(request.error);
-        });
-        return dbPromise;
-      }
-
-      function wrap(request){
-        return new Promise((resolve, reject)=>{
-          request.onsuccess = ()=> resolve(request.result);
-          request.onerror = ()=> reject(request.error);
-        });
-      }
+      let readyPromise = null;
+      const ensureReady = ()=>{
+        if(!readyPromise){
+          readyPromise = (async()=>{
+            await db.open();
+            await db.ensureSchema();
+            return db;
+          })();
+        }
+        return readyPromise;
+      };
 
       function toTimestamp(value){
         if(value == null) return Date.now();
@@ -891,51 +856,49 @@
         return Number.isFinite(parsed) ? parsed : Date.now();
       }
 
-      function clearByIndex(store, indexName, key){
-        return new Promise((resolve, reject)=>{
-          const index = store.index(indexName);
-          const range = window.IDBKeyRange.only(key);
-          const req = index.openCursor(range);
-          req.onsuccess = (event)=>{
-            const cursor = event.target.result;
-            if(cursor){
-              cursor.delete();
-              cursor.continue();
-            } else {
-              resolve(true);
-            }
-          };
-          req.onerror = ()=> reject(req.error);
-        });
+      function hydrateLine(record){
+        return {
+          id: record.id,
+          itemId: record.itemId,
+          name: record.name,
+          description: record.description,
+          qty: record.qty,
+          price: record.price,
+          total: record.total,
+          status: record.status,
+          stage: record.stage,
+          kitchenSection: record.kitchenSection,
+          locked: !!record.locked,
+          notes: Array.isArray(record.notes) ? record.notes : [],
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt
+        };
       }
 
-      function collectByIndex(store, indexName, key){
-        return new Promise((resolve, reject)=>{
-          const results = [];
-          const index = store.index(indexName);
-          const range = window.IDBKeyRange.only(key);
-          const req = index.openCursor(range);
-          req.onsuccess = (event)=>{
-            const cursor = event.target.result;
-            if(cursor){
-              results.push(cursor.value);
-              cursor.continue();
-            } else {
-              resolve(results);
-            }
-          };
-          req.onerror = ()=> reject(req.error);
-        });
+      async function hydrateOrder(header){
+        await ensureReady();
+        const [linesRaw, notesRaw, eventsRaw] = await Promise.all([
+          db.byIndex('orderLines', 'by_order', { only: header.id }),
+          db.byIndex('orderNotes', 'by_order', { only: header.id }),
+          db.byIndex('orderEvents', 'by_order', { only: header.id })
+        ]);
+        return {
+          ...header,
+          lines: linesRaw.map(hydrateLine),
+          notes: notesRaw.map(note=>({
+            id: note.id,
+            message: note.message,
+            authorId: note.authorId,
+            authorName: note.authorName,
+            createdAt: note.createdAt
+          })),
+          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+        };
       }
 
       async function saveOrder(order){
         if(!order || !order.id) throw new Error('Order payload requires an id');
-        const db = await openDB();
-        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readwrite');
-        const orderStore = tx.objectStore('orders');
-        const lineStore = tx.objectStore('orderLines');
-        const noteStore = tx.objectStore('orderNotes');
-        const eventStore = tx.objectStore('orderEvents');
+        await ensureReady();
         const now = Date.now();
         const header = {
           id: order.id,
@@ -959,44 +922,51 @@
             notesCount: Array.isArray(order.notes) ? order.notes.length : 0
           }
         };
-        await wrap(orderStore.put(header));
 
-        await clearByIndex(lineStore, 'by_order', order.id);
+        await db.put('orders', header);
+
+        const existingLines = await db.byIndex('orderLines', 'by_order', { only: order.id });
+        if(existingLines.length){
+          await db.bulkDelete('orderLines', existingLines.map(line=> line.uid));
+        }
         const lines = Array.isArray(order.lines) ? order.lines : [];
-        for(const line of lines){
-          const record = {
-            uid: line.uid || line.storageId || `${order.id}::${line.id || line.itemId || Math.random().toString(16).slice(2,8)}`,
-            id: line.id || `${order.id}::${line.itemId || Math.random().toString(16).slice(2,8)}`,
-            orderId: order.id,
-            itemId: line.itemId,
-            name: line.name || null,
-            description: line.description || null,
-            qty: Number(line.qty) || 0,
-            price: Number(line.price) || 0,
-            total: Number(line.total) || 0,
-            status: line.status || 'draft',
-            stage: line.stage || header.fulfillmentStage,
-            kitchenSection: line.kitchenSection || null,
-            locked: line.locked !== undefined ? !!line.locked : header.lockLineEdits,
-            notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
-            createdAt: line.createdAt || header.createdAt,
-            updatedAt: line.updatedAt || header.updatedAt
-          };
-          await wrap(lineStore.put(record));
+        const lineRecords = lines.map(line=>({
+          uid: line.uid || line.storageId || `${order.id}::${line.id || line.itemId || Math.random().toString(16).slice(2,8)}`,
+          id: line.id || `${order.id}::${line.itemId || Math.random().toString(16).slice(2,8)}`,
+          orderId: order.id,
+          itemId: line.itemId,
+          name: line.name || null,
+          description: line.description || null,
+          qty: Number(line.qty) || 0,
+          price: Number(line.price) || 0,
+          total: Number(line.total) || 0,
+          status: line.status || 'draft',
+          stage: line.stage || header.fulfillmentStage,
+          kitchenSection: line.kitchenSection || null,
+          locked: line.locked !== undefined ? !!line.locked : header.lockLineEdits,
+          notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
+          createdAt: line.createdAt || header.createdAt,
+          updatedAt: line.updatedAt || header.updatedAt
+        }));
+        if(lineRecords.length){
+          await db.bulkPut('orderLines', lineRecords);
         }
 
-        await clearByIndex(noteStore, 'by_order', order.id);
+        const existingNotes = await db.byIndex('orderNotes', 'by_order', { only: order.id });
+        if(existingNotes.length){
+          await db.bulkDelete('orderNotes', existingNotes.map(note=> note.id));
+        }
         const notes = Array.isArray(order.notes) ? order.notes : [];
-        for(const note of notes){
-          const noteRecord = {
-            id: note.id || `${order.id}::note::${toTimestamp(note.createdAt)}`,
-            orderId: order.id,
-            message: note.message || '',
-            authorId: note.authorId || 'system',
-            authorName: note.authorName || '',
-            createdAt: toTimestamp(note.createdAt)
-          };
-          await wrap(noteStore.put(noteRecord));
+        const noteRecords = notes.map(note=>({
+          id: note.id || `${order.id}::note::${toTimestamp(note.createdAt)}`,
+          orderId: order.id,
+          message: note.message || '',
+          authorId: note.authorId || 'system',
+          authorName: note.authorName || '',
+          createdAt: toTimestamp(note.createdAt)
+        }));
+        if(noteRecords.length){
+          await db.bulkPut('orderNotes', noteRecords);
         }
 
         const eventRecord = {
@@ -1007,62 +977,14 @@
           at: header.updatedAt,
           actorId: order.updatedBy || order.authorId || 'pos'
         };
-        await wrap(eventStore.put(eventRecord));
+        await db.put('orderEvents', eventRecord);
 
-        return new Promise((resolve, reject)=>{
-          tx.oncomplete = ()=> resolve(true);
-          tx.onerror = ()=> reject(tx.error);
-        });
-      }
-
-      function hydrateLine(record){
-        return {
-          id: record.id,
-          itemId: record.itemId,
-          name: record.name,
-          description: record.description,
-          qty: record.qty,
-          price: record.price,
-          total: record.total,
-          status: record.status,
-          stage: record.stage,
-          kitchenSection: record.kitchenSection,
-          locked: !!record.locked,
-          notes: Array.isArray(record.notes) ? record.notes : [],
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt
-        };
-      }
-
-      async function hydrateOrder(header, lineStore, noteStore, eventStore){
-        const [linesRaw, notesRaw, eventsRaw] = await Promise.all([
-          collectByIndex(lineStore, 'by_order', header.id),
-          collectByIndex(noteStore, 'by_order', header.id),
-          collectByIndex(eventStore, 'by_order', header.id)
-        ]);
-        const order = {
-          ...header,
-          lines: linesRaw.map(hydrateLine),
-          notes: notesRaw.map(note=>({
-            id: note.id,
-            message: note.message,
-            authorId: note.authorId,
-            authorName: note.authorName,
-            createdAt: note.createdAt
-          })),
-          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
-        };
-        return order;
+        return true;
       }
 
       async function listOrders(options={}){
-        const db = await openDB();
-        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readonly');
-        const orderStore = tx.objectStore('orders');
-        const lineStore = tx.objectStore('orderLines');
-        const noteStore = tx.objectStore('orderNotes');
-        const eventStore = tx.objectStore('orderEvents');
-        const headers = await wrap(orderStore.getAll());
+        await ensureReady();
+        const headers = await db.getAll('orders');
         const onlyActive = options.onlyActive !== false;
         const typeFilter = options.type;
         const stageFilter = options.stage;
@@ -1091,7 +1013,7 @@
             });
             continue;
           }
-          const order = await hydrateOrder(header, lineStore, noteStore, eventStore);
+          const order = await hydrateOrder(header);
           orders.push(order);
         }
         return orders;
@@ -1099,13 +1021,8 @@
 
       async function getOrder(orderId){
         if(!orderId) return null;
-        const db = await openDB();
-        const tx = db.transaction(['orders','orderLines','orderNotes','orderEvents'],'readonly');
-        const orderStore = tx.objectStore('orders');
-        const lineStore = tx.objectStore('orderLines');
-        const noteStore = tx.objectStore('orderNotes');
-        const eventStore = tx.objectStore('orderEvents');
-        const header = await wrap(orderStore.get(orderId));
+        await ensureReady();
+        const header = await db.get('orders', orderId);
         if(!header) return null;
         if(header.payload){
           const legacy = header.payload;
@@ -1115,17 +1032,13 @@
             updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
           };
         }
-        return hydrateOrder(header, lineStore, noteStore, eventStore);
+        return hydrateOrder(header);
       }
 
       async function markSync(){
-        const db = await openDB();
-        const tx = db.transaction('syncLog', 'readwrite');
-        tx.objectStore('syncLog').put({ ts: Date.now() });
-        return new Promise((resolve, reject)=>{
-          tx.oncomplete = ()=> resolve(true);
-          tx.onerror = ()=> reject(tx.error);
-        });
+        await ensureReady();
+        await db.put('syncLog', { ts: Date.now() });
+        return true;
       }
 
       async function bootstrap(initialOrders){
