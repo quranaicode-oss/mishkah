@@ -541,6 +541,43 @@
       'settings.previewHint': { ar:'ستتحدث التغييرات لحظيًا وتحفظ في المتصفح.', en:'Changes update instantly and are stored in the browser.' },
       'settings.reset': { ar:'إعادة الإعدادات الافتراضية', en:'Reset to defaults' },
       'settings.close': { ar:'إغلاق', en:'Close' },
+      'designLab.openButton': { ar:'مختبر الألوان', en:'Design Lab' },
+      'designLab.title': { ar:'مختبر تنسيق الواجهة', en:'Interface Design Lab' },
+      'designLab.subtitle': { ar:'تحكم بجميع متغيرات CSS من الألوان والأحجام مع معاينة فورية.', en:'Control every CSS variable—from colors to sizes—with live preview.' },
+      'designLab.themeTitle': { ar:'أوضاع الثيم السريعة', en:'Quick Theme Modes' },
+      'designLab.mode.light': { ar:'وضع مضيء', en:'Light Glow' },
+      'designLab.mode.dark': { ar:'وضع ليلي', en:'Nightfall' },
+      'designLab.mode.pink': { ar:'وضع وردي', en:'Pink Aurora' },
+      'designLab.modeHint': { ar:'اختر وضعًا ثم خصص التفاصيل أدناه.', en:'Pick a mode, then fine-tune every detail below.' },
+      'designLab.resetAll': { ar:'إعادة جميع المتغيرات', en:'Reset All Variables' },
+      'designLab.resetVar': { ar:'إرجاع الافتراضي', en:'Revert Default' },
+      'designLab.currentValue': { ar:'القيمة الحالية', en:'Current value' },
+      'designLab.defaultValue': { ar:'القيمة الافتراضية', en:'Default value' },
+      'designLab.group.core': { ar:'ألوان جوهرية', en:'Core Colors' },
+      'designLab.group.coreHint': { ar:'اضبط ألوان النص والعناصر البارزة.', en:'Tweak the primary text and accent colors.' },
+      'designLab.group.surface': { ar:'خلفيات وطبقات', en:'Backgrounds & Layers' },
+      'designLab.group.surfaceHint': { ar:'خصص الخلفيات والطبقات الزجاجية والحدود.', en:'Customize page backdrops, glass layers, and borders.' },
+      'designLab.group.effects': { ar:'تأثيرات بصرية', en:'Visual Effects' },
+      'designLab.group.effectsHint': { ar:'تحكم بالظلال والتوهجات أثناء اللعب.', en:'Control shadows and glows used across the game.' },
+      'designLab.group.sizing': { ar:'أحجام العناصر', en:'Element Sizing' },
+      'designLab.group.sizingHint': { ar:'ضبط أحجام البلاطات ونسبة الخط.', en:'Adjust tile sizes and the global font scale.' },
+      'designLab.var.foreground': { ar:'لون النص الأساسي', en:'Primary text color' },
+      'designLab.var.muted': { ar:'لون النص الثانوي', en:'Muted text color' },
+      'designLab.var.primary': { ar:'لون التمييز الرئيسي', en:'Primary accent color' },
+      'designLab.var.primaryForeground': { ar:'لون النص فوق التمييز', en:'Text on primary' },
+      'designLab.var.accentRing': { ar:'وهج الحواف', en:'Accent ring glow' },
+      'designLab.var.gradient': { ar:'تدرج خلفية الصفحة', en:'Page gradient' },
+      'designLab.var.overlay1': { ar:'طبقة ضوئية أولى', en:'First light overlay' },
+      'designLab.var.overlay2': { ar:'طبقة ضوئية ثانية', en:'Second light overlay' },
+      'designLab.var.panelGlass': { ar:'لون اللوح الزجاجي', en:'Glass panel tint' },
+      'designLab.var.panelBorder': { ar:'لون حدود اللوح', en:'Panel border color' },
+      'designLab.var.tileBg': { ar:'خلفية البلاطات', en:'Tile background' },
+      'designLab.var.tileRevealed': { ar:'خلفية البلاطات المكشوفة', en:'Revealed tile background' },
+      'designLab.var.tileBorder': { ar:'حدود البلاطات', en:'Tile border color' },
+      'designLab.var.lettersShadow': { ar:'ظل أزرار الحروف', en:'Letter buttons shadow' },
+      'designLab.var.lettersHover': { ar:'تأثير التحويم للحروف', en:'Letter hover effect' },
+      'designLab.var.tileSize': { ar:'حجم البلاطات', en:'Tile size' },
+      'designLab.var.fontScale': { ar:'مقياس الخط العام', en:'Global font scale' },
       'nav.menu'       : { ar:'التنقل', en:'Navigation' },
       'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
       'nav.readmeTec'  : { ar:'وثيقة مشكاة التقنية', en:'Mishkah Technical Charter' },
@@ -960,17 +997,63 @@
       }
     ];
 
+    const DESIGN_LAB_THEME_MODES = [
+      { id:'light', icon:'🌞', labelKey:'designLab.mode.light' },
+      { id:'dark', icon:'🌙', labelKey:'designLab.mode.dark' },
+      { id:'pink', icon:'🌸', labelKey:'designLab.mode.pink', preset:{ backgroundId:'sunset', textSchemeId:'warm' } }
+    ];
+
+    const DESIGN_VAR_DEFINITIONS = [
+      { name:'--foreground', labelKey:'designLab.var.foreground', type:'color', default:'#1f2937' },
+      { name:'--muted-foreground', labelKey:'designLab.var.muted', type:'color', default:'#64748b' },
+      { name:'--primary', labelKey:'designLab.var.primary', type:'color', default:'#4f46e5' },
+      { name:'--primary-foreground', labelKey:'designLab.var.primaryForeground', type:'color', default:'#f9fafb' },
+      { name:'--accent-ring', labelKey:'designLab.var.accentRing', type:'color', default:'#6366f1' },
+      { name:'--page-gradient', labelKey:'designLab.var.gradient', type:'text', default:'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)' },
+      { name:'--page-overlay-1', labelKey:'designLab.var.overlay1', type:'text', default:'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)' },
+      { name:'--page-overlay-2', labelKey:'designLab.var.overlay2', type:'text', default:'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)' },
+      { name:'--panel-glass', labelKey:'designLab.var.panelGlass', type:'text', default:'rgba(255, 255, 255, 0.78)' },
+      { name:'--panel-border', labelKey:'designLab.var.panelBorder', type:'text', default:'rgba(99, 102, 241, 0.12)' },
+      { name:'--tile-bg', labelKey:'designLab.var.tileBg', type:'text', default:'linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85))' },
+      { name:'--tile-bg-revealed', labelKey:'designLab.var.tileRevealed', type:'text', default:'linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65))' },
+      { name:'--tile-border', labelKey:'designLab.var.tileBorder', type:'text', default:'rgba(99, 102, 241, 0.25)' },
+      { name:'--letters-shadow', labelKey:'designLab.var.lettersShadow', type:'text', default:'0 18px 45px -24px rgba(15, 23, 42, 0.35)' },
+      { name:'--letters-hover', labelKey:'designLab.var.lettersHover', type:'text', default:'0 25px 50px -20px rgba(99, 102, 241, 0.45)' },
+      { name:'--tile-size', labelKey:'designLab.var.tileSize', type:'range', min:2.6, max:4, step:0.05, unit:'rem', default:'3.1rem' },
+      { name:'--user-font-scale', labelKey:'designLab.var.fontScale', type:'range', min:90, max:130, step:2, unit:'%', default:'100', prefKey:'fontScale' }
+    ];
+
+    const DESIGN_VAR_DEF_MAP = Object.fromEntries(DESIGN_VAR_DEFINITIONS.map((def)=>[def.name, def]));
+    const DESIGN_VAR_GROUPS = [
+      { id:'core', labelKey:'designLab.group.core', hintKey:'designLab.group.coreHint', vars:['--foreground','--muted-foreground','--primary','--primary-foreground','--accent-ring'] },
+      { id:'surface', labelKey:'designLab.group.surface', hintKey:'designLab.group.surfaceHint', vars:['--page-gradient','--page-overlay-1','--page-overlay-2','--panel-glass','--panel-border','--tile-bg','--tile-bg-revealed','--tile-border'] },
+      { id:'effects', labelKey:'designLab.group.effects', hintKey:'designLab.group.effectsHint', vars:['--letters-shadow','--letters-hover'] },
+      { id:'sizing', labelKey:'designLab.group.sizing', hintKey:'designLab.group.sizingHint', vars:['--tile-size','--user-font-scale'] }
+    ];
+
     const THEME_BACKGROUND_MAP = Object.fromEntries(THEME_BACKGROUND_PRESETS.map((p)=>[p.id, p]));
     const THEME_TEXT_SCHEME_MAP = Object.fromEntries(THEME_TEXT_SCHEMES.map((p)=>[p.id, p]));
-    const THEME_DEFAULT_PREFS = { backgroundId:'nebula', textSchemeId:'cool', fontScale:100 };
+    const THEME_DEFAULT_PREFS = { backgroundId:'nebula', textSchemeId:'cool', fontScale:100, customVars:{} };
+
+    let CURRENT_THEME_BASELINE = {};
+    let LAST_APPLIED_CUSTOM_VARS = new Set();
 
     function normalizeThemePrefs(raw){
-      const base = { ...THEME_DEFAULT_PREFS };
+      const base = { ...THEME_DEFAULT_PREFS, customVars:{} };
       const src = raw && typeof raw==='object' ? raw : {};
       if (src.backgroundId && THEME_BACKGROUND_MAP[src.backgroundId]) base.backgroundId = src.backgroundId;
       if (src.textSchemeId && THEME_TEXT_SCHEME_MAP[src.textSchemeId]) base.textSchemeId = src.textSchemeId;
       const font = parseInt(src.fontScale, 10);
       if (!Number.isNaN(font)) base.fontScale = Math.min(120, Math.max(90, font));
+      if (src.customVars && typeof src.customVars==='object'){
+        const nextVars = {};
+        Object.entries(src.customVars).forEach(([key,value])=>{
+          const def = DESIGN_VAR_DEF_MAP[key];
+          if (def && def.prefKey) return;
+          if (typeof value==='string' && value.trim()!=='') nextVars[key] = value;
+        });
+        base.customVars = nextVars;
+      }
       return base;
     }
 
@@ -995,6 +1078,8 @@
       if (typeof document==='undefined') return;
       const root = document.documentElement;
       if (!root) return;
+      LAST_APPLIED_CUSTOM_VARS.forEach((name)=>{ try { root.style.removeProperty(name); } catch(_err){} });
+      LAST_APPLIED_CUSTOM_VARS = new Set();
       const mode = root.classList.contains('dark') ? 'dark' : 'light';
       const bgPreset = THEME_BACKGROUND_MAP[prefs.backgroundId] || THEME_BACKGROUND_MAP[THEME_DEFAULT_PREFS.backgroundId];
       const textPreset = THEME_TEXT_SCHEME_MAP[prefs.textSchemeId] || THEME_TEXT_SCHEME_MAP[THEME_DEFAULT_PREFS.textSchemeId];
@@ -1014,6 +1099,23 @@
         root.style.setProperty('--primary-foreground', text.onPrimary);
       }
       root.style.setProperty('--user-font-scale', String(prefs.fontScale));
+      if (typeof window!=='undefined' && window.getComputedStyle){
+        const computed = window.getComputedStyle(root);
+        const snapshot = {};
+        DESIGN_VAR_DEFINITIONS.forEach((def)=>{
+          snapshot[def.name] = computed.getPropertyValue(def.name).trim();
+        });
+        CURRENT_THEME_BASELINE = snapshot;
+      }
+      const customVars = prefs.customVars && typeof prefs.customVars==='object' ? prefs.customVars : {};
+      Object.entries(customVars).forEach(([name,value])=>{
+        const def = DESIGN_VAR_DEF_MAP[name];
+        if (def && def.prefKey) return;
+        if (typeof value==='string' && value.trim()!==''){
+          root.style.setProperty(name, value);
+          LAST_APPLIED_CUSTOM_VARS.add(name);
+        }
+      });
     }
 
     const INITIAL_THEME_PREFS = loadThemePrefs();
@@ -1099,32 +1201,72 @@
     // كل مكون هو "ذرة" أو مجموعة "ذرات" لها شكل ووظيفة محددة.
     // ----------------------------------------------------------------
     
+    function computeTimeLeft(g){
+      if (!g || !g.timerOn) return null;
+      if (g.status==='running') return Math.max(0, typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec);
+      return g.status==='lost' ? 0 : g.timerSec;
+    }
+
+    function GameStatusStrip(db){
+      if (db.data.activeTab !== 'game') return null;
+      const { TL } = makeLangLookup(db);
+      const g = db.data.game;
+      if (!g) return null;
+      const timeLeftValue = computeTimeLeft(g);
+      const hearts = Array.from({ length:g.triesMax }, (_,i)=>
+        D.Text.Span({ attrs:{ key:`strip-heart-${i}`, class: tw`${i < g.triesLeft ? '' : 'opacity-35'}` }}, [i < g.triesLeft ? '❤️' : '💔'])
+      );
+      const heartsRow = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 text-lg sm:text-xl` }}, hearts);
+      const timeStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['⏳ ', TL('game.timeLabel')]),
+        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [timeLeftValue !== null ? String(timeLeftValue) : '—']),
+        timeLeftValue !== null
+          ? D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+          : null
+      ].filter(Boolean));
+      const triesStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['❤️ ', TL('game.tries')]),
+        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [String(g.triesLeft)]),
+        D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [`/ ${g.triesMax}`])
+      ]);
+      const statusStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['🎯 ', TL('game.statusLabel')]),
+        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [TL(`game.status.${g.status}`)])
+      ]);
+      const statsGroup = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-4 text-sm sm:text-base font-semibold` }}, [timeStat, triesStat, statusStat]);
+      const actionButtons = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2 sm:gap-3` }}, [
+        heartsRow,
+        UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-4 font-semibold` }, variant:'ghost', size:'sm' }, [TL('game.settingsButton')]),
+        UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-6 py-2 font-semibold text-base` }, variant:'destructive', size:'md' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+      ]);
+      return D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap items-center justify-between gap-4 rounded-3xl px-5 py-3`} glass-panel glow-outline` }}, [
+        statsGroup,
+        actionButtons
+      ]);
+    }
+
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
-      const statusLabel = db.data.settingsOpen ? TL('settings.switch.on') : TL('settings.switch.off');
-      const toggleText = `${TL('settings.toggleLabel')} · ${statusLabel}`;
-      const toggleAttrs = { type:'checkbox', gkey:'ui:settings:toggle', 'aria-label': TL('settings.toggleLabel') };
-      if (db.data.settingsOpen) toggleAttrs.checked = 'checked';
-      const settingsSwitch = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [toggleText]),
-        D.Containers.Div({ attrs:{ class:'toggle-switch' }}, [
-          D.Inputs.Input({ attrs: toggleAttrs })
-        ])
-      ]);
-      return D.Containers.Header({ attrs:{ class: tw`px-6 pt-6 pb-4` }}, [
+      const designLabButton = UI.Button({ attrs:{ gkey:'design:lab:open', class: tw`rounded-full px-4 font-semibold` }, variant:'soft', size:'sm' }, ['🎨 ', TL('designLab.openButton')]);
+      const settingsButton = UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-3 font-semibold` }, variant:'ghost', size:'sm' }, ['⚙️']);
+      return D.Containers.Header({ attrs:{ class: tw`px-6 pt-5 pb-3` }}, [
         D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[1600px]` }}, [
-          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-5`} glass-panel glow-outline` }}, [
-            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
-              D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
-              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
-                settingsSwitch,
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl px-5 py-5 space-y-4`} glass-panel glow-outline` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-3` }}, [
+              D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [
+                D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
+                D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('header.subtitle')])
+              ]),
+              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2 sm:gap-3` }}, [
+                designLabButton,
+                settingsButton,
                 UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
                 UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
                 UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
               ])
             ]),
-            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('header.subtitle')])
-          ])
+            GameStatusStrip(db)
+          ].filter(Boolean))
         ])
       ]);
     }
@@ -1194,48 +1336,9 @@
       const g = db.data.game;
       const showSolution = g.revealSolution || g.status==='won';
 
-      const timeLeftValue = g.timerOn
-        ? (g.status==='running'
-            ? Math.max(0, typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)
-            : (g.status==='lost' ? 0 : g.timerSec))
-        : null;
       const pv = g.proverb?.t || '';
-      const feedbackType = g.feedback && g.feedback.type ? g.feedback.type : 'idle';
+      const feedbackType = g.feedback?.type || 'idle';
       const feedbackStamp = g.feedback?.stamp || 0;
-
-      const heartsRow = D.Containers.Div({ attrs:{ class: tw`flex items-center justify-center gap-1 sm:gap-2 text-2xl sm:text-3xl drop-shadow` }},
-        Array.from({ length:g.triesMax }, (_,i)=>{
-          const full = i < g.triesLeft;
-          return D.Text.Span({ attrs:{ key:'heart-'+i, class: tw`${full?'':'opacity-35'}` }}, [full ? '❤️' : '💔']);
-        })
-      );
-
-      const timeStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`⏳ ${TL('game.timeLabel')}`]),
-        D.Containers.Div({ attrs:{ class: tw`flex items-end gap-1` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-3xl font-extrabold tracking-tight leading-none` }}, [timeLeftValue !== null ? String(timeLeftValue) : '—']),
-          timeLeftValue !== null ? D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] pb-1` }}, [TL('game.seconds')]) : null
-        ].filter(Boolean))
-      ]);
-
-      const triesStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`❤️ ${TL('game.tries')}`]),
-        D.Containers.Div({ attrs:{ class: tw`flex items-end gap-1` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-3xl font-extrabold tracking-tight leading-none` }}, [String(g.triesLeft)]),
-          D.Text.Span({ attrs:{ class: tw`text-base font-semibold text-[var(--muted-foreground)] pb-1` }}, [`/ ${g.triesMax}`])
-        ])
-      ]);
-
-      const statusStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`🎯 ${TL('game.statusLabel')}`]),
-        D.Text.Span({ attrs:{ class: tw`text-xl font-semibold` }}, [TL(`game.status.${g.status}`)])
-      ]);
-
-      const statsGrid = D.Containers.Div({ attrs:{ class: tw`grid gap-4 md:grid-cols-3` }}, [
-        timeStat,
-        triesStat,
-        statusStat
-      ]);
 
       const tiles = pv.split('').map((raw, idx)=>{
         if (raw===' ') return D.Containers.Div({ attrs:{ key:'sp'+idx, class: 'letter-space' }});
@@ -1279,25 +1382,6 @@
         ])
       ]);
 
-      const heartsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full` }}, [heartsRow]);
-
-      const settingsButton = UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-5 font-semibold` }, variant:'ghost', size:'sm' }, [TL('game.settingsButton')]);
-
-      const controlCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
-          D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
-            D.Text.H3({ attrs:{ class: tw`text-2xl font-bold` }}, [TL('game.title')]),
-            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.statusLabel'), ': ', TL(`game.status.${g.status}`)])
-          ]),
-          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
-            settingsButton,
-            UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
-          ])
-        ]),
-        statsGrid,
-        heartsWrap
-      ]);
-
       const feedbackMessages = {
         correct: TL('game.feedback.correct'),
         wrong: TL('game.feedback.wrong'),
@@ -1321,16 +1405,6 @@
           D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, key:'hint-card' }}, [
             UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'💡', text:TL('game.hintTitle') }),
             D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
-          ])
-        );
-      }
-
-      if (!showSolution && g.status==='lost'){
-        infoItems.push(
-          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-4 text-center`} glass-panel`, key:'reveal-card' }}, [
-            UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🙈', text:TL('game.lose') }),
-            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.revealPrompt')]),
-            UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-8 py-3 rounded-full font-semibold text-base` }, variant:'soft', size:'lg' }, [TL('game.reveal')])
           ])
         );
       }
@@ -1378,16 +1452,18 @@
             ])
           ])
         : g.status==='lost'
-        ? D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-4 text-center`} glass-panel gameover-card` }}, [
-            D.Containers.Div({ attrs:{ class: `${tw`space-y-3`} game-overlay-content` }}, [
-              UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🛑', text:TL('game.overlay.loseTitle') }),
-              D.Text.P({ attrs:{ class: tw`text-base text-[var(--muted-foreground)]` }}, [TL('game.overlay.loseSubtitle')]),
-              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-3 pt-2` }}, [
-                UI.Button({ attrs:{ gkey:'game:start', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'destructive', size:'lg' }, [TL('game.tryAgain')]),
-                (!showSolution ? UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'soft', size:'lg' }, [TL('game.reveal')]) : null)
-              ].filter(Boolean))
-            ])
-          ])
+        ? UI.SweetNotice({
+            attrs:{ key:'gameover-card', class: tw`gameover-card` },
+            tone:'danger',
+            icon:'💔',
+            title: TL('game.overlay.loseTitle'),
+            message: TL('game.overlay.loseSubtitle'),
+            hint: !showSolution ? TL('game.revealPrompt') : null,
+            actions:[
+              UI.Button({ attrs:{ gkey:'game:start', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'destructive', size:'lg' }, [TL('game.tryAgain')]),
+              (!showSolution ? UI.Button({ attrs:{ gkey:'game:reveal', class: tw`px-7 py-3 rounded-full font-semibold` }, variant:'soft', size:'lg' }, [TL('game.reveal')]) : null)
+            ].filter(Boolean)
+          })
         : null;
 
       const playItems = [resultCard, boardCard].filter(Boolean);
@@ -1405,7 +1481,6 @@
 
       return D.Containers.Div({ attrs:{ class: `${tw`relative space-y-6`} game-panel` }}, [
         confettiLayer,
-        controlCard,
         playSection,
         infoSection,
         audioNode,
@@ -1491,6 +1566,166 @@
         title: TL('logic.title'),
         description: TL('logic.subtitle'),
         content: D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, bodySections)
+      });
+    }
+
+    function DesignLabPanel(db){
+      const design = db.data.designLab || {};
+      if (!design.open) return null;
+      const { TL } = makeLangLookup(db);
+      const prefs = normalizeThemePrefs(db.data.themePrefs || INITIAL_THEME_PREFS);
+      const customVars = prefs.customVars || {};
+      const activeTheme = db.env.theme || 'light';
+
+      const modeButtons = DESIGN_LAB_THEME_MODES.map((mode)=>{
+        const isActive = mode.id==='pink'
+          ? activeTheme==='pink'
+          : (activeTheme===mode.id || (mode.id==='light' && activeTheme!=='dark' && activeTheme!=='pink'));
+        const btnVariant = isActive ? 'soft' : 'ghost';
+        const btnClass = isActive ? tw`shadow-[0_16px_36px_-22px_rgba(79,70,229,0.55)]` : '';
+        return UI.Button({
+          attrs:{
+            key:`mode-${mode.id}`,
+            gkey:'design:theme',
+            'data-mode':mode.id,
+            class: btnClass
+          },
+          variant: btnVariant,
+          size:'sm'
+        }, [`${mode.icon} `, TL(mode.labelKey)]);
+      });
+
+      const sectionNodes = DESIGN_VAR_GROUPS.map((group)=>{
+        const cards = group.vars.map((name)=>{
+          const def = DESIGN_VAR_DEF_MAP[name];
+          if (!def) return null;
+          const baseline = CURRENT_THEME_BASELINE[name] || def.default || '';
+          const stored = def.prefKey ? null : (Object.prototype.hasOwnProperty.call(customVars, name) ? customVars[name] : null);
+          const hasCustom = def.prefKey
+            ? (def.prefKey==='fontScale' ? prefs.fontScale !== THEME_DEFAULT_PREFS.fontScale : false)
+            : Object.prototype.hasOwnProperty.call(customVars, name);
+          let displayValue;
+          if (def.prefKey==='fontScale') displayValue = `${prefs.fontScale}%`;
+          else if (stored != null && String(stored).trim()!=='') displayValue = String(stored).trim();
+          else displayValue = baseline;
+
+          const resetButton = UI.Button({
+            attrs:{
+              gkey:'design:var:reset',
+              'data-var':name,
+              disabled: hasCustom ? undefined : 'disabled',
+              class: tw`text-xs`
+            },
+            variant:'ghost',
+            size:'sm'
+          }, [TL('designLab.resetVar')]);
+
+          let control = null;
+          if (def.type==='color'){
+            let colorValue = (stored || baseline || def.default || '').trim();
+            if (!/^#([0-9a-f]{3,8})$/i.test(colorValue)){
+              colorValue = (def.default && def.default.startsWith('#')) ? def.default : '#6366f1';
+            }
+            control = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+              D.Inputs.Input({ attrs:{
+                type:'color',
+                value: colorValue,
+                gkey:'design:var:update',
+                'data-var':name,
+                'data-editor':'color',
+                class: tw`h-10 w-16 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer`
+              }}),
+              UI.Input({ attrs:{
+                value: stored || '',
+                placeholder: baseline,
+                gkey:'design:var:update',
+                'data-var':name,
+                'data-editor':'text'
+              }})
+            ]);
+          }
+          else if (def.type==='range'){
+            let sliderValue;
+            if (def.prefKey==='fontScale') sliderValue = prefs.fontScale;
+            else {
+              const active = stored || baseline || def.default;
+              if (typeof active==='string' && def.unit && active.endsWith(def.unit)) sliderValue = parseFloat(active);
+              else sliderValue = parseFloat(active);
+            }
+            if (Number.isNaN(sliderValue)) sliderValue = def.min;
+            const attrs = {
+              type:'range',
+              min:String(def.min),
+              max:String(def.max),
+              step:String(def.step),
+              value:String(sliderValue),
+              class: tw`w-full accent-[var(--primary)]`
+            };
+            if (def.prefKey==='fontScale') attrs.gkey = 'prefs:fontScale';
+            else {
+              attrs.gkey = 'design:var:update';
+              attrs['data-editor'] = 'range';
+              if (def.unit) attrs['data-unit'] = def.unit;
+            }
+            attrs['data-var'] = name;
+            control = D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+              D.Inputs.Input({ attrs }),
+              D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [
+                TL('designLab.currentValue'), ': ', displayValue || '—'
+              ])
+            ]);
+          }
+          else {
+            control = UI.Textarea({ attrs:{
+              value: stored || '',
+              placeholder: baseline,
+              rows:'2',
+              gkey:'design:var:update',
+              'data-var':name,
+              'data-editor':'text'
+            }});
+          }
+
+          return D.Containers.Div({ attrs:{ key:name, class: `${tw`rounded-2xl p-4 space-y-3`} glass-panel` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [TL(def.labelKey)]),
+              resetButton
+            ]),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [
+              TL('designLab.defaultValue'), ': ', baseline || '—'
+            ]),
+            control
+          ]);
+        }).filter(Boolean);
+
+        if (!cards.length) return null;
+        return D.Containers.Div({ attrs:{ key:`group-${group.id}`, class: tw`space-y-3` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
+            D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [TL(group.labelKey)]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL(group.hintKey)])
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`grid gap-4 md:grid-cols-2` }}, cards)
+        ]);
+      }).filter(Boolean);
+
+      return UI.Modal({
+        open: true,
+        title: TL('designLab.title'),
+        description: TL('designLab.subtitle'),
+        size:'xl',
+        closeGkey:'design:lab:close',
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.H4({ attrs:{ class: tw`text-base font-semibold` }}, [TL('designLab.themeTitle')]),
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('designLab.modeHint')]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, modeButtons)
+          ]),
+          ...sectionNodes
+        ]),
+        actions:[
+          UI.Button({ attrs:{ gkey:'design:var:resetAll' }, variant:'ghost', size:'sm' }, [TL('designLab.resetAll')]),
+          UI.Button({ attrs:{ gkey:'design:lab:close' }, variant:'soft', size:'sm' }, [TL('settings.close')])
+        ]
       });
     }
 
@@ -1589,6 +1824,7 @@
         counter: 0,
         settingsOpen: false,
         themePrefs: { ...INITIAL_THEME_PREFS },
+        designLab:{ open:false },
         logicGame:{
           challenge: null,
           options: [],
@@ -1631,6 +1867,8 @@
       applyThemePrefs(db.data?.themePrefs || INITIAL_THEME_PREFS);
       const overlays = [];
       const modalNode = SettingsModal(db);
+      const designLabNode = DesignLabPanel(db);
+      if (designLabNode) overlays.push(designLabNode);
       if (modalNode) overlays.push(modalNode);
       if (db.ui?.toasts && db.ui.toasts.length){ overlays.push(UI.ToastHost({ toasts: db.ui.toasts })); }
       return UI.AppRoot({
@@ -1689,6 +1927,68 @@
       'prefs:text'        :{ on:['change'], gkeys:['prefs:text'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.textSchemeId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, textSchemeId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'prefs:fontScale'   :{ on:['input','change'], gkeys:['prefs:fontScale'], handler:(e,ctx)=>{ const raw = e && e.target ? parseInt(e.target.value,10) : null; if (raw==null || Number.isNaN(raw)) return; const scale = Math.min(120, Math.max(90, raw)); const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.fontScale === scale) { applyThemePrefs(current); return; } const next = { ...current, fontScale: scale }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'prefs:reset'       :{ on:['click'], gkeys:['prefs:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); const next = { ...THEME_DEFAULT_PREFS }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'design:lab:open'   :{ on:['click'], gkeys:['design:lab:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:true }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'design:lab:close'  :{ on:['click'], gkeys:['design:lab:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:false }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'design:theme'      :{ on:['click'], gkeys:['design:theme'], handler:(e,ctx)=>{ const btn=e && e.target ? e.target.closest('[data-mode]'):null; const mode=btn?btn.getAttribute('data-mode'):null; if(!mode) return; const s=ctx.getState(); const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); let nextPrefs = prefs; if (mode==='pink'){ nextPrefs = normalizeThemePrefs({ ...prefs, backgroundId:'sunset', textSchemeId:'warm' }); U.twcss.setTheme('light'); } else { U.twcss.setTheme(mode==='dark'?'dark':'light'); }
+        const envTheme = mode;
+        persistThemePrefs(nextPrefs);
+        ctx.setState({...s, env:{ ...(s.env||{}), theme: envTheme }, data:{...s.data, themePrefs: nextPrefs, designLab:{ ...(s.data.designLab||{}), open:true }}});
+        applyThemePrefs(nextPrefs);
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+      }},
+      'design:var:update' :{ on:['input','change'], gkeys:['design:var:update'], handler:(e,ctx)=>{
+        const target = e && e.target ? e.target : null; if (!target) return;
+        const name = target.getAttribute('data-var'); if (!name) return;
+        const def = DESIGN_VAR_DEF_MAP[name];
+        if (def && def.prefKey) return;
+        const editor = target.getAttribute('data-editor') || 'text';
+        let value = target.value;
+        if (editor==='range'){
+          const unit = target.getAttribute('data-unit') || '';
+          const num = parseFloat(value);
+          if (Number.isNaN(num)) return;
+          value = unit ? `${num}${unit}` : String(num);
+        } else if (editor==='text'){
+          value = typeof value==='string' ? value.trim() : '';
+        } else if (editor==='color'){
+          if (!value) return;
+        }
+        const s=ctx.getState();
+        const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS);
+        const customVars = { ...(prefs.customVars || {}) };
+        if (editor==='text' && value==='') delete customVars[name]; else customVars[name] = value;
+        const next = { ...prefs, customVars };
+        persistThemePrefs(next);
+        ctx.setState({...s, data:{...s.data, themePrefs: next }});
+        applyThemePrefs(next);
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+      }},
+      'design:var:reset'  :{ on:['click'], gkeys:['design:var:reset'], handler:(e,ctx)=>{
+        const btn = e && e.target ? e.target.closest('[data-var]') : null; const name = btn ? btn.getAttribute('data-var') : null; if(!name) return;
+        const def = DESIGN_VAR_DEF_MAP[name];
+        const s=ctx.getState();
+        const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS);
+        let next;
+        if (def && def.prefKey==='fontScale') next = { ...prefs, fontScale: THEME_DEFAULT_PREFS.fontScale };
+        else {
+          const customVars = { ...(prefs.customVars || {}) };
+          delete customVars[name];
+          next = { ...prefs, customVars };
+        }
+        persistThemePrefs(next);
+        ctx.setState({...s, data:{...s.data, themePrefs: next }});
+        applyThemePrefs(next);
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+      }},
+      'design:var:resetAll':{ on:['click'], gkeys:['design:var:resetAll'], handler:(e,ctx)=>{
+        const s=ctx.getState();
+        const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS);
+        const next = { ...prefs, customVars:{}, fontScale: THEME_DEFAULT_PREFS.fontScale };
+        persistThemePrefs(next);
+        ctx.setState({...s, data:{...s.data, themePrefs: next }});
+        applyThemePrefs(next);
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+      }},
 
       // Logic challenge
       'logic:start'       :{ on:['click'], gkeys:['logic:start'], handler:(e,ctx)=>{ const s=ctx.getState(); const challenge = generateLogicChallenge(); const next = { challenge, options: challenge.options, selected:null, feedback:null }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
