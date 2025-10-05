@@ -886,6 +886,19 @@
           if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
         },
         getOrders: function(){ return _ordersArr.slice(); },
+        getState: function(){
+          if (_ctx && _ctx.getState) return _ctx.getState();
+          return _database;
+        },
+        setState: function(updater){
+          if (_ctx && _ctx.setState){
+            _ctx.setState(updater);
+          } else if (typeof updater === 'function'){
+            _database = updater(_database);
+          } else if (isObj(updater)){
+            _database = assign({}, _database, updater);
+          }
+        },
         rebuild: function(){ if (_ctx) _ctx.rebuild(); }
       };
     }

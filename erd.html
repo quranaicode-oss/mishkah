@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>مخطط قاعدة بيانات مشكاة</title>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--background, #0f1115);
+      color: var(--foreground, #f8fafc);
+      font-family: "Tajawal", "Cairo", system-ui, sans-serif;
+    }
+    body { display: flex; min-height: 100vh; }
+    #app { flex: 1 1 auto; display: flex; }
+    textarea[readonly] { user-select: all; }
+  </style>
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah-schema.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+  (async function(){
+    const M = Mishkah;
+    const UI = M.UI;
+    const U = M.utils;
+    const D = M.DSL;
+    const Schema = M.schema;
+    const { tw } = U.twcss;
+
+    const TABLE_WIDTH = 280;
+    const HEADER_HEIGHT = 48;
+    const ROW_HEIGHT = 28;
+
+    const DEFAULT_FIELD_TYPES = [
+      'string','integer','decimal','float','boolean','timestamp','date','json','uuid','text'
+    ];
+
+    async function loadInitialSchema(){
+      try{
+        const response = await fetch('./schema-pos.json');
+        if(!response.ok) throw new Error('schema-pos.json not found');
+        return await response.json();
+      } catch(error){
+        console.warn('[Mishkah][ERD] failed to load schema-pos.json', error);
+        return { tables: [] };
+      }
+    }
+
+    const defaultSchemaJSON = await loadInitialSchema();
+    const initialRegistry = Schema.Registry.fromJSON(defaultSchemaJSON);
+    const initialLayout = {};
+    initialRegistry.list().forEach((table, index)=>{
+      initialLayout[table.name] = table.layout || { x: 120 + index * 120, y: 120 + index * 60 };
+    });
+
+    const firstTable = initialRegistry.list()[0]?.name || '';
+    const erdState = {
+      head:{ title:'مخطط بيانات نقطة البيع' },
+      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      data:{
+        schema: initialRegistry.toJSON(),
+        layout: initialLayout,
+        selection:{ table:firstTable || null, field:null },
+        canvas:{ zoom:1 },
+        sqlPreview:'',
+        error:null
+      },
+      ui:{
+        modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false },
+        form:{
+          table:{ name:'', label:'', comment:'', includeId:true },
+          field:{ table:firstTable || '', name:'', columnName:'', type:'string', nullable:true, primaryKey:false, unique:false, defaultValue:'', references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+          relation:{ sourceTable:firstTable || '', sourceField:'', targetTable:'', targetField:'', onDelete:'CASCADE', onUpdate:'CASCADE' },
+          importText:'',
+          exportText:'',
+          sqlText:'',
+          layout:{ x:(initialLayout[firstTable]?.x ?? 120), y:(initialLayout[firstTable]?.y ?? 120) }
+        }
+      }
+    };
+
+    function getRegistry(db){
+      try {
+        return Schema.Registry.fromJSON(db.data.schema);
+      } catch(error){
+        console.warn('[Mishkah][ERD] schema parse failed', error);
+        return new Schema.Registry();
+      }
+    }
+
+    function ensureLayout(db, tableName){
+      const layout = Object.assign({}, db.data.layout || {});
+      if(!layout[tableName]) layout[tableName] = { x: 120, y: 120 };
+      return layout;
+    }
+
+    function fieldReferenceLabel(field){
+      if(!field.references) return null;
+      return `→ ${field.references.table}`;
+    }
+
+    function FieldRow(db, table, field, index){
+      const selected = db.data.selection?.table === table.name && db.data.selection?.field === field.name;
+      return D.Containers.Div({
+        attrs:{
+          class: tw`flex items-center justify-between rounded-lg px-3 py-1 text-sm transition ${selected ? 'bg-[var(--primary)]/15 text-[var(--primary)]' : 'bg-[var(--surface-1)]/60 text-[var(--foreground)]/90'}`,
+          style:`height:${ROW_HEIGHT}px;`,
+          gkey:'erd:field:select',
+          'data-table-name': table.name,
+          'data-field-name': field.name
+        }
+      }, [
+        D.Text.Span({ attrs:{ class: tw`font-medium` }}, [field.name]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [field.type]),
+          field.references ? D.Text.Span({ attrs:{ class: tw`text-[10px] px-2 py-0.5 rounded-full bg-[var(--primary)]/15 text-[var(--primary)]` }}, [fieldReferenceLabel(field)]) : null
+        ])
+      ]);
+    }
+
+    function TableCard(db, table){
+      const layout = db.data.layout || {};
+      const pos = layout[table.name] || table.layout || { x:0, y:0 };
+      const selected = db.data.selection?.table === table.name;
+      const fields = table.fields || [];
+      return D.Containers.Div({
+        attrs:{
+          class: tw`absolute rounded-2xl border border-[var(--border)] bg-[var(--surface-2)]/90 backdrop-blur shadow-lg p-4 transition ${selected ? 'ring-2 ring-[var(--primary)]' : ''}`,
+          style:`transform:translate(${pos.x}px,${pos.y}px);width:${TABLE_WIDTH}px;`,
+          gkey:'erd:table:select',
+          'data-table-name': table.name
+        }
+      }, [
+        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between mb-3` }}, [
+          D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [table.label || table.name]),
+          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.sqlName || Schema.utils.toSnakeCase(table.name)])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, fields.map((field, idx)=> FieldRow(db, table, field, idx)))
+      ]);
+    }
+
+    function RelationshipLayer(db, tables){
+      const layout = db.data.layout || {};
+      const registry = getRegistry(db);
+      const paths = [];
+      tables.forEach(table=>{
+        const fields = table.fields || [];
+        fields.forEach((field, idx)=>{
+          if(!field.references) return;
+          const target = registry.get(field.references.table);
+          if(!target) return;
+          const sourcePos = layout[table.name] || table.layout || { x:0, y:0 };
+          const targetPos = layout[target.name] || target.layout || { x:0, y:0 };
+          const targetIndex = target.fields.findIndex(col=> (col.columnName || Schema.utils.toSnakeCase(col.name)) === field.references.column || col.name === field.references.column);
+          const startX = sourcePos.x + TABLE_WIDTH;
+          const startY = sourcePos.y + HEADER_HEIGHT + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
+          const endX = targetPos.x;
+          const endY = targetPos.y + HEADER_HEIGHT + (targetIndex >= 0 ? targetIndex : 0) * ROW_HEIGHT + ROW_HEIGHT / 2;
+          paths.push(D.SVG.Path({ attrs:{ d:`M${startX},${startY} C${startX + 40},${startY} ${endX - 40},${endY} ${endX},${endY}`, stroke:'var(--primary)', 'stroke-width':1.5, fill:'none', 'marker-end':'url(#erd-arrow)' } }));
+        });
+      });
+      return D.SVG.Svg({ attrs:{ class: tw`overflow-visible`, width:'2000', height:'1400' }}, [
+        D.SVG.Defs({}, [
+          D.SVG.Marker({ attrs:{ id:'erd-arrow', markerWidth:6, markerHeight:6, refX:6, refY:3, orient:'auto' }}, [
+            D.SVG.Path({ attrs:{ d:'M0,0 L6,3 L0,6 Z', fill:'var(--primary)' } })
+          ])
+        ]),
+        ...paths
+      ]);
+    }
+
+    function SchemaCanvas(db){
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      const zoom = db.data.canvas?.zoom || 1;
+      return D.Containers.Div({ attrs:{ class: tw`relative flex-1 overflow-hidden bg-[var(--surface-1)]` }}, [
+        D.Containers.Div({ attrs:{ class: tw`absolute inset-0`, style:`transform:scale(${zoom});transform-origin:top left;` }}, [
+          RelationshipLayer(db, tables),
+          ...tables.map(table=> TableCard(db, table))
+        ])
+      ]);
+    }
+
+    function Toolbar(db){
+      const zoom = db.data.canvas?.zoom || 1;
+      return UI.Toolbar({
+        left:[
+          D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, ['مخطط قاعدة بيانات مشكاة']),
+          UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'ghost', size:'sm' }, ['➕ جدول']),
+          UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
+          UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة'])
+        ],
+        right:[
+          UI.Button({ attrs:{ gkey:'erd:import:open' }, variant:'ghost', size:'sm' }, ['⬆️ استيراد JSON']),
+          UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
+          UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL']),
+          UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
+          D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
+          UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:'إعادة الحجم' }, variant:'ghost', size:'sm' }, ['⟳']),
+          UI.Button({ attrs:{ gkey:'erd:zoom:in', title:'تكبير' }, variant:'ghost', size:'sm' }, ['➕'])
+        ]
+      });
+    }
+
+    function InspectorPanel(db){
+      const selection = db.data.selection || {};
+      const registry = getRegistry(db);
+      const table = selection.table ? registry.get(selection.table) : null;
+      const layout = db.data.layout || {};
+      const formLayout = db.ui?.form?.layout || { x:0, y:0 };
+      const relationships = table ? (table.fields || []).filter(field=> field.references) : [];
+      return D.Containers.Div({ attrs:{ class: tw`hidden xl:flex w-80 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/90 backdrop-blur p-4 gap-4` }}, [
+        D.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, ['التفاصيل']),
+        table ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [`${table.sqlName || Schema.utils.toSnakeCase(table.name)}`]),
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`عدد الحقول: ${table.fields.length}`]),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['إحداثيات اللوحة']),
+            UI.Input({ attrs:{ gkey:'erd:layout:input', 'data-axis':'x', value:String(formLayout.x), type:'number', class: tw`w-full`, placeholder:'المحور X' } }),
+            UI.Input({ attrs:{ gkey:'erd:layout:input', 'data-axis':'y', value:String(formLayout.y), type:'number', class: tw`w-full`, placeholder:'المحور Y' } }),
+            UI.Button({ attrs:{ gkey:'erd:layout:apply', variant:'solid', size:'sm' }}, ['تحديث الموقع'])
+          ]),
+          relationships.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['العلاقات الخارجة']),
+            ...relationships.map(field=> D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`${field.name} → ${field.references.table}.${field.references.column}`]))
+          ]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['لا توجد علاقات محددة.'])
+        ]) : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['اختر جدولًا من المخطط لاستعراض تفاصيله.'])
+      ]);
+    }
+
+    function ModalImport(db){
+      const open = db.ui?.modals?.import;
+      return UI.Modal({
+        open,
+        size:'lg',
+        title:'استيراد مخطط JSON',
+        description:'ألصق بيانات المخطط في الحقل ثم اضغط استيراد.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'importText', value: db.ui?.form?.importText || '', rows:12, class: tw`w-full` } })
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:import:apply', variant:'solid', size:'sm' }}, ['استيراد']),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق'])
+        ]
+      });
+    }
+
+    function ModalExportJson(db){
+      const open = db.ui?.modals?.exportJson;
+      return UI.Modal({
+        open,
+        size:'lg',
+        title:'مخطط JSON',
+        description:'انسخ المحتوى للاستخدام في أماكن أخرى.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Textarea({ attrs:{ readonly:true, value: db.ui?.form?.exportText || '', rows:14, class: tw`w-full font-mono text-xs` } })
+        ],
+        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['تم']) ]
+      });
+    }
+
+    function ModalExportSql(db){
+      const open = db.ui?.modals?.exportSql;
+      return UI.Modal({
+        open,
+        size:'lg',
+        title:'تعليمات إنشاء PostgreSQL',
+        description:'يمكن تعديل اسم المخطط لاحقًا حسب بيئة التنفيذ.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Textarea({ attrs:{ readonly:true, value: db.ui?.form?.sqlText || '', rows:16, class: tw`w-full font-mono text-xs` } })
+        ],
+        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['تم']) ]
+      });
+    }
+
+    function ModalAddTable(db){
+      const open = db.ui?.modals?.table;
+      const form = db.ui?.form?.table || {};
+      return UI.Modal({
+        open,
+        size:'md',
+        title:'إضافة جدول جديد',
+        description:'حدد اسم الجدول وبعض البيانات الأولية.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'name', value: form.name || '', placeholder:'اسم الجدول (CamelCase)', class: tw`w-full` } }),
+          UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'التسمية الظاهرة', class: tw`w-full` } }),
+          UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:'وصف مختصر', class: tw`w-full` } }),
+          D.Forms.Label({ attrs:{ class: tw`flex items-center gap-2 text-sm` }}, [
+            D.Inputs.Input({ attrs:{ type:'checkbox', gkey:'erd:form:toggle', 'data-form':'table', 'data-field':'includeId', ...(form.includeId ? { checked:'checked' } : {}) } }),
+            D.Text.Span({}, ['إنشاء حقل معرف افتراضي'])
+          ])
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:table:create', variant:'solid', size:'sm' }}, ['إنشاء']),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+        ]
+      });
+    }
+
+    function ModalAddField(db){
+      const open = db.ui?.modals?.field;
+      const form = db.ui?.form?.field || {};
+      const registry = getRegistry(db);
+      const tableOptions = registry.list().map(table=> ({ value: table.name, label: table.label || table.name }));
+      const targetTable = form.table || tableOptions[0]?.value || '';
+      const targetColumns = targetTable ? (registry.get(targetTable)?.fields || []).map(field=> ({ value: field.name, label: field.name })) : [];
+      const referenceTables = registry.list().map(table=> ({ value: table.name, label: table.label || table.name }));
+      const referenceFields = form.references?.table ? (registry.get(form.references.table)?.fields || []).map(field=> ({ value: field.columnName || Schema.utils.toSnakeCase(field.name), label: field.columnName || Schema.utils.toSnakeCase(field.name) })) : [];
+      return UI.Modal({
+        open,
+        size:'lg',
+        title:'إضافة حقل',
+        description:'اختر الجدول وحدد خصائص الحقل الجديد.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'table', value: form.table || targetTable }, options: tableOptions }),
+          UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'name', value: form.name || '', placeholder:'اسم الحقل', class: tw`w-full` } }),
+          UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'columnName', value: form.columnName || '', placeholder:'اسم العمود (snake_case)', class: tw`w-full` } }),
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'type', value: form.type || 'string' }, options: DEFAULT_FIELD_TYPES.map(type=> ({ value:type, label:type })) }),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-4` }}, [
+            D.Forms.Label({ attrs:{ class: tw`flex items-center gap-2 text-sm` }}, [
+              D.Inputs.Input({ attrs:{ type:'checkbox', gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'nullable', ...(form.nullable !== false ? { checked:'checked' } : {}) } }),
+              D.Text.Span({}, ['يسمح بالقيم الفارغة'])
+            ]),
+            D.Forms.Label({ attrs:{ class: tw`flex items-center gap-2 text-sm` }}, [
+              D.Inputs.Input({ attrs:{ type:'checkbox', gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'primaryKey', ...(form.primaryKey ? { checked:'checked' } : {}) } }),
+              D.Text.Span({}, ['المفتاح الرئيسي'])
+            ]),
+            D.Forms.Label({ attrs:{ class: tw`flex items-center gap-2 text-sm` }}, [
+              D.Inputs.Input({ attrs:{ type:'checkbox', gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'unique', ...(form.unique ? { checked:'checked' } : {}) } }),
+              D.Text.Span({}, ['قيمة فريدة'])
+            ])
+          ]),
+          UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'defaultValue', value: form.defaultValue || '', placeholder:'قيمة افتراضية (اختياري)', class: tw`w-full` } }),
+          D.Containers.Div({ attrs:{ class: tw`mt-2 flex flex-col gap-2` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['العلاقة (اختياري)']),
+            UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRef', 'data-field':'table', value: form.references?.table || '', 'data-parent':'field' }, options: [{ value:'', label:'— بدون علاقة —' }].concat(referenceTables) }),
+            UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRefColumn', 'data-field':'column', value: form.references?.column || '', 'data-parent':'field' }, options: [{ value:'', label:'اختر العمود المرجعي' }].concat(referenceFields) })
+          ])
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:field:create', variant:'solid', size:'sm' }}, ['إضافة']),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+        ]
+      });
+    }
+
+    function ModalRelation(db){
+      const open = db.ui?.modals?.relation;
+      const form = db.ui?.form?.relation || {};
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      const tableOptions = tables.map(table=> ({ value: table.name, label: table.label || table.name }));
+      const sourceFields = form.sourceTable ? (registry.get(form.sourceTable)?.fields || []).map(field=> ({ value: field.name, label: field.name })) : [];
+      const targetFields = form.targetTable ? (registry.get(form.targetTable)?.fields || []).map(field=> ({ value: field.columnName || Schema.utils.toSnakeCase(field.name), label: field.columnName || Schema.utils.toSnakeCase(field.name) })) : [];
+      const cascadeOptions = [
+        { value:'CASCADE', label:'CASCADE' },
+        { value:'RESTRICT', label:'RESTRICT' },
+        { value:'SET NULL', label:'SET NULL' },
+        { value:'NO ACTION', label:'NO ACTION' }
+      ];
+      return UI.Modal({
+        open,
+        size:'md',
+        title:'تعريف علاقة مرجعية',
+        description:'اربط حقلاً حاليًا بجدول آخر عبر مفتاح أجنبي.',
+        closeGkey:'erd:modal:close',
+        content:[
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceTable', value: form.sourceTable || '' }, options: tableOptions }),
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceField', value: form.sourceField || '' }, options: sourceFields }),
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetTable', value: form.targetTable || '' }, options: tableOptions }),
+          UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetField', value: form.targetField || '' }, options: targetFields }),
+          D.Containers.Div({ attrs:{ class: tw`flex gap-2` }}, [
+            UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onDelete', value: form.onDelete || 'CASCADE' }, options: cascadeOptions }),
+            UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onUpdate', value: form.onUpdate || 'CASCADE' }, options: cascadeOptions })
+          ])
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:relation:create', variant:'solid', size:'sm' }}, ['ربط']),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+        ]
+      });
+    }
+
+    function Modals(db){
+      return [
+        ModalImport(db),
+        ModalExportJson(db),
+        ModalExportSql(db),
+        ModalAddTable(db),
+        ModalAddField(db),
+        ModalRelation(db)
+      ];
+    }
+
+    function AppView(db){
+      return D.Containers.Div({ attrs:{ class: tw`flex h-screen w-full bg-[var(--surface-0)] text-[var(--foreground)]` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col` }}, [
+          Toolbar(db),
+          SchemaCanvas(db)
+        ]),
+        InspectorPanel(db),
+        ...Modals(db)
+      ]);
+    }
+
+    const erdOrders = {
+      'erd.zoom.in':{
+        on:['click'],
+        gkeys:['erd:zoom:in'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              canvas:{ zoom: Math.min(2, (s.data.canvas?.zoom || 1) + 0.1) }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.zoom.out':{
+        on:['click'],
+        gkeys:['erd:zoom:out'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              canvas:{ zoom: Math.max(0.2, (s.data.canvas?.zoom || 1) - 0.1) }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.zoom.reset':{
+        on:['click'],
+        gkeys:['erd:zoom:reset'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...s.data, canvas:{ zoom:1 } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.table.select':{
+        on:['click'],
+        gkeys:['erd:table:select'],
+        handler:(e,ctx)=>{
+          const card = e.target.closest('[data-table-name]');
+          if(!card) return;
+          const tableName = card.getAttribute('data-table-name');
+          const state = ctx.getState();
+          const layout = state.data.layout || {};
+          const nextLayout = ensureLayout(state, tableName);
+          const tablePos = nextLayout[tableName] || { x:120, y:120 };
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...s.data, selection:{ table: tableName, field:null }, layout: nextLayout },
+            ui:{
+              ...(s.ui || {}),
+              form:{
+                ...(s.ui?.form || {}),
+                field:{ ...(s.ui?.form?.field || {}), table: tableName },
+                relation:{ ...(s.ui?.form?.relation || {}), sourceTable: tableName },
+                layout:{ x: tablePos.x, y: tablePos.y }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.field.select':{
+        on:['click'],
+        gkeys:['erd:field:select'],
+        handler:(e,ctx)=>{
+          const row = e.target.closest('[data-field-name]');
+          if(!row) return;
+          const tableName = row.getAttribute('data-table-name');
+          const fieldName = row.getAttribute('data-field-name');
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...s.data, selection:{ table: tableName, field: fieldName } },
+            ui:{ ...(s.ui || {}), form:{ ...(s.ui?.form || {}), relation:{ ...(s.ui?.form?.relation || {}), sourceTable: tableName, sourceField: fieldName } } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.import.open':{
+        on:['click'],
+        gkeys:['erd:import:open'],
+        handler:(e,ctx)=>{
+          const registry = getRegistry(ctx.getState());
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), import:true },
+              form:{ ...(s.ui?.form || {}), importText: JSON.stringify(registry.toJSON(), null, 2) }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.export.json':{
+        on:['click'],
+        gkeys:['erd:export:json'],
+        handler:(e,ctx)=>{
+          const registry = getRegistry(ctx.getState());
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), exportJson:true },
+              form:{ ...(s.ui?.form || {}), exportText: JSON.stringify(registry.toJSON(), null, 2) }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.export.sql':{
+        on:['click'],
+        gkeys:['erd:export:sql'],
+        handler:(e,ctx)=>{
+          const registry = getRegistry(ctx.getState());
+          const sql = registry.generateSQL({ schemaName:'public' });
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), exportSql:true },
+              form:{ ...(s.ui?.form || {}), sqlText: sql }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.modal.close':{
+        on:['click'],
+        gkeys:['erd:modal:close','ui:modal:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.form.update':{
+        on:['input','change'],
+        gkeys:['erd:form:update'],
+        handler:(e,ctx)=>{
+          const input = e.target;
+          const formKey = input.getAttribute('data-form');
+          const fieldKey = input.getAttribute('data-field');
+          const parent = input.getAttribute('data-parent');
+          if(!formKey || !fieldKey) return;
+          const value = input.value;
+          ctx.setState(s=>{
+            const currentForms = s.ui?.form || {};
+            if(formKey === 'importText' || formKey === 'exportText' || formKey === 'sqlText'){
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, [formKey]: value } } };
+            }
+            if(formKey === 'fieldRef'){
+              const current = currentForms.field || {};
+              const nextRef = { ...(current.references || {}), [fieldKey]: value };
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, references: nextRef } } } };
+            }
+            if(formKey === 'fieldRefColumn'){
+              const current = currentForms.field || {};
+              const nextRef = { ...(current.references || {}), [fieldKey]: value };
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, references: nextRef } } } };
+            }
+            if(parent === 'field'){
+              const current = currentForms.field || {};
+              const nextRef = { ...(current.references || {}), [fieldKey]: value };
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, references: nextRef } } } };
+            }
+            const targetForm = currentForms[formKey] || {};
+            return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, [formKey]: { ...targetForm, [fieldKey]: value } } } };
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.form.toggle':{
+        on:['change'],
+        gkeys:['erd:form:toggle'],
+        handler:(e,ctx)=>{
+          const input = e.target;
+          const formKey = input.getAttribute('data-form');
+          const fieldKey = input.getAttribute('data-field');
+          if(!formKey || !fieldKey) return;
+          const checked = input.checked;
+          ctx.setState(s=>{
+            const currentForms = s.ui?.form || {};
+            if(formKey === 'field'){
+              const current = currentForms.field || {};
+              if(fieldKey === 'nullable'){
+                return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, nullable: checked } } } };
+              }
+              if(fieldKey === 'primaryKey'){
+                return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, primaryKey: checked } } } };
+              }
+              if(fieldKey === 'unique'){
+                return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, unique: checked } } } };
+              }
+            }
+            const targetForm = currentForms[formKey] || {};
+            return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, [formKey]: { ...targetForm, [fieldKey]: checked } } } };
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.table.add':{
+        on:['click'],
+        gkeys:['erd:table:add'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), table:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.table.create':{
+        on:['click'],
+        gkeys:['erd:table:create'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const form = state.ui?.form?.table || {};
+          const name = (form.name || '').trim();
+          if(!name){
+            UI.pushToast(ctx, { title:'يرجى تحديد اسم الجدول', icon:'⚠️' });
+            return;
+          }
+          const registry = getRegistry(state);
+          try{
+            const tableConfig = {
+              name,
+              label: form.label || name,
+              comment: form.comment || '',
+              layout:{ x: 120 + registry.list().length * 100, y: 120 + registry.list().length * 60 },
+              fields: []
+            };
+            if(form.includeId){
+              tableConfig.fields.push({
+                name:'id', columnName:'id', type:'uuid', primaryKey:true, nullable:false
+              });
+            }
+            registry.register(tableConfig);
+            const schemaJSON = registry.toJSON();
+            const layout = ensureLayout({ data:{ layout: state.data.layout } }, name);
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...s.data, schema: schemaJSON, layout, selection:{ table:name, field:null } },
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), table:false },
+                form:{
+                  ...(s.ui?.form || {}),
+                  table:{ name:'', label:'', comment:'', includeId:true },
+                  field:{ ...(s.ui?.form?.field || {}), table:name },
+                  layout:{ x: layout[name].x, y: layout[name].y }
+                }
+              }
+            }));
+            ctx.rebuild();
+          } catch(error){
+            console.warn('[Mishkah][ERD] failed to create table', error);
+            UI.pushToast(ctx, { title:'فشل إنشاء الجدول', message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.field.add':{
+        on:['click'],
+        gkeys:['erd:field:add'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const registry = getRegistry(state);
+          const first = registry.list()[0]?.name || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), field:true },
+              form:{
+                ...(s.ui?.form || {}),
+                field:{
+                  table: s.data.selection?.table || first,
+                  name:'',
+                  columnName:'',
+                  type:'string',
+                  nullable:true,
+                  primaryKey:false,
+                  unique:false,
+                  defaultValue:'',
+                  references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
+                }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.field.create':{
+        on:['click'],
+        gkeys:['erd:field:create'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const form = state.ui?.form?.field || {};
+          const tableName = (form.table || '').trim();
+          const fieldName = (form.name || '').trim();
+          if(!tableName || !fieldName){
+            UI.pushToast(ctx, { title:'اسم الجدول والحقل مطلوبان', icon:'⚠️' });
+            return;
+          }
+          const registry = getRegistry(state);
+          const table = registry.get(tableName);
+          if(!table){
+            UI.pushToast(ctx, { title:'الجدول غير موجود', icon:'⚠️' });
+            return;
+          }
+          try{
+            const fieldConfig = {
+              name: fieldName,
+              columnName: (form.columnName || Schema.utils.toSnakeCase(fieldName)),
+              type: form.type || 'string',
+              nullable: form.nullable !== false,
+              primaryKey: !!form.primaryKey,
+              unique: !!form.unique
+            };
+            if(form.defaultValue){
+              const val = form.defaultValue;
+              if(['integer','number','decimal','float'].includes(fieldConfig.type)){
+                const num = Number(val);
+                if(!Number.isNaN(num)) fieldConfig.defaultValue = num;
+              } else if(fieldConfig.type === 'boolean'){
+                fieldConfig.defaultValue = ['true','1','yes','on'].includes(String(val).toLowerCase());
+              } else {
+                fieldConfig.defaultValue = val;
+              }
+            }
+            if(form.references && form.references.table && form.references.column){
+              fieldConfig.references = {
+                table: form.references.table,
+                column: form.references.column,
+                onDelete: form.references.onDelete || 'CASCADE',
+                onUpdate: form.references.onUpdate || 'CASCADE'
+              };
+            }
+            table.addField(fieldConfig);
+            const schemaJSON = registry.toJSON();
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...s.data, schema: schemaJSON, selection:{ table: tableName, field: fieldName } },
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), field:false },
+                form:{ ...(s.ui?.form || {}), field:{ ...form, name:'', columnName:'', defaultValue:'', primaryKey:false, unique:false } }
+              }
+            }));
+            ctx.rebuild();
+          } catch(error){
+            console.warn('[Mishkah][ERD] failed to add field', error);
+            UI.pushToast(ctx, { title:'فشل إضافة الحقل', message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.relation.add':{
+        on:['click'],
+        gkeys:['erd:relation:add'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const selection = state.data.selection || {};
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), relation:true },
+              form:{ ...(s.ui?.form || {}), relation:{ sourceTable: selection.table || '', sourceField: selection.field || '', targetTable:'', targetField:'', onDelete:'CASCADE', onUpdate:'CASCADE' } }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.relation.create':{
+        on:['click'],
+        gkeys:['erd:relation:create'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const form = state.ui?.form?.relation || {};
+          if(!form.sourceTable || !form.sourceField || !form.targetTable || !form.targetField){
+            UI.pushToast(ctx, { title:'الرجاء اختيار الحقول المصدر والهدف', icon:'⚠️' });
+            return;
+          }
+          const registry = getRegistry(state);
+          const table = registry.get(form.sourceTable);
+          if(!table){
+            UI.pushToast(ctx, { title:'الجدول المصدر غير موجود', icon:'⚠️' });
+            return;
+          }
+          try{
+            table.updateField(form.sourceField, {
+              references:{
+                table: form.targetTable,
+                column: form.targetField,
+                onDelete: form.onDelete || 'CASCADE',
+                onUpdate: form.onUpdate || 'CASCADE'
+              }
+            });
+            const schemaJSON = registry.toJSON();
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...s.data, schema: schemaJSON },
+              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), relation:false } }
+            }));
+            ctx.rebuild();
+          } catch(error){
+            console.warn('[Mishkah][ERD] failed to create relation', error);
+            UI.pushToast(ctx, { title:'فشل إنشاء العلاقة', message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.import.apply':{
+        on:['click'],
+        gkeys:['erd:import:apply'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const payload = state.ui?.form?.importText || '';
+          try{
+            const parsed = JSON.parse(payload);
+            const registry = Schema.Registry.fromJSON(parsed);
+            const layout = {};
+            registry.list().forEach((table, index)=>{
+              layout[table.name] = table.layout || { x: 120 + index * 100, y: 120 + index * 60 };
+            });
+            const first = registry.list()[0]?.name || null;
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...s.data, schema: registry.toJSON(), layout, selection:{ table:first, field:null } },
+              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), import:false } }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:'تم استيراد المخطط', icon:'✅' });
+          } catch(error){
+            console.warn('[Mishkah][ERD] import failed', error);
+            UI.pushToast(ctx, { title:'تعذر استيراد JSON', message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.layout.input':{
+        on:['input','change'],
+        gkeys:['erd:layout:input'],
+        handler:(e,ctx)=>{
+          const axis = e.target.getAttribute('data-axis');
+          if(!axis) return;
+          const value = Number(e.target.value);
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), form:{ ...(s.ui?.form || {}), layout:{ ...(s.ui?.form?.layout || {}), [axis]: Number.isFinite(value) ? value : 0 } } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.layout.apply':{
+        on:['click'],
+        gkeys:['erd:layout:apply'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const selection = state.data.selection || {};
+          if(!selection.table){
+            UI.pushToast(ctx, { title:'اختر جدولاً لتحديث موقعه', icon:'⚠️' });
+            return;
+          }
+          const formLayout = state.ui?.form?.layout || { x:120, y:120 };
+          const layout = Object.assign({}, state.data.layout || {});
+          layout[selection.table] = { x: Number(formLayout.x) || 0, y: Number(formLayout.y) || 0 };
+          ctx.setState(s=>({
+            ...s,
+            data:{ ...s.data, layout }
+          }));
+          ctx.rebuild();
+        }
+      }
+    };
+
+    const app = M.app.createApp(erdState, {});
+    const auto = U.twcss.auto(erdState, app, { pageScaffold:true });
+
+    M.Head.setBody(AppView);
+
+    app.setOrders(Object.assign({}, UI.orders, auto.orders, erdOrders));
+    app.mount('#app');
+  })();
+  </script>
+</body>
+</html>

@@ -32,21 +32,67 @@
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah-schema.js"></script>
   <script src="./pos-mock-data.js"></script>
 </head>
 <body>
   <div id="app"></div>
   <script>
-  (function(){
+  (async function(){
     const M = Mishkah;
     const UI = M.UI;
     const U = M.utils;
     const D = M.DSL;
+    const Schema = M.schema;
     const { tw, token } = U.twcss;
+    const BASE_PALETTE = U.twcss?.PALETTE || {};
 
     const MOCK = window.database || {};
     const settings = MOCK.settings || {};
     const currencyConfig = settings.currency || {};
+    const rawPosConfig = settings.pos || settings.pos_info || settings.posInfo || {};
+    const fallbackPosId = typeof rawPosConfig.id === 'string' ? rawPosConfig.id
+      : typeof rawPosConfig.code === 'string' ? rawPosConfig.code
+      : typeof rawPosConfig.prefix === 'string' ? rawPosConfig.prefix
+      : 'P001';
+    const posId = String(fallbackPosId || 'P001').toUpperCase();
+    const posNumberRaw = rawPosConfig.number ?? rawPosConfig.index ?? 1;
+    const posNumber = Number.isFinite(Number(posNumberRaw)) ? Number(posNumberRaw) : 1;
+    const posLabel = rawPosConfig.label || rawPosConfig.name || `POS ${posNumber}`;
+    const posPrefix = rawPosConfig.prefix || posId;
+    const POS_INFO = { id: posId, number: posNumber, label: posLabel, prefix: String(posPrefix || posId) };
+    const SHIFT_TABLE = Schema.defineTable({
+      name:'pos_shift',
+      label:'POS Shift Session',
+      comment:'Lifecycle of a POS cashier shift bound to orders and payments.',
+      fields:[
+        { name:'id', columnName:'shift_id', type:'string', primaryKey:true, nullable:false, maxLength:64, comment:'Unique shift identifier composed of POS id and encoded timestamp.' },
+        { name:'posId', columnName:'pos_id', type:'string', nullable:false, maxLength:32, comment:'Terminal identifier hosting the shift.' },
+        { name:'posLabel', columnName:'pos_label', type:'string', nullable:false, maxLength:96, comment:'Friendly terminal label for reports.' },
+        { name:'posNumber', columnName:'pos_number', type:'integer', nullable:false, comment:'Numeric terminal number for invoice sequencing.' },
+        { name:'openedAt', columnName:'opened_at', type:'timestamp', nullable:false, comment:'Shift opening timestamp.' },
+        { name:'closedAt', columnName:'closed_at', type:'timestamp', nullable:true, comment:'Shift closing timestamp.' },
+        { name:'openingFloat', columnName:'opening_float', type:'decimal', precision:12, scale:2, nullable:false, defaultValue:0, comment:'Opening cash float captured when the shift starts.' },
+        { name:'closingCash', columnName:'closing_cash', type:'decimal', precision:12, scale:2, nullable:true, comment:'Closing cash drawer balance.' },
+        { name:'cashierId', columnName:'cashier_id', type:'string', nullable:false, maxLength:64, comment:'Employee identifier operating the shift.' },
+        { name:'cashierName', columnName:'cashier_name', type:'string', nullable:false, maxLength:128, comment:'Display name of the cashier.' },
+        { name:'cashierRole', columnName:'cashier_role', type:'string', nullable:false, defaultValue:'cashier', comment:'Role assigned to the cashier during the shift.' },
+        { name:'employeeId', columnName:'employee_id', type:'string', nullable:false, maxLength:64, comment:'Employee id linked to payroll records.' },
+        { name:'status', columnName:'status', type:'string', nullable:false, defaultValue:'open', comment:'Shift lifecycle state.' },
+        { name:'isClosed', columnName:'is_closed', type:'boolean', nullable:false, defaultValue:false, comment:'Flag signalling whether the shift is closed.' },
+        { name:'totalsByType', columnName:'totals_by_type', type:'json', nullable:false, defaultValue:()=>({}), comment:'Aggregated sales totals grouped by order type.' },
+        { name:'paymentsByMethod', columnName:'payments_by_method', type:'json', nullable:false, defaultValue:()=>({}), comment:'Aggregated payments grouped by method.' },
+        { name:'countsByType', columnName:'counts_by_type', type:'json', nullable:false, defaultValue:()=>({}), comment:'Order counts grouped by type.' },
+        { name:'ordersCount', columnName:'orders_count', type:'integer', nullable:false, defaultValue:0, comment:'Number of orders captured during the shift.' },
+        { name:'orders', columnName:'orders_payload', type:'json', nullable:false, defaultValue:()=>([]), comment:'Optional persisted snapshot for audit or offline sync.' },
+        { name:'totalSales', columnName:'total_sales', type:'decimal', precision:14, scale:2, nullable:false, defaultValue:0, comment:'Total sales amount for the shift.' }
+      ],
+      indexes:[
+        { name:'idx_pos_shift_pos_status', columns:['pos_id','is_closed','opened_at'] },
+        { name:'idx_pos_shift_opened_at', columns:['opened_at'] }
+      ]
+    });
+    const SHIFT_SCHEMA_REGISTRY = new Schema.Registry({ tables:[SHIFT_TABLE] });
     const FALLBACK_CURRENCY = 'EGP';
     const normalizeCurrencyCode = (value)=>{
       if(typeof value !== 'string') return null;
@@ -143,6 +189,11 @@
           shift_close_confirm:'إنهاء وإغلاق الوردية', shift_current:'الوردية الحالية', shift_select_history:'اختيار وردية سابقة',
           shift_open_button:'🔓 فتح وردية', shift_close_button:'🔒 إغلاق وردية', shift_orders_count:'عدد الطلبات في الوردية',
           shift_cash_summary:'ملخص النقدية', shift_cash_collected:'إجمالي النقدي خلال الوردية',
+          settings_center:'إعدادات الواجهة', settings_theme:'تخصيص الثيم', settings_light:'وضع نهاري', settings_dark:'وضع ليلي',
+          settings_colors:'لوحة الألوان', settings_fonts:'الخطوط', settings_color_background:'لون الخلفية', settings_color_foreground:'لون النص',
+          settings_color_primary:'اللون الرئيسي', settings_color_accent:'لون التمييز', settings_color_muted:'لون ثانوي',
+          settings_font_base:'حجم الخط الأساسي', settings_reset:'إعادة الضبط الافتراضي',
+          refunds:'رد المدفوعات', returns:'المرتجعات',
           order_nav_label:'التنقل بين الفواتير', order_nav_open:'اذهب إلى فاتورة', order_nav_placeholder:'رقم الفاتورة أو الترتيب',
           order_nav_total:'إجمالي الفواتير', order_nav_no_history:'لا توجد فواتير محفوظة بعد',
           customer_center:'مركز العملاء', customer_search:'ابحث عن عميل', customer_search_placeholder:'الاسم أو رقم الهاتف',
@@ -260,6 +311,11 @@
           shift_close_confirm:'Finish and close shift', shift_current:'Active shift', shift_select_history:'Select a previous shift',
           shift_open_button:'🔓 Open shift', shift_close_button:'🔒 Close shift', shift_orders_count:'Orders this shift',
           shift_cash_summary:'Cash drawer summary', shift_cash_collected:'Cash collected',
+          settings_center:'Settings', settings_theme:'Theme customization', settings_light:'Light mode', settings_dark:'Dark mode',
+          settings_colors:'Colors', settings_fonts:'Typography', settings_color_background:'Background', settings_color_foreground:'Foreground',
+          settings_color_primary:'Primary color', settings_color_accent:'Accent color', settings_color_muted:'Muted tone',
+          settings_font_base:'Base font size', settings_reset:'Reset to defaults',
+          refunds:'Refunds', returns:'Returns',
           order_nav_label:'Invoice navigator', order_nav_open:'Go to invoice', order_nav_placeholder:'Invoice number or index',
           order_nav_total:'Total invoices', order_nav_no_history:'No saved invoices yet',
           customer_center:'Customer hub', customer_search:'Search customers', customer_search_placeholder:'Name or phone number',
@@ -445,6 +501,7 @@
       const orders = [];
       const totalsAccumulator = {};
       const paymentsAccumulator = {};
+      const paymentEntries = [];
       const countsAccumulator = {};
       if(shiftId){
         historyList.forEach(order=>{
@@ -459,6 +516,13 @@
             const methodKey = String(payment.method || payment.id || 'cash');
             const amount = round(payment.amount || 0);
             paymentsAccumulator[methodKey] = round((paymentsAccumulator[methodKey] || 0) + amount);
+            paymentEntries.push({
+              id: payment.id || `${order.id}-${methodKey}-${paymentEntries.length+1}`,
+              method: methodKey,
+              amount,
+              orderId: order.id,
+              capturedAt: order.savedAt || order.updatedAt || order.createdAt || Date.now()
+            });
           });
           orders.push({
             id: order.id,
@@ -559,7 +623,10 @@
         totalSales,
         orders: ordersList,
         ordersCount,
-        countsByType
+        countsByType,
+        payments: paymentEntries,
+        refunds: Array.isArray(shift.refunds) ? shift.refunds.map(item=> ({ ...item })) : [],
+        returns: Array.isArray(shift.returns) ? shift.returns.map(item=> ({ ...item })) : []
       };
     }
 
@@ -811,9 +878,22 @@
           async listOrders(){ return []; },
           async getOrder(){ return null; },
           async markSync(){ return false; },
-          async bootstrap(){ return false; }
+          async bootstrap(){ return false; },
+          async getActiveShift(){ return null; },
+          async listShifts(){ return []; },
+          async openShiftRecord(record){ return record || null; },
+          async closeShiftRecord(){ return null; },
+          async nextInvoiceNumber(posId, prefix){
+            const base = `${prefix || posId || 'POS'}-${Date.now()}`;
+            return { value: Date.now(), id: base };
+          },
+          async peekInvoiceCounter(){ return 0; },
+          async resetAll(){ return false; }
         };
       }
+
+      const SHIFT_STORE = 'shifts';
+      const META_STORE = 'posMeta';
 
       const db = new IndexedDBX({
         name,
@@ -832,7 +912,15 @@
             orderLines:{ keyPath:'uid', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderNotes:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderEvents:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
-            syncLog:{ keyPath:'ts' }
+            syncLog:{ keyPath:'ts' },
+            [SHIFT_STORE]:{
+              keyPath:'id',
+              indices:[
+                { name:'by_pos', keyPath:['posId','openedAt'] },
+                { name:'by_pos_status', keyPath:['posId','isClosed'] }
+              ]
+            },
+            [META_STORE]:{ keyPath:'id' }
           }
         }
       });
@@ -854,6 +942,111 @@
         if(typeof value === 'number') return value;
         const parsed = new Date(value).getTime();
         return Number.isFinite(parsed) ? parsed : Date.now();
+      }
+
+      function normalizeShiftRecord(record){
+        if(!record) return null;
+        const base = { ...record };
+        base.isClosed = base.isClosed === 1 || base.isClosed === true;
+        base.openedAt = base.openedAt || Date.now();
+        base.closedAt = base.closedAt || null;
+        base.employeeId = base.employeeId || base.cashierId || null;
+        if(base.posNumber != null){
+          const numericPos = Number(base.posNumber);
+          base.posNumber = Number.isFinite(numericPos) ? numericPos : base.posNumber;
+        }
+        return base;
+      }
+
+      async function getActiveShift(posId){
+        if(!posId) return null;
+        await ensureReady();
+        const list = await db.byIndex(SHIFT_STORE, 'by_pos_status', { only:[posId, 0] });
+        return normalizeShiftRecord(list && list[0] ? list[0] : null);
+      }
+
+      async function listShifts({ posId, limit=50 }={}){
+        await ensureReady();
+        if(!posId){
+          const all = await db.getAll(SHIFT_STORE);
+          return all.map(normalizeShiftRecord).sort((a,b)=> (b.openedAt||0)-(a.openedAt||0)).slice(0, limit);
+        }
+        const rows = await db.byIndex(SHIFT_STORE, 'by_pos', {
+          lower:[posId, 0],
+          upper:[posId, Number.MAX_SAFE_INTEGER]
+        }, 'prev');
+        return rows.map(normalizeShiftRecord).slice(0, limit);
+      }
+
+      async function writeShift(record){
+        if(!record || !record.id) throw new Error('Shift payload requires id');
+        if(!record.posId) throw new Error('Shift payload requires posId');
+        const payload = {
+          ...record,
+          isClosed: record.isClosed ? 1 : 0,
+          openedAt: record.openedAt || Date.now(),
+          closedAt: record.closedAt || null
+        };
+        await ensureReady();
+        await db.put(SHIFT_STORE, payload);
+        return normalizeShiftRecord(payload);
+      }
+
+      async function openShiftRecord(record){
+        if(!record || !record.posId) throw new Error('Shift payload requires posId');
+        const active = await getActiveShift(record.posId);
+        if(active) return active;
+        return writeShift({ ...record, isClosed:false, closedAt:null });
+      }
+
+      async function closeShiftRecord(id, patch={}){
+        if(!id) throw new Error('Shift id is required');
+        await ensureReady();
+        const current = await db.get(SHIFT_STORE, id);
+        if(!current) return null;
+        const payload = {
+          ...current,
+          ...patch,
+          closedAt: patch.closedAt || Date.now(),
+          isClosed:true
+        };
+        await db.put(SHIFT_STORE, payload);
+        return normalizeShiftRecord(payload);
+      }
+
+      async function ensureInvoiceCounter(posId){
+        if(!posId) return { id:'default', invoiceCounter:0 };
+        await ensureReady();
+        const existing = await db.get(META_STORE, posId);
+        if(existing && Number.isFinite(existing.invoiceCounter)) return existing;
+        const base = { id: posId, invoiceCounter:0 };
+        await db.put(META_STORE, base);
+        return base;
+      }
+
+      async function nextInvoiceNumber(posId, prefix){
+        if(!posId) throw new Error('posId required for invoice sequence');
+        await ensureReady();
+        const meta = await ensureInvoiceCounter(posId);
+        const nextValue = Number(meta.invoiceCounter || 0) + 1;
+        const updated = { ...meta, invoiceCounter: nextValue };
+        await db.put(META_STORE, updated);
+        const safePrefix = prefix || posId;
+        return { value: nextValue, id: `${safePrefix}-${nextValue}` };
+      }
+
+      async function peekInvoiceCounter(posId){
+        const meta = await ensureInvoiceCounter(posId);
+        return Number(meta.invoiceCounter || 0);
+      }
+
+      async function resetAll(){
+        try{
+          await ensureReady();
+        } catch(_){ }
+        await db.destroy();
+        readyPromise = null;
+        return true;
       }
 
       function hydrateLine(record){
@@ -898,8 +1091,14 @@
 
       async function saveOrder(order){
         if(!order || !order.id) throw new Error('Order payload requires an id');
+        if(!order.shiftId) throw new Error('Order payload requires an active shift');
         await ensureReady();
         const now = Date.now();
+        const normalizedPosId = order.posId || order.metadata?.posId || null;
+        const normalizedPosLabel = order.posLabel || order.metadata?.posLabel || null;
+        const normalizedPosNumber = Number.isFinite(order.posNumber)
+          ? Number(order.posNumber)
+          : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null);
         const header = {
           id: order.id,
           type: order.type || 'dine_in',
@@ -916,10 +1115,17 @@
           lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : true,
           isPersisted: order.isPersisted !== undefined ? !!order.isPersisted : true,
           origin: order.origin || 'pos',
+          shiftId: order.shiftId,
+          posId: normalizedPosId,
+          posLabel: normalizedPosLabel,
+          posNumber: normalizedPosNumber,
           metadata:{
             version:2,
             linesCount: Array.isArray(order.lines) ? order.lines.length : 0,
-            notesCount: Array.isArray(order.notes) ? order.notes.length : 0
+            notesCount: Array.isArray(order.notes) ? order.notes.length : 0,
+            posId: normalizedPosId,
+            posLabel: normalizedPosLabel,
+            posNumber: normalizedPosNumber
           }
         };
 
@@ -1051,7 +1257,21 @@
         return true;
       }
 
-      return { available:true, saveOrder, listOrders, getOrder, markSync, bootstrap };
+      return {
+        available:true,
+        saveOrder,
+        listOrders,
+        getOrder,
+        markSync,
+        bootstrap,
+        getActiveShift,
+        listShifts,
+        openShiftRecord,
+        closeShiftRecord,
+        nextInvoiceNumber,
+        peekInvoiceCounter,
+        resetAll
+      };
     }
 
     function createKDSBridge(url){
@@ -1137,7 +1357,63 @@
       };
     }
 
-    const posDB = createIndexedDBAdapter('mishkah-pos', 2);
+    const posDB = createIndexedDBAdapter('mishkah-pos', 3);
+    const preferencesStore = U.Storage && U.Storage.local ? U.Storage.local('mishkah-pos') : null;
+    const savedModalSizes = preferencesStore ? (preferencesStore.get('modalSizes', {}) || {}) : {};
+    const savedThemePrefs = preferencesStore ? (preferencesStore.get('themePrefs', {}) || {}) : {};
+    let invoiceSequence = 0;
+    if(posDB.available){
+      try {
+        invoiceSequence = await posDB.peekInvoiceCounter(POS_INFO.id);
+      } catch(error){
+        console.warn('[Mishkah][POS] invoice peek failed', error);
+        invoiceSequence = 0;
+      }
+    }
+
+    async function allocateInvoiceId(){
+      if(posDB.available){
+        try{
+          const next = await posDB.nextInvoiceNumber(POS_INFO.id, POS_INFO.prefix);
+          invoiceSequence = next.value;
+          return next.id;
+        } catch(error){
+          console.warn('[Mishkah][POS] invoice allocation failed', error);
+        }
+      }
+      invoiceSequence += 1;
+      return `${POS_INFO.prefix}-${invoiceSequence}`;
+    }
+
+    function applyThemePreferenceStyles(prefs){
+      const styleId = 'pos-theme-prefs';
+      let styleEl = document.getElementById(styleId);
+      if(!styleEl){
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+      if(!prefs || (Object.keys(prefs.light||{}).length === 0 && Object.keys(prefs.dark||{}).length === 0)){
+        styleEl.textContent = '';
+        return;
+      }
+      const segments = [];
+      const light = prefs.light || {};
+      const dark = prefs.dark || {};
+      const makeRule = (selector, conf)=>{
+        const colors = conf.colors || {};
+        const fonts = conf.fonts || {};
+        const declarations = [];
+        Object.entries(colors).forEach(([prop,value])=>{ if(value) declarations.push(`${prop}:${value}`); });
+        if(fonts.base) declarations.push(`font-size:${fonts.base}`);
+        if(declarations.length) segments.push(`${selector}{${declarations.join(';')}}`);
+      };
+      makeRule(':root', light);
+      makeRule(':root.dark', dark);
+      styleEl.textContent = segments.join('\n');
+    }
+
+    applyThemePreferenceStyles(savedThemePrefs);
     const kdsBridge = createKDSBridge('wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q');
 
     const kitchenSections = Array.isArray(MOCK.kitchen_sections) ? MOCK.kitchen_sections.map(section=>({
@@ -1354,7 +1630,13 @@
         customerName: raw.customer_name || raw.customerName || header.customer_name || header.customerName || '',
         customerPhone: raw.customer_phone || raw.customerPhone || header.customer_phone || header.customerPhone || '',
         customerAddress: raw.customer_address || raw.customerAddress || header.customer_address || header.customerAddress || '',
-        customerAreaId: raw.customer_area_id || raw.customerAreaId || header.customer_area_id || header.customerAreaId || null
+        customerAreaId: raw.customer_area_id || raw.customerAreaId || header.customer_area_id || header.customerAreaId || null,
+        posId: raw.pos_id || header.pos_id || raw.posId || POS_INFO.id,
+        posLabel: raw.pos_label || header.pos_label || raw.posLabel || POS_INFO.label,
+        posNumber: (()=>{
+          const rawNumber = raw.pos_number ?? header.pos_number ?? raw.posNumber;
+          return Number.isFinite(Number(rawNumber)) ? Number(rawNumber) : POS_INFO.number;
+        })()
       };
     }
 
@@ -1367,6 +1649,10 @@
       const closingCashRaw = Number(raw.closing_cash ?? raw.closingCash ?? 0);
       const totals = raw.totals && typeof raw.totals === 'object' ? raw.totals : {};
       const payments = raw.payments && typeof raw.payments === 'object' ? raw.payments : {};
+      const posId = raw.pos_id || raw.posId || POS_INFO.id;
+      const posLabel = raw.pos_label || raw.posLabel || POS_INFO.label;
+      const posNumberRaw = raw.pos_number ?? raw.posNumber;
+      const posNumber = Number.isFinite(Number(posNumberRaw)) ? Number(posNumberRaw) : POS_INFO.number;
       const totalsByType = {
         dine_in: round(Number(totals.dine_in) || 0),
         takeaway: round(Number(totals.takeaway) || 0),
@@ -1395,7 +1681,11 @@
         orders: Array.isArray(raw.orders) ? raw.orders.slice() : [],
         cashierId: raw.cashier_id || raw.cashierId || '',
         cashierName: raw.cashier_name || raw.cashierName || '',
-        status: closedAt ? 'closed' : 'open'
+        status: closedAt ? 'closed' : 'open',
+        posId,
+        posLabel,
+        posNumber,
+        isClosed: !!closedAt
       };
     }
 
@@ -1464,12 +1754,6 @@
       lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
       payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
     }));
-    if(posDB.available && seedOrders.length){
-      posDB.bootstrap(seedOrders).catch(error=>{
-        console.warn('[Mishkah][POS] bootstrap failed', error);
-      });
-    }
-
     const baseTables = Array.isArray(MOCK.tables) ? MOCK.tables : [];
     const tables = baseTables.map((tbl, idx)=>({
       id: tbl.id || `T${idx+1}`,
@@ -1554,25 +1838,55 @@
     };
     const cashier = defaultCashier;
 
-    function generateOrderId(){
-      return 'ORD-' + Date.now().toString(36).toUpperCase();
+    async function generateOrderId(){
+      return allocateInvoiceId();
     }
 
     const initialTotals = calculateTotals([], settings, 'dine_in');
+    const initialOrderId = await generateOrderId();
+    let activeShift = null;
+    let shiftHistoryFromDb = SHIFT_HISTORY_SEED.slice();
+    if(posDB.available){
+      try{
+        activeShift = await posDB.getActiveShift(POS_INFO.id);
+        if(activeShift){
+          const seededHistory = ordersHistorySeed || [];
+          const summary = summarizeShiftOrders(seededHistory, activeShift);
+          activeShift = {
+            ...activeShift,
+            totalsByType: summary.totalsByType,
+            paymentsByMethod: summary.paymentsByMethod,
+            totalSales: summary.totalSales,
+            countsByType: summary.countsByType,
+            ordersCount: summary.ordersCount
+          };
+        }
+        const listed = await posDB.listShifts({ posId: POS_INFO.id, limit: 50 });
+        shiftHistoryFromDb = Array.isArray(listed) && listed.length
+          ? listed.filter(shift=> !activeShift || shift.id !== activeShift.id)
+          : shiftHistoryFromDb;
+      } catch(error){
+        console.warn('[Mishkah][POS] shift hydration failed', error);
+      }
+    }
+
+    const initialTheme = 'dark';
 
     const posState = {
       head:{ title:'مشكاة — نقطة بيع حية' },
-      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      env:{ theme:initialTheme, lang:'ar', dir:'rtl' },
       data:{
         settings,
+        themePrefs: savedThemePrefs,
         currency:{ code: currencyCode, symbols: currencySymbols, display: currencyDisplayMode },
+        pos: POS_INFO,
         user:{
           id: cashier.id || 'cashier-guest',
           name: cashier.name || cashier.full_name || 'أحمد محمود',
           role: cashier.role || 'cashier',
           allowedDiscountRate: typeof cashier.allowedDiscountRate === 'number' ? cashier.allowedDiscountRate : 0,
-          shift:'—',
-          shiftNo:'#103'
+          shift: activeShift?.id || '—',
+          shiftNo: activeShift ? activeShift.id : '#103'
         },
         status:{
           indexeddb:{ state: posDB.available ? 'idle' : 'offline', lastSync: null },
@@ -1588,7 +1902,7 @@
           items: menuItems
         },
         order:{
-          id: generateOrderId(),
+          id: initialOrderId,
           status:'open',
           fulfillmentStage:'new',
           paymentState:'unpaid',
@@ -1604,7 +1918,10 @@
           lockLineEdits:false,
           isPersisted:false,
           origin:'pos',
-          shiftId:null,
+          shiftId: activeShift?.id || null,
+          posId: POS_INFO.id,
+          posLabel: POS_INFO.label,
+          posNumber: POS_INFO.number,
           payments:[],
           customerId:null,
           customerAddressId:null,
@@ -1667,24 +1984,146 @@
         reports:{ salesToday:0, ordersCount:0, avgTicket:0, topItemId:null },
         ordersHistory: ordersHistorySeed,
         shift:{
-          current:null,
-          history: SHIFT_HISTORY_SEED,
+          current: activeShift,
+          history: shiftHistoryFromDb,
           config:{ pinLength: SHIFT_PIN_LENGTH, openingFloat: SHIFT_OPEN_FLOAT_DEFAULT }
         }
       },
       ui:{
         modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false },
+        modalSizes: savedModalSizes,
         drawers:{},
+        settings:{ open:false, activeTheme: initialTheme },
         paymentDraft:{ amount:'' },
         tables:{ view:'assign', filter:'all', search:'', details:null },
         reservations:{ filter:'today', status:'all', editing:null, form:null },
         print:{ docType:'customer', size:'thermal_80', showPreview:false, showAdvanced:false, managePrinters:false, newPrinterName:'' },
         orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } },
-        shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null },
+        shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null, activeTab:'summary' },
         customer:{ open:false, mode:'search', search:'', keypad:'', selectedCustomerId:null, selectedAddressId:null, form:createEmptyCustomerForm() },
         orderNav:{ showPad:false, value:'' }
       }
     };
+
+    let appRef = null;
+
+    async function refreshPersistentSnapshot(options={}){
+      if(!posDB.available) return null;
+      const { focusCurrent=false, syncOrders=true } = options;
+      try{
+        const [allOrders, activeShiftRaw, shiftListRaw, activeOrdersOnly] = await Promise.all([
+          posDB.listOrders({ onlyActive:false }),
+          posDB.getActiveShift(POS_INFO.id),
+          posDB.listShifts({ posId: POS_INFO.id, limit: 100 }),
+          posDB.listOrders({ onlyActive:true })
+        ]);
+        const historyOrders = Array.isArray(allOrders) ? allOrders.map((order, idx)=>({
+          ...order,
+          seq: idx + 1,
+          payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
+          lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
+        })) : [];
+        const summarySource = historyOrders;
+        let currentShift = null;
+        if(activeShiftRaw){
+          const sanitizedActive = SHIFT_TABLE.createRecord({
+            ...activeShiftRaw,
+            totalsByType: activeShiftRaw.totalsByType || {},
+            paymentsByMethod: activeShiftRaw.paymentsByMethod || {},
+            countsByType: activeShiftRaw.countsByType || {},
+            orders: Array.isArray(activeShiftRaw.orders) ? activeShiftRaw.orders : []
+          });
+          const activeSummary = summarizeShiftOrders(summarySource, sanitizedActive);
+          currentShift = {
+            ...sanitizedActive,
+            totalsByType: activeSummary.totalsByType,
+            paymentsByMethod: activeSummary.paymentsByMethod,
+            totalSales: activeSummary.totalSales,
+            orders: activeSummary.orders,
+            ordersCount: activeSummary.ordersCount,
+            countsByType: activeSummary.countsByType,
+            payments: activeSummary.payments,
+            refunds: activeSummary.refunds,
+            returns: activeSummary.returns
+          };
+        }
+        const history = Array.isArray(shiftListRaw) ? shiftListRaw
+          .filter(item=> !currentShift || item.id !== currentShift.id)
+          .map(entry=>{
+            const sanitized = SHIFT_TABLE.createRecord({
+              ...entry,
+              totalsByType: entry.totalsByType || {},
+              paymentsByMethod: entry.paymentsByMethod || {},
+              countsByType: entry.countsByType || {},
+              orders: Array.isArray(entry.orders) ? entry.orders : []
+            });
+            const summary = summarizeShiftOrders(summarySource, sanitized);
+            return {
+              ...sanitized,
+              totalsByType: summary.totalsByType,
+              paymentsByMethod: summary.paymentsByMethod,
+              totalSales: summary.totalSales,
+              orders: summary.orders,
+              ordersCount: summary.ordersCount,
+              countsByType: summary.countsByType,
+              payments: summary.payments,
+              refunds: summary.refunds,
+              returns: summary.returns
+            };
+          }) : [];
+        const activeOrders = Array.isArray(activeOrdersOnly) ? activeOrdersOnly.slice() : [];
+        const stateSource = appRef && typeof appRef.getState === 'function'
+          ? appRef.getState()
+          : posState;
+        const previousData = stateSource?.data || {};
+        const nextData = {
+          ...previousData,
+          ordersQueue: activeOrders,
+          ordersHistory: syncOrders ? historyOrders : previousData.ordersHistory,
+          shift:{
+            ...(previousData.shift || {}),
+            current: currentShift,
+            history
+          },
+          user:{
+            ...(previousData.user || {}),
+            shift: currentShift?.id || '—',
+            shiftNo: currentShift?.id || previousData.user?.shiftNo || '—'
+          },
+          order:{
+            ...(previousData.order || {}),
+            shiftId: currentShift?.id || null
+          },
+          status:{
+            ...(previousData.status || {}),
+            indexeddb:{ state:'online', lastSync: Date.now() }
+          }
+        };
+        const nextUi = {
+          ...(stateSource?.ui || {}),
+          shift:{
+            ...(stateSource?.ui?.shift || {}),
+            viewShiftId: focusCurrent && currentShift ? currentShift.id : (stateSource?.ui?.shift?.viewShiftId || currentShift?.id || null)
+          }
+        };
+        posState.data = nextData;
+        posState.ui = nextUi;
+        if(appRef && typeof appRef.setState === 'function'){
+          appRef.setState(prev=>({
+            ...prev,
+            data: nextData,
+            ui: nextUi
+          }));
+        }
+        if(appRef && typeof appRef.rebuild === 'function'){
+          appRef.rebuild();
+        }
+        return { current: currentShift, history, orders: historyOrders };
+      } catch(error){
+        console.warn('[Mishkah][POS] refreshPersistentSnapshot failed', error);
+        return null;
+      }
+    }
 
     function getOrderTypeConfig(type){
       return ORDER_TYPES.find(o=> o.id === type) || ORDER_TYPES[0];
@@ -1765,6 +2204,7 @@
           UI.Badge({ text:`${orderType.icon} ${localize(orderType.label, db.env.lang)}`, variant:'badge/ghost', attrs:{ class: tw`text-sm` } })
         ],
         right:[
+          UI.Button({ attrs:{ gkey:'pos:settings:open', title:t.ui.settings_center }, variant:'ghost', size:'sm' }, ['⚙️']),
           ShiftControls(db),
           ThemeSwitch(db),
           LangSwitch(db),
@@ -2395,7 +2835,8 @@
 
       return UI.Modal({
         open:true,
-        size:'full',
+        size: db.ui?.modalSizes?.tables || 'full',
+        sizeKey:'tables',
         title:t.ui.tables,
         description: view === 'assign' ? t.ui.table_manage_hint : t.ui.tables_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -2631,7 +3072,8 @@
 
       return UI.Modal({
         open:true,
-        size:'xl',
+        size: db.ui?.modalSizes?.print || 'xl',
+        sizeKey:'print',
         title: t.ui.print,
         description: t.ui.print_profile,
         content: modalContent,
@@ -2752,7 +3194,8 @@
 
       return UI.Modal({
         open:true,
-        size:'full',
+        size: db.ui?.modalSizes?.reservations || 'full',
+        sizeKey:'reservations',
         title:t.ui.reservations,
         description:t.ui.reservations_manage,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -2911,7 +3354,8 @@
 
       return UI.Modal({
         open:true,
-        size:'xl',
+        size: db.ui?.modalSizes?.orders || 'full',
+        sizeKey:'orders',
         title:t.ui.orders_queue,
         description:t.ui.orders_queue_hint,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
@@ -3185,12 +3629,115 @@
           ])]);
       return UI.Modal({
         open:true,
-        size:'full',
+        size: db.ui?.modalSizes?.customers || 'full',
+        sizeKey:'customers',
         closeGkey:'pos:customer:close',
         title:t.ui.customer_center,
         description: mode === 'search' ? t.ui.customer_use_existing || t.ui.customer_search : t.ui.customer_new,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [tabs, bodyContent]),
         actions:[UI.Button({ attrs:{ gkey:'pos:customer:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])]
+      });
+    }
+
+    function SettingsDrawer(db){
+      const t = getTexts(db);
+      const uiSettings = db.ui.settings || {};
+      if(!uiSettings.open) return null;
+      const activeTheme = uiSettings.activeTheme || db.env.theme || 'dark';
+      const themePrefs = db.data.themePrefs || {};
+      const currentPrefs = themePrefs[activeTheme] || {};
+      const colorPrefs = currentPrefs.colors || {};
+      const fontPrefs = currentPrefs.fonts || {};
+      const paletteDefaults = (BASE_PALETTE && BASE_PALETTE[activeTheme]) || {};
+
+      const colorFields = [
+        { key:'--background', label:t.ui.settings_color_background, fallback: paletteDefaults.background },
+        { key:'--foreground', label:t.ui.settings_color_foreground, fallback: paletteDefaults.foreground },
+        { key:'--primary', label:t.ui.settings_color_primary, fallback: paletteDefaults.primary },
+        { key:'--accent', label:t.ui.settings_color_accent, fallback: paletteDefaults.accent },
+        { key:'--muted', label:t.ui.settings_color_muted, fallback: paletteDefaults.muted }
+      ];
+
+      const themeTabs = UI.Segmented({
+        items:[
+          { id:'light', label:`☀️ ${t.ui.settings_light}`, attrs:{ gkey:'pos:settings:theme', 'data-theme':'light' } },
+          { id:'dark', label:`🌙 ${t.ui.settings_dark}`, attrs:{ gkey:'pos:settings:theme', 'data-theme':'dark' } }
+        ],
+        activeId: activeTheme
+      });
+
+      const normalizeColor = (value, fallback)=>{
+        const source = value || fallback || '#000000';
+        if(!source) return '#000000';
+        const trimmed = String(source).trim();
+        if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return trimmed.length === 4
+          ? '#' + trimmed.slice(1).split('').map(ch=> ch+ch).join('')
+          : trimmed;
+        const nums = trimmed.match(/[-]?[\d\.]+/g);
+        if(!nums || nums.length < 3) return '#000000';
+        if(trimmed.startsWith('rgb')){
+          const [r,g,b] = nums.map(n=> Math.max(0, Math.min(255, Math.round(Number(n)))));
+          return '#' + [r,g,b].map(v=> v.toString(16).padStart(2,'0')).join('');
+        }
+        if(trimmed.startsWith('hsl')){
+          const [hRaw,sRaw,lRaw] = nums.map(Number);
+          const h = ((hRaw % 360) + 360) % 360;
+          const s = (sRaw > 1 ? sRaw / 100 : sRaw);
+          const l = (lRaw > 1 ? lRaw / 100 : lRaw);
+          const c = (1 - Math.abs(2 * l - 1)) * s;
+          const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+          const m = l - c / 2;
+          let r=0, g=0, b=0;
+          if (h < 60) { r = c; g = x; b = 0; }
+          else if (h < 120) { r = x; g = c; b = 0; }
+          else if (h < 180) { r = 0; g = c; b = x; }
+          else if (h < 240) { r = 0; g = x; b = c; }
+          else if (h < 300) { r = x; g = 0; b = c; }
+          else { r = c; g = 0; b = x; }
+          const toHex = v => Math.round((v + m) * 255).toString(16).padStart(2,'0');
+          return '#' + toHex(r) + toHex(g) + toHex(b);
+        }
+        return '#000000';
+      };
+
+      const colorControls = D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, colorFields.map(field=>{
+        const value = normalizeColor(colorPrefs[field.key], field.fallback);
+        return UI.Field({
+          label: field.label,
+          control: UI.Input({ attrs:{ type:'color', value, gkey:'pos:settings:color', 'data-css-var':field.key } })
+        });
+      }));
+
+      const fontSizeValue = fontPrefs.base || '16px';
+      const fontControl = UI.Field({
+        label: t.ui.settings_font_base,
+        control: UI.Input({ attrs:{ type:'number', min:'12', max:'24', step:'0.5', value: String(parseFloat(fontSizeValue) || 16), gkey:'pos:settings:font' } })
+      });
+
+      const resetButton = UI.Button({
+        attrs:{ gkey:'pos:settings:reset', class: tw`w-full` },
+        variant:'ghost',
+        size:'sm'
+      }, [`↺ ${t.ui.settings_reset}`]);
+
+      return UI.Drawer({
+        open:true,
+        side:'end',
+        header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between` }}, [
+          D.Text.Strong({}, [t.ui.settings_center]),
+          UI.Button({ attrs:{ gkey:'pos:settings:close' }, variant:'ghost', size:'sm' }, ['✕'])
+        ]),
+        content: D.Containers.Div({ attrs:{ class: tw`flex h-full flex-col gap-4` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm ${token('muted')}` }}, [t.ui.settings_theme]),
+          themeTabs,
+          UI.Divider(),
+          D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [t.ui.settings_colors]),
+          colorControls,
+          UI.Divider(),
+          D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [t.ui.settings_fonts]),
+          fontControl,
+          resetButton
+        ])
       });
     }
 
@@ -3203,7 +3750,8 @@
       const pinPlaceholder = '•'.repeat(Math.max(pinLength || 0, 4));
       return UI.Modal({
         open:true,
-        size:'sm',
+        size: db.ui?.modalSizes?.['shift-pin'] || 'sm',
+        sizeKey:'shift-pin',
         closeGkey:'pos:shift:pin:cancel',
         title:t.ui.shift_open,
         description:t.ui.shift_open_prompt,
@@ -3249,7 +3797,8 @@
       if(!shift){
         return UI.Modal({
           open:true,
-          size:'md',
+          size: db.ui?.modalSizes?.['shift-summary'] || 'md',
+          sizeKey:'shift-summary',
           title:t.ui.shift_summary,
           description:t.ui.shift_history_empty,
           actions:[UI.Button({ attrs:{ gkey:'pos:shift:summary:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])]
@@ -3354,26 +3903,93 @@
       const metaRow = UI.Card({
         variant:'card/soft-2',
         content: D.Containers.Div({ attrs:{ class: tw`space-y-2 text-xs ${token('muted')}` }}, [
+          D.Text.Span({}, [`POS: ${shift.posLabel || POS_INFO.label}`]),
+          D.Text.Span({}, [`POS ID: ${shift.posId || POS_INFO.id}`]),
           D.Text.Span({}, [`${t.ui.shift}: ${shift.id}`]),
           D.Text.Span({}, [`${t.ui.cashier}: ${shift.cashierName || '—'}`]),
           D.Text.Span({}, [`${t.ui.shift_orders_count}: ${ordersCount}`]),
           D.Text.Span({}, [`${openedLabel} → ${closedLabel}`])
         ])
       });
-      const content = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+      const summaryContent = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
         chipsSection,
         totalsCard,
         paymentsCard,
         cashCard,
         metaRow
       ].filter(Boolean));
+      const ordersTable = report.orders?.length
+        ? UI.Table({
+            columns:[
+              { key:'id', label:t.ui.order_id },
+              { key:'type', label:t.ui.orders_type },
+              { key:'total', label:t.ui.orders_total },
+              { key:'savedAt', label:t.ui.orders_updated }
+            ],
+            rows: report.orders.map(entry=>({
+              id: entry.id,
+              type: localize(getOrderTypeConfig(entry.type || 'dine_in').label, lang),
+              total: new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(entry.total || 0),
+              savedAt: formatDateTime(entry.savedAt, lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+            }))
+          })
+        : UI.EmptyState({ icon:'🧾', title:t.ui.orders_no_results, description:t.ui.orders_queue_hint });
+      const paymentsTable = report.payments?.length
+        ? UI.Table({
+            columns:[
+              { key:'orderId', label:t.ui.order_id },
+              { key:'method', label:t.ui.payments },
+              { key:'amount', label:t.ui.amount },
+              { key:'capturedAt', label:t.ui.orders_updated }
+            ],
+            rows: report.payments.map(entry=>({
+              orderId: entry.orderId,
+              method: entry.method,
+              amount: new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(entry.amount || 0),
+              capturedAt: formatDateTime(entry.capturedAt, lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+            }))
+          })
+        : UI.EmptyState({ icon:'💳', title:t.ui.payments, description:t.ui.orders_no_results });
+      const refundsContent = report.refunds?.length
+        ? UI.List({ children: report.refunds.map(ref=> UI.ListItem({
+              leading:'↩️',
+              content:[
+                D.Text.Strong({}, [ref.id || '—']),
+                D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.order_id}: ${ref.orderId || '—'}`])
+              ],
+              trailing: D.Text.Span({}, [new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(ref.amount || 0)])
+            })) })
+        : UI.EmptyState({ icon:'↩️', title:t.ui.refunds, description:t.ui.orders_no_results });
+      const returnsContent = report.returns?.length
+        ? UI.List({ children: report.returns.map(ret=> UI.ListItem({
+              leading:'🛒',
+              content:[
+                D.Text.Strong({}, [ret.id || '—']),
+                D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [`${t.ui.order_id}: ${ret.orderId || '—'}`])
+              ],
+              trailing: D.Text.Span({}, [new Intl.NumberFormat(getLocale(db), { style:'currency', currency:getCurrency(db) }).format(ret.amount || 0)])
+            })) })
+        : UI.EmptyState({ icon:'🛒', title:t.ui.returns, description:t.ui.orders_no_results });
+      const tabs = UI.Tabs({
+        gkey:'pos:shift:tab',
+        items:[
+          { id:'summary', label:t.ui.shift_summary, content: summaryContent },
+          { id:'orders', label:t.ui.orders, content: ordersTable },
+          { id:'payments', label:t.ui.payments, content: paymentsTable },
+          { id:'refunds', label:t.ui.refunds, content: refundsContent },
+          { id:'returns', label:t.ui.returns, content: returnsContent }
+        ],
+        activeId: shiftUI.activeTab || 'summary'
+      });
+      const content = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [tabs]);
       const actions = [
         viewingCurrent ? UI.Button({ attrs:{ gkey:'pos:shift:close', class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.shift_close_confirm]) : null,
         UI.Button({ attrs:{ gkey:'pos:shift:summary:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
       ].filter(Boolean);
       return UI.Modal({
         open:true,
-        size:'full',
+        size: db.ui?.modalSizes?.['shift-summary'] || 'full',
+        sizeKey:'shift-summary',
         closeGkey:'pos:shift:summary:close',
         title:t.ui.shift_summary,
         description:viewingCurrent ? t.ui.shift_current : t.ui.shift_history,
@@ -3393,6 +4009,7 @@
           FooterBar(db)
         ]),
         overlays:[
+          SettingsDrawer(db),
           CustomersModal(db),
           ShiftPinDialog(db),
           ShiftSummaryModal(db),
@@ -3408,6 +4025,35 @@
     });
 
     const app = M.app.createApp(posState, {});
+    appRef = app;
+    const POS_DEV_TOOLS = {
+      async resetIndexedDB(){
+        if(!posDB.available || typeof posDB.resetAll !== 'function'){
+          console.info('[Mishkah][POS] IndexedDB is not available in this environment.');
+          return false;
+        }
+        await posDB.resetAll();
+        invoiceSequence = 0;
+        await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
+        console.info('[Mishkah][POS] Local IndexedDB cleared.');
+        return true;
+      },
+      async refresh(){
+        return refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+      },
+      schema:{
+        registry: SHIFT_SCHEMA_REGISTRY,
+        toJSON(){ return SHIFT_SCHEMA_REGISTRY.toJSON(); },
+        generateSQL(options){ return SHIFT_SCHEMA_REGISTRY.generateSQL(options || {}); }
+      }
+    };
+    Object.defineProperty(window, '__MishkahPOSDev__', {
+      value: POS_DEV_TOOLS,
+      configurable:true,
+      enumerable:false,
+      writable:false
+    });
+    console.info('%c[Mishkah POS] Developer helpers ready → use __MishkahPOSDev__.resetIndexedDB() to wipe local data.', 'color:#fbbf24;font-weight:bold;');
     const auto = U.twcss.auto(posState, app, { pageScaffold:true });
 
     function closeActiveModals(ctx){
@@ -3437,6 +4083,144 @@
           e.preventDefault();
           e.stopPropagation();
           closeActiveModals(ctx);
+        }
+      },
+      'ui.modal.size':{
+        on:['click'],
+        gkeys:['ui:modal:size'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-modal-size-key]');
+          if(!btn) return;
+          const key = btn.getAttribute('data-modal-size-key');
+          const value = btn.getAttribute('data-modal-size');
+          if(!key || !value) return;
+          ctx.setState(s=>{
+            const current = s.ui?.modalSizes || {};
+            const next = { ...current, [key]: value };
+            if(preferencesStore){
+              try { preferencesStore.set('modalSizes', next); } catch(err){ console.warn('[Mishkah][POS] modal size persist failed', err); }
+            }
+            return {
+              ...s,
+              ui:{ ...(s.ui || {}), modalSizes: next }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.shift.tab':{
+        on:['click'],
+        gkeys:['pos:shift:tab'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-tab-id]');
+          if(!btn) return;
+          const tabId = btn.getAttribute('data-tab-id');
+          if(!tabId) return;
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), activeTab: tabId } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.open':{
+        on:['click'],
+        gkeys:['pos:settings:open'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), open:true, activeTheme:(s.ui?.settings?.activeTheme || s.env?.theme || 'dark') } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.close':{
+        on:['click'],
+        gkeys:['pos:settings:close','ui:drawer:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), open:false } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.theme':{
+        on:['click'],
+        gkeys:['pos:settings:theme'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-theme]');
+          if(!btn) return;
+          const theme = btn.getAttribute('data-theme');
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), activeTheme: theme || 'light', open:true } }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.color':{
+        on:['input','change'],
+        gkeys:['pos:settings:color'],
+        handler:(e,ctx)=>{
+          const input = e.target;
+          const cssVar = input.getAttribute('data-css-var');
+          const value = input.value;
+          if(!cssVar) return;
+          const state = ctx.getState();
+          const themeKey = state.ui?.settings?.activeTheme || state.env?.theme || 'dark';
+          ctx.setState(s=>{
+            const prefs = { ...(s.data.themePrefs || {}) };
+            const entry = { colors:{ ...(prefs[themeKey]?.colors || {}) }, fonts:{ ...(prefs[themeKey]?.fonts || {}) } };
+            entry.colors[cssVar] = value;
+            prefs[themeKey] = entry;
+            if(preferencesStore){
+              try { preferencesStore.set('themePrefs', prefs); } catch(err){ console.warn('[Mishkah][POS] theme prefs persist failed', err); }
+            }
+            return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
+          });
+          applyThemePreferenceStyles(ctx.getState().data.themePrefs);
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.font':{
+        on:['input','change'],
+        gkeys:['pos:settings:font'],
+        handler:(e,ctx)=>{
+          const value = parseFloat(e.target.value);
+          if(!Number.isFinite(value)) return;
+          const state = ctx.getState();
+          const themeKey = state.ui?.settings?.activeTheme || state.env?.theme || 'dark';
+          ctx.setState(s=>{
+            const prefs = { ...(s.data.themePrefs || {}) };
+            const entry = { colors:{ ...(prefs[themeKey]?.colors || {}) }, fonts:{ ...(prefs[themeKey]?.fonts || {}) } };
+            entry.fonts.base = `${value}px`;
+            prefs[themeKey] = entry;
+            if(preferencesStore){
+              try { preferencesStore.set('themePrefs', prefs); } catch(err){ console.warn('[Mishkah][POS] theme prefs persist failed', err); }
+            }
+            return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
+          });
+          applyThemePreferenceStyles(ctx.getState().data.themePrefs);
+          ctx.rebuild();
+        }
+      },
+      'pos.settings.reset':{
+        on:['click'],
+        gkeys:['pos:settings:reset'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const themeKey = state.ui?.settings?.activeTheme || state.env?.theme || 'dark';
+          ctx.setState(s=>{
+            const prefs = { ...(s.data.themePrefs || {}) };
+            delete prefs[themeKey];
+            if(preferencesStore){
+              try { preferencesStore.set('themePrefs', prefs); } catch(err){ console.warn('[Mishkah][POS] theme prefs persist failed', err); }
+            }
+            return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
+          });
+          applyThemePreferenceStyles(ctx.getState().data.themePrefs);
+          ctx.rebuild();
         }
       },
       'ui.modal.escape':{
@@ -3732,9 +4516,10 @@
       'pos.order.new':{
         on:['click'],
         gkeys:['pos:order:new'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
+          const newId = await generateOrderId();
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
@@ -3747,7 +4532,7 @@
                 ...data,
                 order:{
                   ...order,
-                  id: generateOrderId(),
+                  id: newId,
                   status:'open',
                   fulfillmentStage:'new',
                   paymentState:'unpaid',
@@ -3762,6 +4547,9 @@
                   lockLineEdits:false,
                   isPersisted:false,
                   shiftId: data.shift?.current?.id || null,
+                  posId: data.pos?.id || POS_INFO.id,
+                  posLabel: data.pos?.label || POS_INFO.label,
+                  posNumber: Number.isFinite(Number(data.pos?.number)) ? Number(data.pos.number) : POS_INFO.number,
                   payments:[],
                   customerId:null,
                   customerAddressId:null,
@@ -3957,6 +4745,9 @@
             totals,
             payments: effectivePayments,
             shiftId: currentShift.id,
+            posId: order.posId || POS_INFO.id,
+            posLabel: order.posLabel || POS_INFO.label,
+            posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
             isPersisted:true
           };
           try{
@@ -4014,6 +4805,7 @@
               };
             });
             ctx.rebuild();
+            await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
             UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
@@ -4073,7 +4865,7 @@
       'pos.shift.pin.confirm':{
         on:['click'],
         gkeys:['pos:shift:pin:confirm'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
           const config = state.data.shift?.config || {};
@@ -4096,23 +4888,49 @@
             acc[method.id] = 0;
             return acc;
           }, {});
-          const newShiftId = `SHIFT-${now.toString(36).toUpperCase()}`;
-          const newShift = {
-            id:newShiftId,
-            openedAt: now,
-            openingFloat: round(openingFloat),
-            totalsByType: totalsTemplate,
-            paymentsByMethod: paymentsTemplate,
-            totalSales:0,
-            orders:[],
-            countsByType:{},
-            ordersCount:0,
-            cashierId: matchedEmployee.id,
-            cashierName: matchedEmployee.name,
-            cashierRole: matchedEmployee.role,
-            status:'open',
-            closingCash:null
-          };
+          let persistedShift = null;
+          try{
+            const baseShiftInput = {
+              id: `${POS_INFO.id}-S${now.toString(36).toUpperCase()}`,
+              posId: POS_INFO.id,
+              posLabel: POS_INFO.label,
+              posNumber: POS_INFO.number,
+              openedAt: now,
+              openingFloat: round(openingFloat),
+              totalsByType: totalsTemplate,
+              paymentsByMethod: paymentsTemplate,
+              totalSales:0,
+              orders:[],
+              countsByType:{},
+              ordersCount:0,
+              cashierId: matchedEmployee.id,
+              cashierName: matchedEmployee.name,
+              employeeId: matchedEmployee.id,
+              cashierRole: matchedEmployee.role,
+              status:'open',
+              closingCash:null,
+              isClosed:false
+            };
+            const validatedShift = SHIFT_TABLE.createRecord(baseShiftInput);
+            persistedShift = posDB.available
+              ? await posDB.openShiftRecord(validatedShift)
+              : validatedShift;
+          } catch(error){
+            console.warn('[Mishkah][POS] shift open failed', error);
+            UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
+            return;
+          }
+          if(!persistedShift){
+            UI.pushToast(ctx, { title:t.toast.shift_pin_invalid, icon:'⚠️' });
+            return;
+          }
+          const normalizedShift = SHIFT_TABLE.createRecord({
+            ...persistedShift,
+            totalsByType: persistedShift.totalsByType || {},
+            paymentsByMethod: persistedShift.paymentsByMethod || {},
+            countsByType: persistedShift.countsByType || {},
+            orders: Array.isArray(persistedShift.orders) ? persistedShift.orders : []
+          });
           ctx.setState(s=>({
             ...s,
             data:{
@@ -4123,14 +4941,15 @@
                 name: matchedEmployee.name,
                 role: matchedEmployee.role,
                 allowedDiscountRate: matchedEmployee.allowedDiscountRate ?? s.data.user?.allowedDiscountRate,
-                shift:newShift.id
+                shift:normalizedShift.id
               },
-              order:{ ...(s.data.order || {}), shiftId:newShift.id },
-              shift:{ ...(s.data.shift || {}), current:newShift }
+              order:{ ...(s.data.order || {}), shiftId:normalizedShift.id },
+              shift:{ ...(s.data.shift || {}), current:normalizedShift }
             },
-            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:newShift.id } }
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:normalizedShift.id } }
           }));
           ctx.rebuild();
+          await refreshPersistentSnapshot({ focusCurrent:true });
           UI.pushToast(ctx, { title:t.toast.shift_open_success, icon:'✅' });
         }
       },
@@ -4148,14 +4967,15 @@
       'pos.shift.summary':{
         on:['click'],
         gkeys:['pos:shift:summary'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
+          await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
           const state = ctx.getState();
           const current = state.data.shift?.current;
           const history = state.data.shift?.history || [];
           const defaultId = current?.id || (history.length ? history[history.length-1].id : null);
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId: s.ui?.shift?.viewShiftId || defaultId } }
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId: s.ui?.shift?.viewShiftId || defaultId, activeTab:'summary' } }
           }));
           ctx.rebuild();
         }
@@ -4188,7 +5008,7 @@
       'pos.shift.close':{
         on:['click'],
         gkeys:['pos:shift:close'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
           const currentShift = state.data.shift?.current;
@@ -4200,11 +5020,18 @@
             ctx.rebuild();
             return;
           }
-          const summary = summarizeShiftOrders(state.data.ordersHistory, currentShift);
-          const paymentsByMethod = summary.paymentsByMethod || {};
-          const closingCash = currentShift.closingCash != null ? round(currentShift.closingCash) : round((currentShift.openingFloat || 0) + (paymentsByMethod.cash || 0));
-          const closedShift = {
+          const sanitizedCurrent = SHIFT_TABLE.createRecord({
             ...currentShift,
+            totalsByType: currentShift.totalsByType || {},
+            paymentsByMethod: currentShift.paymentsByMethod || {},
+            countsByType: currentShift.countsByType || {},
+            orders: Array.isArray(currentShift.orders) ? currentShift.orders : []
+          });
+          const summary = summarizeShiftOrders(state.data.ordersHistory, sanitizedCurrent);
+          const paymentsByMethod = summary.paymentsByMethod || {};
+          const closingCash = currentShift.closingCash != null ? round(currentShift.closingCash) : round((sanitizedCurrent.openingFloat || 0) + (paymentsByMethod.cash || 0));
+          const baseClosed = {
+            ...sanitizedCurrent,
             totalsByType: summary.totalsByType,
             paymentsByMethod,
             orders: summary.orders,
@@ -4213,8 +5040,26 @@
             totalSales: summary.totalSales,
             closingCash,
             closedAt: Date.now(),
-            status:'closed'
+            status:'closed',
+            isClosed:true
           };
+          let closedShift = baseClosed;
+          if(posDB.available){
+            try{
+              closedShift = await posDB.closeShiftRecord(currentShift.id, baseClosed);
+            } catch(error){
+              console.warn('[Mishkah][POS] shift close failed', error);
+              UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
+              return;
+            }
+          }
+          const normalizedClosed = SHIFT_TABLE.createRecord({
+            ...closedShift,
+            totalsByType: closedShift.totalsByType || summary.totalsByType,
+            paymentsByMethod: closedShift.paymentsByMethod || paymentsByMethod,
+            countsByType: closedShift.countsByType || summary.countsByType,
+            orders: Array.isArray(closedShift.orders) ? closedShift.orders : summary.orders
+          });
           ctx.setState(s=>({
             ...s,
             data:{
@@ -4224,12 +5069,13 @@
               shift:{
                 ...(s.data.shift || {}),
                 current:null,
-                history:[ ...(s.data.shift?.history || []), closedShift ]
+                history:[ ...(s.data.shift?.history || []), normalizedClosed ]
               }
             },
-            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:closedShift.id } }
+            ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:normalizedClosed.id } }
           }));
           ctx.rebuild();
+          await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
           UI.pushToast(ctx, { title:t.toast.shift_close_success, icon:'✅' });
         }
       },
@@ -4904,7 +5750,20 @@
             ctx.rebuild();
             return;
           }
-          let target = history.find(entry=> String(entry.id).toLowerCase() === value.toLowerCase());
+          const normalized = value.toLowerCase();
+          let target = history.find(entry=> String(entry.id).toLowerCase() === normalized);
+          if(!target && value.includes('-')){
+            const lastSegment = value.split('-').pop();
+            const numericPart = parseInt(lastSegment, 10);
+            if(!Number.isNaN(numericPart)){
+              target = history.find(entry=>{
+                const parts = String(entry.id).split('-');
+                const entrySegment = parts[parts.length-1];
+                const entryNumber = parseInt(entrySegment, 10);
+                return entryNumber === numericPart;
+              });
+            }
+          }
           if(!target){
             const seq = parseInt(value, 10);
             if(!Number.isNaN(seq)){
@@ -5417,7 +6276,7 @@
       'pos.reservations.convert':{
         on:['click'],
         gkeys:['pos:reservations:convert'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const btn = e.target.closest('[data-reservation-id]');
           if(!btn) return;
           const resId = btn.getAttribute('data-reservation-id');
@@ -5427,8 +6286,9 @@
           if(!reservation) return;
           const totals = calculateTotals([], state.data.settings || {}, 'dine_in');
           const dineInConfig = getOrderTypeConfig('dine_in');
+          const newId = await generateOrderId();
           const newOrder = {
-            id: generateOrderId(),
+            id: newId,
             status:'open',
             fulfillmentStage:'new',
             paymentState:'unpaid',
@@ -5442,7 +6302,11 @@
             updatedAt: Date.now(),
             allowAdditions: !!dineInConfig.allowsLineAdditions,
             lockLineEdits:false,
-            isPersisted:false
+            isPersisted:false,
+            shiftId: state.data.shift?.current?.id || null,
+            posId: state.data.pos?.id || POS_INFO.id,
+            posLabel: state.data.pos?.label || POS_INFO.label,
+            posNumber: Number.isFinite(Number(state.data.pos?.number)) ? Number(state.data.pos.number) : POS_INFO.number
           };
           ctx.setState(s=>({
             ...s,
@@ -6203,7 +7067,8 @@
           const theme = btn.getAttribute('data-theme');
           ctx.setState(s=>({
             ...s,
-            env:{ ...(s.env || {}), theme }
+            env:{ ...(s.env || {}), theme },
+            ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), activeTheme: theme } }
           }));
           ctx.rebuild();
           const t = getTexts(ctx.getState());
@@ -6238,6 +7103,9 @@
 
     app.setOrders(Object.assign({}, UI.orders, auto.orders, posOrders));
     app.mount('#app');
+    if(posDB.available){
+      await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+    }
   })();
   </script>
 </body>
