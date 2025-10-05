@@ -143,6 +143,43 @@ UI.Divider = ()=> h.Containers.Div({ attrs:{ class: tw`${token('divider')}` }});
 UI.Button = ({ attrs={}, variant='soft', size='md' }, children)=>
   h.Forms.Button({ attrs: withClass(attrs, cx(token('btn'), token(`btn/${variant}`), token(`btn/${size}`))) }, children||[]);
 
+UI.Switcher = ({ attrs={}, value, options=[] })=>{
+  const rootAttrs = Object.assign({}, attrs);
+  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} ui-switcher` : 'ui-switcher';
+  const items = (options || []).map((opt, idx)=>{
+    if (!opt) return null;
+    const active = opt.value === value;
+    const optAttrs = Object.assign({ key: opt.key || `switch-opt-${idx}` }, opt.attrs || {});
+    if (opt.gkey) optAttrs.gkey = opt.gkey;
+    if (opt.value != null) optAttrs['data-value'] = opt.value;
+    if (opt.title) optAttrs.title = opt.title;
+    const baseClass = optAttrs.class ? String(optAttrs.class) : '';
+    optAttrs.class = `${baseClass} ${active ? 'active' : ''}`.trim();
+    optAttrs.type = optAttrs.type || 'button';
+    return h.Forms.Button({ attrs: optAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
+  }).filter(Boolean);
+  return h.Containers.Div({ attrs: rootAttrs }, items);
+};
+
+UI.SegmentedSwitch = ({ attrs={}, value, options=[] })=>{
+  const rootAttrs = Object.assign({}, attrs);
+  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} segmented-switch` : 'segmented-switch';
+  const buttons = (options || []).map((opt, idx)=>{
+    if (!opt) return null;
+    const active = opt.value === value;
+    const btnAttrs = Object.assign({ type:'button', key: opt.key || `segment-${idx}` }, opt.attrs || {});
+    if (!('type' in btnAttrs)) btnAttrs.type = 'button';
+    if (opt.gkey && !('gkey' in btnAttrs)) btnAttrs.gkey = opt.gkey;
+    if (opt.value != null) btnAttrs['data-value'] = opt.value;
+    if (opt.title && !('title' in btnAttrs)) btnAttrs.title = opt.title;
+    btnAttrs['aria-pressed'] = active ? 'true' : 'false';
+    const baseClass = btnAttrs.class ? `${btnAttrs.class} ` : '';
+    btnAttrs.class = `${baseClass}segmented-switch__option${active ? ' is-active' : ''}`;
+    return h.Forms.Button({ attrs: btnAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
+  }).filter(Boolean);
+  return h.Containers.Div({ attrs: rootAttrs }, buttons);
+};
+
 UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
   const root = token(variant)||token('card');
   return h.Containers.Section({ attrs: withClass(attrs, root) }, [
@@ -186,7 +223,7 @@ UI.SweetNotice = ({
 })=>{
   const toneMeta = SWEET_TONES[tone] || SWEET_TONES.info;
   const rootAttrs = withClass(attrs, cx(
-    'relative overflow-hidden rounded-[var(--radius)] border px-6 py-8 text-center space-y-4 glass-panel',
+    'relative overflow-hidden rounded-[var(--radius)] border px-6 py-8 text-center space-y-4 glass-panel sweet-notice-card',
     toneMeta.ring
   ));
   const style = attrs && attrs.style ? String(attrs.style) + ';' : '';
@@ -201,7 +238,7 @@ UI.SweetNotice = ({
   const body = h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-col items-center gap-3` }}, [
     icon ? h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]) : null,
     title ? h.Text.H3({ attrs:{ class: tw`text-2xl font-bold tracking-tight` }}, [title]) : null,
-    message ? h.Text.P({ attrs:{ class: tw`text-sm leading-relaxed text-[var(--muted-foreground)]` }}, [message]) : null,
+    message ? h.Text.P({ attrs:{ class:'game-info-text text-center' }}, [message]) : null,
     hint ? h.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [hint]) : null
   ].filter(Boolean));
 
@@ -213,7 +250,8 @@ UI.SweetNotice = ({
     ? h.Text.P({ attrs:{ class: tw`relative z-10 text-xs text-[var(--muted-foreground)]` }}, [footer])
     : null;
 
-  return h.Containers.Section({ attrs: rootAttrs }, [...layers, body, actionRow, footnote].filter(Boolean));
+  const card = h.Containers.Section({ attrs: rootAttrs }, [...layers, body, actionRow, footnote].filter(Boolean));
+  return h.Containers.Div({ attrs:{ class:'sweet-notice-overlay' }}, [card]);
 };
 
 UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });

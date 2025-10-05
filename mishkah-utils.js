@@ -47,6 +47,49 @@
   U.Num = { clamp, between, round, randomInt };
 
   // ---------------------------------------------------------------------------
+  // Color — تحويلات ألوان بسيطة
+  // ---------------------------------------------------------------------------
+  let colorCanvas = null;
+  let colorCtx = null;
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function'){
+    colorCanvas = document.createElement('canvas');
+    colorCanvas.width = colorCanvas.height = 1;
+    colorCtx = colorCanvas.getContext && colorCanvas.getContext('2d');
+  }
+  const clampByte = (v) => Math.max(0, Math.min(255, v|0));
+  const byteToHex = (v) => clampByte(v).toString(16).padStart(2, '0');
+  const toHex = (value) => {
+    if (value == null) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(str)) return str;
+    if (!colorCtx) return null;
+    try {
+      colorCtx.fillStyle = '#000000';
+      colorCtx.fillStyle = str;
+      const normalized = colorCtx.fillStyle;
+      if (/^#[0-9a-f]{6}$/i.test(normalized) || /^#[0-9a-f]{8}$/i.test(normalized)) return normalized;
+      const match = normalized.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([0-9.]+))?\)$/);
+      if (match){
+        const r = clampByte(parseInt(match[1], 10));
+        const g = clampByte(parseInt(match[2], 10));
+        const b = clampByte(parseInt(match[3], 10));
+        if (match[4] != null){
+          const alpha = Math.max(0, Math.min(1, parseFloat(match[4])));
+          const a = Math.round(alpha * 255);
+          return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}${a < 255 ? byteToHex(a) : ''}`;
+        }
+        return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}`;
+      }
+      return normalized;
+    } catch (_err){
+      return null;
+    }
+  };
+
+  U.Color = { toHex };
+
+  // ---------------------------------------------------------------------------
   // Time — وقت وتأخير
   // ---------------------------------------------------------------------------
   const now = () => Date.now();
@@ -487,6 +530,38 @@
   const download = (data, filename='file.txt', mime='application/octet-stream') => { const blob = data instanceof Blob ? data : new Blob([data], { type:mime }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); };
 
   U.IO = { copyText, download };
+
+  // ---------------------------------------------------------------------------
+  // DOM — مساعدات تركيز ولمسات بصرية
+  // ---------------------------------------------------------------------------
+  const focusById = (id, { scroll=true }={}) => {
+    if (typeof document === 'undefined') return false;
+    const el = document.getElementById(id);
+    if (!el) return false;
+    try { if (typeof el.focus === 'function') el.focus({ preventScroll: !scroll }); }
+    catch (_err) { /* ignore */ }
+    if (scroll && typeof el.scrollIntoView === 'function'){
+      try { el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+      catch(_err){ /* ignore */ }
+    }
+    return true;
+  };
+
+  const flashClass = (id, className, duration=1500) => {
+    if (typeof document === 'undefined') return false;
+    const el = document.getElementById(id);
+    if (!el || !className) return false;
+    el.classList.add(className);
+    if (duration > 0){
+      setTimeout(()=>{
+        try { el.classList.remove(className); }
+        catch(_err){ /* ignore */ }
+      }, duration);
+    }
+    return true;
+  };
+
+  U.DOM = { focusById, flashClass };
 
   // ---------------------------------------------------------------------------
   // Cache — واجهة بسيطة على Cache API (اختياري)

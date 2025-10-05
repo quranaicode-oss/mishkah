@@ -28,6 +28,23 @@
       --accent-ring: rgba(79, 70, 229, 0.18);
       --tile-size: 3.1rem;
       --user-font-scale: 100;
+      --font-size-body: 1rem;
+      --font-size-scale-xs: 0.78rem;
+      --font-size-scale-sm: 0.9rem;
+      --font-size-scale-md: 1rem;
+      --font-size-scale-lg: 1.18rem;
+      --font-size-scale-xl: 1.38rem;
+      --font-size-scale-2xl: 1.8rem;
+      --font-size-scale-3xl: 2.35rem;
+      --font-size-heading-1: 2.6rem;
+      --font-size-heading-2: 2.05rem;
+      --font-size-heading-3: 1.62rem;
+      --font-size-sidebar: 1.05rem;
+      --font-size-quote: 1.18rem;
+      --font-size-info: 1.22rem;
+      --font-size-letter: 1.35rem;
+      --font-size-status: 1.22rem;
+      --font-size-badge: 0.82rem;
     }
 
     :root.dark {
@@ -57,12 +74,295 @@
       box-sizing: border-box;
     }
 
+    .text-xs { font-size: calc(var(--font-size-scale-xs) * var(--user-font-scale) / 100) !important; }
+    .text-xxs { font-size: calc(var(--font-size-scale-xs) * 0.9 * var(--user-font-scale) / 100) !important; }
+    .text-sm { font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100) !important; }
+    .text-base { font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100) !important; }
+    .text-lg { font-size: calc(var(--font-size-scale-lg) * var(--user-font-scale) / 100) !important; }
+    .text-xl { font-size: calc(var(--font-size-scale-xl) * var(--user-font-scale) / 100) !important; }
+    .text-2xl { font-size: calc(var(--font-size-scale-2xl) * var(--user-font-scale) / 100) !important; }
+    .text-3xl { font-size: calc(var(--font-size-scale-3xl) * var(--user-font-scale) / 100) !important; }
+
+    .sidebar-nav-button {
+      font-size: calc(var(--font-size-sidebar) * var(--user-font-scale) / 100) !important;
+      font-weight: 600;
+    }
+
+    .header-status-strip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--surface-2) 75%, transparent);
+      border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+      box-shadow: 0 18px 40px -28px rgba(79, 70, 229, 0.45);
+    }
+
+    .header-status-block {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-status-label {
+      color: var(--muted-foreground);
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
+    }
+
+    .header-status-value {
+      font-size: calc(var(--font-size-status) * var(--user-font-scale) / 100);
+      font-weight: 700;
+      color: var(--foreground);
+    }
+
+    .header-status-hearts {
+      font-size: calc(var(--font-size-status) * var(--user-font-scale) / 100);
+      display: inline-flex;
+      gap: 0.25rem;
+    }
+
+    .segmented-switch {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      padding: 0.25rem;
+      gap: 0.25rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+      background: color-mix(in oklab, var(--surface-1) 85%, transparent);
+      box-shadow: 0 14px 32px -24px rgba(15, 23, 42, 0.4);
+    }
+
+    .segmented-switch__option {
+      position: relative;
+      border: none;
+      background: transparent;
+      color: var(--muted-foreground);
+      padding: 0.35rem 0.95rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: color 0.25s ease;
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
+      font-weight: 600;
+      min-width: 3.6rem;
+    }
+
+    .segmented-switch__option::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: transparent;
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: -1;
+    }
+
+    .segmented-switch__option.is-active {
+      color: var(--primary-foreground);
+    }
+
+    .segmented-switch__option.is-active::before {
+      background: var(--primary);
+      opacity: 1;
+      transform: scale(1.02);
+      box-shadow: 0 18px 38px -22px rgba(79, 70, 229, 0.55);
+    }
+
+    .segmented-switch__option:focus-visible {
+      outline: 2px solid var(--accent-ring);
+      outline-offset: 2px;
+    }
+
+    .design-lab-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .design-lab-row {
+      display: grid;
+      gap: 0.6rem;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      border-radius: 1.1rem;
+      border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+      background: color-mix(in oklab, var(--surface-2) 74%, transparent);
+      box-shadow: 0 14px 32px -26px rgba(15, 23, 42, 0.35);
+    }
+
+    .design-lab-row[data-type='color'] {
+      grid-template-columns: minmax(0, 200px) 72px minmax(0, 180px) minmax(0, 1fr) auto;
+    }
+
+    .design-lab-row[data-type='range'] {
+      grid-template-columns: minmax(0, 220px) minmax(0, 140px) minmax(0, 1fr) minmax(0, 110px) auto;
+    }
+
+    .design-lab-row[data-type='text'] {
+      grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
+    }
+
+    .design-lab-label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
+      color: var(--muted-foreground);
+    }
+
+    .design-lab-label strong {
+      color: var(--foreground);
+      font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100);
+    }
+
+    .design-lab-meta {
+      font-size: calc(var(--font-size-scale-xs) * var(--user-font-scale) / 100);
+      color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+    }
+
+    .design-lab-color-chip {
+      width: 48px;
+      height: 48px;
+      border-radius: 0.9rem;
+      border: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+    }
+
+    .design-lab-color-input {
+      width: 100%;
+      height: 2.6rem;
+      border-radius: 0.9rem;
+      border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+      background: color-mix(in oklab, var(--surface-1) 85%, transparent);
+      cursor: pointer;
+    }
+
+    .design-lab-value-input,
+    .design-lab-number-input {
+      width: 100%;
+      border-radius: 0.85rem;
+      border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+      background: color-mix(in oklab, var(--surface-1) 88%, transparent);
+      padding: 0.45rem 0.75rem;
+      color: var(--foreground);
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
+    }
+
+    .design-lab-value-input:focus,
+    .design-lab-number-input:focus {
+      outline: 2px solid var(--accent-ring);
+      outline-offset: 2px;
+    }
+
+    .design-lab-slider {
+      width: 100%;
+      accent-color: var(--primary);
+      height: 0.4rem;
+    }
+
+    .design-lab-font-preview {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      padding: 0.25rem 0.4rem;
+      border-radius: 0.75rem;
+      background: color-mix(in oklab, var(--surface-1) 80%, transparent);
+      color: var(--foreground);
+      min-height: 2.2rem;
+    }
+
+    .design-lab-reset {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.1rem;
+      height: 2.1rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .design-lab-reset:hover:not([disabled]) {
+      background: color-mix(in oklab, var(--primary) 18%, transparent);
+      color: var(--primary);
+    }
+
+    .design-lab-reset[disabled] {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .game-info-text {
+      font-size: calc(var(--font-size-info) * var(--user-font-scale) / 100);
+      color: color-mix(in oklab, var(--foreground) 96%, var(--muted-foreground) 4%);
+      line-height: 1.9;
+      font-weight: 500;
+    }
+
+    .focus-pulse {
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 65%, transparent), 0 0 0 12px rgba(79, 70, 229, 0.18);
+      animation: focusPulse 2.2s ease-in-out forwards;
+    }
+
+    .glow-outline.focus-pulse {
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent), 0 0 0 14px rgba(79, 70, 229, 0.18), var(--panel-shadow);
+    }
+
+    .solution-target {
+      scroll-margin-block-start: 18vh;
+      position: relative;
+    }
+
+    .solution-target:focus-visible {
+      outline: 3px solid color-mix(in oklab, var(--primary) 70%, transparent);
+      outline-offset: 4px;
+    }
+
+    .solution-target.glow-outline {
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 65%, transparent),
+        0 0 0 16px rgba(79, 70, 229, 0.16),
+        var(--panel-shadow);
+    }
+
+    .sweet-notice-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: grid;
+      place-items: center;
+      padding: 2rem 1.5rem;
+    }
+
+    .sweet-notice-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 12, 24, 0.55);
+      backdrop-filter: blur(10px);
+    }
+
+    .sweet-notice-overlay > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sweet-notice-card {
+      width: min(480px, 94vw);
+    }
+
     body {
       margin: 0;
       min-height: 100vh;
       height: 100vh;
       font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: calc(var(--user-font-scale) * 1%);
+      font-size: calc(var(--font-size-body) * var(--user-font-scale) / 100);
       background: var(--page-gradient);
       color: var(--foreground);
       position: relative;
@@ -159,7 +459,7 @@
     .letters-grid button {
       transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
       box-shadow: var(--letters-shadow);
-      font-size: 1.25rem;
+      font-size: calc(var(--font-size-letter) * var(--user-font-scale) / 100);
       font-weight: 700;
       border-radius: 0.9rem !important;
       height: var(--tile-size);
@@ -179,7 +479,7 @@
 
     .md-prose {
       line-height: 1.8;
-      font-size: 1rem;
+      font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100);
       color: var(--foreground);
     }
 
@@ -196,9 +496,22 @@
       margin: 1.6em 0 0.8em;
     }
 
+    .md-prose h1 {
+      font-size: calc(var(--font-size-heading-1) * var(--user-font-scale) / 100);
+    }
+
+    .md-prose h2 {
+      font-size: calc(var(--font-size-heading-2) * var(--user-font-scale) / 100);
+    }
+
+    .md-prose h3 {
+      font-size: calc(var(--font-size-heading-3) * var(--user-font-scale) / 100);
+    }
+
     .md-prose p {
       margin: 1em 0;
       color: color-mix(in oklab, var(--foreground) 88%, var(--muted-foreground) 12%);
+      font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100);
     }
 
     .md-prose ul,
@@ -223,6 +536,7 @@
       border-radius: 1.2rem;
       color: color-mix(in oklab, var(--foreground) 80%, var(--muted-foreground) 20%);
       box-shadow: 0 12px 30px -24px rgba(79, 70, 229, 0.45);
+      font-size: calc(var(--font-size-quote) * var(--user-font-scale) / 100);
     }
 
     .md-prose pre {
@@ -232,7 +546,7 @@
       background: color-mix(in oklab, var(--surface-2) 88%, transparent);
       box-shadow: 0 24px 45px -24px rgba(15, 23, 42, 0.45);
       overflow-x: auto;
-      font-size: 0.92rem;
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
       direction: ltr;
       text-align: left;
     }
@@ -242,7 +556,7 @@
       background: color-mix(in oklab, var(--surface-2) 85%, transparent);
       padding: 0.15em 0.4em;
       border-radius: 0.5em;
-      font-size: 0.92em;
+      font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
     }
 
     .md-prose pre code {
@@ -479,6 +793,13 @@
       50% { opacity: 0.6; }
     }
 
+    @keyframes focusPulse {
+      0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.0); }
+      40% { box-shadow: 0 0 0 18px rgba(79, 70, 229, 0.18); }
+      70% { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.22); }
+      100% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0.0); }
+    }
+
     @keyframes confettiFall {
       0% { opacity: 0; transform: translate3d(0, -20vh, 0) rotate(0deg); }
       10% { opacity: 1; }
@@ -527,6 +848,10 @@
     const dict = {
       'app.title'   : { ar:'مشكاة — مشكاة النور ولعبة الأمثال', en:'Mishkah — Lighthouse Docs & Proverbs Game' },
       'header.subtitle': { ar:'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال في لوحة واحدة واسعة.', en:'A radiant hub that unifies the docs, controls, and the Proverbs game in a spacious canvas.' },
+      'header.theme.light': { ar:'نهار', en:'Light' },
+      'header.theme.dark': { ar:'ليل', en:'Dark' },
+      'header.lang.ar': { ar:'العربية', en:'Arabic' },
+      'header.lang.en': { ar:'الإنجليزية', en:'English' },
       'settings.toggleLabel': { ar:'إظهار الإعدادات', en:'Show controls' },
       'settings.switch.on': { ar:'مفعّلة', en:'Visible' },
       'settings.switch.off': { ar:'مخفية', en:'Hidden' },
@@ -559,6 +884,8 @@
       'designLab.group.surfaceHint': { ar:'خصص الخلفيات والطبقات الزجاجية والحدود.', en:'Customize page backdrops, glass layers, and borders.' },
       'designLab.group.effects': { ar:'تأثيرات بصرية', en:'Visual Effects' },
       'designLab.group.effectsHint': { ar:'تحكم بالظلال والتوهجات أثناء اللعب.', en:'Control shadows and glows used across the game.' },
+      'designLab.group.typography': { ar:'منظومة الخطوط', en:'Typography System' },
+      'designLab.group.typographyHint': { ar:'خصص أحجام العناوين والنصوص الدقيقة لكل جزء.', en:'Tune heading and text sizes for every surface.' },
       'designLab.group.sizing': { ar:'أحجام العناصر', en:'Element Sizing' },
       'designLab.group.sizingHint': { ar:'ضبط أحجام البلاطات ونسبة الخط.', en:'Adjust tile sizes and the global font scale.' },
       'designLab.var.foreground': { ar:'لون النص الأساسي', en:'Primary text color' },
@@ -577,6 +904,22 @@
       'designLab.var.lettersShadow': { ar:'ظل أزرار الحروف', en:'Letter buttons shadow' },
       'designLab.var.lettersHover': { ar:'تأثير التحويم للحروف', en:'Letter hover effect' },
       'designLab.var.tileSize': { ar:'حجم البلاطات', en:'Tile size' },
+      'designLab.var.font.body': { ar:'نص الفقرات', en:'Body text size' },
+      'designLab.var.font.h1': { ar:'عنوان ١', en:'Heading 1 size' },
+      'designLab.var.font.h2': { ar:'عنوان ٢', en:'Heading 2 size' },
+      'designLab.var.font.h3': { ar:'عنوان ٣', en:'Heading 3 size' },
+      'designLab.var.font.scale3xl': { ar:'عنوان عرضي (3XL)', en:'Display heading (3XL)' },
+      'designLab.var.font.scale2xl': { ar:'عنوان بارز (2XL)', en:'Hero heading (2XL)' },
+      'designLab.var.font.scaleXl': { ar:'عنوان فرعي (XL)', en:'Sub heading (XL)' },
+      'designLab.var.font.scaleLg': { ar:'نص كبير (LG)', en:'Large text (LG)' },
+      'designLab.var.font.scaleMd': { ar:'نص أساسي (MD)', en:'Body scale (MD)' },
+      'designLab.var.font.scaleSm': { ar:'نص صغير (SM)', en:'Small text (SM)' },
+      'designLab.var.font.scaleXs': { ar:'تفاصيل دقيقة (XS)', en:'Micro text (XS)' },
+      'designLab.var.font.sidebar': { ar:'نص القائمة الجانبية', en:'Sidebar label size' },
+      'designLab.var.font.quote': { ar:'نص الاقتباس', en:'Blockquote size' },
+      'designLab.var.font.info': { ar:'نص اللوحات التوضيحية', en:'Info panel text size' },
+      'designLab.var.font.letter': { ar:'حجم حروف اللعب', en:'Letter button size' },
+      'designLab.var.font.status': { ar:'حجم شريط الحالة', en:'Status strip size' },
       'designLab.var.fontScale': { ar:'مقياس الخط العام', en:'Global font scale' },
       'nav.menu'       : { ar:'التنقل', en:'Navigation' },
       'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
@@ -634,9 +977,11 @@
       'game.timerOn'         : { ar:'المؤقت نشط', en:'Timer Enabled' },
       'game.timerOff'        : { ar:'المؤقت متوقف', en:'Timer Disabled' },
       'game.overlay.winTitle'    : { ar:'مبروك! لقد فزت 🎉', en:'Bravo! You Won 🎉' },
-      'game.overlay.winSubtitle' : { ar:'جهدك أثمر حكمة مضيئة.', en:'Your effort blossomed into shining wisdom.' },
+      'game.overlay.winSubtitle' : { ar:'رحلة النجاح تزداد جمالاً مع كل حكمة تتعلمها.', en:'Success shines brighter with every lesson you learn.' },
       'game.overlay.loseTitle'   : { ar:'انتهت المحاولات', en:'Game Over' },
-      'game.overlay.loseSubtitle': { ar:'لا تيأس، الحكمة تُكافئ من يعاود المحاولة.', en:'Do not despair—the wisdom rewards another try.' },
+      'game.overlay.loseSubtitle': { ar:'يمكنك البدء من جديد متى شئت.', en:'You can always start over when you wish.' },
+      'game.overlay.loseInsight' : { ar:'لا تحزن من خسارتك، فلأنك تعلمت حكمة جديدة.', en:'Do not be sad about losing—you just gained new wisdom.' },
+      'game.overlay.winInsight'  : { ar:'مبروك لقد أصبت! اقرأ شرح المثل وتعلم نبذة عنه.', en:'Congrats, you got it! Read the explanation and learn more about this proverb.' },
       'game.rewardTitle'     : { ar:'مكافأة الحكمة', en:'Wisdom Reward' },
       'game.tryAgain'        : { ar:'حاول مجددًا', en:'Try Again' },
       'game.playAgain'       : { ar:'العب مرة أخرى', en:'Play Again' },
@@ -1020,6 +1365,22 @@
       { name:'--letters-shadow', labelKey:'designLab.var.lettersShadow', type:'text', default:'0 18px 45px -24px rgba(15, 23, 42, 0.35)' },
       { name:'--letters-hover', labelKey:'designLab.var.lettersHover', type:'text', default:'0 25px 50px -20px rgba(99, 102, 241, 0.45)' },
       { name:'--tile-size', labelKey:'designLab.var.tileSize', type:'range', min:2.6, max:4, step:0.05, unit:'rem', default:'3.1rem' },
+      { name:'--font-size-body', labelKey:'designLab.var.font.body', type:'range', min:0.85, max:1.35, step:0.01, unit:'rem', default:'1rem' },
+      { name:'--font-size-heading-1', labelKey:'designLab.var.font.h1', type:'range', min:2.1, max:3.4, step:0.05, unit:'rem', default:'2.6rem' },
+      { name:'--font-size-heading-2', labelKey:'designLab.var.font.h2', type:'range', min:1.7, max:2.6, step:0.05, unit:'rem', default:'2.05rem' },
+      { name:'--font-size-heading-3', labelKey:'designLab.var.font.h3', type:'range', min:1.3, max:2.2, step:0.05, unit:'rem', default:'1.62rem' },
+      { name:'--font-size-scale-3xl', labelKey:'designLab.var.font.scale3xl', type:'range', min:1.7, max:3.1, step:0.05, unit:'rem', default:'2.35rem' },
+      { name:'--font-size-scale-2xl', labelKey:'designLab.var.font.scale2xl', type:'range', min:1.4, max:2.6, step:0.05, unit:'rem', default:'1.8rem' },
+      { name:'--font-size-scale-xl', labelKey:'designLab.var.font.scaleXl', type:'range', min:1.1, max:2.1, step:0.05, unit:'rem', default:'1.38rem' },
+      { name:'--font-size-scale-lg', labelKey:'designLab.var.font.scaleLg', type:'range', min:1, max:1.9, step:0.03, unit:'rem', default:'1.18rem' },
+      { name:'--font-size-scale-md', labelKey:'designLab.var.font.scaleMd', type:'range', min:0.85, max:1.6, step:0.02, unit:'rem', default:'1rem' },
+      { name:'--font-size-scale-sm', labelKey:'designLab.var.font.scaleSm', type:'range', min:0.75, max:1.4, step:0.02, unit:'rem', default:'0.9rem' },
+      { name:'--font-size-scale-xs', labelKey:'designLab.var.font.scaleXs', type:'range', min:0.6, max:1.2, step:0.02, unit:'rem', default:'0.78rem' },
+      { name:'--font-size-sidebar', labelKey:'designLab.var.font.sidebar', type:'range', min:0.9, max:1.6, step:0.02, unit:'rem', default:'1.05rem' },
+      { name:'--font-size-quote', labelKey:'designLab.var.font.quote', type:'range', min:1, max:1.8, step:0.02, unit:'rem', default:'1.18rem' },
+      { name:'--font-size-info', labelKey:'designLab.var.font.info', type:'range', min:1.05, max:1.9, step:0.02, unit:'rem', default:'1.22rem' },
+      { name:'--font-size-letter', labelKey:'designLab.var.font.letter', type:'range', min:1.1, max:1.9, step:0.02, unit:'rem', default:'1.35rem' },
+      { name:'--font-size-status', labelKey:'designLab.var.font.status', type:'range', min:1, max:1.95, step:0.02, unit:'rem', default:'1.22rem' },
       { name:'--user-font-scale', labelKey:'designLab.var.fontScale', type:'range', min:90, max:130, step:2, unit:'%', default:'100', prefKey:'fontScale' }
     ];
 
@@ -1028,7 +1389,26 @@
       { id:'core', labelKey:'designLab.group.core', hintKey:'designLab.group.coreHint', vars:['--foreground','--muted-foreground','--primary','--primary-foreground','--accent-ring'] },
       { id:'surface', labelKey:'designLab.group.surface', hintKey:'designLab.group.surfaceHint', vars:['--page-gradient','--page-overlay-1','--page-overlay-2','--panel-glass','--panel-border','--tile-bg','--tile-bg-revealed','--tile-border'] },
       { id:'effects', labelKey:'designLab.group.effects', hintKey:'designLab.group.effectsHint', vars:['--letters-shadow','--letters-hover'] },
-      { id:'sizing', labelKey:'designLab.group.sizing', hintKey:'designLab.group.sizingHint', vars:['--tile-size','--user-font-scale'] }
+      { id:'typography', labelKey:'designLab.group.typography', hintKey:'designLab.group.typographyHint', vars:[
+        '--font-size-heading-1',
+        '--font-size-heading-2',
+        '--font-size-heading-3',
+        '--font-size-scale-3xl',
+        '--font-size-scale-2xl',
+        '--font-size-scale-xl',
+        '--font-size-scale-lg',
+        '--font-size-scale-md',
+        '--font-size-scale-sm',
+        '--font-size-scale-xs',
+        '--font-size-body',
+        '--font-size-sidebar',
+        '--font-size-quote',
+        '--font-size-info',
+        '--font-size-letter',
+        '--font-size-status',
+        '--user-font-scale'
+      ] },
+      { id:'sizing', labelKey:'designLab.group.sizing', hintKey:'designLab.group.sizingHint', vars:['--tile-size'] }
     ];
 
     const THEME_BACKGROUND_MAP = Object.fromEntries(THEME_BACKGROUND_PRESETS.map((p)=>[p.id, p]));
@@ -1216,57 +1596,81 @@
       const hearts = Array.from({ length:g.triesMax }, (_,i)=>
         D.Text.Span({ attrs:{ key:`strip-heart-${i}`, class: tw`${i < g.triesLeft ? '' : 'opacity-35'}` }}, [i < g.triesLeft ? '❤️' : '💔'])
       );
-      const heartsRow = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 text-lg sm:text-xl` }}, hearts);
-      const timeStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['⏳ ', TL('game.timeLabel')]),
-        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [timeLeftValue !== null ? String(timeLeftValue) : '—']),
-        timeLeftValue !== null
-          ? D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
-          : null
-      ].filter(Boolean));
-      const triesStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['❤️ ', TL('game.tries')]),
-        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [String(g.triesLeft)]),
-        D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [`/ ${g.triesMax}`])
+      const heartsRow = D.Containers.Div({ attrs:{ class:'header-status-hearts' }}, hearts);
+      const timeBlock = D.Containers.Div({ attrs:{ class:'header-status-block', key:'status-time' }}, [
+        D.Text.Span({ attrs:{ class:'header-status-label' }}, ['⏳ ', TL('game.timeLabel')]),
+        D.Text.Span({ attrs:{ class:'header-status-value' }}, [timeLeftValue !== null ? String(timeLeftValue) : '—'])
       ]);
-      const statusStat = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-        D.Text.Span({ attrs:{ class: tw`text-sm sm:text-base text-[var(--muted-foreground)]` }}, ['🎯 ', TL('game.statusLabel')]),
-        D.Text.Strong({ attrs:{ class: tw`text-base sm:text-lg` }}, [TL(`game.status.${g.status}`)])
-      ]);
-      const statsGroup = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-4 text-sm sm:text-base font-semibold` }}, [timeStat, triesStat, statusStat]);
-      const actionButtons = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2 sm:gap-3` }}, [
+      const triesBlock = D.Containers.Div({ attrs:{ class:'header-status-block', key:'status-tries' }}, [
+        D.Text.Span({ attrs:{ class:'header-status-label' }}, ['❤️ ', TL('game.tries')]),
         heartsRow,
-        UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-4 font-semibold` }, variant:'ghost', size:'sm' }, [TL('game.settingsButton')]),
-        UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-6 py-2 font-semibold text-base` }, variant:'destructive', size:'md' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+        D.Text.Span({ attrs:{ class:'header-status-label' }}, [`/ ${g.triesMax}`])
       ]);
-      return D.Containers.Div({ attrs:{ class: `${tw`flex flex-wrap items-center justify-between gap-4 rounded-3xl px-5 py-3`} glass-panel glow-outline` }}, [
-        statsGroup,
-        actionButtons
+      const statusBlock = D.Containers.Div({ attrs:{ class:'header-status-block', key:'status-state' }}, [
+        D.Text.Span({ attrs:{ class:'header-status-label' }}, ['🎯 ', TL('game.statusLabel')]),
+        D.Text.Span({ attrs:{ class:'header-status-value' }}, [TL(`game.status.${g.status}`)])
       ]);
+      return D.Containers.Div({ attrs:{ class:'header-status-strip', key:'status-strip' }}, [timeBlock, triesBlock, statusBlock]);
     }
 
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
-      const designLabButton = UI.Button({ attrs:{ gkey:'design:lab:open', class: tw`rounded-full px-4 font-semibold` }, variant:'soft', size:'sm' }, ['🎨 ', TL('designLab.openButton')]);
-      const settingsButton = UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-3 font-semibold` }, variant:'ghost', size:'sm' }, ['⚙️']);
-      return D.Containers.Header({ attrs:{ class: tw`px-6 pt-5 pb-3` }}, [
+      const g = db.data.game || {};
+      const designLabButton = UI.Button({
+        attrs:{
+          gkey:'design:lab:open',
+          class: tw`rounded-full w-11 h-11 flex items-center justify-center shadow-[0_16px_32px_-24px_rgba(79,70,229,0.55)]`,
+          title: TL('designLab.openButton'),
+          'aria-label': TL('designLab.openButton')
+        },
+        variant:'soft',
+        size:'sm'
+      }, ['🎛️']);
+      const themeValue = db.env.theme === 'dark' ? 'dark' : 'light';
+      const themeSwitcher = UI.SegmentedSwitch({
+        attrs:{ 'data-switch':'theme' },
+        value: themeValue,
+        options:[
+          { value:'light', label:`🌞 ${TL('header.theme.light')}`, gkey:'ui:theme:set' },
+          { value:'dark', label:`🌙 ${TL('header.theme.dark')}`, gkey:'ui:theme:set' }
+        ]
+      });
+      const langValue = db.env.lang === 'en' ? 'en' : 'ar';
+      const langSwitcher = UI.SegmentedSwitch({
+        attrs:{ 'data-switch':'lang' },
+        value: langValue,
+        options:[
+          { value:'ar', label:`ع ${TL('header.lang.ar')}`, gkey:'ui:lang-ar' },
+          { value:'en', label:`EN ${TL('header.lang.en')}`, gkey:'ui:lang-en' }
+        ]
+      });
+      const statusStrip = GameStatusStrip(db);
+      const leftBlock = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-0.5` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
+        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('header.subtitle')])
+      ]);
+      const gameToggle = db.data.activeTab==='game'
+        ? UI.Button({
+            attrs:{
+              gkey:'game:start',
+              class: tw`rounded-full px-5 font-semibold`
+            },
+            variant:'destructive',
+            size:'sm'
+          }, [g.status==='running' ? TL('game.new') : TL('game.start')])
+        : null;
+      const controlChildren = [themeSwitcher, langSwitcher, gameToggle, designLabButton].filter(Boolean);
+      const controlBlock = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 flex-wrap justify-end` }}, controlChildren);
+      const rowChildren = [
+        D.Containers.Div({ attrs:{ class: tw`flex-1 min-w-[240px]` }}, [leftBlock]),
+        statusStrip ? D.Containers.Div({ attrs:{ class: tw`flex-1 flex justify-center min-w-[260px]` }}, [statusStrip]) : null,
+        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-end gap-2 min-w-[260px]` }}, [controlBlock])
+      ].filter(Boolean);
+      return D.Containers.Header({ attrs:{ class: tw`px-5 pt-3 pb-3` }}, [
         D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[1600px]` }}, [
-          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl px-5 py-5 space-y-4`} glass-panel glow-outline` }}, [
-            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-3` }}, [
-              D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [
-                D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
-                D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('header.subtitle')])
-              ]),
-              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2 sm:gap-3` }}, [
-                designLabButton,
-                settingsButton,
-                UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
-                UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
-                UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
-              ])
-            ]),
-            GameStatusStrip(db)
-          ].filter(Boolean))
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-2xl px-4 py-3`} glass-panel glow-outline` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, rowChildren)
+          ])
         ])
       ]);
     }
@@ -1395,7 +1799,7 @@
         infoItems.push(
           D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, key:'feedback-card' }}, [
             UI.Badge({ attrs:{ class: tw`w-fit` }, leading: feedbackIcons[feedbackType] || '✨', text:TL('game.lastMove') }),
-            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [feedbackMessages[feedbackType]])
+            D.Text.P({ attrs:{ class:'game-info-text' }}, [feedbackMessages[feedbackType]])
           ])
         );
       }
@@ -1404,18 +1808,21 @@
         infoItems.push(
           D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, key:'hint-card' }}, [
             UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'💡', text:TL('game.hintTitle') }),
-            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [g.proverb.hint])
+            D.Text.P({ attrs:{ class:'game-info-text' }}, [g.proverb.hint])
           ])
         );
       }
 
       if (showSolution && g.proverb){
         infoItems.push(
-          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel`, style:'grid-column: 1 / -1;', key:'solution-card' }}, [
+          D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel glow-outline solution-target`, style:'grid-column: 1 / -1;', key:'solution-card', id:'game-solution-card', tabindex:'-1' }}, [
             UI.Badge({ attrs:{ class: tw`w-fit` }, leading:'📜', text:TL('game.solution') }),
-            D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
-            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
-            D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
+            g.status==='lost'
+              ? D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.overlay.loseInsight')])
+              : D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.overlay.winInsight')]),
+            D.Text.P({ attrs:{ class: tw`font-semibold` + ' game-info-text' }}, [g.proverb.t]),
+            D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.explanation'), ': ', g.proverb.explanation]),
+            D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.lesson'), ': ', g.proverb.lesson]),
             D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source])
           ])
         );
@@ -1444,14 +1851,14 @@
         ? D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-4 text-center`} glass-panel celebration-card` }}, [
             D.Containers.Div({ attrs:{ class: `${tw`space-y-3`} game-overlay-content` }}, [
               UI.Badge({ attrs:{ class: tw`w-fit mx-auto` }, leading:'🎉', text:TL('game.overlay.winTitle') }),
-              D.Text.P({ attrs:{ class: tw`text-base text-[var(--muted-foreground)]` }}, [TL('game.overlay.winSubtitle')]),
-              D.Text.P({ attrs:{ class: tw`text-lg font-semibold` }}, [g.proverb.t]),
-              D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [TL('game.rewardTitle'), ': ', g.proverb.lesson]),
+              D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.overlay.winInsight')]),
+              D.Text.P({ attrs:{ class: tw`font-semibold` + ' game-info-text' }}, [g.proverb.t]),
+              D.Text.P({ attrs:{ class:'game-info-text' }}, [TL('game.rewardTitle'), ': ', g.proverb.lesson]),
               D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.source'), ': ', g.proverb.source]),
               UI.Button({ attrs:{ gkey:'game:start', class: tw`mt-2 px-8 py-3 rounded-full font-semibold` }, variant:'destructive', size:'lg' }, [TL('game.playAgain')])
             ])
           ])
-        : g.status==='lost'
+        : (g.status==='lost' && !g.revealSolution)
         ? UI.SweetNotice({
             attrs:{ key:'gameover-card', class: tw`gameover-card` },
             tone:'danger',
@@ -1595,116 +2002,175 @@
         }, [`${mode.icon} `, TL(mode.labelKey)]);
       });
 
+      const unitFor = (def)=> def.unit || (def.prefKey==='fontScale' ? '%' : '');
+      const parseNumericValue = (value, unit)=>{
+        if (value == null) return null;
+        if (typeof value === 'number') return value;
+        const str = String(value).trim();
+        if (!str) return null;
+        if (unit && str.endsWith(unit)){
+          const raw = str.slice(0, -unit.length);
+          const num = parseFloat(raw);
+          return Number.isNaN(num) ? null : num;
+        }
+        const num = parseFloat(str);
+        return Number.isNaN(num) ? null : num;
+      };
+
       const sectionNodes = DESIGN_VAR_GROUPS.map((group)=>{
-        const cards = group.vars.map((name)=>{
+        const rows = group.vars.map((name)=>{
           const def = DESIGN_VAR_DEF_MAP[name];
           if (!def) return null;
-          const baseline = CURRENT_THEME_BASELINE[name] || def.default || '';
+          const unit = unitFor(def);
+          let baseline = def.prefKey==='fontScale'
+            ? `${THEME_DEFAULT_PREFS.fontScale}${unit || ''}`
+            : (CURRENT_THEME_BASELINE[name] || def.default || '');
+          if (def.type === 'color'){
+            const normalizedBase = U.Color && typeof U.Color.toHex === 'function' ? U.Color.toHex(baseline) : null;
+            if (normalizedBase) baseline = normalizedBase;
+          }
           const stored = def.prefKey ? null : (Object.prototype.hasOwnProperty.call(customVars, name) ? customVars[name] : null);
           const hasCustom = def.prefKey
             ? (def.prefKey==='fontScale' ? prefs.fontScale !== THEME_DEFAULT_PREFS.fontScale : false)
             : Object.prototype.hasOwnProperty.call(customVars, name);
-          let displayValue;
-          if (def.prefKey==='fontScale') displayValue = `${prefs.fontScale}%`;
-          else if (stored != null && String(stored).trim()!=='') displayValue = String(stored).trim();
-          else displayValue = baseline;
 
-          const resetButton = UI.Button({
-            attrs:{
-              gkey:'design:var:reset',
-              'data-var':name,
-              disabled: hasCustom ? undefined : 'disabled',
-              class: tw`text-xs`
-            },
-            variant:'ghost',
-            size:'sm'
-          }, [TL('designLab.resetVar')]);
+          let currentValue;
+          if (def.prefKey==='fontScale') currentValue = `${prefs.fontScale}${unit || ''}`;
+          else if (stored != null && String(stored).trim()!=='') currentValue = String(stored).trim();
+          else currentValue = baseline;
+          if (def.type === 'color'){
+            const normalizedCurrent = U.Color && typeof U.Color.toHex === 'function' ? U.Color.toHex(currentValue) : null;
+            if (normalizedCurrent) currentValue = normalizedCurrent;
+          }
 
-          let control = null;
-          if (def.type==='color'){
-            let colorValue = (stored || baseline || def.default || '').trim();
-            if (!/^#([0-9a-f]{3,8})$/i.test(colorValue)){
-              colorValue = (def.default && def.default.startsWith('#')) ? def.default : '#6366f1';
-            }
-            control = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+          const labelNode = D.Containers.Div({ attrs:{ class:'design-lab-label' }}, [
+            D.Text.Strong({}, [TL(def.labelKey)]),
+            D.Text.Span({ attrs:{ class:'design-lab-meta' }}, [TL('designLab.defaultValue'), ': ', baseline || '—']),
+            D.Text.Span({ attrs:{ class:'design-lab-meta' }}, [TL('designLab.currentValue'), ': ', currentValue || '—'])
+          ]);
+
+          const resetButton = D.Forms.Button({ attrs:{
+            gkey:'design:var:reset',
+            'data-var':name,
+            disabled: hasCustom ? undefined : 'disabled',
+            class:'design-lab-reset',
+            title: TL('designLab.resetVar'),
+            'aria-label': TL('designLab.resetVar')
+          }}, ['↺']);
+
+          const rowAttrs = { key:name, class:'design-lab-row', 'data-type': def.type };
+          const rowChildren = [labelNode];
+
+          if (def.type === 'color'){
+            const colorValue = U.Color && typeof U.Color.toHex === 'function'
+              ? (U.Color.toHex(stored || currentValue || baseline || def.default || '') || U.Color.toHex(def.default || '') || '#6366f1')
+              : ((stored || currentValue || baseline || def.default || '#6366f1'));
+            rowChildren.push(
+              D.Containers.Div({ attrs:{ class:'design-lab-color-chip', style:`background:${colorValue}` }})
+            );
+            rowChildren.push(
               D.Inputs.Input({ attrs:{
                 type:'color',
                 value: colorValue,
                 gkey:'design:var:update',
                 'data-var':name,
                 'data-editor':'color',
-                class: tw`h-10 w-16 rounded-lg border border-[var(--border)] bg-transparent cursor-pointer`
-              }}),
-              UI.Input({ attrs:{
-                value: stored || '',
+                class:'design-lab-color-input'
+              }})
+            );
+            rowChildren.push(
+              D.Inputs.Input({ attrs:{
+                type:'text',
+                value: currentValue || '',
                 placeholder: baseline,
                 gkey:'design:var:update',
                 'data-var':name,
-                'data-editor':'text'
+                'data-editor':'text',
+                class:'design-lab-value-input'
               }})
-            ]);
-          }
-          else if (def.type==='range'){
+            );
+          } else if (def.type === 'range'){
+            rowAttrs['data-type'] = 'range';
             let sliderValue;
             if (def.prefKey==='fontScale') sliderValue = prefs.fontScale;
             else {
-              const active = stored || baseline || def.default;
-              if (typeof active==='string' && def.unit && active.endsWith(def.unit)) sliderValue = parseFloat(active);
-              else sliderValue = parseFloat(active);
+              const baseValue = stored != null ? stored : (currentValue || baseline || def.default);
+              sliderValue = parseNumericValue(baseValue, unit);
             }
-            if (Number.isNaN(sliderValue)) sliderValue = def.min;
-            const attrs = {
+            if (sliderValue == null || Number.isNaN(sliderValue)) sliderValue = def.min;
+            const sliderAttrs = {
               type:'range',
               min:String(def.min),
               max:String(def.max),
               step:String(def.step),
               value:String(sliderValue),
-              class: tw`w-full accent-[var(--primary)]`
+              class:'design-lab-slider',
+              'data-var':name
             };
-            if (def.prefKey==='fontScale') attrs.gkey = 'prefs:fontScale';
+            if (def.prefKey==='fontScale') sliderAttrs.gkey = 'prefs:fontScale';
             else {
-              attrs.gkey = 'design:var:update';
-              attrs['data-editor'] = 'range';
-              if (def.unit) attrs['data-unit'] = def.unit;
+              sliderAttrs.gkey = 'design:var:update';
+              sliderAttrs['data-editor'] = 'range';
+              if (unit) sliderAttrs['data-unit'] = unit;
             }
-            attrs['data-var'] = name;
-            control = D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
-              D.Inputs.Input({ attrs }),
-              D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [
-                TL('designLab.currentValue'), ': ', displayValue || '—'
-              ])
-            ]);
-          }
-          else {
-            control = UI.Textarea({ attrs:{
-              value: stored || '',
-              placeholder: baseline,
-              rows:'2',
-              gkey:'design:var:update',
-              'data-var':name,
-              'data-editor':'text'
-            }});
+            const previewStyle = def.prefKey==='fontScale'
+              ? `font-size: calc(var(--font-size-body) * ${sliderValue} / 100);`
+              : `font-size: calc(var(${name}) * var(--user-font-scale) / 100);`;
+            const factorText = def.prefKey==='fontScale'
+              ? `× ${(sliderValue/100).toFixed(2)}`
+              : 'Aa أب';
+            rowChildren.push(
+              D.Text.Span({ attrs:{ class:'design-lab-font-preview', style: previewStyle }}, [factorText])
+            );
+            rowChildren.push(
+              D.Inputs.Input({ attrs: sliderAttrs })
+            );
+            const decimals = (String(def.step).split('.')[1] || '').length;
+            const formattedNumber = decimals ? Number(sliderValue).toFixed(decimals) : String(Math.round(sliderValue));
+            const numberAttrs = {
+              type:'number',
+              min:String(def.min),
+              max:String(def.max),
+              step:String(def.step),
+              value: formattedNumber,
+              class:'design-lab-number-input',
+              'data-var':name
+            };
+            if (def.prefKey==='fontScale') numberAttrs.gkey = 'prefs:fontScale';
+            else {
+              numberAttrs.gkey = 'design:var:update';
+              numberAttrs['data-editor'] = 'number';
+              if (unit) numberAttrs['data-unit'] = unit;
+            }
+            rowChildren.push(
+              D.Inputs.Input({ attrs: numberAttrs })
+            );
+          } else {
+            rowAttrs['data-type'] = 'text';
+            rowChildren.push(
+              D.Inputs.Input({ attrs:{
+                type:'text',
+                value: currentValue || '',
+                placeholder: baseline,
+                gkey:'design:var:update',
+                'data-var':name,
+                'data-editor':'text',
+                class:'design-lab-value-input'
+              }})
+            );
           }
 
-          return D.Containers.Div({ attrs:{ key:name, class: `${tw`rounded-2xl p-4 space-y-3`} glass-panel` }}, [
-            D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
-              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [TL(def.labelKey)]),
-              resetButton
-            ]),
-            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [
-              TL('designLab.defaultValue'), ': ', baseline || '—'
-            ]),
-            control
-          ]);
+          rowChildren.push(resetButton);
+          return D.Containers.Div({ attrs: rowAttrs }, rowChildren.filter(Boolean));
         }).filter(Boolean);
 
-        if (!cards.length) return null;
+        if (!rows.length) return null;
         return D.Containers.Div({ attrs:{ key:`group-${group.id}`, class: tw`space-y-3` }}, [
           D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
             D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [TL(group.labelKey)]),
             D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL(group.hintKey)])
           ]),
-          D.Containers.Div({ attrs:{ class: tw`grid gap-4 md:grid-cols-2` }}, cards)
+          D.Containers.Div({ attrs:{ class:'design-lab-grid' }}, rows)
         ]);
       }).filter(Boolean);
 
@@ -1927,6 +2393,23 @@
       'prefs:text'        :{ on:['change'], gkeys:['prefs:text'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.textSchemeId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, textSchemeId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'prefs:fontScale'   :{ on:['input','change'], gkeys:['prefs:fontScale'], handler:(e,ctx)=>{ const raw = e && e.target ? parseInt(e.target.value,10) : null; if (raw==null || Number.isNaN(raw)) return; const scale = Math.min(120, Math.max(90, raw)); const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.fontScale === scale) { applyThemePrefs(current); return; } const next = { ...current, fontScale: scale }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'prefs:reset'       :{ on:['click'], gkeys:['prefs:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); const next = { ...THEME_DEFAULT_PREFS }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'ui:theme:set'     :{ on:['click'], gkeys:['ui:theme:set'], handler:(e,ctx)=>{
+        const target = e && e.target ? e.target.closest('[data-value]') : null;
+        if (!target) return;
+        const modeRaw = target.getAttribute('data-value');
+        if (!modeRaw) return;
+        const mode = modeRaw === 'dark' ? 'dark' : 'light';
+        const s=ctx.getState();
+        const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS);
+        U.twcss.setTheme(mode === 'dark' ? 'dark' : 'light');
+        ctx.setState({
+          ...s,
+          env:{ ...(s.env||{}), theme: mode },
+          data:{ ...s.data, themePrefs: prefs }
+        });
+        applyThemePrefs(prefs);
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+      }},
       'design:lab:open'   :{ on:['click'], gkeys:['design:lab:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:true }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'design:lab:close'  :{ on:['click'], gkeys:['design:lab:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:false }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
       'design:theme'      :{ on:['click'], gkeys:['design:theme'], handler:(e,ctx)=>{ const btn=e && e.target ? e.target.closest('[data-mode]'):null; const mode=btn?btn.getAttribute('data-mode'):null; if(!mode) return; const s=ctx.getState(); const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); let nextPrefs = prefs; if (mode==='pink'){ nextPrefs = normalizeThemePrefs({ ...prefs, backgroundId:'sunset', textSchemeId:'warm' }); U.twcss.setTheme('light'); } else { U.twcss.setTheme(mode==='dark'?'dark':'light'); }
@@ -1947,6 +2430,15 @@
           const unit = target.getAttribute('data-unit') || '';
           const num = parseFloat(value);
           if (Number.isNaN(num)) return;
+          value = unit ? `${num}${unit}` : String(num);
+        } else if (editor==='number'){
+          const unit = target.getAttribute('data-unit') || '';
+          let num = parseFloat(value);
+          if (Number.isNaN(num)) return;
+          if (def && typeof def.min === 'number') num = Math.max(def.min, num);
+          if (def && typeof def.max === 'number') num = Math.min(def.max, num);
+          const stepPrecision = def && def.step != null ? String(def.step).split('.')[1]?.length || 0 : 0;
+          if (stepPrecision > 0) num = parseFloat(num.toFixed(stepPrecision));
           value = unit ? `${num}${unit}` : String(num);
         } else if (editor==='text'){
           value = typeof value==='string' ? value.trim() : '';
@@ -2085,11 +2577,23 @@
           timeLeft,
           revealSolution: status==='won' ? true : g.revealSolution,
           feedback
-        }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
+        }}});
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+        if (status === 'won'){
+          U.Control.nextTick(()=>{
+            U.DOM.focusById('game-solution-card');
+            U.DOM.flashClass('game-solution-card', 'focus-pulse', 2200);
+          });
+        }
       }},
       'game:reveal':{ on:['click'], gkeys:['game:reveal'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; if (!g.proverb) return;
-        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
+        ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}});
+        ctx.rebuild(KEEP_MAIN_SCROLL);
+        U.Control.nextTick(()=>{
+          U.DOM.focusById('game-solution-card');
+          U.DOM.flashClass('game-solution-card', 'focus-pulse', 2200);
+        });
       }}
     };
 
