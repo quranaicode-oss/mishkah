@@ -27,6 +27,7 @@
       --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
       --accent-ring: rgba(79, 70, 229, 0.18);
       --tile-size: 3.1rem;
+      --user-font-scale: 100;
     }
 
     :root.dark {
@@ -61,6 +62,7 @@
       min-height: 100vh;
       height: 100vh;
       font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: calc(var(--user-font-scale) * 1%);
       background: var(--page-gradient);
       color: var(--foreground);
       position: relative;
@@ -292,6 +294,48 @@
       gap: 0.75rem;
     }
 
+    .toggle-switch {
+      position: relative;
+      width: 3.25rem;
+      height: 1.65rem;
+    }
+
+    .toggle-switch input {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+      border: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+
+    .toggle-switch input::after {
+      content: '';
+      position: absolute;
+      inset-inline-start: 0.2rem;
+      top: 0.18rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 50%;
+      background: color-mix(in oklab, var(--muted-foreground) 30%, white 70%);
+      box-shadow: 0 10px 18px -10px rgba(15, 23, 42, 0.35);
+      transition: transform 0.25s ease, background 0.25s ease;
+    }
+
+    .toggle-switch input:checked {
+      background: color-mix(in oklab, var(--primary) 30%, transparent);
+      border-color: color-mix(in oklab, var(--primary) 70%, transparent);
+    }
+
+    .toggle-switch input:checked::after {
+      transform: translateX(1.55rem);
+      background: var(--primary);
+    }
+
     .game-panel {
       position: relative;
     }
@@ -483,11 +527,26 @@
     const dict = {
       'app.title'   : { ar:'مشكاة — مشكاة النور ولعبة الأمثال', en:'Mishkah — Lighthouse Docs & Proverbs Game' },
       'header.subtitle': { ar:'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال في لوحة واحدة واسعة.', en:'A radiant hub that unifies the docs, controls, and the Proverbs game in a spacious canvas.' },
+      'settings.toggleLabel': { ar:'إظهار الإعدادات', en:'Show controls' },
+      'settings.switch.on': { ar:'مفعّلة', en:'Visible' },
+      'settings.switch.off': { ar:'مخفية', en:'Hidden' },
+      'settings.title': { ar:'لوحة الإعدادات الذكية', en:'Intelligent Control Center' },
+      'settings.description': { ar:'اضبط تجربة اللعبة والثيم واحتفظ بتفضيلاتك على نفس الجهاز.', en:'Tune the game experience and theming, and keep your preferences on this device.' },
+      'settings.gameSection': { ar:'إعدادات اللعبة', en:'Game Settings' },
+      'settings.themeSection': { ar:'خيارات الثيم', en:'Theme Options' },
+      'settings.backgroundLabel': { ar:'خلفية الصفحة', en:'Page background' },
+      'settings.textLabel': { ar:'ألوان النص والعناصر', en:'Text & accent colors' },
+      'settings.fontLabel': { ar:'حجم الخط', en:'Font size' },
+      'settings.previewLabel': { ar:'معاينة فورية', en:'Live preview' },
+      'settings.previewHint': { ar:'ستتحدث التغييرات لحظيًا وتحفظ في المتصفح.', en:'Changes update instantly and are stored in the browser.' },
+      'settings.reset': { ar:'إعادة الإعدادات الافتراضية', en:'Reset to defaults' },
+      'settings.close': { ar:'إغلاق', en:'Close' },
       'nav.menu'       : { ar:'التنقل', en:'Navigation' },
       'nav.readmeBase' : { ar:'مشكاة النور والذكر الأعلى', en:'Mishkah of Light & Highest Remembrance' },
       'nav.readmeTec'  : { ar:'وثيقة مشكاة التقنية', en:'Mishkah Technical Charter' },
       'nav.counter'    : { ar:'العداد', en:'Counter' },
       'nav.game'       : { ar:'لعبة الأمثال', en:'Proverbs Game' },
+      'nav.logic'      : { ar:'تحدي الذكاء', en:'Logic Trainer' },
       'doc.base.lead'  : { ar:'رحلة فلسفة مشكاة ومنهج الذكر الأعلى الذي ألهم تصميمها.', en:'The philosophical journey behind Mishkah and the higher remembrance that inspires it.' },
       'doc.tec.lead'   : { ar:'الدليل التقني الكامل لمعمارية مشكاة ومحركها التعريفي.', en:'The complete technical dossier for Mishkah’s architecture and declarative engine.' },
       'doc.language.hint': { ar:'بدّل اللغة من الأعلى لتقرأ الوثيقة بلغتك المفضلة.', en:'Use the header controls to switch between Arabic and English.' },
@@ -511,6 +570,7 @@
       'game.timeLabel' : { ar:'الوقت المتبقي', en:'Time Left' },
       'game.letters'   : { ar:'الأحرف المتاحة', en:'Available Letters' },
       'game.statusLabel': { ar:'حالة اللعبة', en:'Game Status' },
+      'game.settingsButton': { ar:'إعدادات اللعبة', en:'Game Settings' },
       'game.status.idle': { ar:'جاهزة', en:'Ready' },
       'game.status.running': { ar:'قيد اللعب', en:'In Progress' },
       'game.status.won' : { ar:'انتصار', en:'Victory' },
@@ -519,6 +579,18 @@
       'game.feedback.wrong'  : { ar:'هذه المحاولة لم تصب الهدف، جرّب مسارًا آخر.', en:'That guess missed the mark—try another path.' },
       'game.feedback.win'    : { ar:'إبداع! اكتملت الحكمة بالكامل.', en:'Brilliant! The proverb has been unveiled.' },
       'game.feedback.lose'   : { ar:'انتهت المحاولات، لكن الحكمة ما زالت بانتظارك.', en:'The tries are over, yet the wisdom still awaits you.' },
+      'logic.title': { ar:'تحدي الذكاء الاستقرائي', en:'Pattern Logic Trainer' },
+      'logic.subtitle': { ar:'استكشف المتتاليات الذكية وصقل مهارة اكتشاف النمط.', en:'Explore clever sequences and sharpen your pattern recognition.' },
+      'logic.start': { ar:'ابدأ التحدي', en:'Start Challenge' },
+      'logic.newChallenge': { ar:'تحدٍ جديد', en:'New Challenge' },
+      'logic.sequenceIntro': { ar:'أكمل المتتالية التالية:', en:'Complete the following sequence:' },
+      'logic.optionsPrompt': { ar:'اختر الإجابة الصحيحة', en:'Pick the correct answer' },
+      'logic.feedback.correct': { ar:'إجابة موفقة! منطقك حاضر.', en:'Great choice! Your reasoning is sharp.' },
+      'logic.feedback.wrong': { ar:'ليست الإجابة الصحيحة، جرّب مرة أخرى.', en:'That is not the right answer—try again.' },
+      'logic.explanation': { ar:'الشرح', en:'Explanation' },
+      'logic.sequence.step': { ar:'تزداد القيم بمقدار {step} في كل خطوة.', en:'Values increase by {step} each step.' },
+      'logic.square.hint': { ar:'الأعداد تمثل مربعات متتالية تبدأ من {start}².', en:'The terms are consecutive squares starting from {start}².' },
+      'logic.double.hint': { ar:'كل قيمة تساوي ضعف السابقة.', en:'Each value doubles the previous one.' },
       'game.lastMove'        : { ar:'ردة فعل فورية', en:'Instant Feedback' },
       'game.musicOn'         : { ar:'الموسيقى مفعّلة', en:'Music On' },
       'game.musicOff'        : { ar:'الموسيقى متوقفة', en:'Music Off' },
@@ -785,6 +857,236 @@
       lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
     };
 
+    const THEME_STORAGE_KEY = 'mishkah:theme:prefs:v1';
+    const THEME_BACKGROUND_PRESETS = [
+      {
+        id:'nebula',
+        label:{ ar:'شفق بنفسجي', en:'Violet Nebula' },
+        light:{
+          gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)',
+          overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)',
+          overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)',
+          accentRing: 'rgba(79, 70, 229, 0.18)'
+        },
+        dark:{
+          gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)',
+          overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)',
+          overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)',
+          accentRing: 'rgba(129, 140, 248, 0.35)'
+        }
+      },
+      {
+        id:'sunset',
+        label:{ ar:'أفق الغروب', en:'Desert Sunset' },
+        light:{
+          gradient: 'linear-gradient(155deg, #fff4e6 0%, #ffd5c2 100%)',
+          overlay1: 'radial-gradient(circle at 20% 25%, rgba(249, 115, 22, 0.22), transparent 55%)',
+          overlay2: 'radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.2), transparent 55%)',
+          accentRing: 'rgba(249, 115, 22, 0.28)'
+        },
+        dark:{
+          gradient: 'linear-gradient(155deg, #2b122e 0%, #40285d 100%)',
+          overlay1: 'radial-gradient(circle at 70% 20%, rgba(236, 72, 153, 0.3), transparent 60%)',
+          overlay2: 'radial-gradient(circle at 25% 80%, rgba(249, 115, 22, 0.28), transparent 60%)',
+          accentRing: 'rgba(236, 72, 153, 0.38)'
+        }
+      },
+      {
+        id:'forest',
+        label:{ ar:'ضباب الغابة', en:'Forest Mist' },
+        light:{
+          gradient: 'linear-gradient(150deg, #ecfdf5 0%, #d1fae5 100%)',
+          overlay1: 'radial-gradient(circle at 30% 25%, rgba(16, 185, 129, 0.2), transparent 55%)',
+          overlay2: 'radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.15), transparent 55%)',
+          accentRing: 'rgba(16, 185, 129, 0.28)'
+        },
+        dark:{
+          gradient: 'linear-gradient(150deg, #052e16 0%, #0f4c3a 100%)',
+          overlay1: 'radial-gradient(circle at 75% 25%, rgba(59, 130, 246, 0.22), transparent 60%)',
+          overlay2: 'radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.26), transparent 60%)',
+          accentRing: 'rgba(16, 185, 129, 0.35)'
+        }
+      }
+    ];
+
+    const THEME_TEXT_SCHEMES = [
+      {
+        id:'cool',
+        label:{ ar:'أزرق متزن', en:'Cool Focus' },
+        light:{
+          foreground: 'hsl(222 47% 16%)',
+          muted: 'hsl(215 18% 42%)',
+          primary: '#4f46e5',
+          onPrimary: '#f9fafb'
+        },
+        dark:{
+          foreground: 'hsl(210 40% 96%)',
+          muted: 'hsl(215 20% 72%)',
+          primary: '#6366f1',
+          onPrimary: '#0f172a'
+        }
+      },
+      {
+        id:'warm',
+        label:{ ar:'دفء الشمس', en:'Warm Glow' },
+        light:{
+          foreground: 'hsl(26 42% 24%)',
+          muted: 'hsl(27 35% 48%)',
+          primary: '#f97316',
+          onPrimary: '#1f2937'
+        },
+        dark:{
+          foreground: 'hsl(35 92% 92%)',
+          muted: 'hsl(27 55% 70%)',
+          primary: '#fb923c',
+          onPrimary: '#111827'
+        }
+      },
+      {
+        id:'zen',
+        label:{ ar:'هدوء البحر', en:'Zen Tide' },
+        light:{
+          foreground: 'hsl(200 45% 20%)',
+          muted: 'hsl(198 34% 45%)',
+          primary: '#0ea5e9',
+          onPrimary: '#062029'
+        },
+        dark:{
+          foreground: 'hsl(189 70% 92%)',
+          muted: 'hsl(191 45% 70%)',
+          primary: '#38bdf8',
+          onPrimary: '#0f172a'
+        }
+      }
+    ];
+
+    const THEME_BACKGROUND_MAP = Object.fromEntries(THEME_BACKGROUND_PRESETS.map((p)=>[p.id, p]));
+    const THEME_TEXT_SCHEME_MAP = Object.fromEntries(THEME_TEXT_SCHEMES.map((p)=>[p.id, p]));
+    const THEME_DEFAULT_PREFS = { backgroundId:'nebula', textSchemeId:'cool', fontScale:100 };
+
+    function normalizeThemePrefs(raw){
+      const base = { ...THEME_DEFAULT_PREFS };
+      const src = raw && typeof raw==='object' ? raw : {};
+      if (src.backgroundId && THEME_BACKGROUND_MAP[src.backgroundId]) base.backgroundId = src.backgroundId;
+      if (src.textSchemeId && THEME_TEXT_SCHEME_MAP[src.textSchemeId]) base.textSchemeId = src.textSchemeId;
+      const font = parseInt(src.fontScale, 10);
+      if (!Number.isNaN(font)) base.fontScale = Math.min(120, Math.max(90, font));
+      return base;
+    }
+
+    function loadThemePrefs(){
+      if (typeof window==='undefined' || !window.localStorage) return { ...THEME_DEFAULT_PREFS };
+      try {
+        const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+        if (!raw) return { ...THEME_DEFAULT_PREFS };
+        return normalizeThemePrefs(JSON.parse(raw));
+      } catch (_err){
+        return { ...THEME_DEFAULT_PREFS };
+      }
+    }
+
+    function persistThemePrefs(prefs){
+      if (typeof window==='undefined' || !window.localStorage) return;
+      try { window.localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(prefs)); }
+      catch(_err){ /* ignore storage quota issues */ }
+    }
+
+    function applyThemePrefs(prefs){
+      if (typeof document==='undefined') return;
+      const root = document.documentElement;
+      if (!root) return;
+      const mode = root.classList.contains('dark') ? 'dark' : 'light';
+      const bgPreset = THEME_BACKGROUND_MAP[prefs.backgroundId] || THEME_BACKGROUND_MAP[THEME_DEFAULT_PREFS.backgroundId];
+      const textPreset = THEME_TEXT_SCHEME_MAP[prefs.textSchemeId] || THEME_TEXT_SCHEME_MAP[THEME_DEFAULT_PREFS.textSchemeId];
+      const bg = bgPreset[mode];
+      const text = textPreset[mode];
+      if (bg){
+        root.style.setProperty('--page-gradient', bg.gradient);
+        root.style.setProperty('--page-overlay-1', bg.overlay1);
+        root.style.setProperty('--page-overlay-2', bg.overlay2);
+        if (bg.accentRing) root.style.setProperty('--accent-ring', bg.accentRing);
+      }
+      if (text){
+        root.style.setProperty('--foreground', text.foreground);
+        root.style.setProperty('--muted-foreground', text.muted);
+        root.style.setProperty('--primary', text.primary);
+        root.style.setProperty('--ring', text.primary);
+        root.style.setProperty('--primary-foreground', text.onPrimary);
+      }
+      root.style.setProperty('--user-font-scale', String(prefs.fontScale));
+    }
+
+    const INITIAL_THEME_PREFS = loadThemePrefs();
+    applyThemePrefs(INITIAL_THEME_PREFS);
+
+    function randInt(min, max){
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(list){
+      const arr = Array.isArray(list) ? list.slice() : [];
+      for (let i = arr.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function generateLogicChallenge(){
+      const types = ['arithmetic','square','double'];
+      const type = types[Math.floor(Math.random()*types.length)];
+      if (type==='square'){
+        const start = randInt(2, 6);
+        const sequence = [start, start+1, start+2, start+3].map((n)=> n*n);
+        const answer = sequence[3];
+        const pool = new Set([answer]);
+        pool.add((start+4)*(start+4));
+        pool.add((start+3)*(start+2));
+        pool.add(Math.max(4, answer - (2*start + 3)));
+        return {
+          type,
+          sequence,
+          answer,
+          options: shuffle(Array.from(pool).slice(0,4)),
+          meta:{ start }
+        };
+      }
+      if (type==='double'){
+        const start = randInt(2, 9);
+        const sequence = [start, start*2, start*4, start*8];
+        const answer = sequence[3];
+        const pool = new Set([answer]);
+        pool.add(start*6);
+        pool.add(start*10);
+        pool.add(start*5);
+        return {
+          type,
+          sequence,
+          answer,
+          options: shuffle(Array.from(pool).slice(0,4)),
+          meta:{ start }
+        };
+      }
+      const start = randInt(2, 18);
+      const step = randInt(2, 7);
+      const sequence = [start, start+step, start+2*step, start+3*step];
+      const answer = sequence[3];
+      const pool = new Set([answer]);
+      while (pool.size < 4){
+        const delta = randInt(-2,2);
+        if (delta===0) continue;
+        const candidate = answer + delta * step;
+        if (candidate > 0) pool.add(candidate);
+      }
+      return {
+        type:'arithmetic',
+        sequence,
+        answer,
+        options: shuffle(Array.from(pool).slice(0,4)),
+        meta:{ step, start }
+      };
+    }
+
 
     // ================================================================
     // الزوج الأول: التصميم والتسوية (تخطيط الجسد)
@@ -799,12 +1101,23 @@
     
     function HeaderBar(db){
       const { TL } = makeLangLookup(db);
+      const statusLabel = db.data.settingsOpen ? TL('settings.switch.on') : TL('settings.switch.off');
+      const toggleText = `${TL('settings.toggleLabel')} · ${statusLabel}`;
+      const toggleAttrs = { type:'checkbox', gkey:'ui:settings:toggle', 'aria-label': TL('settings.toggleLabel') };
+      if (db.data.settingsOpen) toggleAttrs.checked = 'checked';
+      const settingsSwitch = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-xs sm:text-sm text-[var(--muted-foreground)]` }}, [toggleText]),
+        D.Containers.Div({ attrs:{ class:'toggle-switch' }}, [
+          D.Inputs.Input({ attrs: toggleAttrs })
+        ])
+      ]);
       return D.Containers.Header({ attrs:{ class: tw`px-6 pt-6 pb-4` }}, [
         D.Containers.Div({ attrs:{ class: tw`mx-auto w-full max-w-[1600px]` }}, [
           D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-6 space-y-5`} glass-panel glow-outline` }}, [
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
               D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl font-bold tracking-tight` }}, [TL('app.title')]),
-              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+              D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+                settingsSwitch,
                 UI.Button({ attrs:{ gkey:'ui:lang-ar' }, variant:'ghost', size:'sm' }, ['AR']),
                 UI.Button({ attrs:{ gkey:'ui:lang-en' }, variant:'ghost', size:'sm' }, ['EN']),
                 UI.Button({ attrs:{ gkey:'ui:theme-toggle' }, variant:'soft', size:'sm' }, ['🌓'])
@@ -836,7 +1149,8 @@
             NavBtn('readmeBase','nav.readmeBase','🌌'),
             NavBtn('readmeTec','nav.readmeTec','🛠️'),
             NavBtn('counter','nav.counter','🔢'),
-            NavBtn('game','nav.game','🎮')
+            NavBtn('game','nav.game','🎮'),
+            NavBtn('logic','nav.logic','🧠')
           ])
         ])
       ]);
@@ -880,10 +1194,11 @@
       const g = db.data.game;
       const showSolution = g.revealSolution || g.status==='won';
 
-      const timeValue = !g.timerOn ? null : (g.status==='running'
-        ? (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)
-        : (g.status==='lost' ? 0 : g.timerSec));
-      const timeDisplay = g.timerOn ? `${String(timeValue ?? g.timerSec)} ${TL('game.seconds')}` : '—';
+      const timeLeftValue = g.timerOn
+        ? (g.status==='running'
+            ? Math.max(0, typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec)
+            : (g.status==='lost' ? 0 : g.timerSec))
+        : null;
       const pv = g.proverb?.t || '';
       const feedbackType = g.feedback && g.feedback.type ? g.feedback.type : 'idle';
       const feedbackStamp = g.feedback?.stamp || 0;
@@ -895,36 +1210,31 @@
         })
       );
 
-      const statsRow = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2 text-sm` }}, [
-        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'⏳', text:`${TL('game.timeLabel')}: ${timeDisplay}` }),
-        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'❤️', text:`${TL('game.tries')}: ${g.triesLeft}/${g.triesMax}` }),
-        UI.Badge({ attrs:{ class: tw`bg-[var(--surface-2)] text-[var(--muted-foreground)]` }, leading:'🎯', text:`${TL('game.statusLabel')}: ${TL(`game.status.${g.status}`)}` })
+      const timeStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`⏳ ${TL('game.timeLabel')}`]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-end gap-1` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-3xl font-extrabold tracking-tight leading-none` }}, [timeLeftValue !== null ? String(timeLeftValue) : '—']),
+          timeLeftValue !== null ? D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] pb-1` }}, [TL('game.seconds')]) : null
+        ].filter(Boolean))
       ]);
 
-      const musicTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
-        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'🎵', text:TL('game.music') }),
-        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-          UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
-          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.musicOn ? 'game.musicOn' : 'game.musicOff')])
-        ]),
-        UI.Select({ attrs:{ gkey:'game:music:select', class: tw`min-w-[180px]` }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
-      ]);
-
-      const timerTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
-        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'⏱️', text:TL('game.timer') }),
-        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-          UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
-          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.timerOn ? 'game.timerOn' : 'game.timerOff')])
-        ]),
-        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-          UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
-          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+      const triesStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`❤️ ${TL('game.tries')}`]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-end gap-1` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-3xl font-extrabold tracking-tight leading-none` }}, [String(g.triesLeft)]),
+          D.Text.Span({ attrs:{ class: tw`text-base font-semibold text-[var(--muted-foreground)] pb-1` }}, [`/ ${g.triesMax}`])
         ])
       ]);
 
-      const settingsRow = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-stretch gap-4` }}, [
-        musicTile,
-        timerTile
+      const statusStat = D.Containers.Div({ attrs:{ class: `${tw`flex flex-col items-center justify-center rounded-2xl px-6 py-4`} glass-panel` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [`🎯 ${TL('game.statusLabel')}`]),
+        D.Text.Span({ attrs:{ class: tw`text-xl font-semibold` }}, [TL(`game.status.${g.status}`)])
+      ]);
+
+      const statsGrid = D.Containers.Div({ attrs:{ class: tw`grid gap-4 md:grid-cols-3` }}, [
+        timeStat,
+        triesStat,
+        statusStat
       ]);
 
       const tiles = pv.split('').map((raw, idx)=>{
@@ -969,8 +1279,9 @@
         ])
       ]);
 
-      const heartsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full md:w-auto` }}, [heartsRow]);
-      const statsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full md:justify-end` }}, [statsRow]);
+      const heartsWrap = D.Containers.Div({ attrs:{ class: tw`flex justify-center w-full` }}, [heartsRow]);
+
+      const settingsButton = UI.Button({ attrs:{ gkey:'ui:settings:open', class: tw`rounded-full px-5 font-semibold` }, variant:'ghost', size:'sm' }, [TL('game.settingsButton')]);
 
       const controlCard = D.Containers.Div({ attrs:{ class: `${tw`space-y-6`} glass-panel glow-outline p-6 rounded-3xl` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-4` }}, [
@@ -979,14 +1290,12 @@
             D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('game.statusLabel'), ': ', TL(`game.status.${g.status}`)])
           ]),
           D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+            settingsButton,
             UI.Button({ attrs:{ gkey:'game:start', class: tw`rounded-full px-8 py-3 font-semibold tracking-wide text-base` }, variant:'destructive', size:'lg' }, [g.status==='running' ? TL('game.new') : TL('game.start')])
           ])
         ]),
-        settingsRow,
-        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-4` }}, [
-          heartsWrap,
-          statsWrap
-        ])
+        statsGrid,
+        heartsWrap
       ]);
 
       const feedbackMessages = {
@@ -1104,12 +1413,165 @@
       ].filter(Boolean));
     }
 
+    function LogicGamePanel(db){
+      const { TL } = makeLangLookup(db);
+      const logic = db.data.logicGame || {};
+      const challenge = logic.challenge;
+      const hasChallenge = Array.isArray(challenge?.sequence);
+      const bodySections = [];
+
+      if (!hasChallenge){
+        bodySections.push(
+          D.Containers.Div({ attrs:{ class: tw`space-y-4 text-center py-8` }}, [
+            D.Text.P({ attrs:{ class: tw`text-base text-[var(--muted-foreground)]` }}, [TL('logic.subtitle')]),
+            UI.Button({ attrs:{ gkey:'logic:start', class: tw`rounded-full px-10 py-3 font-semibold` }, variant:'solid', size:'lg' }, [TL('logic.start')])
+          ])
+        );
+      } else {
+        bodySections.push(
+          D.Containers.Div({ attrs:{ class: tw`flex justify-end` }}, [
+            UI.Button({ attrs:{ gkey:'logic:start', class: tw`rounded-full px-6 font-semibold` }, variant:'soft', size:'sm' }, [TL('logic.newChallenge')])
+          ])
+        );
+        const seqTiles = challenge.sequence.map((value, idx, arr)=>{
+          const display = idx===arr.length-1 ? '؟' : String(value);
+          return D.Containers.Div({ attrs:{ key:`logic-seq-${idx}`, class: `${tw`w-16 h-16 md:w-20 md:h-20 rounded-3xl grid place-items-center text-lg md:text-xl font-semibold`} glass-panel` }}, [display]);
+        });
+        bodySections.push(
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('logic.sequenceIntro')]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-3` }}, seqTiles)
+          ])
+        );
+        const optionsList = Array.isArray(logic.options) && logic.options.length ? logic.options : (challenge.options || []);
+        const optionButtons = optionsList.map((value)=>{
+          const choice = Number(value);
+          const isSelected = logic.selected === choice;
+          const feedbackType = logic.feedback?.type;
+          const correctChoice = choice === challenge.answer;
+          const isCorrectSelection = feedbackType==='correct' && isSelected && correctChoice;
+          const isWrongSelection = feedbackType==='wrong' && isSelected && !correctChoice;
+          let variant = 'soft';
+          if (isCorrectSelection) variant = 'solid';
+          else if (isWrongSelection) variant = 'destructive';
+          const classParts = [];
+          if (isSelected) classParts.push(tw`ring-2 ring-offset-2 ring-[var(--ring)]`);
+          const btnAttrs = {
+            key:`logic-opt-${choice}`,
+            gkey:'logic:answer',
+            'data-choice': String(choice),
+            class: classParts.length ? classParts.join(' ') : undefined
+          };
+          if (feedbackType==='correct') btnAttrs.disabled = 'disabled';
+          return UI.Button({ attrs: btnAttrs, variant, size:'md' }, [String(choice)]);
+        });
+        bodySections.push(
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('logic.optionsPrompt')]),
+            D.Containers.Div({ attrs:{ class: tw`grid grid-cols-2 sm:grid-cols-4 gap-3` }}, optionButtons)
+          ])
+        );
+        if (logic.feedback){
+          let explanationText = '';
+          if (challenge.type==='arithmetic'){ explanationText = TL('logic.sequence.step').replace('{step}', String(challenge.meta?.step ?? '')); }
+          else if (challenge.type==='square'){ explanationText = TL('logic.square.hint').replace('{start}', String(challenge.meta?.start ?? '')); }
+          else { explanationText = TL('logic.double.hint'); }
+          const badgeIcon = logic.feedback.type==='correct' ? '✅' : '🧐';
+          bodySections.push(
+            D.Containers.Div({ attrs:{ class: `${tw`rounded-3xl p-5 space-y-3`} glass-panel` }}, [
+              UI.Badge({ attrs:{ class: tw`w-fit` }, leading: badgeIcon, text: TL(`logic.feedback.${logic.feedback.type}`) }),
+              explanationText ? D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)] leading-relaxed` }}, [explanationText]) : null,
+              D.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('logic.explanation'), ': ', String(challenge.answer)])
+            ].filter(Boolean))
+          );
+        }
+      }
+
+      return UI.Card({
+        title: TL('logic.title'),
+        description: TL('logic.subtitle'),
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-6` }}, bodySections)
+      });
+    }
+
+    function SettingsModal(db){
+      if (!db.data.settingsOpen) return null;
+      const { TL } = makeLangLookup(db);
+      const g = db.data.game;
+      const prefs = db.data.themePrefs || INITIAL_THEME_PREFS;
+      const lang = db.env.lang || 'ar';
+      const backgroundOptions = THEME_BACKGROUND_PRESETS.map((opt)=>({ value: opt.id, label: opt.label[lang] || opt.label.ar }));
+      const textOptions = THEME_TEXT_SCHEMES.map((opt)=>({ value: opt.id, label: opt.label[lang] || opt.label.ar }));
+      const mode = db.env.theme === 'dark' ? 'dark' : 'light';
+      const bgPreset = (THEME_BACKGROUND_MAP[prefs.backgroundId] || THEME_BACKGROUND_MAP[THEME_DEFAULT_PREFS.backgroundId])[mode];
+
+      const musicTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
+        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'🎵', text:TL('game.music') }),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'checkbox', checked:g.musicOn, gkey:'game:music:toggle' } }),
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.musicOn ? 'game.musicOn' : 'game.musicOff')])
+        ]),
+        UI.Select({ attrs:{ gkey:'game:music:select', value:String(g.audioIdx), class: tw`min-w-[200px]` }, options: g.audioList.map((it,i)=>({ value:String(i), label:it.name })) })
+      ]);
+
+      const timerTile = D.Containers.Div({ attrs:{ class: 'settings-tile' }}, [
+        UI.Badge({ attrs:{ class: tw`bg-transparent text-[var(--muted-foreground)]` }, leading:'⏱️', text:TL('game.timer') }),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'checkbox', checked:g.timerOn, gkey:'game:timer:toggle' } }),
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [TL(g.timerOn ? 'game.timerOn' : 'game.timerOff')])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+          UI.Input({ attrs:{ type:'number', min:'5', step:'1', value:String(g.timerSec), style:'width:92px', gkey:'game:timer:value' } }),
+          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [TL('game.seconds')])
+        ])
+      ]);
+
+      const themeControls = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        D.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('settings.previewHint')]),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 md:flex-row` }}, [
+          UI.Select({ attrs:{ gkey:'prefs:background', value:prefs.backgroundId, class: tw`min-w-[220px]` }, options: backgroundOptions }),
+          UI.Select({ attrs:{ gkey:'prefs:text', value:prefs.textSchemeId, class: tw`min-w-[220px]` }, options: textOptions })
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('settings.fontLabel'), ': ', `${prefs.fontScale}%`]),
+          D.Inputs.Input({ attrs:{ type:'range', min:'90', max:'120', step:'5', value:String(prefs.fontScale), gkey:'prefs:fontScale', class: tw`w-full accent-[var(--primary)]` }})
+        ]),
+        D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, [TL('settings.previewLabel')]),
+        D.Containers.Div({ attrs:{ class: tw`rounded-2xl h-36 glass-panel overflow-hidden` }}, [
+          D.Containers.Div({ attrs:{ class: tw`w-full h-full` , style:`background:${bgPreset?.gradient || 'var(--page-gradient)'};` }})
+        ])
+      ]);
+
+      return UI.Modal({
+        open: true,
+        title: TL('settings.title'),
+        description: TL('settings.description'),
+        size: 'lg',
+        closeGkey: 'ui:settings:close',
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-8` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [TL('settings.gameSection')]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4` }}, [musicTile, timerTile])
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+            D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [TL('settings.themeSection')]),
+            themeControls
+          ])
+        ]),
+        actions: [
+          UI.Button({ attrs:{ gkey:'prefs:reset', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [TL('settings.reset')]),
+          UI.Button({ attrs:{ gkey:'ui:settings:close', class: tw`flex-1` }, variant:'soft', size:'sm' }, [TL('settings.close')])
+        ]
+      });
+    }
+
     function MainContent(db){
       const tab = db.data.activeTab;
       if (tab==='readmeBase') return DocPanel(db, 'base');
       if (tab==='readmeTec')  return DocPanel(db, 'tec');
       if (tab==='counter') return CounterPanel(db);
       if (tab==='game')    return GamePanel(db);
+      if (tab==='logic')   return LogicGamePanel(db);
       return DocPanel(db, 'base');
     }
     
@@ -1125,11 +1587,19 @@
         activeTab: 'readmeBase',
         docs: DOCS,
         counter: 0,
+        settingsOpen: false,
+        themePrefs: { ...INITIAL_THEME_PREFS },
+        logicGame:{
+          challenge: null,
+          options: [],
+          selected: null,
+          feedback: null
+        },
         game:{
           musicOn: true,
           timerOn: true,
           timerSec: 35,
-          timeLeft: 0,
+          timeLeft: 35,
           triesMax: 5,
           triesLeft: 5,
           audioList: [
@@ -1158,6 +1628,11 @@
     // ----------------------------------------------------------------
     Mishkah.app.setBody(function(db, h){
       db.head = { title: makeLangLookup(db).TL('app.title') };
+      applyThemePrefs(db.data?.themePrefs || INITIAL_THEME_PREFS);
+      const overlays = [];
+      const modalNode = SettingsModal(db);
+      if (modalNode) overlays.push(modalNode);
+      if (db.ui?.toasts && db.ui.toasts.length){ overlays.push(UI.ToastHost({ toasts: db.ui.toasts })); }
       return UI.AppRoot({
         shell: D.Containers.Div({ attrs:{ class: `${tw`flex flex-col`} app-shell` }}, [
           HeaderBar(db),
@@ -1172,7 +1647,8 @@
               ])
             ])
           ])
-        ])
+        ]),
+        overlays
       });
     });
 
@@ -1202,6 +1678,21 @@
       'route:readmeTec' :{ on:['click'], gkeys:['route:readmeTec' ], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeTec'  }}); ctx.rebuild(); }},
       'route:counter'   :{ on:['click'], gkeys:['route:counter'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
       'route:game'      :{ on:['click'], gkeys:['route:game'],      handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
+      'route:logic'     :{ on:['click'], gkeys:['route:logic'],     handler:(e,ctx)=>{ const s=ctx.getState(); let lg = s.data.logicGame || {}; if (!lg.challenge){ const created = generateLogicChallenge(); lg = { challenge: created, options: created.options, selected:null, feedback:null }; } else { lg = { ...lg }; } ctx.setState({...s, data:{...s.data, activeTab:'logic', logicGame: lg }}); ctx.rebuild(); }},
+
+      // Settings modal & theme preferences
+      'ui:settings:toggle':{ on:['change'], gkeys:['ui:settings:toggle'], handler:(e,ctx)=>{ const open = !!(e && e.target && e.target.checked); const s=ctx.getState(); ctx.setState({...s, data:{...s.data, settingsOpen: open }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'ui:settings:open'  :{ on:['click'], gkeys:['ui:settings:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:true }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'ui:settings:close' :{ on:['click'], gkeys:['ui:settings:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:false }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'theme:sync'        :{ on:['click'], gkeys:['ui:theme-toggle'], handler:(e,ctx)=>{ const prefs = ctx.getState().data?.themePrefs || INITIAL_THEME_PREFS; setTimeout(()=> applyThemePrefs(prefs), 0); }},
+      'prefs:background'  :{ on:['change'], gkeys:['prefs:background'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.backgroundId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, backgroundId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'prefs:text'        :{ on:['change'], gkeys:['prefs:text'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.textSchemeId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, textSchemeId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'prefs:fontScale'   :{ on:['input','change'], gkeys:['prefs:fontScale'], handler:(e,ctx)=>{ const raw = e && e.target ? parseInt(e.target.value,10) : null; if (raw==null || Number.isNaN(raw)) return; const scale = Math.min(120, Math.max(90, raw)); const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.fontScale === scale) { applyThemePrefs(current); return; } const next = { ...current, fontScale: scale }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'prefs:reset'       :{ on:['click'], gkeys:['prefs:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); const next = { ...THEME_DEFAULT_PREFS }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+
+      // Logic challenge
+      'logic:start'       :{ on:['click'], gkeys:['logic:start'], handler:(e,ctx)=>{ const s=ctx.getState(); const challenge = generateLogicChallenge(); const next = { challenge, options: challenge.options, selected:null, feedback:null }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'logic:answer'      :{ on:['click'], gkeys:['logic:answer'], handler:(e,ctx)=>{ const target = e && e.target && e.target.closest ? e.target.closest('[data-choice]') : null; if (!target) return; const choice = parseInt(target.getAttribute('data-choice'),10); if (Number.isNaN(choice)) return; const s=ctx.getState(); const lg = s.data.logicGame || {}; const challenge = lg.challenge; if (!challenge) return; if (lg.feedback && lg.feedback.type==='correct') return; const feedbackType = choice === challenge.answer ? 'correct' : 'wrong'; const feedback = { type: feedbackType, stamp: Date.now() }; const next = { ...lg, selected: choice, feedback }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
 
       // Counter
       'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
