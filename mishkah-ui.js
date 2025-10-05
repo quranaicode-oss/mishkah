@@ -63,7 +63,7 @@ def({
   'modal/md':       'w-[min(640px,94vw)]',
   'modal/lg':       'w-[min(820px,96vw)]',
   'modal/xl':       'w-[min(980px,96vw)]',
-  'modal/full':     'w-[min(1220px,98vw)] max-h-[94vh]',
+  'modal/full':     'w-[100vw] max-h-[94vh]',
   'modal/header':   'flex items-start justify-between gap-4 border-b border-[var(--border)] bg-[var(--card)] px-6 pt-6 pb-4 backdrop-blur-sm',
   'modal/body':     'flex-1 overflow-y-auto bg-[var(--card)] px-6 py-5',
   'modal/footer':   'flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:flex-row',
@@ -443,11 +443,13 @@ UI.Drawer = ({ open=false, side='start', header, content })=>{
   ]);
 };
 
-UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close' })=>{
+UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close', sizeKey=null, sizeOptions=['sm','md','lg','xl','full'] })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const uid = Math.random().toString(36).slice(2,8);
   const titleId = title ? `modal-${uid}-title` : undefined;
   const descriptionId = description ? `modal-${uid}-desc` : undefined;
+  const normalizedSize = typeof size === 'string' && size ? size : 'md';
+  const optionList = Array.isArray(sizeOptions) && sizeOptions.length ? sizeOptions : ['sm','md','lg','xl','full'];
   const closeBtn = h.Forms.Button({
     attrs: withClass({
       type:'button',
@@ -456,6 +458,23 @@ UI.Modal = ({ open=false, title, description, content, actions=[], size='md', cl
     }, cx(token('btn'), token('btn/ghost'), token('btn/icon')))
   }, ['✕']);
   const headerContent = [];
+  if(sizeKey){
+    headerContent.push(
+      UI.HStack({ attrs:{ class: tw`items-center gap-1` }}, optionList.map(opt=>{
+        const active = opt === normalizedSize;
+        return UI.Button({
+          attrs:{
+            gkey:'ui:modal:size',
+            'data-modal-size-key': sizeKey,
+            'data-modal-size': opt,
+            class: tw`${active ? 'opacity-100' : 'opacity-70'} text-[0.75rem]`
+          },
+          variant: active ? 'solid' : 'ghost',
+          size:'xs'
+        }, [opt === 'full' ? '⛶' : opt.toUpperCase()]);
+      }))
+    );
+  }
   if(title || description){
     headerContent.push(
       h.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
@@ -469,7 +488,7 @@ UI.Modal = ({ open=false, title, description, content, actions=[], size='md', cl
   headerContent.push(closeBtn);
   const actionNodes = (actions||[]).filter(Boolean);
   const modalAttrs = {
-    class: tw`${token('modal-card')} ${token(`modal/${size}`)||token('modal/md')}`,
+    class: tw`${token('modal-card')} ${token(`modal/${normalizedSize}`)||token('modal/md')}`,
     role:'dialog',
     'aria-modal':'true'
   };
