@@ -1656,6 +1656,7 @@ function auto(db, app, opt={}){
         const next = cur.env?.theme==='dark'?'light':'dark';
         setTheme(next);
         ctx.setState(s=> ({ ...s, env:{ ...(s.env||{}), theme: next } }));
+        ctx.rebuild();
       }
     },
     'ui.lang.ar': {

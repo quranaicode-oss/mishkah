@@ -493,6 +493,110 @@
       const memory = new Map();
       const status = hasIndexedDB ? 'indexeddb' : 'memory';
 
+      const SEED_SCHEMA = {
+        id:'schema_seed',
+        name:'commerce_schema',
+        title:'مخطط متجر إلكتروني',
+        description:'مخطط افتراضي يوضح علاقة العملاء بالطلبات والمخزون والمدفوعات.',
+        tables:[
+          {
+            name:'customers',
+            label:'العملاء',
+            layout:{ x:120, y:160 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'full_name', type:'string', nullable:false, maxLength:180, comment:'اسم العميل الكامل' },
+              { name:'email', type:'string', nullable:false, unique:true, comment:'بريد إلكتروني فريد لكل عميل' },
+              { name:'phone_number', type:'string', nullable:true, comment:'رقم للتواصل' },
+              { name:'created_at', type:'timestamp', nullable:false, defaultValue:'NOW()' }
+            ]
+          },
+          {
+            name:'orders',
+            label:'الطلبات',
+            layout:{ x:420, y:160 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'order_number', type:'string', nullable:false, unique:true, comment:'رقم الطلب الظاهر للعميل' },
+              { name:'customer_id', type:'uuid', nullable:false, references:{ table:'customers', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+              { name:'status', type:'string', nullable:false, defaultValue:'pending', enum:['pending','processing','shipped','completed','cancelled'] },
+              { name:'total_amount', type:'decimal', nullable:false, precision:12, scale:2 },
+              { name:'placed_at', type:'timestamp', nullable:false, defaultValue:'NOW()' }
+            ]
+          },
+          {
+            name:'order_items',
+            label:'بنود الطلبات',
+            layout:{ x:720, y:200 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'order_id', type:'uuid', nullable:false, references:{ table:'orders', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+              { name:'product_id', type:'uuid', nullable:false, references:{ table:'products', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+              { name:'quantity', type:'integer', nullable:false, defaultValue:1 },
+              { name:'unit_price', type:'decimal', nullable:false, precision:10, scale:2 },
+              { name:'line_total', type:'decimal', nullable:false, precision:12, scale:2 }
+            ]
+          },
+          {
+            name:'products',
+            label:'المنتجات',
+            layout:{ x:420, y:360 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'name', type:'string', nullable:false, maxLength:160 },
+              { name:'sku', type:'string', nullable:false, unique:true, comment:'معرّف فريد للمخزون' },
+              { name:'price', type:'decimal', nullable:false, precision:10, scale:2 },
+              { name:'stock_quantity', type:'integer', nullable:false, defaultValue:0 },
+              { name:'category_id', type:'uuid', nullable:true, references:{ table:'categories', column:'id', onDelete:'SET NULL', onUpdate:'CASCADE' } },
+              { name:'created_at', type:'timestamp', nullable:false, defaultValue:'NOW()' }
+            ]
+          },
+          {
+            name:'categories',
+            label:'التصنيفات',
+            layout:{ x:120, y:360 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'name', type:'string', nullable:false, unique:true },
+              { name:'description', type:'text', nullable:true }
+            ]
+          },
+          {
+            name:'payments',
+            label:'المدفوعات',
+            layout:{ x:720, y:360 },
+            fields:[
+              { name:'id', type:'uuid', nullable:false, primaryKey:true },
+              { name:'order_id', type:'uuid', nullable:false, references:{ table:'orders', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+              { name:'payment_method', type:'string', nullable:false },
+              { name:'paid_amount', type:'decimal', nullable:false, precision:12, scale:2 },
+              { name:'paid_at', type:'timestamp', nullable:false, defaultValue:'NOW()' }
+            ]
+          }
+        ]
+      };
+
+      function buildSeedRecord(){
+        const registry = new Schema.Registry({ tables: SEED_SCHEMA.tables });
+        const layout = {};
+        registry.list().forEach(table => {
+          const pos = Object.assign({ x:120, y:120 }, table.layout || {});
+          layout[table.name] = { x: pos.x, y: pos.y };
+        });
+        const now = Date.now();
+        return {
+          id: SEED_SCHEMA.id,
+          name: SEED_SCHEMA.name,
+          title: SEED_SCHEMA.title,
+          description: SEED_SCHEMA.description,
+          schema: registry.toJSON(),
+          layout,
+          canvas:{ zoom:1 },
+          createdAt: now,
+          updatedAt: now
+        };
+      }
+
       function normalize(input, { bumpUpdatedAt=true }={}){
         const now = Date.now();
         const id = input.id || U.Id.uid('schema');
@@ -582,15 +686,20 @@
         });
       }
 
-      return { status, available:true, ready, save, get, list, remove, createBlank };
+      async function createSeed(){
+        const seed = buildSeedRecord();
+        return save(seed, { bumpUpdatedAt:false });
+      }
+
+      return { status, available:true, ready, save, get, list, remove, createBlank, createSeed };
     })();
 
     await SchemaLibrary.ready();
 
     let libraryItems = await SchemaLibrary.list();
     if(!libraryItems.length){
-      const blankRecord = await SchemaLibrary.createBlank({ title:'مخطط جديد' });
-      libraryItems = [blankRecord];
+      const seedRecord = await SchemaLibrary.createSeed();
+      libraryItems = [seedRecord];
     }
 
     const activeRecord = libraryItems[0];
