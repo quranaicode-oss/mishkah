@@ -365,7 +365,16 @@
 
     function setProp(el, name, value, oldValue, db){
       if (name==='key' || name==='gkey') return;
-      if (name==='class' || name==='className'){ el.className = adaptClassValue(value||'') || ''; return; }
+      if (name==='class' || name==='className'){
+        var cls = adaptClassValue(value||'') || '';
+        if (el.namespaceURI === SVG_NS){
+          if (cls) el.setAttribute('class', cls);
+          else el.removeAttribute('class');
+        } else {
+          el.className = cls;
+        }
+        return;
+      }
       if (name==='style'){ setStyle(el, value); return; }
       if (name.indexOf('on')===0 && typeof value === 'function'){
         var ev = name.slice(2).toLowerCase(); if (oldValue) el.removeEventListener(ev, oldValue); el.addEventListener(ev, value, false); return;
