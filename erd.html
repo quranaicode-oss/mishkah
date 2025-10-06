@@ -69,7 +69,8 @@
     #app { flex: 1 1 auto; display: flex; }
     textarea[readonly] { user-select: all; }
   </style>
-  <script src="https://unpkg.com/gojs@2.3.14/release/go.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@antv/x6@1.35.3/dist/x6.css"/>
+  <script src="https://unpkg.com/@antv/x6@1.35.3/dist/x6.js"></script>
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
@@ -88,8 +89,8 @@
     const Text = U.Text || {};
 
     let erdAppInstance = null;
-    let goDiagram = null;
-    let goMaker = null;
+    let erdDriver = null;
+    let activeDriverName = null;
     let pendingDiagramFrame = false;
     let lastDiagramState = null;
 
@@ -104,6 +105,238 @@
     const RELATION_ACTION_OPTIONS = ['CASCADE','RESTRICT','SET NULL','NO ACTION'];
 
     const clone = (U.JSON && U.JSON.clone) ? U.JSON.clone : (obj => JSON.parse(JSON.stringify(obj)));
+
+    class FakeDriver {
+      init(container, hooks){
+        this.container = container;
+        this.hooks = hooks || {};
+        container.innerHTML = '<div style="padding:8px;color:#666">FakeDriver mounted (no drawing)</div>';
+      }
+      render(state){
+        const tables = Array.isArray(state?.tables) ? state.tables.length : 0;
+        console.log('Fake render', tables, 'tables');
+      }
+      fitToScreen(){ }
+      undo(){ }
+      redo(){ }
+      async exportPNG(){ return new Blob(); }
+      async exportSVG(){ return '<svg/>'; }
+      destroy(){ if(this.container) this.container.innerHTML = ''; }
+    }
+
+    class X6Driver {
+      constructor(){
+        this.graph = null;
+        this.hooks = null;
+        this.initialized = false;
+      }
+
+      init(container, hooks){
+        this.hooks = hooks || {};
+        const Graph = window?.X6?.Graph;
+        if(!Graph){
+          console.warn('[Mishkah][ERD] AntV X6 Graph not available, falling back to FakeDriver');
+          throw new Error('X6 not available');
+        }
+        this.graph = new Graph({
+          container,
+          grid: true,
+          scroller: { enabled: true, pannable: true },
+          mousewheel: { enabled: true, modifiers: ['ctrl','meta'] },
+          history: { enabled: true },
+          selecting: { enabled: true, multiple: true, rubberband: true },
+          keyboard: { enabled: true },
+          clipboard: { enabled: true },
+          snapline: { enabled: true },
+          connecting: {
+            allowBlank: false,
+            allowLoop: false,
+            snap: true,
+            router: { name: 'manhattan' },
+            connector: { name: 'rounded' },
+            validateConnection: ({ sourceMagnet, targetMagnet }) => !!(sourceMagnet && targetMagnet),
+          },
+        });
+
+        this.graph.on('node:change:position', ({ node }) => {
+          const { x, y } = node.getPosition();
+          this.hooks?.onNodeMove?.({ id: String(node.id), x, y });
+        });
+
+        this.graph.on('selection:changed', ({ selected }) => {
+          if(!selected) return;
+          const ids = selected
+            .filter(cell => cell && typeof cell.isNode === 'function' && cell.isNode())
+            .map(cell => String(cell.id));
+          this.hooks?.onSelect?.(ids);
+        });
+
+        this.graph.on('edge:connected', ({ edge, isNew }) => {
+          if(!edge) return;
+          const meta = edge.getData ? edge.getData() : null;
+          if(meta?.hydrated){
+            edge.setData({ ...meta, hydrated: false });
+            return;
+          }
+          if(isNew === false) return;
+          const source = edge.getSource();
+          const target = edge.getTarget();
+          if(!source || !target) return;
+          this.hooks?.onEdgeConnect?.({
+            source: { id: String(source.cell), port: String(source.port) },
+            target: { id: String(target.cell), port: String(target.port) },
+          });
+        });
+      }
+
+      render(state){
+        if(!this.graph) return;
+        const layout = state?.layout || {};
+        const tables = Array.isArray(state?.tables) ? state.tables : [];
+        const relations = Array.isArray(state?.relations) ? state.relations : [];
+        const nodes = tables.map(tbl => {
+          const position = layout[tbl.id] || { x: 80, y: 80 };
+          const fields = Array.isArray(tbl.fields) ? tbl.fields : [];
+          const lines = fields.map(field => {
+            const typeSuffix = field.type ? ` : ${field.type}` : '';
+            return `• ${field.name}${typeSuffix}`;
+          });
+          const title = tbl.displayName || tbl.label || tbl.name || tbl.id;
+          const bodyText = lines.length ? `${title}\n${lines.join('\n')}` : title;
+          return {
+            id: tbl.id,
+            shape: 'rect',
+            x: position.x,
+            y: position.y,
+            width: 260,
+            height: Math.max(60, 32 + 24 * fields.length),
+            data: { hydrated: true },
+            attrs: {
+              body: { fill: '#0ea5e9', stroke: '#0284c7', rx: 12, ry: 12 },
+              label: {
+                text: bodyText,
+                fill: '#f8fafc',
+                fontSize: 12,
+                fontWeight: 600,
+                lineHeight: 1.4,
+                textAnchor: 'start',
+                refX: 12,
+                refY: 16,
+              },
+            },
+            ports: {
+              groups: {
+                in: {
+                  position: 'left',
+                  attrs: { circle: { r: 4, magnet: true, stroke: '#0f172a', fill: '#f8fafc' } },
+                },
+                out: {
+                  position: 'right',
+                  attrs: { circle: { r: 4, magnet: true, stroke: '#0f172a', fill: '#f8fafc' } },
+                },
+              },
+              items: fields.map((field, index) => ({
+                id: `${tbl.id}:${field.name}`,
+                group: index % 2 === 0 ? 'out' : 'in',
+                attrs: {
+                  circle: {
+                    title: `${field.name}${field.type ? ` (${field.type})` : ''}`,
+                  },
+                },
+              })),
+            },
+          };
+        });
+
+        const edges = relations.map(rel => ({
+          id: rel.id || `${rel.from.table}:${rel.from.field}→${rel.to.table}:${rel.to.field}`,
+          shape: 'edge',
+          source: { cell: rel.from.table, port: `${rel.from.table}:${rel.from.field}` },
+          target: { cell: rel.to.table, port: `${rel.to.table}:${rel.to.field}` },
+          router: { name: 'manhattan' },
+          connector: { name: 'rounded' },
+          attrs: { line: { stroke: '#0284c7', strokeWidth: 1.6 } },
+          labels: rel.cardinality || rel.onDelete || rel.onUpdate ? [
+            {
+              attrs: {
+                label: {
+                  text: rel.cardinality || '1..*',
+                  fill: '#0f172a',
+                  background: {
+                    fill: '#f8fafc',
+                    stroke: '#94a3b8',
+                    padding: 2,
+                  },
+                },
+              },
+            },
+          ] : [],
+          data: { hydrated: true },
+        }));
+
+        this.graph.fromJSON({ cells: [...nodes, ...edges] });
+
+        const selection = state?.selection;
+        if(selection?.table){
+          const node = this.graph.getCellById(selection.table);
+          if(node){
+            this.graph.resetSelection(node);
+          }
+        }
+
+        if(typeof state?.zoom === 'number' && Number.isFinite(state.zoom)){
+          try { this.graph.zoomTo(state.zoom); }
+          catch(error){ console.warn('[Mishkah][ERD] zoomTo failed', error); }
+        }
+
+        if(!this.initialized){
+          this.initialized = true;
+        }
+      }
+
+      fitToScreen(padding = 16){
+        if(!this.graph) return;
+        this.graph.scaleContentToFit({ padding });
+      }
+
+      undo(){
+        if(!this.graph) return;
+        this.graph.history?.undo();
+      }
+
+      redo(){
+        if(!this.graph) return;
+        this.graph.history?.redo();
+      }
+
+      async exportSVG(){
+        if(!this.graph) return '<svg />';
+        return this.graph.toSVG({ preserveDimensions: true });
+      }
+
+      async exportPNG(opts = {}){
+        if(!this.graph) return new Blob();
+        const dataUrl = await this.graph.toPNG({
+          backgroundColor: opts.background || '#ffffff',
+          padding: 16,
+          quality: 1,
+        });
+        const response = await fetch(dataUrl);
+        return await response.blob();
+      }
+
+      destroy(){
+        if(this.graph){
+          this.graph.dispose();
+          this.graph = null;
+        }
+      }
+    }
+
+    const DiagramDrivers = {
+      fake: FakeDriver,
+      x6: X6Driver,
+    };
 
     function sanitizeSqlIdentifier(value){
       if(!value) return '';
@@ -185,47 +418,49 @@
       };
     }
 
-    function buildDiagramData(state){
+    function buildDriverStateSnapshot(state){
       const registry = getRegistry(state);
       const layout = state.data.layout || {};
-      const selection = state.data.selection || {};
-      const tables = registry.list();
-      const nodes = tables.map(table => {
-        const pos = layout[table.name] || table.layout || { x: 120, y: 120 };
-        return {
-          key: table.name,
-          title: formatIdentifier(table.name),
-          arabicLabel: table.label || '',
-          loc: `${pos.x} ${pos.y}`,
-          selected: selection.table === table.name,
-          items: (table.fields || []).map(field => ({
-            name: field.name,
-            display: formatIdentifier(field.name),
-            type: field.type,
-            isPrimary: !!field.primaryKey,
-            isForeign: !!field.references,
-            nullable: field.nullable !== false,
-            selected: selection.table === table.name && selection.field === field.name,
-            references: field.references || null
-          }))
-        };
-      });
-      const links = [];
-      tables.forEach(table => {
+      const tables = registry.list().map(table => ({
+        id: table.name,
+        name: table.name,
+        label: table.label || '',
+        displayName: formatIdentifier(table.name),
+        fields: (table.fields || []).map(field => ({
+          name: field.name,
+          type: field.type,
+          pk: !!field.primaryKey,
+          unique: !!field.unique,
+          nullable: field.nullable !== false,
+          default: field.defaultValue,
+          references: field.references || null,
+        })),
+      }));
+      const relations = [];
+      registry.list().forEach(table => {
         (table.fields || []).forEach(field => {
           if(field.references && field.references.table){
-            links.push({
-              from: table.name,
-              to: field.references.table,
-              fromField: field.name,
-              toField: field.references.column || field.references.field || 'id',
-              fromLabel: formatIdentifier(field.name),
-              toLabel: formatIdentifier(field.references.column || field.references.field || 'id')
+            relations.push({
+              id: `${table.name}:${field.name}→${field.references.table}:${field.references.column || field.references.field || 'id'}`,
+              from: { table: table.name, field: field.name },
+              to: {
+                table: field.references.table,
+                field: field.references.column || field.references.field || 'id',
+              },
+              cardinality: field.references.cardinality || '',
+              onDelete: field.references.onDelete,
+              onUpdate: field.references.onUpdate,
             });
           }
         });
       });
-      return { nodes, links };
+      return {
+        tables,
+        relations,
+        layout,
+        selection: state.data.selection || {},
+        zoom: state.data.canvas?.zoom || 1,
+      };
     }
 
     function scheduleDiagramRender(state){
@@ -239,189 +474,92 @@
       });
     }
 
-    function applyDiagramTemplates(diagram, palette){
-      if(!goMaker) return;
-      const signature = JSON.stringify(palette);
-      if(diagram.__paletteSignature === signature) return;
-      diagram.__paletteSignature = signature;
-      const $ = goMaker;
-      const foreground = palette.foreground || '#0f172a';
-      const muted = palette.muted || '#475569';
-      const border = palette.border || '#d7deed';
-      const surface = palette.surface || '#ffffff';
-      const accent = palette.accent || '#e2e8f0';
-      const accentFg = palette.accentForeground || foreground;
-      const primary = palette.primary || '#2563eb';
-      const primaryFg = palette.primaryForeground || '#f8fafc';
-
-      const itemTemplate = $(go.Panel, 'TableRow',
-        {
-          column: 0,
-          stretch: go.GraphObject.Horizontal,
-          cursor: 'pointer',
-          fromSpot: go.Spot.LeftRightSides,
-          toSpot: go.Spot.LeftRightSides
-        },
-        new go.Binding('portId', 'name'),
-        new go.Binding('background', 'selected', sel => sel ? accent : null),
-        {
-          mouseEnter: (e, row)=>{ if(!row.data?.selected) row.background = accent; },
-          mouseLeave: (e, row)=>{ if(!row.data?.selected) row.background = null; },
-          click: (e, row)=>{
-            const field = row.data;
-            const tableKey = row.part?.data?.key;
-            if(field && tableKey && erdAppInstance){
-              erdAppInstance.setState(s => withFieldSelection(s, tableKey, field.name));
-              erdAppInstance.rebuild();
-            }
+    function ensureDriverInstance(state){
+      if(typeof window === 'undefined') return null;
+      const host = document.getElementById('erd-diagram');
+      if(!host) return null;
+      const driverKey = (state?.env?.graph?.driver || 'fake').toLowerCase();
+      if(erdDriver && activeDriverName === driverKey){
+        return erdDriver;
+      }
+      if(erdDriver){
+        try { erdDriver.destroy(); }
+        catch(error){ console.warn('[Mishkah][ERD] driver destroy failed', error); }
+        erdDriver = null;
+      }
+      const DriverCtor = DiagramDrivers[driverKey] || DiagramDrivers.fake;
+      try {
+        const instance = new DriverCtor();
+        instance.init(host, {
+          onNodeMove: handleDriverNodeMove,
+          onSelect: handleDriverSelect,
+          onEdgeConnect: handleDriverEdgeConnect,
+        });
+        erdDriver = instance;
+        activeDriverName = driverKey;
+        host.setAttribute('data-driver', driverKey);
+        return erdDriver;
+      } catch(error){
+        console.warn('[Mishkah][ERD] failed to initialise driver', driverKey, error);
+        if(driverKey !== 'fake'){
+          try {
+            const fallback = new FakeDriver();
+            fallback.init(host, {
+              onNodeMove: handleDriverNodeMove,
+              onSelect: handleDriverSelect,
+              onEdgeConnect: handleDriverEdgeConnect,
+            });
+            erdDriver = fallback;
+            activeDriverName = 'fake';
+            host.setAttribute('data-driver', 'fake');
+            return erdDriver;
+          } catch(fallbackError){
+            console.error('[Mishkah][ERD] failed to initialise FakeDriver', fallbackError);
           }
-        },
-        $(go.Shape, 'Circle', {
-          column: 0,
-          width: 7,
-          height: 7,
-          margin: new go.Margin(0, 6, 0, 4),
-          strokeWidth: 1.2,
-          fill: border,
-          stroke: border
-        },
-          new go.Binding('fill', 'isPrimary', isPrimary => isPrimary ? primary : border),
-          new go.Binding('stroke', 'isForeign', isForeign => isForeign ? primary : border),
-          new go.Binding('strokeWidth', 'isForeign', isForeign => isForeign ? 1.6 : 1.2)
-        ),
-        $(go.TextBlock, {
-          column: 1,
-          alignment: go.Spot.Left,
-          margin: new go.Margin(2, 6, 2, 0),
-          font: '600 12px Tajawal, sans-serif',
-          stroke: foreground,
-          maxLines: 1
-        }, new go.Binding('text', 'display')),
-        $(go.TextBlock, {
-          column: 2,
-          alignment: go.Spot.Right,
-          margin: new go.Margin(2, 0, 2, 0),
-          font: '11px Tajawal, sans-serif',
-          stroke: muted,
-          maxLines: 1
-        }, new go.Binding('text', 'type'))
-      );
-
-      diagram.nodeTemplate = $(go.Node, 'Auto',
-        {
-          selectionAdorned: false,
-          resizable: false,
-          cursor: 'move',
-          fromSpot: go.Spot.AllSides,
-          toSpot: go.Spot.AllSides,
-          click:(e,node)=>{
-            const key = node?.data?.key;
-            if(key && erdAppInstance){
-              erdAppInstance.setState(s => withTableSelection(s, key));
-              erdAppInstance.rebuild();
-            }
-          }
-        },
-        new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
-        $(go.Shape, 'RoundedRectangle', {
-          fill: surface,
-          stroke: border,
-          strokeWidth: 1.4,
-          name: 'CARD',
-          portId: '',
-          fromSpot: go.Spot.AllSides,
-          toSpot: go.Spot.AllSides
-        },
-          new go.Binding('stroke', 'selected', sel => sel ? primary : border),
-          new go.Binding('strokeWidth', 'selected', sel => sel ? 2 : 1.4)
-        ),
-        $(go.Panel, 'Table',
-          { stretch: go.GraphObject.Fill, defaultRowSeparatorStroke: border },
-          $(go.RowColumnDefinition, { row: 0, sizing: go.RowColumnDefinition.None }),
-          $(go.TextBlock, {
-            row: 0,
-            margin: new go.Margin(6, 36, 4, 10),
-            font: '600 14px Tajawal, sans-serif',
-            stroke: foreground,
-            maxLines: 1
-          }, new go.Binding('text', 'title')),
-          $('PanelExpanderButton', 'FIELD_LIST', { row: 0, alignment: go.Spot.TopRight, margin: new go.Margin(4, 6, 0, 0) }),
-          $(go.Panel, 'Vertical', {
-            name: 'FIELD_LIST',
-            row: 1,
-            stretch: go.GraphObject.Horizontal,
-            defaultAlignment: go.Spot.Left,
-            itemTemplate,
-            padding: new go.Margin(4, 0, 6, 0)
-          }, new go.Binding('itemArray', 'items'))
-        ),
-        new go.Binding('toolTip', '', data => {
-          if(!data.arabicLabel) return null;
-          return $(go.Adornment, 'Auto',
-            $(go.Shape, { fill: accent, stroke: border }),
-            $(go.TextBlock, { margin: 6, font: '12px Tajawal, sans-serif', stroke: accentFg }, data.arabicLabel)
-          );
-        })
-      );
-
-      diagram.linkTemplate = $(go.Link,
-        {
-          routing: go.Link.AvoidsNodes,
-          corner: 8,
-          curve: go.Link.JumpOver,
-          relinkableFrom: false,
-          relinkableTo: false
-        },
-        $(go.Shape, { stroke: primary, strokeWidth: 1.6 }),
-        $(go.Shape, { toArrow: 'Standard', stroke: null, fill: primary }),
-        $(go.TextBlock, {
-          segmentIndex: 0,
-          segmentOffset: new go.Point(0, -10),
-          font: '11px Tajawal, sans-serif',
-          stroke: muted
-        }, new go.Binding('text', 'fromLabel')),
-        $(go.TextBlock, {
-          segmentIndex: -1,
-          segmentOffset: new go.Point(0, 10),
-          font: '11px Tajawal, sans-serif',
-          stroke: muted
-        }, new go.Binding('text', 'toLabel'))
-      );
-
-      diagram.model = $(go.GraphLinksModel, {
-        copiesArrays: true,
-        copiesArrayObjects: true,
-        linkFromPortIdProperty: 'fromField',
-        linkToPortIdProperty: 'toField'
-      });
+        }
+        return null;
+      }
     }
 
-    function persistDiagramLayout(diagram){
-      if(!erdAppInstance) return;
-      const moved = diagram.selection;
-      const updates = {};
-      moved.each(part => {
-        if(part instanceof go.Node){
-          const loc = part.location;
-          updates[part.data.key] = { x: Math.round(loc.x), y: Math.round(loc.y) };
-        }
-      });
-      if(!Object.keys(updates).length) return;
-      let record = null;
+    function renderDiagram(state){
+      if(!state || typeof window === 'undefined') return;
+      const host = document.getElementById('erd-diagram');
+      if(!host) return;
+      const driver = ensureDriverInstance(state);
+      if(!driver) return;
+      const payload = buildDriverStateSnapshot(state);
+      const palette = currentPalette();
+      host.style.background = palette.background || '#f8fafc';
+      try {
+        driver.render(payload);
+      } catch(error){
+        console.warn('[Mishkah][ERD] driver render failed', error);
+      }
+    }
+
+    function extractFieldFromPort(portId){
+      if(!portId) return '';
+      const parts = String(portId).split(':');
+      if(parts.length <= 1) return parts[0] || '';
+      return parts.slice(1).join(':');
+    }
+
+    function handleDriverNodeMove(position){
+      if(!erdAppInstance || !position) return;
+      const id = String(position.id || '');
+      if(!id) return;
+      const x = Math.round(Number(position.x) || 0);
+      const y = Math.round(Number(position.y) || 0);
+      let persistRecord = null;
       erdAppInstance.setState(s => {
         const layout = Object.assign({}, s.data.layout || {});
-        let changed = false;
-        for(const [key, pos] of Object.entries(updates)){
-          if(!pos) continue;
-          const current = layout[key] || {};
-          if(current.x !== pos.x || current.y !== pos.y){
-            layout[key] = { x: pos.x, y: pos.y };
-            changed = true;
-          }
+        const current = layout[id] || {};
+        if(current.x === x && current.y === y){
+          return s;
         }
-        if(!changed) return s;
+        layout[id] = { x, y };
         const now = Date.now();
-        const recordInput = {
+        const record = {
           id: s.data.schemaId,
           name: s.data.schemaMeta?.name || '',
           title: s.data.schemaMeta?.title || '',
@@ -430,56 +568,103 @@
           layout,
           canvas: s.data.canvas,
           createdAt: s.data.schemaCreatedAt,
-          updatedAt: now
+          updatedAt: now,
         };
-        record = recordInput;
+        persistRecord = record;
         return {
           ...s,
           data:{
             ...s.data,
             layout,
             schemaUpdatedAt: now,
-            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], recordInput) }
-          }
+            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) },
+          },
+          ui:{
+            ...(s.ui || {}),
+            form:{
+              ...(s.ui?.form || {}),
+              layout:{ x, y },
+            },
+          },
         };
       });
-      if(record){
-        erdAppInstance.rebuild();
-        schedulePersist(recordFromState(erdAppInstance.getState()));
+      erdAppInstance.rebuild();
+      if(persistRecord){
+        schedulePersist(persistRecord);
       }
     }
 
-    function renderDiagram(state){
-      if(!state || typeof window === 'undefined' || !window.go) return;
-      const host = document.getElementById('erd-diagram');
-      if(!host) return;
-      if(!goMaker) goMaker = go.GraphObject.make;
-      if(!goDiagram){
-        goDiagram = goMaker(go.Diagram, host, {
-          'undoManager.isEnabled': false,
-          allowCopy: false,
-          allowDelete: false,
-          allowMove: true,
-          padding: 32,
-          contentAlignment: go.Spot.Center,
-          layout: goMaker(go.ForceDirectedLayout, { defaultSpringLength: 180, defaultElectricalCharge: 180 })
-        });
-        goDiagram.toolManager.mouseWheelBehavior = go.ToolManager.WheelZoom;
-        goDiagram.addDiagramListener('SelectionMoved', e => persistDiagramLayout(e.diagram));
-      }
-      const palette = currentPalette();
-      applyDiagramTemplates(goDiagram, palette);
-      const data = buildDiagramData(state);
-      goDiagram.model.nodeDataArray = data.nodes;
-      goDiagram.model.linkDataArray = data.links;
-      goDiagram.background = palette.background || '#f8fafc';
-      const zoom = state.data.canvas?.zoom || 1;
-      goDiagram.scale = zoom;
-      if(state.data.selection?.table){
-        const node = goDiagram.findNodeForKey(state.data.selection.table);
-        if(node) goDiagram.select(node);
+    function handleDriverSelect(ids){
+      if(!erdAppInstance) return;
+      const list = Array.isArray(ids) ? ids : [];
+      if(!list.length) return;
+      const tableName = list[0];
+      if(!tableName) return;
+      erdAppInstance.setState(s => withTableSelection(s, tableName));
+      erdAppInstance.rebuild();
+    }
+
+    function handleDriverEdgeConnect(connection){
+      if(!erdAppInstance || !connection) return;
+      const sourceTable = connection.source?.id ? String(connection.source.id) : '';
+      const targetTable = connection.target?.id ? String(connection.target.id) : '';
+      const sourceField = extractFieldFromPort(connection.source?.port);
+      const targetField = extractFieldFromPort(connection.target?.port);
+      if(!sourceTable || !sourceField || !targetTable || !targetField) return;
+      let persistRecord = null;
+      erdAppInstance.setState(s => {
+        const registry = Schema.Registry.fromJSON(s.data.schema);
+        const table = registry.get(sourceTable);
+        if(!table) return s;
+        const field = table.getField(sourceField);
+        if(!field) return s;
+        const currentRefs = field.references || {};
+        try {
+          table.updateField(sourceField, {
+            references:{
+              table: targetTable,
+              column: targetField,
+              onDelete: currentRefs.onDelete || 'CASCADE',
+              onUpdate: currentRefs.onUpdate || 'CASCADE',
+              cardinality: currentRefs.cardinality,
+            },
+          });
+        } catch(error){
+          console.warn('[Mishkah][ERD] failed to apply edge connection', error);
+          return s;
+        }
+        const schemaJSON = registry.toJSON();
+        const now = Date.now();
+        const record = {
+          id: s.data.schemaId,
+          name: s.data.schemaMeta?.name || '',
+          title: s.data.schemaMeta?.title || '',
+          description: s.data.schemaMeta?.description || '',
+          schema: schemaJSON,
+          layout: s.data.layout,
+          canvas: s.data.canvas,
+          createdAt: s.data.schemaCreatedAt,
+          updatedAt: now,
+        };
+        persistRecord = record;
+        let draft = {
+          ...s,
+          data:{
+            ...s.data,
+            schema: schemaJSON,
+            schemaUpdatedAt: now,
+            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) },
+          },
+        };
+        draft = withFieldSelection(draft, sourceTable, sourceField);
+        return draft;
+      });
+      erdAppInstance.rebuild();
+      if(persistRecord){
+        schedulePersist(persistRecord);
       }
     }
+
 
     const SchemaLibrary = (function(){
       const storeName = 'schemas';
@@ -733,7 +918,7 @@
 
     const erdState = {
       head:{ title: activeRecord.title || 'مخطط قاعدة بيانات مشكاة' },
-      env:{ theme:'dark', lang:'ar', dir:'rtl' },
+      env:{ theme:'dark', lang:'ar', dir:'rtl', graph:{ driver:'x6' } },
       data:{
         schemaId: activeRecord.id,
         schemaMeta:{
@@ -977,6 +1162,11 @@
         right:[
           UI.LanguageSwitch({ lang }),
           UI.ThemeToggleIcon({ theme }),
+          UI.Button({ attrs:{ gkey:'erd:undo', title:'تراجع' }, variant:'ghost', size:'sm' }, ['↺']),
+          UI.Button({ attrs:{ gkey:'erd:redo', title:'إعادة' }, variant:'ghost', size:'sm' }, ['↻']),
+          UI.Button({ attrs:{ gkey:'erd:fit', title:'ملاءمة المخطط للشاشة' }, variant:'ghost', size:'sm' }, ['🗺️']),
+          UI.Button({ attrs:{ gkey:'erd:export:svg', title:'تصدير SVG' }, variant:'ghost', size:'sm' }, ['🖼️ SVG']),
+          UI.Button({ attrs:{ gkey:'erd:export:png', title:'تصدير PNG' }, variant:'ghost', size:'sm' }, ['🖼️ PNG']),
           UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
           UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL']),
           UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
@@ -1338,6 +1528,41 @@
     }
 
     const erdOrders = {
+      'erd.fit':{
+        on:['click'],
+        gkeys:['erd:fit'],
+        handler:(e,ctx)=>{
+          const driver = ensureDriverInstance(ctx.getState());
+          if(driver && typeof driver.fitToScreen === 'function'){
+            try { driver.fitToScreen(16); }
+            catch(error){ console.warn('[Mishkah][ERD] fit failed', error); }
+          } else {
+            UI.pushToast(ctx, { title:'لم يتم تفعيل أداة الرسم بعد', icon:'⚠️' });
+          }
+        }
+      },
+      'erd.undo':{
+        on:['click'],
+        gkeys:['erd:undo'],
+        handler:(e,ctx)=>{
+          const driver = ensureDriverInstance(ctx.getState());
+          if(driver && typeof driver.undo === 'function'){
+            try { driver.undo(); }
+            catch(error){ console.warn('[Mishkah][ERD] undo failed', error); }
+          }
+        }
+      },
+      'erd.redo':{
+        on:['click'],
+        gkeys:['erd:redo'],
+        handler:(e,ctx)=>{
+          const driver = ensureDriverInstance(ctx.getState());
+          if(driver && typeof driver.redo === 'function'){
+            try { driver.redo(); }
+            catch(error){ console.warn('[Mishkah][ERD] redo failed', error); }
+          }
+        }
+      },
       'erd.zoom.in':{
         on:['click'],
         gkeys:['erd:zoom:in'],
@@ -1431,6 +1656,61 @@
           });
           ctx.rebuild();
           if(next) schedulePersist(recordFromState(next));
+        }
+      },
+      'erd.export.svg':{
+        on:['click'],
+        gkeys:['erd:export:svg'],
+        handler: async (e,ctx)=>{
+          const driver = ensureDriverInstance(ctx.getState());
+          if(!driver || typeof driver.exportSVG !== 'function'){
+            UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير SVG', icon:'⚠️' });
+            return;
+          }
+          try{
+            const svg = await driver.exportSVG();
+            const blob = svg instanceof Blob ? svg : new Blob([svg], { type:'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const name = ctx.getState().data?.schemaMeta?.name || 'schema';
+            link.href = url;
+            link.download = `${name}.svg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة SVG', icon:'✅' });
+          } catch(error){
+            console.warn('[Mishkah][ERD] export SVG failed', error);
+            UI.pushToast(ctx, { title:'تعذر تصدير SVG', message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.export.png':{
+        on:['click'],
+        gkeys:['erd:export:png'],
+        handler: async (e,ctx)=>{
+          const driver = ensureDriverInstance(ctx.getState());
+          if(!driver || typeof driver.exportPNG !== 'function'){
+            UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير PNG', icon:'⚠️' });
+            return;
+          }
+          try{
+            const blob = await driver.exportPNG({ background: currentPalette().background || '#ffffff' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const name = ctx.getState().data?.schemaMeta?.name || 'schema';
+            link.href = url;
+            link.download = `${name}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة PNG', icon:'✅' });
+          } catch(error){
+            console.warn('[Mishkah][ERD] export PNG failed', error);
+            UI.pushToast(ctx, { title:'تعذر تصدير PNG', message:String(error), icon:'🛑' });
+          }
         }
       },
       'erd.table.select':{
