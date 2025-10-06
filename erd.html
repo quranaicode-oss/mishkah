@@ -93,7 +93,7 @@
       async function save(input, opts={}){
         const record = normalize(input, opts);
         if(adapter){
-          try { await adapter.put(storeName, record, record.id); }
+          try { await adapter.put(storeName, record); }
           catch(error){ console.warn('[Mishkah][ERD] IndexedDB save failed', error); }
         }
         memory.set(record.id, clone(record));
