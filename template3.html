@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Template Zen — صفحة هادئة</title>
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah.templates.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const { Mishkah } = window;
+    const { utils: U } = Mishkah;
+    const { tw, cx } = U.twcss;
+
+    const sections = {
+      main: (ctx) => {
+        const testimonials = ctx.db.data?.testimonials || [];
+        if (!testimonials.length) return ctx.defaults.main(ctx);
+        return Mishkah.DSL.Containers.Section({
+          attrs: { class: cx('template-glass', tw`rounded-[32px] border px-6 py-10 space-y-6`) }
+        }, [
+          Mishkah.DSL.Text.H2({}, ['أصوات من المجتمع']),
+          Mishkah.DSL.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } },
+            testimonials.map((item, idx) => Mishkah.DSL.Containers.Div({
+              attrs: { key: `testimonial-${idx}`, class: tw`flex h-full flex-col gap-3 rounded-3xl bg-[color-mix(in_ oklab,var(--surface-2)_85%,transparent)] p-5 text-start` }
+            }, [
+              Mishkah.DSL.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [`“${item.quote}”`]),
+              Mishkah.DSL.Containers.Div({ attrs: { class: tw`flex items-center gap-3` } }, [
+                Mishkah.DSL.Containers.Div({ attrs: { class: tw`grid h-10 w-10 place-items-center rounded-full bg-[var(--accent)] text-xs font-semibold` } }, [item.avatar || (item.author ? item.author.slice(0, 2) : '؟')]),
+                Mishkah.DSL.Containers.Div({}, [
+                  Mishkah.DSL.Text.Strong({}, [item.author]),
+                  item.role ? Mishkah.DSL.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.role]) : null
+                ].filter(Boolean))
+              ])
+            ].filter(Boolean))
+          )
+        ]);
+      },
+      cards: (ctx) => ctx.defaults.cards(ctx)
+    };
+
+    Mishkah.Templates.create({
+      layout: 'zen',
+      mount: '#app',
+      database: {
+        data: {
+          testimonials: [
+            { quote: 'القالب اختصر علينا أيام من العمل اليدوي، واستطعنا التركيز على منطق التطبيق.', author: 'ريم', role: 'مؤسسة مشروع تعليمي' },
+            { quote: 'تجربة المستخدم سلسة جدًا، والأوامر الجاهزة وفرت علينا كتابة الكثير من الكود.', author: 'جواد', role: 'قائد فريق الواجهة' },
+            { quote: 'خلال أقل من ساعة شغّلنا نسخة العرض، وكان من السهل استبدال الأقسام بمكوّناتنا.', author: 'هند', role: 'مديرة منتج' },
+            { quote: 'النسخة الداكنة تبدو رائعة، والأداء ممتاز حتى مع بيانات ضخمة.', author: 'معاذ', role: 'مهندس بيانات' }
+          ]
+        }
+      },
+      copy: {
+        brand: { name: 'Calm Studio', tagline: 'مساحة هادئة للمنتجات الملهمة' },
+        hero: {
+          eyebrow: 'تجربة استخدام مريحة',
+          title: 'اجعل صفحتك تهدأ وتشرح كل شيء ببساطة',
+          description: 'Layout Zen يمنحك صفحة مركزية متوازنة مع دعوات للفعل واضحة وقصص نجاح جاهزة للعرض.',
+          bullets: [
+            { icon: '💡', text: 'تصميم بسيط مع تباين متزن ومحتوى في المنتصف.' },
+            { icon: '🧘', text: 'مناسب للمنتجات الهادئة والصفحات التعريفية.' }
+          ],
+          primary: { label: 'ابدأ الآن', gkey: 'zen.join' },
+          secondary: { label: 'شاهد الجولة', gkey: 'zen.tour' }
+        },
+        cards: [
+          { title: 'مكتبة UI نظيفة', description: 'مكوّنات جاهزة تستجيب لأوامر مشكاة مباشرة.' },
+          { title: 'حقن بسيط', description: 'وظائف sections تتيح لك تبديل أي جزء بدالة واحدة.' },
+          { title: 'التحكم بالثيم', description: 'أوامر تغيير الثيم واللغة مدمجة مسبقًا.' }
+        ],
+        cta: {
+          title: 'شارك منتجك مع العالم',
+          description: 'استخدم Zen لتقديم فكرتك خلال دقائق مع دعم كامل للغة العربية.',
+          primary: { label: 'إنشاء صفحة جديدة', gkey: 'zen.join' },
+          secondary: { label: 'مشاهدة الدليل', gkey: 'zen.tour' }
+        }
+      },
+      sections,
+      orders: {
+        'zen.join': {
+          on: ['click'],
+          gkeys: ['zen.join', 'templates:cta:primary'],
+          handler: () => console.info('✨ لنبدأ ببناء صفحة Zen جديدة!')
+        },
+        'zen.tour': {
+          on: ['click'],
+          gkeys: ['zen.tour', 'templates:cta:secondary'],
+          handler: () => window.open('https://example.com/zen-tour', '_blank')
+        }
+      }
+    });
+  </script>
+</body>
+</html>

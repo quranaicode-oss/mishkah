@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Template Atlas — لوحة عمليات</title>
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah.templates.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const { Mishkah } = window;
+    const { DSL: D, utils: U, UI } = Mishkah;
+    const { tw, cx } = U.twcss;
+
+    const sections = {
+      main: (ctx) => {
+        const phases = ctx.db.data?.phases || [];
+        const featureGrid = ctx.defaults.main(ctx);
+        const board = D.Containers.Section({
+          attrs: { class: cx('template-glass', tw`rounded-[28px] border px-6 py-8 space-y-4`) }
+        }, [
+          D.Text.H2({}, ['خريطة العمل الحالية']),
+          D.Containers.Div({ attrs: { class: tw`grid gap-4 lg:grid-cols-2` } },
+            phases.map((phase) => UI.Card({
+              attrs: { key: `phase-${phase.id}`, class: tw`h-full` },
+              title: `${phase.title}`,
+              description: phase.description,
+              content: D.Containers.Div({ attrs: { class: tw`flex items-center justify-between text-sm text-[var(--muted-foreground)]` } }, [
+                D.Text.Span({}, [`${phase.owner}`]),
+                D.Text.Span({}, [`%${phase.progress}`])
+              ])
+            }))
+          )
+        ]);
+        return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [featureGrid, board]);
+      },
+      sidebar: (ctx) => {
+        const team = ctx.db.data?.team || [];
+        return D.Containers.Section({
+          attrs: { class: cx('template-glass', tw`rounded-[28px] border px-6 py-8 space-y-4`) }
+        }, [
+          D.Text.H3({}, ['فريق المشروع']),
+          D.Lists.Ul({ attrs: { class: tw`space-y-3` } },
+            team.map((member, idx) => D.Lists.Li({
+              attrs: { key: `member-${idx}`, class: tw`flex items-center gap-3 rounded-2xl bg-[color-mix(in_ oklab,var(--surface-2)_92%,transparent)] px-3 py-2` }
+            }, [
+              D.Containers.Div({ attrs: { class: tw`grid h-10 w-10 place-items-center rounded-full bg-[var(--accent)] text-base font-semibold` } }, [member.avatar || (member.name ? member.name.slice(0, 2) : '؟')]),
+              D.Containers.Div({ attrs: { class: tw`flex flex-col` } }, [
+                D.Text.Strong({}, [member.name]),
+                D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [member.role])
+              ])
+            ]))
+          ),
+          D.Containers.Div({ attrs: { class: tw`space-y-2 rounded-2xl bg-[color-mix(in_ oklab,var(--surface-2)_88%,transparent)] px-3 py-4 text-xs text-[var(--muted-foreground)]` } }, [
+            D.Text.Strong({}, ['ملاحظة سريعة'] ),
+            D.Text.Span({}, ['يمكنك حقن أي مكوّن آخر هنا مثل تقويم أو لوحة تنبيهات.'])
+          ])
+        ]);
+      }
+    };
+
+    Mishkah.Templates.create({
+      layout: 'atlas',
+      mount: '#app',
+      database: {
+        data: {
+          phases: [
+            { id: 'research', title: 'بحث المستخدم', description: 'مقابلات + تحليل سلوك الزوار.', owner: 'شهد', progress: 72 },
+            { id: 'design', title: 'تصميم الواجهة', description: 'بناء نماذج Figma وربط الأوامر.', owner: 'باسل', progress: 56 },
+            { id: 'handoff', title: 'تسليم للمطورين', description: 'إعداد DSL وربط المكوّنات.', owner: 'رنا', progress: 38 },
+            { id: 'qa', title: 'اختبارات الجودة', description: 'مراجعة الأوامر وتجربة المستخدم.', owner: 'ليث', progress: 64 }
+          ],
+          team: [
+            { name: 'شهد السالم', role: 'UX Lead', avatar: 'شهد' },
+            { name: 'باسل حجازي', role: 'Product Designer', avatar: 'BH' },
+            { name: 'رنا عبدو', role: 'Front-end', avatar: 'RA' },
+            { name: 'ليث صبّاغ', role: 'QA Specialist', avatar: 'LS' }
+          ]
+        }
+      },
+      copy: {
+        brand: { name: 'Digital Ops', tagline: 'إدارة المنتجات الرقمية' },
+        hero: {
+          eyebrow: 'لوحة تشغيل المشاريع',
+          title: 'تابع مسار منتجك من البحث حتى الإطلاق',
+          description: 'قالب Atlas يمنحك سايدبار حي لعرض الفريق مع لوحة تنفيذ تتحدث من قاعدة البيانات.',
+          bullets: [
+            { icon: '🛠️', text: 'يتكامل مع الأوامر لتحديث الحالة مباشرة.' },
+            { icon: '🧭', text: 'كل مرحلة قابلة للتخصيص وربط الجداول بها.' }
+          ],
+          primary: { label: 'حجز جلسة تعريفية', gkey: 'atlas.book-demo' },
+          secondary: { label: 'تحميل عرض PDF', gkey: 'atlas.download' }
+        },
+        cta: {
+          title: 'اجمع فريقك حول لوحة واحدة',
+          description: 'استعرض التنبيهات، الخطط، والـ KPIs في صفحة واحدة مدعومة بأوامر مشكاة.',
+          primary: { label: 'طلب عرض مباشر', gkey: 'atlas.book-demo' },
+          secondary: { label: 'عرض التسعير', gkey: 'atlas.download' }
+        }
+      },
+      sections,
+      orders: {
+        'atlas.book-demo': {
+          on: ['click'],
+          gkeys: ['atlas.book-demo', 'templates:cta:primary'],
+          handler: () => console.log('📅 سيتم التواصل لتحديد موعد العرض.')
+        },
+        'atlas.download': {
+          on: ['click'],
+          gkeys: ['atlas.download', 'templates:cta:secondary'],
+          handler: () => window.open('https://example.com/atlas-overview.pdf', '_blank')
+        }
+      }
+    });
+  </script>
+</body>
+</html>
