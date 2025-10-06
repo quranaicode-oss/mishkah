@@ -70,7 +70,6 @@
     textarea[readonly] { user-select: all; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/@antv/x6@1.35.3/dist/x6.css"/>
-  <script src="https://unpkg.com/@antv/x6@1.35.3/dist/x6.js"></script>
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
@@ -88,6 +87,76 @@
     const { tw } = U.twcss;
     const Text = U.Text || {};
 
+    const X6_CDN_SOURCES = [
+      'https://unpkg.com/@antv/x6@1.35.3/dist/x6.js',
+      'https://cdn.jsdelivr.net/npm/@antv/x6@1.35.3/dist/x6.js'
+    ];
+
+    function loadScriptOnce(url){
+      return new Promise((resolve, reject)=>{
+        if(typeof document === 'undefined'){
+          reject(new Error('document unavailable'));
+          return;
+        }
+        const existing = document.querySelector(`script[data-mishkah-loader="${url}"]`);
+        if(existing){
+          if(existing.getAttribute('data-loaded') === 'true'){
+            resolve();
+            return;
+          }
+          existing.addEventListener('load', ()=> resolve(), { once:true });
+          existing.addEventListener('error', ()=> reject(new Error(`Failed to load script: ${url}`)), { once:true });
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = url;
+        script.async = true;
+        script.setAttribute('data-mishkah-loader', url);
+        script.addEventListener('load', ()=>{
+          script.setAttribute('data-loaded', 'true');
+          resolve();
+        }, { once:true });
+        script.addEventListener('error', ()=>{
+          script.remove();
+          reject(new Error(`Failed to load script: ${url}`));
+        }, { once:true });
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensureX6Library(){
+      if(typeof window === 'undefined') return false;
+      if(window.X6?.Graph) return true;
+      if(window.__mishkahX6Loading){
+        try { await window.__mishkahX6Loading; }
+        catch(error){ console.warn('[Mishkah][ERD] X6 preload failed', error); }
+        return !!(window.X6?.Graph);
+      }
+      window.__mishkahX6Loading = (async ()=>{
+        for(const url of X6_CDN_SOURCES){
+          try {
+            await loadScriptOnce(url);
+            if(window.X6?.Graph) return true;
+          } catch(error){
+            console.warn('[Mishkah][ERD] failed to load X6 source', url, error);
+          }
+        }
+        return !!(window.X6?.Graph);
+      })();
+      try {
+        const ready = await window.__mishkahX6Loading;
+        return ready;
+      } catch(error){
+        console.warn('[Mishkah][ERD] X6 loader encountered an error', error);
+        return !!(window.X6?.Graph);
+      }
+    }
+
+    const x6Available = await ensureX6Library();
+    if(!x6Available){
+      console.warn('[Mishkah][ERD] AntV X6 library is not available, diagram will use fallback driver.');
+    }
+
     let erdAppInstance = null;
     let erdDriver = null;
     let activeDriverName = null;
@@ -98,30 +167,369 @@
     const HEADER_HEIGHT = 48;
     const ROW_HEIGHT = 28;
 
-    const DEFAULT_FIELD_TYPES = [
-      'string','integer','decimal','float','boolean','timestamp','date','json','uuid','text'
+    const FIELD_TYPE_OPTIONS = [
+      { value:'string', label:'String (varchar)' },
+      { value:'text', label:'Text' },
+      { value:'integer', label:'Integer' },
+      { value:'number', label:'Numeric (precision/scale)' },
+      { value:'decimal', label:'Decimal' },
+      { value:'float', label:'Float / double precision' },
+      { value:'boolean', label:'Boolean' },
+      { value:'date', label:'Date' },
+      { value:'datetime', label:'Datetime' },
+      { value:'timestamp', label:'Timestamp with timezone' },
+      { value:'json', label:'JSONB' },
+      { value:'uuid', label:'UUID' }
     ];
 
     const RELATION_ACTION_OPTIONS = ['CASCADE','RESTRICT','SET NULL','NO ACTION'];
 
     const clone = (U.JSON && U.JSON.clone) ? U.JSON.clone : (obj => JSON.parse(JSON.stringify(obj)));
 
-    class FakeDriver {
+    class SvgDriver {
+      constructor(){
+        this.container = null;
+        this.hooks = {};
+        this.svg = null;
+        this.viewport = null;
+        this.wrapper = null;
+        this.defs = null;
+        this.lastState = null;
+        this.baseBBox = null;
+        this.overrideFitPadding = null;
+      }
+
       init(container, hooks){
         this.container = container;
         this.hooks = hooks || {};
-        container.innerHTML = '<div style="padding:8px;color:#666">FakeDriver mounted (no drawing)</div>';
+        if(container) container.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'm-erd-svg-wrapper';
+        Object.assign(wrapper.style, {
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden'
+        });
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'm-erd-svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        const defs = document.createElementNS(svgNS, 'defs');
+        const marker = document.createElementNS(svgNS, 'marker');
+        marker.setAttribute('id', 'm-erd-arrow');
+        marker.setAttribute('viewBox', '0 0 12 12');
+        marker.setAttribute('refX', '10');
+        marker.setAttribute('refY', '6');
+        marker.setAttribute('markerUnits', 'strokeWidth');
+        marker.setAttribute('markerWidth', '8');
+        marker.setAttribute('markerHeight', '8');
+        marker.setAttribute('orient', 'auto');
+        const markerPath = document.createElementNS(svgNS, 'path');
+        markerPath.setAttribute('d', 'M 0 0 L 12 6 L 0 12 z');
+        markerPath.setAttribute('fill', 'currentColor');
+        marker.appendChild(markerPath);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+        const viewport = document.createElementNS(svgNS, 'g');
+        viewport.setAttribute('class', 'm-erd-viewport');
+        svg.appendChild(viewport);
+        wrapper.appendChild(svg);
+        if(container) container.appendChild(wrapper);
+        this.wrapper = wrapper;
+        this.svg = svg;
+        this.viewport = viewport;
+        this.defs = defs;
+        this.baseBBox = null;
+        this.lastState = null;
+        this.overrideFitPadding = null;
       }
+
+      clear(){
+        if(!this.viewport) return;
+        while(this.viewport.firstChild){
+          this.viewport.removeChild(this.viewport.firstChild);
+        }
+      }
+
+      computeBoundingBox(nodes){
+        if(!nodes.length){
+          return {
+            minX: 0,
+            minY: 0,
+            maxX: 640,
+            maxY: 480
+          };
+        }
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        nodes.forEach(node => {
+          minX = Math.min(minX, node.x);
+          minY = Math.min(minY, node.y);
+          maxX = Math.max(maxX, node.x + node.width);
+          maxY = Math.max(maxY, node.y + node.height);
+        });
+        return { minX, minY, maxX, maxY };
+      }
+
+      setViewBox(bbox, zoom, padding){
+        if(!this.svg) return;
+        const baseWidth = Math.max(1, (bbox.maxX - bbox.minX));
+        const baseHeight = Math.max(1, (bbox.maxY - bbox.minY));
+        const pad = Math.max(16, padding != null ? padding : 120);
+        const centerX = bbox.minX + baseWidth / 2;
+        const centerY = bbox.minY + baseHeight / 2;
+        let viewWidth = baseWidth + pad * 2;
+        let viewHeight = baseHeight + pad * 2;
+        let viewX = centerX - viewWidth / 2;
+        let viewY = centerY - viewHeight / 2;
+        if(this.overrideFitPadding != null){
+          const fitPad = Math.max(16, this.overrideFitPadding);
+          viewWidth = baseWidth + fitPad * 2;
+          viewHeight = baseHeight + fitPad * 2;
+          viewX = bbox.minX - fitPad;
+          viewY = bbox.minY - fitPad;
+          this.overrideFitPadding = null;
+        } else if(zoom && Number.isFinite(zoom) && zoom !== 1){
+          const safeZoom = Math.max(0.2, Math.min(4, zoom));
+          viewWidth = viewWidth / safeZoom;
+          viewHeight = viewHeight / safeZoom;
+          viewX = centerX - viewWidth / 2;
+          viewY = centerY - viewHeight / 2;
+        }
+        this.svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+        this.baseBBox = Object.assign({}, bbox, { pad });
+      }
+
       render(state){
-        const tables = Array.isArray(state?.tables) ? state.tables.length : 0;
-        console.log('Fake render', tables, 'tables');
+        if(!this.svg || !this.viewport) return;
+        this.lastState = state;
+        const tables = Array.isArray(state?.tables) ? state.tables : [];
+        const relations = Array.isArray(state?.relations) ? state.relations : [];
+        const layout = state?.layout || {};
+        const selection = state?.selection || {};
+        const palette = state?.palette || {};
+        const zoom = state?.zoom;
+
+        this.clear();
+        console.debug('[Mishkah][ERD] SVG driver render', tables.length, 'tables');
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const nodes = tables.map((table, index)=>{
+          const position = layout[table.id] || layout[table.name] || { x: 160 + index * 160, y: 120 + index * 120 };
+          const fields = Array.isArray(table.fields) ? table.fields : [];
+          const width = TABLE_WIDTH;
+          const height = Math.max(HEADER_HEIGHT + Math.max(1, fields.length) * ROW_HEIGHT, HEADER_HEIGHT + ROW_HEIGHT);
+          const fieldMap = new Map();
+          fields.forEach((field, idx)=>{
+            const centerY = HEADER_HEIGHT + ROW_HEIGHT * idx + ROW_HEIGHT / 2;
+            fieldMap.set(field.name, centerY);
+          });
+          return {
+            id: table.id,
+            table,
+            x: position.x,
+            y: position.y,
+            width,
+            height,
+            fields,
+            fieldMap
+          };
+        });
+
+        const bbox = this.computeBoundingBox(nodes);
+        this.setViewBox(bbox, zoom, 120);
+
+        const edgesGroup = document.createElementNS(svgNS, 'g');
+        edgesGroup.setAttribute('class', 'm-erd-edges');
+        const nodesGroup = document.createElementNS(svgNS, 'g');
+        nodesGroup.setAttribute('class', 'm-erd-nodes');
+
+        const colors = {
+          tableStroke: palette.border || '#1f2a3d',
+          tableFill: palette.card || '#111d30',
+          headerFill: palette.primary || '#2563eb',
+          headerText: palette.primaryForeground || '#f8fafc',
+          fieldText: palette.foreground || '#f8fafc',
+          edge: palette.accentForeground || '#60a5fa',
+          background: palette.surface || '#101a2c'
+        };
+
+        const nodeLookup = new Map();
+
+        nodes.forEach(node => {
+          nodeLookup.set(node.id, node);
+          const group = document.createElementNS(svgNS, 'g');
+          group.setAttribute('data-node-id', node.id);
+          group.setAttribute('transform', `translate(${node.x} ${node.y})`);
+
+          const body = document.createElementNS(svgNS, 'rect');
+          body.setAttribute('x', '0');
+          body.setAttribute('y', '0');
+          body.setAttribute('width', String(node.width));
+          body.setAttribute('height', String(node.height));
+          body.setAttribute('rx', '16');
+          body.setAttribute('ry', '16');
+          body.setAttribute('fill', colors.tableFill);
+          body.setAttribute('stroke', selection.table === node.id ? (palette.primary || '#60a5fa') : colors.tableStroke);
+          body.setAttribute('stroke-width', selection.table === node.id ? '2.4' : '1.6');
+
+          const header = document.createElementNS(svgNS, 'rect');
+          header.setAttribute('x', '0');
+          header.setAttribute('y', '0');
+          header.setAttribute('width', String(node.width));
+          header.setAttribute('height', String(Math.max(HEADER_HEIGHT, 44)));
+          header.setAttribute('rx', '16');
+          header.setAttribute('ry', '16');
+          header.setAttribute('fill', colors.headerFill);
+
+          const title = document.createElementNS(svgNS, 'text');
+          title.setAttribute('x', '18');
+          title.setAttribute('y', '28');
+          title.setAttribute('fill', colors.headerText);
+          title.setAttribute('font-size', '14');
+          title.setAttribute('font-weight', '700');
+          title.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+          const tableMeta = node.table || {};
+          title.textContent = tableMeta.displayName || tableMeta.label || tableMeta.name || node.id;
+
+          const fieldTextGroup = document.createElementNS(svgNS, 'g');
+          fieldTextGroup.setAttribute('transform', 'translate(0 0)');
+
+          node.fields.forEach((field, idx)=>{
+            const fieldY = HEADER_HEIGHT + ROW_HEIGHT * idx + 18;
+            const rowText = document.createElementNS(svgNS, 'text');
+            rowText.setAttribute('x', '18');
+            rowText.setAttribute('y', String(fieldY));
+            rowText.setAttribute('fill', colors.fieldText);
+            rowText.setAttribute('font-size', '12');
+            rowText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+            rowText.textContent = field.type
+              ? `${field.name} · ${field.type}`
+              : field.name;
+            fieldTextGroup.appendChild(rowText);
+          });
+
+          group.appendChild(body);
+          group.appendChild(header);
+          group.appendChild(title);
+          group.appendChild(fieldTextGroup);
+          nodesGroup.appendChild(group);
+        });
+
+        relations.forEach(rel => {
+          const sourceNode = nodeLookup.get(rel.from?.table || rel.source?.table || '');
+          const targetNode = nodeLookup.get(rel.to?.table || rel.target?.table || '');
+          if(!sourceNode || !targetNode) return;
+          const sourceFieldName = rel.from?.field || rel.source?.field;
+          const targetFieldName = rel.to?.field || rel.target?.field;
+          const sourceFieldY = sourceNode.fieldMap.get(sourceFieldName) || sourceNode.height / 2;
+          const targetFieldY = targetNode.fieldMap.get(targetFieldName) || targetNode.height / 2;
+          const forward = (sourceNode.x + sourceNode.width) <= targetNode.x;
+          const backward = targetNode.x + targetNode.width <= sourceNode.x;
+          const startX = forward ? sourceNode.x + sourceNode.width : (backward ? sourceNode.x : sourceNode.x + sourceNode.width / 2);
+          const endX = forward ? targetNode.x : (backward ? targetNode.x + targetNode.width : targetNode.x + targetNode.width / 2);
+          const startY = sourceNode.y + sourceFieldY;
+          const endY = targetNode.y + targetFieldY;
+          const bend = forward ? 48 : (backward ? -48 : 0);
+          const control1X = startX + bend;
+          const control2X = endX - bend;
+          const path = document.createElementNS(svgNS, 'path');
+          path.setAttribute('d', `M ${startX} ${startY} C ${control1X} ${startY} ${control2X} ${endY} ${endX} ${endY}`);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', colors.edge);
+          path.setAttribute('stroke-width', '1.8');
+          path.setAttribute('marker-end', 'url(#m-erd-arrow)');
+          path.setAttribute('style', `color:${colors.edge}`);
+          edgesGroup.appendChild(path);
+
+          if(rel.cardinality){
+            const label = document.createElementNS(svgNS, 'text');
+            const labelX = (startX + endX) / 2;
+            const labelY = (startY + endY) / 2 - 6;
+            label.setAttribute('x', String(labelX));
+            label.setAttribute('y', String(labelY));
+            label.setAttribute('fill', colors.fieldText);
+            label.setAttribute('font-size', '11');
+            label.setAttribute('font-weight', '600');
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+            label.textContent = rel.cardinality;
+            edgesGroup.appendChild(label);
+          }
+        });
+
+        this.viewport.appendChild(edgesGroup);
+        this.viewport.appendChild(nodesGroup);
       }
-      fitToScreen(){ }
-      undo(){ }
-      redo(){ }
-      async exportPNG(){ return new Blob(); }
-      async exportSVG(){ return '<svg/>'; }
-      destroy(){ if(this.container) this.container.innerHTML = ''; }
+
+      fitToScreen(padding = 16){
+        this.overrideFitPadding = padding;
+        if(this.lastState){
+          this.render(this.lastState);
+        }
+      }
+
+      undo(){}
+      redo(){}
+
+      async exportSVG(){
+        if(!this.svg) return '<svg />';
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(this.svg);
+      }
+
+      async exportPNG(opts = {}){
+        if(!this.svg) return new Blob();
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(this.svg);
+        const svgBlob = new Blob([svgString], { type:'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        try {
+          const image = new Image();
+          const width = opts.width || this.wrapper?.clientWidth || 1600;
+          const height = opts.height || this.wrapper?.clientHeight || 900;
+          await new Promise((resolve, reject)=>{
+            image.onload = resolve;
+            image.onerror = reject;
+            image.src = url;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if(opts.background){
+            ctx.fillStyle = opts.background;
+            ctx.fillRect(0, 0, width, height);
+          }
+          ctx.drawImage(image, 0, 0, width, height);
+          const blob = await new Promise((resolve, reject)=>{
+            canvas.toBlob(result => {
+              if(result) resolve(result);
+              else reject(new Error('Failed to export PNG'));
+            });
+          });
+          return blob;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      destroy(){
+        if(this.container) this.container.innerHTML = '';
+        this.container = null;
+        this.svg = null;
+        this.viewport = null;
+        this.wrapper = null;
+        this.defs = null;
+        this.lastState = null;
+        this.baseBBox = null;
+        this.overrideFitPadding = null;
+      }
     }
 
     class X6Driver {
@@ -334,7 +742,7 @@
     }
 
     const DiagramDrivers = {
-      fake: FakeDriver,
+      fake: SvgDriver,
       x6: X6Driver,
     };
 
@@ -503,7 +911,7 @@
         console.warn('[Mishkah][ERD] failed to initialise driver', driverKey, error);
         if(driverKey !== 'fake'){
           try {
-            const fallback = new FakeDriver();
+            const fallback = new SvgDriver();
             fallback.init(host, {
               onNodeMove: handleDriverNodeMove,
               onSelect: handleDriverSelect,
@@ -529,6 +937,7 @@
       if(!driver) return;
       const payload = buildDriverStateSnapshot(state);
       const palette = currentPalette();
+      payload.palette = palette;
       host.style.background = palette.background || '#f8fafc';
       try {
         driver.render(payload);
@@ -944,6 +1353,8 @@
           field:{
             table:firstTable || '',
             name:'',
+            nameInput:'',
+            nameManual:false,
             columnName:'',
             type:'string',
             nullable:true,
@@ -1151,7 +1562,7 @@
         left:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
             D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
-            schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [schemaIdentifier]) : null
+            schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80` }}, [schemaIdentifier]) : null
           ].filter(Boolean)),
           UI.Button({ attrs:{ gkey:'erd:schema:meta:open' }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط']),
           UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'ghost', size:'sm' }, ['➕ جدول']),
@@ -1340,6 +1751,7 @@
         : (tableOptions[0]?.value || '');
       const currentTable = selectedTable ? registry.get(selectedTable) : null;
       const previewFieldName = form.name || (form.label ? computeFieldIdentifier(currentTable, form.label) : '');
+      const englishInputValue = form.nameInput != null ? form.nameInput : (form.name || '');
       const selectedReferenceTable = form.references?.table && registry.get(form.references.table)
         ? form.references.table
         : '';
@@ -1354,7 +1766,7 @@
         open,
         size:'lg',
         title:'إضافة حقل',
-        description:'حدد تفاصيل الحقل الجديد.',
+        description:'حدد تفاصيل الحقل الجديد مع اسم إنجليزي متوافق مع SQL ومسمى عربي اختياري.',
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3` }}, [
@@ -1367,9 +1779,21 @@
               },
               options:[{ value:'', label:'اختر الجدول' }, ...tableOptions]
             }),
+            UI.Input({
+              attrs:{
+                gkey:'erd:form:update',
+                'data-form':'field',
+                'data-field':'name',
+                value: englishInputValue,
+                placeholder:'English column name (snake_case)'
+              }
+            }),
             UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'label', value: form.label || '', placeholder:'المسمى العربي للحقل' } }),
-            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)] md:col-span-2` }}, [previewFieldName ? `المعرف الإنجليزي: ${previewFieldName}` : 'سيتم توليد المعرف تلقائيًا عند الكتابة.']),
-            UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'type', value: form.type || 'string' }, options: DEFAULT_FIELD_TYPES.map(type=> ({ value:type, label:type })) }),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80 md:col-span-2` }}, [previewFieldName ? `المعرف النهائي: ${previewFieldName}` : 'سيتم توليد المعرف تلقائيًا عند الكتابة.']),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'type', value: form.type || 'string' },
+              options: FIELD_TYPE_OPTIONS
+            }),
             UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'defaultValue', value: form.defaultValue || '', placeholder:'قيمة افتراضية' } }),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
               UI.Label({ text:'Nullable؟' }),
@@ -1884,22 +2308,72 @@
               const registry = getRegistry(s);
               const targetForm = currentForms.field || {};
               const table = targetForm.table ? registry.get(targetForm.table) : null;
-              const slug = computeFieldIdentifier(table, value);
-              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...targetForm, label:value, name: slug, columnName: slug } } } };
+              const nextField = { ...targetForm, label:value };
+              if(!targetForm.nameManual){
+                const slug = computeFieldIdentifier(table, value);
+                nextField.name = slug;
+                nextField.nameInput = slug;
+                nextField.columnName = slug;
+              }
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field: nextField } } };
+            }
+            if(formKey === 'field' && fieldKey === 'name'){
+              const registry = getRegistry(s);
+              const targetForm = currentForms.field || {};
+              const table = targetForm.table ? registry.get(targetForm.table) : null;
+              const normalized = sanitizeSqlIdentifier(value);
+              let nextName = normalized;
+              if(!nextName && targetForm.label){
+                nextName = computeFieldIdentifier(table, targetForm.label);
+              }
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  form:{
+                    ...currentForms,
+                    field:{
+                      ...targetForm,
+                      name: nextName,
+                      nameInput: value,
+                      columnName: nextName || '',
+                      nameManual: !!normalized
+                    }
+                  }
+                }
+              };
             }
             if(formKey === 'field' && fieldKey === 'table'){
               const registry = getRegistry(s);
               const targetForm = currentForms.field || {};
               const table = value ? registry.get(value) : null;
               let slug = targetForm.name || '';
-              if(targetForm.label){
+              let nameInput = targetForm.nameInput || '';
+              if(!targetForm.nameManual && targetForm.label){
                 slug = computeFieldIdentifier(table, targetForm.label);
+                nameInput = slug;
               }
               const currentRefs = targetForm.references || {};
               const references = currentRefs.table === value
                 ? currentRefs
                 : { table:'', column:'', onDelete: currentRefs.onDelete || 'CASCADE', onUpdate: currentRefs.onUpdate || 'CASCADE' };
-              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...targetForm, table:value, name: slug, columnName: slug, references } } } };
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  form:{
+                    ...currentForms,
+                    field:{
+                      ...targetForm,
+                      table:value,
+                      name: slug,
+                      nameInput,
+                      columnName: slug,
+                      references
+                    }
+                  }
+                }
+              };
             }
             if(formKey === 'relation' && fieldKey === 'sourceTable'){
               const targetForm = currentForms.relation || {};
@@ -2010,7 +2484,7 @@
                   form:{
                     ...(s.ui?.form || {}),
                     table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
-                    field:{ ...(s.ui?.form?.field || {}), table: name, label:'', name:'', columnName:'' },
+                    field:{ ...(s.ui?.form?.field || {}), table: name, label:'', name:'', nameInput:'', nameManual:false, columnName:'' },
                     layout:{ x: layout[name].x, y: layout[name].y }
                   }
                 }
@@ -2045,6 +2519,8 @@
                   table: s.data.selection?.table || first,
                   label:'',
                   name:'',
+                  nameInput:'',
+                  nameManual:false,
                   columnName:'',
                   type:'string',
                   nullable:true,
@@ -2067,8 +2543,9 @@
           const form = state.ui?.form?.field || {};
           const tableName = (form.table || '').trim();
           const label = (form.label || '').trim();
-          if(!tableName || !label){
-            UI.pushToast(ctx, { title:'اسم الجدول والمسمى العربي للحقل مطلوبان', icon:'⚠️' });
+          const englishSource = (form.name || '').trim();
+          if(!tableName || (!label && !englishSource)){
+            UI.pushToast(ctx, { title:'يرجى تحديد الجدول واسم الحقل باللغتين على الأقل', icon:'⚠️' });
             return;
           }
           const registry = getRegistry(state);
@@ -2078,10 +2555,21 @@
             return;
           }
           try{
-            const fieldName = computeFieldIdentifier(table, label);
+            let fieldName = sanitizeSqlIdentifier(englishSource);
+            if(!fieldName && label){
+              fieldName = computeFieldIdentifier(table, label);
+            }
+            if(!fieldName){
+              UI.pushToast(ctx, { title:'الاسم الإنجليزي للحقل غير صالح', icon:'⚠️' });
+              return;
+            }
+            if(typeof table.getField === 'function' && table.getField(fieldName)){
+              UI.pushToast(ctx, { title:'اسم الحقل مستخدم مسبقًا داخل الجدول', icon:'⚠️' });
+              return;
+            }
             const fieldConfig = {
               name: fieldName,
-              columnName: form.columnName ? Schema.utils.toSnakeCase(form.columnName) : fieldName,
+              columnName: fieldName,
               type: form.type || 'string',
               nullable: form.nullable !== false,
               primaryKey: !!form.primaryKey,
@@ -2134,7 +2622,20 @@
                 ui:{
                   ...(s.ui || {}),
                   modals:{ ...(s.ui?.modals || {}), field:false },
-                  form:{ ...(s.ui?.form || {}), field:{ ...form, label:'', name:'', columnName:'', defaultValue:'', primaryKey:false, unique:false } }
+                  form:{
+                    ...(s.ui?.form || {}),
+                    field:{
+                      ...form,
+                      label:'',
+                      name:'',
+                      nameInput:'',
+                      nameManual:false,
+                      columnName:'',
+                      defaultValue:'',
+                      primaryKey:false,
+                      unique:false
+                    }
+                  }
                 }
               };
               draft = withFieldSelection(draft, tableName, fieldName);
@@ -2382,7 +2883,7 @@
                 form:{
                   ...(s.ui?.form || {}),
                   table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
-                  field:{ table:first || '', name:'', columnName:'', type:'string', nullable:true, primaryKey:false, unique:false, defaultValue:'', references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' } },
+                  field:{ table:first || '', label:'', name:'', nameInput:'', nameManual:false, columnName:'', type:'string', nullable:true, primaryKey:false, unique:false, defaultValue:'', references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' } },
                   relation:{ sourceTable:first || '', sourceField:'', targetTable:'', targetField:'', onDelete:'CASCADE', onUpdate:'CASCADE' },
                   layout:{ x: layoutPoint.x, y: layoutPoint.y },
                   schemaMeta:{ name: record.name, title: record.title, description: record.description || '' }
