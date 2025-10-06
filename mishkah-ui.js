@@ -161,6 +161,44 @@ UI.Switcher = ({ attrs={}, value, options=[] })=>{
   return h.Containers.Div({ attrs: rootAttrs }, items);
 };
 
+UI.ThemeToggleIcon = ({ theme='light', attrs={} })=>{
+  const isDark = theme === 'dark';
+  const icon = isDark ? '🌙' : '🌞';
+  const title = isDark ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي';
+  const buttonAttrs = Object.assign({}, attrs, {
+    gkey: attrs.gkey || 'ui:theme-toggle',
+    title,
+    'aria-pressed': isDark ? 'true' : 'false',
+    class: cx(token('btn/icon'), 'text-lg', isDark && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm')
+  });
+  buttonAttrs.type = buttonAttrs.type || 'button';
+  return UI.Button({ attrs: buttonAttrs, variant:'ghost', size:'sm' }, [icon]);
+};
+
+UI.LanguageSwitch = ({ lang='ar', attrs={} })=>{
+  const isAr = lang === 'ar';
+  const isEn = lang === 'en';
+  const rootAttrs = Object.assign({}, attrs, { class: tw`${token('hstack')} gap-1` });
+  const arAttrs = {
+    gkey:'ui:lang-ar',
+    title:'العربية',
+    'aria-pressed': isAr ? 'true' : 'false',
+    class: cx(token('btn/icon'), 'text-base', isAr && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'),
+    type:'button'
+  };
+  const enAttrs = {
+    gkey:'ui:lang-en',
+    title:'English',
+    'aria-pressed': isEn ? 'true' : 'false',
+    class: cx(token('btn/icon'), 'text-base', isEn && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'),
+    type:'button'
+  };
+  return h.Containers.Div({ attrs: rootAttrs }, [
+    UI.Button({ attrs: arAttrs, variant:'ghost', size:'sm' }, ['ع']),
+    UI.Button({ attrs: enAttrs, variant:'ghost', size:'sm' }, ['A'])
+  ]);
+};
+
 UI.SegmentedSwitch = ({ attrs={}, value, options=[] })=>{
   const rootAttrs = Object.assign({}, attrs);
   rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} segmented-switch` : 'segmented-switch';

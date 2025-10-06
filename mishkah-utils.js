@@ -167,6 +167,62 @@
   U.Id = { uuid, uid };
 
   // ---------------------------------------------------------------------------
+  // Text — تحويل وترميز المعرّفات العربية
+  // ---------------------------------------------------------------------------
+  const ARABIC_CHAR_MAP = {
+    'ا':'a','أ':'a','إ':'i','آ':'aa','ء':'a','ؤ':'u','ئ':'i','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'dh',
+    'ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n',
+    'ه':'h','و':'w','ي':'y','ى':'a','ة':'a','ﻻ':'la','لا':'la','ﻷ':'la','ﻹ':'la','ﻵ':'la','ٱ':'a','پ':'p','چ':'ch','ڤ':'v','گ':'g','ژ':'zh',
+    '۰':'0','٠':'0','۱':'1','١':'1','۲':'2','٢':'2','۳':'3','٣':'3','٤':'4','۴':'4','٥':'5','۵':'5','٦':'6','۶':'6','٧':'7','۷':'7','٨':'8','۸':'8','٩':'9','۹':'9'
+  };
+
+  const stripCombiningMarks = str => typeof str.normalize === 'function'
+    ? str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    : str;
+
+  function transliterateArabic(input){
+    if(input == null) return '';
+    const source = String(input);
+    let buffer = '';
+    for(const ch of source){
+      if(/[A-Za-z0-9]/.test(ch)){ buffer += ch; continue; }
+      if(/\s/.test(ch)){ buffer += ' '; continue; }
+      const mapped = ARABIC_CHAR_MAP[ch];
+      if(mapped != null){ buffer += mapped; continue; }
+      if(/[\-_]/.test(ch)){ buffer += ' '; continue; }
+      const normalized = stripCombiningMarks(ch);
+      if(/[A-Za-z0-9]/.test(normalized)){ buffer += normalized; }
+    }
+    return buffer.replace(/\s+/g, ' ').trim();
+  }
+
+  function identifierFromArabic(input, { fallback='item', separator='_' }={}){
+    const base = transliterateArabic(input);
+    const cleaned = stripCombiningMarks(base)
+      .replace(/[^A-Za-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, separator)
+      .toLowerCase();
+    let slug = cleaned.replace(new RegExp(`${separator}{2,}`, 'g'), separator).replace(new RegExp(`^${separator}|${separator}$`, 'g'), '');
+    if(!slug){
+      slug = String(fallback || 'item')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, separator)
+        .replace(new RegExp(`${separator}{2,}`, 'g'), separator)
+        .replace(new RegExp(`^${separator}|${separator}$`, 'g'), '');
+      if(!slug) slug = `item${separator}${uid('slug').slice(5)}`;
+    }
+    if(/^\d/.test(slug)) slug = `${separator}${slug}`;
+    return slug || 'item';
+  }
+
+  U.Text = Object.assign({}, U.Text || {}, {
+    transliterateArabic,
+    identifierFromArabic,
+    toIdentifier: identifierFromArabic
+  });
+
+  // ---------------------------------------------------------------------------
   // Crypto — تشفير خفيف
   // ---------------------------------------------------------------------------
   const sha256 = async s => { const enc=new TextEncoder().encode(String(s)); const buf=await crypto.subtle.digest('SHA-256', enc); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); };
@@ -1439,54 +1495,54 @@ return normalizeClass(result);
 // ========== Modern Palette (light blues / dark deep-blues + layered surfaces) ==========
 const DEFAULT_PALETTE = {
   light: {
-    background: 'hsl(213 41% 97%)',
-    foreground: 'hsl(222 47% 10%)',
+    background: 'hsl(214 45% 98%)',
+    foreground: 'hsl(222 47% 12%)',
     card: 'hsl(0 0% 100%)',
-    'card-foreground': 'hsl(222 47% 10%)',
-    muted: 'hsl(213 30% 94%)',
-    'muted-foreground': 'hsl(215 16% 45%)',
-    primary: 'hsl(222 88% 56%)',
+    'card-foreground': 'hsl(222 47% 12%)',
+    muted: 'hsl(213 32% 94%)',
+    'muted-foreground': 'hsl(215 20% 42%)',
+    primary: 'hsl(222 85% 55%)',
     'primary-foreground': 'hsl(210 40% 98%)',
-    secondary: 'hsl(214 45% 92%)',
-    'secondary-foreground': 'hsl(222 47% 12%)',
-    accent: 'hsl(214 60% 90%)',
-    'accent-foreground': 'hsl(222 47% 12%)',
-    destructive: 'hsl(0 70% 50%)',
+    secondary: 'hsl(214 52% 94%)',
+    'secondary-foreground': 'hsl(222 47% 18%)',
+    accent: 'hsl(214 65% 95%)',
+    'accent-foreground': 'hsl(222 47% 20%)',
+    destructive: 'hsl(0 72% 47%)',
     'destructive-foreground': 'hsl(0 0% 98%)',
-    border: 'hsl(214 32% 88%)',
-    input: 'hsl(214 32% 88%)',
-    ring: 'hsl(222 88% 56%)',
+    border: 'hsl(215 26% 86%)',
+    input: 'hsl(215 26% 86%)',
+    ring: 'hsl(222 85% 55%)',
     radius: '1rem',
-    shadow: '0 10px 30px rgba(15, 23, 42, .08)',
-    'surface-1': 'color-mix(in oklab, var(--background) 90%, white)',
-    'surface-2': 'color-mix(in oklab, var(--background) 84%, white)',
-    'surface-3': 'color-mix(in oklab, var(--background) 78%, white)',
-    'gradient-hero': 'linear-gradient(135deg, hsl(220 90% 99%) 0%, hsl(214 45% 92%) 100%)'
+    shadow: '0 12px 36px rgba(15, 23, 42, 0.12)',
+    'surface-1': 'color-mix(in oklab, var(--background) 88%, white)',
+    'surface-2': 'color-mix(in oklab, var(--background) 82%, white)',
+    'surface-3': 'color-mix(in oklab, var(--background) 76%, white)',
+    'gradient-hero': 'linear-gradient(135deg, hsl(214 80% 97%) 0%, hsl(214 50% 90%) 100%)'
   },
   dark: {
-    background: 'hsl(222 40% 12%)',
-    foreground: 'hsl(210 40% 98%)',
-    card: 'hsl(222 42% 14%)',
-    'card-foreground': 'hsl(210 40% 98%)',
-    muted: 'hsl(222 35% 16%)',
-    'muted-foreground': 'hsl(215 20% 70%)',
-    primary: 'hsl(220 90% 65%)',
-    'primary-foreground': 'hsl(222 40% 12%)',
-    secondary: 'hsl(222 30% 18%)',
-    'secondary-foreground': 'hsl(210 40% 98%)',
-    accent: 'hsl(222 35% 20%)',
-    'accent-foreground': 'hsl(210 40% 98%)',
-    destructive: 'hsl(0 65% 48%)',
+    background: 'hsl(222 47% 9%)',
+    foreground: 'hsl(214 32% 96%)',
+    card: 'hsl(222 42% 12%)',
+    'card-foreground': 'hsl(214 32% 96%)',
+    muted: 'hsl(222 34% 18%)',
+    'muted-foreground': 'hsl(215 18% 72%)',
+    primary: 'hsl(220 90% 66%)',
+    'primary-foreground': 'hsl(222 45% 12%)',
+    secondary: 'hsl(222 28% 20%)',
+    'secondary-foreground': 'hsl(214 32% 96%)',
+    accent: 'hsl(222 32% 24%)',
+    'accent-foreground': 'hsl(214 32% 96%)',
+    destructive: 'hsl(0 70% 52%)',
     'destructive-foreground': 'hsl(0 0% 98%)',
-    border: 'hsl(215 24% 24%)',
-    input: 'hsl(215 24% 24%)',
-    ring: 'hsl(220 90% 65%)',
+    border: 'hsl(217 24% 28%)',
+    input: 'hsl(217 24% 28%)',
+    ring: 'hsl(220 90% 66%)',
     radius: '1rem',
-    shadow: '0 12px 36px rgba(0,0,0,.45)',
-    'surface-1': 'color-mix(in oklab, var(--background) 92%, black)',
-    'surface-2': 'color-mix(in oklab, var(--background) 86%, black)',
-    'surface-3': 'color-mix(in oklab, var(--background) 80%, black)',
-    'gradient-hero': 'linear-gradient(135deg, hsl(220 30% 16%) 0%, hsl(220 35% 12%) 100%)'
+    shadow: '0 20px 48px rgba(2, 6, 23, 0.55)',
+    'surface-1': 'color-mix(in oklab, var(--background) 94%, black)',
+    'surface-2': 'color-mix(in oklab, var(--background) 88%, black)',
+    'surface-3': 'color-mix(in oklab, var(--background) 82%, black)',
+    'gradient-hero': 'linear-gradient(135deg, hsl(220 33% 16%) 0%, hsl(220 38% 12%) 100%)'
   }
 };
 
@@ -1600,6 +1656,7 @@ function auto(db, app, opt={}){
         const next = cur.env?.theme==='dark'?'light':'dark';
         setTheme(next);
         ctx.setState(s=> ({ ...s, env:{ ...(s.env||{}), theme: next } }));
+        ctx.rebuild();
       }
     },
     'ui.lang.ar': {
