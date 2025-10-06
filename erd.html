@@ -105,13 +105,25 @@
 
     const clone = (U.JSON && U.JSON.clone) ? U.JSON.clone : (obj => JSON.parse(JSON.stringify(obj)));
 
+    function sanitizeSqlIdentifier(value){
+      if(!value) return '';
+      const snake = Schema.utils.toSnakeCase(value || '') || '';
+      return snake
+        .replace(/[^a-z0-9_]/g, '')
+        .replace(/_{2,}/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 64);
+    }
+
     function identifierFromLabel(label, fallback){
+      const sanitized = sanitizeSqlIdentifier(label || '');
+      if(sanitized) return sanitized;
       if(Text && typeof Text.identifierFromArabic === 'function'){
-        return Text.identifierFromArabic(label, { fallback });
+        const derived = sanitizeSqlIdentifier(Text.identifierFromArabic(label, { fallback }));
+        if(derived) return derived;
       }
-      const base = Schema.utils.toSnakeCase(label || '') || '';
-      if(base) return base;
-      return Schema.utils.toSnakeCase(fallback || 'item') || (fallback || 'item');
+      const fallbackBase = sanitizeSqlIdentifier(fallback || 'item');
+      return fallbackBase || (fallback || 'item');
     }
 
     function formatIdentifier(value){
@@ -144,9 +156,9 @@
       return candidate;
     }
 
-    function computeTableIdentifier(registry, label){
+    function computeTableIdentifier(registry, source){
       const fallback = `table_${registry.list().length + 1}`;
-      const base = identifierFromLabel(label, fallback);
+      const base = sanitizeSqlIdentifier(source || '') || identifierFromLabel(source, fallback);
       return ensureUniqueTableName(registry, base);
     }
 
@@ -741,8 +753,9 @@
       },
       ui:{
         modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false },
+        template:{ open:true },
         form:{
-          table:{ name:'', label:'', comment:'', includeId:true },
+          table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
           field:{
             table:firstTable || '',
             name:'',
@@ -892,6 +905,38 @@
       ]);
     }
 
+    function TemplateOverlay(db, tables){
+      const templateState = db.ui?.template || {};
+      if(templateState.open === false) return null;
+      const registryTables = Array.isArray(tables) ? tables : getRegistry(db).list();
+      const previewTables = registryTables.slice(0, 6);
+      const cards = previewTables.length
+        ? previewTables.map(table => {
+            const fieldCount = (table.fields || []).length;
+            const relationCount = (table.fields || []).filter(field => field.references).length;
+            return D.Containers.Div({ attrs:{ class: tw`rounded-xl border border-[var(--border)]/70 bg-[var(--surface-2)]/60 px-3 py-2 flex flex-col gap-1` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [formatIdentifier(table.name)]),
+              table.label ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.label]) : null,
+              D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)]` }}, [`Fields: ${fieldCount} · Relations: ${relationCount}`])
+            ].filter(Boolean));
+          })
+        : [
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['ابدأ بإضافة جدول لإنشاء قالب المخطط.'])
+          ];
+      return D.Containers.Div({ attrs:{ class: tw`absolute bottom-4 left-4 z-20 w-80 max-w-full pointer-events-auto` }}, [
+        D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur flex flex-col` }}, [
+          D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]/80` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-semibold flex items-center gap-2` }}, ['🧩 ملخص القالب الحالي']),
+            UI.Button({ attrs:{ gkey:'erd:template:toggle', title:'إخفاء الملخص', class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, ['إخفاء'])
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 px-4 py-3 max-h-60 overflow-y-auto` }}, cards),
+          D.Containers.Div({ attrs:{ class: tw`px-4 py-2 border-t border-[var(--border)]/60` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)] leading-relaxed` }}, ['هذا الملخص يوضح الجداول النشطة وعدد الحقول والعلاقات، مما يساعدك على فهم شكل المخطط بسرعة.'])
+          ])
+        ])
+      ]);
+    }
+
     function SchemaCanvas(db){
       const registry = getRegistry(db);
       const tables = registry.list();
@@ -902,8 +947,10 @@
             D.Containers.Div({ attrs:{ class: tw`rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-2)]/70 px-6 py-5 text-center text-sm text-[var(--muted)] max-w-md` }}, ['أضف جدولًا جديدًا لبدء بناء المخطط.'])
           ])
         : null;
+      const overlay = TemplateOverlay(db, tables);
       return D.Containers.Div({ attrs:{ class: tw`relative flex-1 bg-[var(--surface-1)]` }}, [
         D.Containers.Div({ attrs:{ id:'erd-diagram', class: tw`absolute inset-0` }}, []),
+        overlay,
         emptyState
       ].filter(Boolean));
     }
@@ -914,6 +961,7 @@
       const schemaIdentifier = db.data.schemaMeta?.name ? formatIdentifier(db.data.schemaMeta.name) : '';
       const lang = db.env?.lang || db.i18n?.lang || 'ar';
       const theme = db.env?.theme || 'dark';
+      const templateOpen = db.ui?.template?.open !== false;
       return UI.Toolbar({
         left:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
@@ -923,7 +971,8 @@
           UI.Button({ attrs:{ gkey:'erd:schema:meta:open' }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط']),
           UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'ghost', size:'sm' }, ['➕ جدول']),
           UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
-          UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة'])
+          UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة']),
+          UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'secondary' : 'ghost', size:'sm' }, [templateOpen ? '🧩 إخفاء القالب' : '🧩 عرض القالب'])
         ],
         right:[
           UI.LanguageSwitch({ lang }),
@@ -953,6 +1002,7 @@
         D.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, ['التفاصيل']),
         table ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
           D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [`${table.sqlName || Schema.utils.toSnakeCase(table.name)}`]),
+          table.label ? D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`المسمى الإضافي: ${table.label}`]) : null,
           D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`عدد الحقول: ${table.fields.length}`]),
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
             D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['إحداثيات اللوحة']),
@@ -964,7 +1014,7 @@
             D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['العلاقات الخارجة']),
             ...relationships.map(field=> D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`${field.name} → ${field.references.table}.${field.references.column}`]))
           ]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['لا توجد علاقات محددة.'])
-        ]) : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['اختر جدولًا من المخطط لاستعراض تفاصيله.'])
+        ].filter(Boolean)) : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['اختر جدولًا من المخطط لاستعراض تفاصيله.'])
       ]);
     }
 
@@ -1052,22 +1102,29 @@
 
     function ModalAddTable(db){
       const open = db.ui?.modals?.table;
-      const form = db.ui?.form?.table || { name:'', label:'', comment:'', includeId:true };
+      const form = db.ui?.form?.table || { name:'', nameInput:'', label:'', comment:'', includeId:true };
       const registry = getRegistry(db);
-      const previewName = form.name || (form.label ? computeTableIdentifier(registry, form.label) : '');
+      const sanitizedName = form.name || '';
+      const suggestedName = sanitizedName || (form.label ? sanitizeSqlIdentifier(form.label) : '');
+      const helperText = suggestedName
+        ? `سيتم حفظ الجدول في قاعدة البيانات بالاسم: ${suggestedName} مع ضمان عدم تكرار المعرف داخل المخطط.`
+        : 'اكتب اسمًا إنجليزيًا، وسيتم تحويل المسافات والمحارف الخاصة تلقائيًا إلى صيغة SQL سليمة.';
       return UI.Modal({
         open,
         size:'md',
         title:'إنشاء جدول جديد',
-        description:'اكتب المسمى العربي وسيتم توليد المعرف التلقائي.',
+        description:'الاسم الإنجليزي مطلوب وسيُستخدم كاسم الجدول في قاعدة البيانات. يمكنك إضافة مسمى بلغة أخرى اختياريًا.',
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'المسمى العربي (مثال: المبيعات)' } }),
-            previewName ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`المعرف الإنجليزي: ${previewName}`]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['سيتم توليد المعرف تلقائيًا عند الكتابة.']),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'name', value: form.nameInput || '', placeholder:'English name (مثال: Sales Orders)' } }),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [helperText]),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'اسم الجدول بلغة ثانية (اختياري)' } }),
             UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:'ملاحظات' } }),
-            UI.Label({ text:'إنشاء حقل id افتراضي؟' }),
-            UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'table', 'data-field':'includeId', type:'checkbox', checked: form.includeId !== false } })
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+              UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'table', 'data-field':'includeId', type:'checkbox', checked: form.includeId !== false } }),
+              UI.Label({ text:'إنشاء حقل id افتراضي؟' })
+            ])
           ])
         ],
         actions:[
@@ -1478,6 +1535,24 @@
           ctx.rebuild();
         }
       },
+      'erd.template.toggle':{
+        on:['click'],
+        gkeys:['erd:template:toggle'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>{
+            const currentOpen = s.ui?.template?.open !== false;
+            const nextOpen = !currentOpen;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                template:{ ...(s.ui?.template || {}), open: nextOpen }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
       'erd.form.update':{
         on:['input','change'],
         gkeys:['erd:form:update'],
@@ -1501,11 +1576,29 @@
               }
               return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, references: nextRef } } } };
             }
-            if(formKey === 'table' && fieldKey === 'label'){
-              const registry = getRegistry(s);
+            if(formKey === 'table' && fieldKey === 'name'){
               const targetForm = currentForms.table || {};
-              const slug = computeTableIdentifier(registry, value);
-              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, table:{ ...targetForm, label:value, name: slug } } } };
+              const normalized = sanitizeSqlIdentifier(value);
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  form:{
+                    ...currentForms,
+                    table:{ ...targetForm, name: normalized, nameInput: value }
+                  }
+                }
+              };
+            }
+            if(formKey === 'table' && fieldKey === 'label'){
+              const targetForm = currentForms.table || {};
+              const hasNameInput = !!(targetForm.nameInput && targetForm.nameInput.trim());
+              const suggestion = sanitizeSqlIdentifier(value);
+              const nextTable = { ...targetForm, label: value };
+              if(!hasNameInput){
+                nextTable.name = suggestion;
+              }
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, table: nextTable } } };
             }
             if(formKey === 'field' && fieldKey === 'label'){
               const registry = getRegistry(s);
@@ -1586,16 +1679,17 @@
           const state = ctx.getState();
           const form = state.ui?.form?.table || {};
           const registry = getRegistry(state);
-          const label = (form.label || '').trim();
-          if(!label){
-            UI.pushToast(ctx, { title:'يرجى إدخال المسمى العربي للجدول', icon:'⚠️' });
+          const englishInput = (form.name || '').trim();
+          if(!englishInput){
+            UI.pushToast(ctx, { title:'يرجى إدخال الاسم الإنجليزي للجدول', icon:'⚠️' });
             return;
           }
-          const name = computeTableIdentifier(registry, label);
+          const name = computeTableIdentifier(registry, englishInput);
+          const label = (form.label || '').trim();
           try{
             const tableConfig = {
               name,
-              label: label,
+              label: label || '',
               comment: form.comment || '',
               layout:{ x: 160 + registry.list().length * 120, y: 120 + registry.list().length * 60 },
               fields: []
@@ -1635,7 +1729,7 @@
                   modals:{ ...(s.ui?.modals || {}), table:false },
                   form:{
                     ...(s.ui?.form || {}),
-                    table:{ name:'', label:'', comment:'', includeId:true },
+                    table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
                     field:{ ...(s.ui?.form?.field || {}), table: name, label:'', name:'', columnName:'' },
                     layout:{ x: layout[name].x, y: layout[name].y }
                   }
@@ -2007,7 +2101,7 @@
                 ...(s.ui || {}),
                 form:{
                   ...(s.ui?.form || {}),
-                  table:{ name:'', label:'', comment:'', includeId:true },
+                  table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
                   field:{ table:first || '', name:'', columnName:'', type:'string', nullable:true, primaryKey:false, unique:false, defaultValue:'', references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' } },
                   relation:{ sourceTable:first || '', sourceField:'', targetTable:'', targetField:'', onDelete:'CASCADE', onUpdate:'CASCADE' },
                   layout:{ x: layoutPoint.x, y: layoutPoint.y },
