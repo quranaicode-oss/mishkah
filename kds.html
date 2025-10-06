@@ -9,6 +9,7 @@
       color-scheme: dark;
       font-family: "Tajawal", "Cairo", system-ui, sans-serif;
     }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -17,149 +18,359 @@
       display: flex;
       flex-direction: column;
     }
+
     header {
-      padding: 1.25rem 1.5rem;
+      padding: 1.25rem 1.5rem 1rem;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(15, 17, 21, 0.8);
+      flex-direction: column;
+      gap: 0.85rem;
+      background: rgba(15, 17, 21, 0.82);
       backdrop-filter: blur(18px);
       border-bottom: 1px solid rgba(148, 163, 184, 0.2);
     }
+
     header h1 {
       margin: 0;
-      font-size: clamp(1.5rem, 2vw + 1rem, 2.4rem);
+      font-size: clamp(1.6rem, 1.8vw + 1rem, 2.6rem);
       font-weight: 800;
       letter-spacing: 0.03em;
     }
+
     header .meta {
       display: flex;
-      gap: 1rem;
+      flex-wrap: wrap;
+      gap: 1.1rem;
       font-size: 0.95rem;
       color: rgba(226, 232, 240, 0.85);
+      align-items: center;
     }
+
+    header .meta strong {
+      color: #38bdf8;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
     main {
       flex: 1;
       padding: 1.5rem;
-    }
-    .board {
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 1.25rem;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-button {
+      position: relative;
+      border: none;
+      background: rgba(30, 41, 59, 0.6);
+      color: rgba(226, 232, 240, 0.82);
+      padding: 0.65rem 1.2rem;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tab-button .count {
+      min-width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab-button.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(129, 140, 248, 0.35));
+      color: #f8fafc;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(56, 189, 248, 0.55);
+    }
+
+    .tab-button.active .count {
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    #panel-container {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .station-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
       align-items: start;
     }
-    .column {
+
+    .station-summary {
+      grid-column: 1 / -1;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 18px;
+      padding: 1.1rem 1.35rem;
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .station-summary h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #bae6fd;
+    }
+
+    .stat-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 0.9rem;
+    }
+
+    .stat-card strong {
+      font-size: 1.3rem;
+      color: #f8fafc;
+    }
+
+    .job-card {
       background: rgba(17, 24, 39, 0.92);
-      border-radius: 20px;
-      padding: 1.25rem;
-      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+      border-radius: 18px;
+      padding: 1.15rem;
       display: flex;
       flex-direction: column;
-      min-height: 60vh;
+      gap: 0.9rem;
+      border: 1px solid rgba(30, 41, 59, 0.8);
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
+      position: relative;
+      overflow: hidden;
     }
-    .column h2 {
-      margin: 0 0 0.75rem;
-      font-size: 1.15rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      color: #e2e8f0;
+
+    .job-card::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      inset-block: 0;
+      width: 6px;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.25), rgba(59, 130, 246, 0.4));
+      border-radius: 6px;
     }
-    .ticket {
-      background: rgba(30, 41, 59, 0.75);
-      border-radius: 16px;
-      padding: 1rem;
-      margin-bottom: 0.9rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-      border: 1px solid transparent;
-      transition: border-color 0.2s ease;
+
+    .job-card--expedite::after {
+      background: linear-gradient(180deg, rgba(251, 191, 36, 0.7), rgba(249, 115, 22, 0.85));
     }
-    .ticket:hover {
-      border-color: rgba(148, 163, 184, 0.35);
+
+    .job-card--alert {
+      border-color: rgba(248, 113, 113, 0.45);
+      box-shadow: 0 20px 36px rgba(185, 28, 28, 0.25);
     }
-    .ticket-header {
+
+    .job-card__head {
       display: flex;
       justify-content: space-between;
-      gap: 0.75rem;
       align-items: center;
+      gap: 0.75rem;
     }
+
+    .job-card__head h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      padding: 0.35rem 0.7rem;
+      padding: 0.32rem 0.65rem;
       border-radius: 999px;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       font-weight: 600;
+      background: rgba(30, 41, 59, 0.75);
+      color: rgba(226, 232, 240, 0.85);
     }
-    .badge.order {
-      background: rgba(59, 130, 246, 0.15);
+
+    .badge.status {
+      background: rgba(59, 130, 246, 0.18);
       color: #93c5fd;
     }
-    .badge.timer {
-      background: rgba(74, 222, 128, 0.12);
+
+    .badge.status-ready {
+      background: rgba(74, 222, 128, 0.18);
       color: #86efac;
     }
-    .badge.alert {
-      background: rgba(248, 113, 113, 0.15);
+
+    .badge.status-alert {
+      background: rgba(248, 113, 113, 0.2);
       color: #fca5a5;
     }
-    .items {
+
+    .badge.status-awaiting {
+      background: rgba(250, 204, 21, 0.22);
+      color: #facc15;
+    }
+
+    .badge.small {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.55rem;
+      opacity: 0.85;
+    }
+
+    .job-meta {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      color: rgba(226, 232, 240, 0.75);
     }
-    .item-line {
+
+    .job-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .job-detail {
+      background: rgba(30, 41, 59, 0.65);
+      border-radius: 14px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .job-detail-header {
       display: flex;
       justify-content: space-between;
-      gap: 0.75rem;
+      align-items: baseline;
+      gap: 0.65rem;
+    }
+
+    .job-detail-header strong {
       font-size: 0.95rem;
+      color: #f8fafc;
     }
-    .item-line span:first-child {
-      font-weight: 600;
+
+    .job-detail-header span {
+      font-size: 0.8rem;
+      color: rgba(148, 163, 184, 0.85);
     }
-    .notes {
+
+    .modifiers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .modifier-chip {
+      background: rgba(129, 140, 248, 0.18);
+      color: #c7d2fe;
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.72rem;
+    }
+
+    .job-notes,
+    .job-history {
       font-size: 0.8rem;
       color: rgba(226, 232, 240, 0.7);
       display: flex;
       gap: 0.5rem;
       align-items: center;
     }
-    .summary-card {
-      background: rgba(15, 23, 42, 0.6);
-      border-radius: 18px;
-      padding: 1.1rem;
-      margin-bottom: 1rem;
+
+    .timeline {
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
-      border: 1px solid rgba(51, 65, 85, 0.45);
+      gap: 0.25rem;
     }
-    .progress {
+
+    .timeline span {
+      font-size: 0.78rem;
+      color: rgba(148, 163, 184, 0.78);
+    }
+
+    .expo-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.2rem;
+      align-items: start;
+    }
+
+    .expo-card {
+      background: rgba(17, 24, 39, 0.92);
+      border-radius: 18px;
+      padding: 1.2rem;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .expo-card h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #bae6fd;
+    }
+
+    .expo-progress {
       height: 6px;
-      background: rgba(148, 163, 184, 0.18);
       border-radius: 999px;
       overflow: hidden;
+      background: rgba(148, 163, 184, 0.18);
     }
-    .progress > div {
+
+    .expo-progress > div {
       height: 100%;
       background: linear-gradient(90deg, #22d3ee, #60a5fa);
     }
+
     footer {
-      padding: 0.75rem 1.5rem;
+      padding: 0.9rem 1.5rem;
       display: flex;
       justify-content: space-between;
+      gap: 1rem;
       font-size: 0.85rem;
       color: rgba(148, 163, 184, 0.75);
+      background: rgba(15, 17, 21, 0.8);
+      border-top: 1px solid rgba(148, 163, 184, 0.15);
     }
+
     @media (max-width: 768px) {
-      header, main, footer {
+      header,
+      main,
+      footer {
         padding-inline: 1rem;
       }
-      .column {
-        min-height: auto;
+
+      .station-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .expo-panel {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -170,269 +381,438 @@
     <div class="meta">
       <span>🟢 المطبخ متصل</span>
       <span id="clock">--:--</span>
-      <span>عدد التذاكر الحالية: <strong id="ticket-count">0</strong></span>
+      <span>إجمالي أوامر التحضير: <strong id="ticket-count">0</strong></span>
+      <span>طلبات عاجلة: <strong id="expedite-count">0</strong></span>
     </div>
   </header>
   <main>
-    <section id="board" class="board"></section>
+    <nav id="tabs" class="tabs" aria-label="محطات المطبخ"></nav>
+    <section id="panel-container"></section>
   </main>
   <footer>
-    <span>يتم تحديث البيانات تلقائيًا من قاعدة المحاكاة</span>
-    <span>نظام التذاكر الحراري — 80مم</span>
+    <span>يتم تحديث البيانات تلقائيًا عبر قناة WebSocket المشتركة</span>
+    <span>شاشة المعمل الحراري — 80مم</span>
   </footer>
-  <script src="./pos-mock-data.js"></script>
+  <script src="./kds-mock-data.js"></script>
   <script>
     (function(){
-      const db = window.database || {};
-      const items = db.items || [];
-      const itemIndex = Object.fromEntries(items.map(it => [String(it.id), it]));
+      const source = window.kdsDatabase;
+      const panelContainer = document.getElementById('panel-container');
+      const tabsContainer = document.getElementById('tabs');
+      const ticketCount = document.getElementById('ticket-count');
+      const expediteCountEl = document.getElementById('expedite-count');
 
-      const STATION_FOR_CATEGORY = {
-        appetizers: 'cold',
-        sandwiches: 'sandwiches',
-        hawawshi: 'grill',
-        combo_meals: 'pass',
-        kilo_grills: 'grill',
-        side_items: 'pass'
-      };
-
-      const STATIONS = [
-        { id: 'cold', label: 'البارد والسلطات', icon: '🥗' },
-        { id: 'sandwiches', label: 'قسم السندوتشات', icon: '🥙' },
-        { id: 'grill', label: 'قسم المشويات', icon: '🔥' },
-        { id: 'pass', label: 'التجهيز النهائي', icon: '🧾' },
-        { id: 'summary', label: 'متابعة الطلبات', icon: '📋' }
-      ];
-
-      const sampleOrders = [
-        {
-          id: 'ORD-1201',
-          type: 'dine_in',
-          table: 'T5',
-          source: 'صالة',
-          status: 'preparing',
-          eta: '05 دقائق',
-          stationProgress: { cold: 'ready', sandwiches: 'prepping', grill: 'queued', pass: 'queued' },
-          items: [
-            { itemId: 10, qty: 2 },
-            { itemId: 6, qty: 1 },
-            { itemId: 26, qty: 1 }
-          ],
-          notes: 'بدون بصل'
-        },
-        {
-          id: 'ORD-1202',
-          type: 'delivery',
-          table: null,
-          source: 'دليفري',
-          status: 'cooking',
-          eta: '08 دقائق',
-          stationProgress: { cold: 'prepping', sandwiches: 'queued', grill: 'ready', pass: 'prepping' },
-          items: [
-            { itemId: 1, qty: 3 },
-            { itemId: 14, qty: 1 },
-            { itemId: 25, qty: 1 }
-          ],
-          notes: 'اتصال قبل التسليم'
-        },
-        {
-          id: 'ORD-1203',
-          type: 'dine_in',
-          table: 'T12',
-          source: 'صالة',
-          status: 'expedite',
-          eta: 'جاهز للتقديم',
-          stationProgress: { cold: 'ready', sandwiches: 'ready', grill: 'prepping', pass: 'ready' },
-          items: [
-            { itemId: 24, qty: 1 },
-            { itemId: 2, qty: 2 },
-            { itemId: 27, qty: 2 }
-          ],
-          notes: 'تقديم سريع للزبون الدائم'
-        }
-      ];
-
-      function resolveItemName(itemId){
-        const item = itemIndex[String(itemId)];
-        if(!item) return `صنف #${itemId}`;
-        return item.translations?.ar?.name || item.translations?.en?.name || `صنف #${itemId}`;
+      if(!source){
+        panelContainer.innerHTML = '<p style="color: rgba(226, 232, 240, 0.8); font-size: 1rem;">⚠️ لا توجد بيانات متاحة لعرض شاشة المطبخ.</p>';
+        return;
       }
 
-      const stationBuckets = Object.fromEntries(STATIONS.map(st => [st.id, []]));
+      const stations = (source.stations || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+      const jobOrders = source.jobOrders || {};
+      const headers = jobOrders.headers || [];
+      const details = jobOrders.details || [];
+      const modifiers = jobOrders.modifiers || [];
+      const statusHistory = jobOrders.statusHistory || [];
+      const expoTickets = jobOrders.expoPassTickets || [];
 
-      sampleOrders.forEach(order => {
-        const grouped = {};
-        (order.items || []).forEach(line => {
-          const item = itemIndex[String(line.itemId)];
-          if(!item) return;
-          const station = STATION_FOR_CATEGORY[item.category] || 'pass';
-          if(!grouped[station]) grouped[station] = [];
-          grouped[station].push({
-            name: resolveItemName(line.itemId),
-            qty: line.qty || 1,
-            category: item.category
-          });
-        });
-        Object.keys(grouped).forEach(station => {
-          stationBuckets[station].push({
-            orderId: order.id,
-            table: order.table,
-            source: order.source,
-            status: order.stationProgress?.[station] || 'queued',
-            eta: order.eta,
-            items: grouped[station],
-            notes: order.notes
-          });
-        });
-        stationBuckets.summary.push(order);
+      const headerById = Object.fromEntries(headers.map(h => [h.id, { ...h }]));
+      const modifiersByDetail = modifiers.reduce((acc, mod) => {
+        if(!acc[mod.detailId]) acc[mod.detailId] = [];
+        acc[mod.detailId].push(mod);
+        return acc;
+      }, {});
+      const detailsByJob = details.reduce((acc, detail) => {
+        const enriched = { ...detail, modifiers: modifiersByDetail[detail.id] || [] };
+        if(!acc[detail.jobOrderId]) acc[detail.jobOrderId] = [];
+        acc[detail.jobOrderId].push(enriched);
+        return acc;
+      }, {});
+      const historyByJob = statusHistory.reduce((acc, record) => {
+        if(!acc[record.jobOrderId]) acc[record.jobOrderId] = [];
+        acc[record.jobOrderId].push(record);
+        return acc;
+      }, {});
+
+      const jobsByStation = stations.reduce((acc, station) => {
+        acc[station.id] = [];
+        return acc;
+      }, {});
+
+      headers.forEach(header => {
+        const job = {
+          ...header,
+          details: (detailsByJob[header.id] || []).slice().sort((a, b) => (b.priority || 0) - (a.priority || 0)),
+          history: (historyByJob[header.id] || []).slice().sort((a, b) => new Date(a.changedAt || 0) - new Date(b.changedAt || 0))
+        };
+        if(!jobsByStation[job.stationId]){
+          jobsByStation[job.stationId] = [];
+        }
+        jobsByStation[job.stationId].push(job);
       });
 
-      const statusMeta = {
-        queued: { text: 'في الانتظار', className: 'badge order' },
-        prepping: { text: 'قيد التحضير', className: 'badge timer' },
-        cooking: { text: 'يُطهى', className: 'badge timer' },
-        ready: { text: 'جاهز للتقديم', className: 'badge alert' }
+      Object.keys(jobsByStation).forEach(stationId => {
+        jobsByStation[stationId].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      });
+
+      const statusLabels = {
+        queued: 'في الانتظار',
+        awaiting: 'في قائمة الانتظار',
+        accepted: 'تم الاستلام',
+        in_progress: 'قيد التحضير',
+        cooking: 'يُطهى الآن',
+        plating: 'تجهيز للتقديم',
+        ready: 'جاهز',
+        completed: 'مكتمل',
+        expedite: 'عاجل',
+        delivered: 'تم التسليم'
       };
 
-      function createTicket(job){
-        const article = document.createElement('article');
-        article.className = 'ticket';
+      const serviceModeLabels = {
+        dine_in: 'صالة',
+        delivery: 'دليفري',
+        pickup: 'استلام ذاتي',
+        curbside: 'استلام خارجي'
+      };
 
-        const header = document.createElement('div');
-        header.className = 'ticket-header';
-
-        const orderBadge = document.createElement('span');
-        orderBadge.className = 'badge order';
-        orderBadge.textContent = `طلب ${job.orderId}`;
-
-        const statusBadge = document.createElement('span');
-        const meta = statusMeta[job.status] || statusMeta.queued;
-        statusBadge.className = meta.className;
-        statusBadge.textContent = meta.text;
-
-        header.append(orderBadge, statusBadge);
-        article.append(header);
-
-        if(job.table){
-          const tableBadge = document.createElement('span');
-          tableBadge.className = 'badge timer';
-          tableBadge.textContent = `طاولة ${job.table}`;
-          article.append(tableBadge);
+      function formatTime(iso){
+        if(!iso) return '—';
+        try {
+          const date = new Date(iso);
+          if(Number.isNaN(date.getTime())) return '—';
+          return date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        } catch (err) {
+          return '—';
         }
-
-        const list = document.createElement('div');
-        list.className = 'items';
-        job.items.forEach(line => {
-          const row = document.createElement('div');
-          row.className = 'item-line';
-          const name = document.createElement('span');
-          name.textContent = `${line.qty}× ${line.name}`;
-          const cat = document.createElement('span');
-          cat.style.color = 'rgba(148, 163, 184, 0.75)';
-          cat.textContent = line.category;
-          row.append(name, cat);
-          list.append(row);
-        });
-        article.append(list);
-
-        if(job.notes){
-          const notes = document.createElement('div');
-          notes.className = 'notes';
-          notes.innerHTML = `📝 ${job.notes}`;
-          article.append(notes);
-        }
-
-        if(job.eta){
-          const etaBadge = document.createElement('span');
-          etaBadge.className = 'badge timer';
-          etaBadge.textContent = job.eta;
-          article.append(etaBadge);
-        }
-
-        return article;
       }
 
-      function createSummaryCard(order){
+      function createBadge(text, extraClass){
+        const span = document.createElement('span');
+        span.className = `badge${extraClass ? ' ' + extraClass : ''}`;
+        span.textContent = text;
+        return span;
+      }
+
+      function statusClass(status){
+        switch(status){
+          case 'ready':
+          case 'completed':
+            return 'status status-ready';
+          case 'expedite':
+          case 'has_alert':
+            return 'status status-alert';
+          case 'queued':
+          case 'awaiting':
+            return 'status status-awaiting';
+          default:
+            return 'status';
+        }
+      }
+
+      function renderJobCard(job){
         const card = document.createElement('article');
-        card.className = 'summary-card';
+        card.className = 'job-card';
+        if(job.isExpedite) card.classList.add('job-card--expedite');
+        if(job.hasAlerts) card.classList.add('job-card--alert');
 
         const head = document.createElement('div');
-        head.className = 'ticket-header';
-        const title = document.createElement('strong');
-        title.textContent = `طلب ${order.id}`;
-        const type = document.createElement('span');
-        type.className = 'badge order';
-        type.textContent = order.source;
-        head.append(title, type);
+        head.className = 'job-card__head';
+        const title = document.createElement('h3');
+        title.textContent = `طلب ${job.orderNumber}`;
+        head.append(title);
+
+        const statusBadge = createBadge(statusLabels[job.status] || job.status, statusClass(job.status));
+        head.append(statusBadge);
         card.append(head);
 
-        if(order.table){
-          const table = document.createElement('div');
-          table.className = 'notes';
-          table.textContent = `🪑 طاولة ${order.table}`;
-          card.append(table);
+        const badges = document.createElement('div');
+        badges.className = 'badges';
+        if(job.tableLabel){
+          badges.append(createBadge(`طاولة ${job.tableLabel}`));
         }
+        if(job.customerName && !job.tableLabel){
+          badges.append(createBadge(job.customerName));
+        }
+        if(job.serviceMode){
+          badges.append(createBadge(serviceModeLabels[job.serviceMode] || job.serviceMode));
+        }
+        if(job.dueAt){
+          badges.append(createBadge(`موعد التسليم ${formatTime(job.dueAt)}`, 'small'));
+        }
+        if(job.meta?.orderSource){
+          badges.append(createBadge(`المصدر: ${job.meta.orderSource}`, 'small'));
+        }
+        card.append(badges);
+
+        const meta = document.createElement('div');
+        meta.className = 'job-meta';
+        meta.innerHTML = `
+          <span>إجمالي الأصناف: ${job.totalItems} — المتبقي: ${job.remainingItems}</span>
+          <span>بداية التحضير: ${formatTime(job.startedAt)} — آخر تحديث: ${formatTime(job.updatedAt)}</span>
+        `;
+        card.append(meta);
 
         const itemsList = document.createElement('div');
-        itemsList.className = 'items';
-        order.items.forEach(line => {
-          const row = document.createElement('div');
-          row.className = 'item-line';
-          row.innerHTML = `<span>${line.qty}× ${resolveItemName(line.itemId)}</span>`;
-          itemsList.append(row);
+        itemsList.className = 'job-items';
+        job.details.forEach(detail => {
+          const detailCard = document.createElement('div');
+          detailCard.className = 'job-detail';
+
+          const detailHeader = document.createElement('div');
+          detailHeader.className = 'job-detail-header';
+          const label = document.createElement('strong');
+          label.textContent = `${detail.quantity}× ${detail.itemNameAr}`;
+          const detailStatus = createBadge(statusLabels[detail.status] || detail.status, statusClass(detail.status));
+          detailHeader.append(label, detailStatus);
+          detailCard.append(detailHeader);
+
+          const subMeta = document.createElement('span');
+          subMeta.textContent = `الفئة: ${detail.categoryId} — أولوية ${detail.priority}`;
+          subMeta.style.fontSize = '0.78rem';
+          subMeta.style.color = 'rgba(148, 163, 184, 0.78)';
+          detailCard.append(subMeta);
+
+          if(detail.prepNotes){
+            const notes = document.createElement('div');
+            notes.className = 'job-notes';
+            notes.textContent = `📝 ${detail.prepNotes}`;
+            detailCard.append(notes);
+          }
+
+          if(detail.modifiers.length){
+            const mods = document.createElement('div');
+            mods.className = 'modifiers';
+            detail.modifiers.forEach(mod => {
+              const chip = document.createElement('span');
+              chip.className = 'modifier-chip';
+              const type = mod.modifierType === 'remove' ? 'بدون' : mod.modifierType === 'add' ? 'إضافة' : mod.modifierType;
+              chip.textContent = `${type}: ${mod.nameAr}`;
+              mods.append(chip);
+            });
+            detailCard.append(mods);
+          }
+
+          itemsList.append(detailCard);
         });
         card.append(itemsList);
 
-        if(order.notes){
-          const note = document.createElement('div');
-          note.className = 'notes';
-          note.textContent = `📝 ${order.notes}`;
-          card.append(note);
+        if(job.notes){
+          const notes = document.createElement('div');
+          notes.className = 'job-notes';
+          notes.textContent = `🧾 ملاحظات الطلب: ${job.notes}`;
+          card.append(notes);
         }
 
-        const progress = document.createElement('div');
-        progress.className = 'progress';
-        const progressFill = document.createElement('div');
-        const readyStations = Object.values(order.stationProgress || {}).filter(v => v === 'ready').length;
-        const completion = Math.round((readyStations / 4) * 100);
-        progressFill.style.width = `${completion}%`;
-        progress.append(progressFill);
-        card.append(progress);
-
-        const footer = document.createElement('div');
-        footer.className = 'notes';
-        footer.textContent = `🔄 حالة الطلب: ${order.status === 'expedite' ? 'جاهز للتسليم' : 'قيد المعالجة'} — إنجاز ${completion}%`;
-        card.append(footer);
+        if(job.history.length){
+          const historyWrap = document.createElement('div');
+          historyWrap.className = 'job-history';
+          const timeline = document.createElement('div');
+          timeline.className = 'timeline';
+          const lastEntries = job.history.slice(-2);
+          lastEntries.forEach(entry => {
+            const row = document.createElement('span');
+            const actor = entry.actorName ? ` — ${entry.actorName}` : '';
+            row.textContent = `${formatTime(entry.changedAt)} · ${statusLabels[entry.status] || entry.status}${actor}`;
+            timeline.append(row);
+          });
+          historyWrap.append('⏱️ آخر الحالات:', timeline);
+          card.append(historyWrap);
+        }
 
         return card;
       }
 
-      const board = document.getElementById('board');
-      STATIONS.forEach(station => {
-        const column = document.createElement('section');
-        column.className = 'column';
+      function renderStationPanel(station){
+        const panel = document.createElement('section');
+        panel.className = 'station-panel';
 
-        const heading = document.createElement('h2');
-        heading.textContent = `${station.icon} ${station.label}`;
-        column.append(heading);
+        const jobs = jobsByStation[station.id] || [];
+        const totalJobs = jobs.length;
+        const expediteJobs = jobs.filter(job => job.isExpedite).length;
+        const alertJobs = jobs.filter(job => job.hasAlerts).length;
+        const readyJobs = jobs.filter(job => job.status === 'ready' || job.status === 'completed').length;
 
-        const jobs = stationBuckets[station.id] || [];
-        if(station.id === 'summary'){
-          jobs.forEach(order => column.append(createSummaryCard(order)));
-        } else if(jobs.length){
-          jobs.forEach(job => column.append(createTicket(job)));
-        } else {
+        const summary = document.createElement('div');
+        summary.className = 'station-summary';
+        summary.innerHTML = `
+          <div>
+            <h2>${station.nameAr}</h2>
+            <span style="color: rgba(148, 163, 184, 0.85); font-size: 0.85rem;">${station.nameEn}</span>
+          </div>
+          <div class="stat-card">
+            <span>عدد تذاكر المحطة</span>
+            <strong>${totalJobs}</strong>
+          </div>
+          <div class="stat-card">
+            <span>جاهز للتسليم</span>
+            <strong>${readyJobs}</strong>
+          </div>
+          <div class="stat-card">
+            <span>عاجل / تنبيه</span>
+            <strong>${expediteJobs + alertJobs}</strong>
+          </div>
+        `;
+        panel.append(summary);
+
+        if(!jobs.length){
           const empty = document.createElement('p');
-          empty.style.color = 'rgba(148, 163, 184, 0.55)';
-          empty.style.marginTop = '1rem';
-          empty.textContent = 'لا توجد تذاكر في هذا القسم حاليًا.';
-          column.append(empty);
+          empty.style.color = 'rgba(226, 232, 240, 0.75)';
+          empty.style.fontSize = '0.95rem';
+          empty.style.margin = '0.5rem 0 0';
+          empty.textContent = 'لا توجد تذاكر في هذه المحطة حاليًا.';
+          panel.append(empty);
+          return panel;
         }
 
-        board.append(column);
-      });
+        jobs.forEach(job => panel.append(renderJobCard(job)));
+        return panel;
+      }
 
-      document.getElementById('ticket-count').textContent = stationBuckets.summary.length;
+      function renderExpoPanel(){
+        const panel = document.createElement('section');
+        panel.className = 'expo-panel';
+
+        if(!expoTickets.length){
+          const empty = document.createElement('p');
+          empty.style.color = 'rgba(226, 232, 240, 0.75)';
+          empty.style.fontSize = '0.95rem';
+          empty.textContent = 'لا توجد تذاكر جاهزة للتسليم حاليًا.';
+          panel.append(empty);
+          return panel;
+        }
+
+        expoTickets.forEach(ticket => {
+          const card = document.createElement('article');
+          card.className = 'expo-card';
+
+          const title = document.createElement('h3');
+          title.textContent = `تذكرة تجميع #${ticket.orderNumber}`;
+          card.append(title);
+
+          const info = document.createElement('div');
+          info.className = 'job-meta';
+          const meta = ticket.meta || {};
+          info.innerHTML = `
+            <span>الخدمة: ${serviceModeLabels[meta.serviceMode] || meta.serviceMode || '—'}</span>
+            <span>الجاهز: ${ticket.readyItems} / ${ticket.totalItems}</span>
+            <span>أحدث تحديث: ${formatTime(ticket.updatedAt)}</span>
+          `;
+          card.append(info);
+
+          const progress = document.createElement('div');
+          progress.className = 'expo-progress';
+          const progressFill = document.createElement('div');
+          const completion = ticket.totalItems ? Math.round((ticket.readyItems / ticket.totalItems) * 100) : 0;
+          progressFill.style.width = `${completion}%`;
+          progress.append(progressFill);
+          card.append(progress);
+
+          if(ticket.holdReason){
+            const hold = document.createElement('div');
+            hold.className = 'job-notes';
+            hold.textContent = `⚠️ سبب التعليق: ${ticket.holdReason}`;
+            card.append(hold);
+          }
+
+          const related = document.createElement('div');
+          related.className = 'job-items';
+          const jobs = (ticket.jobOrderIds || []).map(id => headerById[id]).filter(Boolean);
+          jobs.forEach(job => {
+            const row = document.createElement('div');
+            row.className = 'job-detail';
+            const head = document.createElement('div');
+            head.className = 'job-detail-header';
+            const label = document.createElement('strong');
+            label.textContent = `${job.stationCode} · طلب ${job.orderNumber}`;
+            const status = createBadge(statusLabels[job.status] || job.status, statusClass(job.status));
+            head.append(label, status);
+            row.append(head);
+            const sub = document.createElement('span');
+            sub.textContent = `متبقي ${job.remainingItems} من ${job.totalItems} — آخر تحديث ${formatTime(job.updatedAt)}`;
+            sub.style.fontSize = '0.78rem';
+            sub.style.color = 'rgba(148, 163, 184, 0.78)';
+            row.append(sub);
+            related.append(row);
+          });
+          card.append(related);
+
+          if(meta.tableLabel){
+            const table = document.createElement('div');
+            table.className = 'job-notes';
+            table.textContent = `🪑 طاولة: ${meta.tableLabel}`;
+            card.append(table);
+          }
+
+          if(meta.deliveryEta){
+            const eta = document.createElement('div');
+            eta.className = 'job-notes';
+            eta.textContent = `🚚 وقت التسليم المتوقع: ${formatTime(meta.deliveryEta)}`;
+            card.append(eta);
+          }
+
+          panel.append(card);
+        });
+
+        return panel;
+      }
+
+      let activeTab = stations[0]?.id || null;
+      if(!activeTab && expoTickets.length){
+        activeTab = 'expo_pass';
+      }
+
+      function setActiveTab(tabId){
+        activeTab = tabId;
+        Array.from(tabsContainer.querySelectorAll('button')).forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        panelContainer.innerHTML = '';
+        const station = stations.find(st => st.id === tabId);
+        if(station){
+          panelContainer.append(renderStationPanel(station));
+        } else if(tabId === 'expo_pass'){
+          panelContainer.append(renderExpoPanel());
+        }
+      }
+
+      function renderTabs(){
+        tabsContainer.innerHTML = '';
+        stations.forEach(station => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'tab-button';
+          btn.dataset.tab = station.id;
+          const label = document.createElement('span');
+          label.textContent = `${station.nameAr}`;
+          btn.append(label);
+          const count = document.createElement('span');
+          count.className = 'count';
+          count.textContent = (jobsByStation[station.id] || []).length;
+          btn.append(count);
+          btn.addEventListener('click', () => setActiveTab(station.id));
+          tabsContainer.append(btn);
+        });
+
+        const expoBtn = document.createElement('button');
+        expoBtn.type = 'button';
+        expoBtn.className = 'tab-button';
+        expoBtn.dataset.tab = 'expo_pass';
+        expoBtn.innerHTML = '<span>شاشة التسليم (Expo)</span>';
+        const expoCount = document.createElement('span');
+        expoCount.className = 'count';
+        expoCount.textContent = expoTickets.length;
+        expoBtn.append(expoCount);
+        expoBtn.addEventListener('click', () => setActiveTab('expo_pass'));
+        tabsContainer.append(expoBtn);
+      }
+
+      renderTabs();
+      if(!activeTab){
+        activeTab = tabsContainer.querySelector('button')?.dataset.tab || null;
+      }
+      setActiveTab(activeTab);
+
+      ticketCount.textContent = headers.length;
+      expediteCountEl.textContent = headers.filter(h => h.isExpedite || h.hasAlerts).length;
 
       function updateClock(){
         const now = new Date();
