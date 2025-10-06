@@ -314,7 +314,7 @@
                   UI.Button({ attrs:{ gkey:'erd:library:delete', 'data-schema-id': item.id, title:'حذف المخطط', class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, ['🗑️'])
                 ])
               ])
-            ])))
+            ]))
         : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['لم يتم حفظ أي مخططات بعد.']);
       return D.Containers.Aside({ attrs:{ class: tw`hidden lg:flex w-72 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]` }}, [
@@ -1559,7 +1559,7 @@
     const app = M.app.createApp(erdState, {});
     const auto = U.twcss.auto(erdState, app, { pageScaffold:true });
 
-    M.Head.setBody(AppView);
+    M.app.setBody(AppView);
 
     app.setOrders(Object.assign({}, UI.orders, auto.orders, erdOrders));
     app.mount('#app');

@@ -871,7 +871,10 @@ function makeLangLookup(db) {
       const vs = toArr(values || []);
       return this.run(store, 'readwrite', async tw => {
         const os = tw.store(store);
-        for (let i = 0; i < vs.length; i++) { await reqp(os.add(vs[i])); if (i % chunk === 0) await sleep(0) }
+        for (let i = 0; i < vs.length; i++) {
+          await reqp(os.add(vs[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
         return true;
       });
     }
@@ -880,7 +883,10 @@ function makeLangLookup(db) {
       const vs = toArr(values || []);
       return this.run(store, 'readwrite', async tw => {
         const os = tw.store(store);
-        for (let i = 0; i < vs.length; i++) { await reqp(os.put(vs[i])); if (i % chunk === 0) await sleep(0) }
+        for (let i = 0; i < vs.length; i++) {
+          await reqp(os.put(vs[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
         return true;
       });
     }
@@ -889,7 +895,10 @@ function makeLangLookup(db) {
       const ks = toArr(keys || []);
       return this.run(store, 'readwrite', async tw => {
         const os = tw.store(store);
-        for (let i = 0; i < ks.length; i++) { await reqp(os.delete(ks[i])); if (i % chunk === 0) await sleep(0) }
+        for (let i = 0; i < ks.length; i++) {
+          await reqp(os.delete(ks[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
         return true;
       });
     }
