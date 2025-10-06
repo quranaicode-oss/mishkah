@@ -5,7 +5,57 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>مخطط قاعدة بيانات مشكاة</title>
   <style>
-    :root { color-scheme: light dark; }
+    :root {
+      color-scheme: light dark;
+      --background: #f8fafc;
+      --surface-0: #f8fafc;
+      --surface-1: #ffffff;
+      --surface-2: #eef2ff;
+      --card: #ffffff;
+      --card-foreground: #0f172a;
+      --foreground: #0f172a;
+      --muted: #475569;
+      --muted-foreground: #475569;
+      --border: #cfd8ea;
+      --input: #dbe3f8;
+      --accent: #eaf2ff;
+      --accent-foreground: #102341;
+      --primary: #2563eb;
+      --primary-foreground: #f8fafc;
+      --secondary: #d8e1ff;
+      --secondary-foreground: #102341;
+      --destructive: #ef4444;
+      --destructive-foreground: #ffffff;
+      --ring: #2563eb;
+      --shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.35);
+      --radius: 16px;
+    }
+    :root.dark {
+      color-scheme: dark;
+      --background: #0b1220;
+      --surface-0: #0b1220;
+      --surface-1: #101a2c;
+      --surface-2: #16243a;
+      --card: #111d30;
+      --card-foreground: #e2e8f0;
+      --foreground: #f8fafc;
+      --muted: #94a3b8;
+      --muted-foreground: #94a3b8;
+      --border: #1f2a3d;
+      --input: #223044;
+      --accent: #1e2a3f;
+      --accent-foreground: #e2e8f0;
+      --primary: #60a5fa;
+      --primary-foreground: #0b1220;
+      --secondary: #27364e;
+      --secondary-foreground: #e2e8f0;
+      --destructive: #f87171;
+      --destructive-foreground: #0b1220;
+      --ring: #60a5fa;
+      --shadow: 0 30px 70px -36px rgba(8, 15, 30, 0.75);
+      --radius: 16px;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
     html, body {
       height: 100%;
       min-height: 100vh;
@@ -13,11 +63,13 @@
       background: var(--background, #0f1115);
       color: var(--foreground, #f8fafc);
       font-family: "Tajawal", "Cairo", system-ui, sans-serif;
+      transition: background-color 160ms ease, color 160ms ease;
     }
     body { display: flex; min-height: 100vh; }
     #app { flex: 1 1 auto; display: flex; }
     textarea[readonly] { user-select: all; }
   </style>
+  <script src="https://unpkg.com/gojs@2.3.14/release/go.js"></script>
   <script src="./mishkah-utils.js"></script>
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
@@ -33,6 +85,13 @@
     const D = M.DSL;
     const Schema = M.schema;
     const { tw } = U.twcss;
+    const Text = U.Text || {};
+
+    let erdAppInstance = null;
+    let goDiagram = null;
+    let goMaker = null;
+    let pendingDiagramFrame = false;
+    let lastDiagramState = null;
 
     const TABLE_WIDTH = 280;
     const HEADER_HEIGHT = 48;
@@ -42,7 +101,373 @@
       'string','integer','decimal','float','boolean','timestamp','date','json','uuid','text'
     ];
 
+    const RELATION_ACTION_OPTIONS = ['CASCADE','RESTRICT','SET NULL','NO ACTION'];
+
     const clone = (U.JSON && U.JSON.clone) ? U.JSON.clone : (obj => JSON.parse(JSON.stringify(obj)));
+
+    function identifierFromLabel(label, fallback){
+      if(Text && typeof Text.identifierFromArabic === 'function'){
+        return Text.identifierFromArabic(label, { fallback });
+      }
+      const base = Schema.utils.toSnakeCase(label || '') || '';
+      if(base) return base;
+      return Schema.utils.toSnakeCase(fallback || 'item') || (fallback || 'item');
+    }
+
+    function formatIdentifier(value){
+      if(!value) return '';
+      return value
+        .replace(/_/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/(^|\s)([a-z])/g, (_, space, ch)=> space + ch.toUpperCase());
+    }
+
+    function ensureUniqueTableName(registry, base){
+      const clean = base || 'table';
+      let candidate = clean;
+      let index = 1;
+      while(registry.get(candidate)){
+        candidate = `${clean}_${index++}`;
+      }
+      return candidate;
+    }
+
+    function ensureUniqueFieldName(table, base){
+      const clean = base || 'field';
+      if(!table) return clean;
+      let candidate = clean;
+      let index = 1;
+      while(table.getField(candidate)){
+        candidate = `${clean}_${index++}`;
+      }
+      return candidate;
+    }
+
+    function computeTableIdentifier(registry, label){
+      const fallback = `table_${registry.list().length + 1}`;
+      const base = identifierFromLabel(label, fallback);
+      return ensureUniqueTableName(registry, base);
+    }
+
+    function computeFieldIdentifier(table, label){
+      const fallback = `field_${(table?.fields?.length || 0) + 1}`;
+      const base = identifierFromLabel(label, fallback);
+      return ensureUniqueFieldName(table, base);
+    }
+
+    function currentPalette(){
+      if(typeof window === 'undefined') return {};
+      const computed = getComputedStyle(document.documentElement);
+      const read = key => (computed.getPropertyValue(key) || '').trim();
+      return {
+        background: read('--background') || '#f8fafc',
+        surface: read('--surface-2') || '#eef2ff',
+        border: read('--border') || '#d7deed',
+        foreground: read('--foreground') || '#0f172a',
+        muted: read('--muted-foreground') || '#475569',
+        accent: read('--accent') || '#eaf2ff',
+        accentForeground: read('--accent-foreground') || '#102341',
+        primary: read('--primary') || '#2563eb',
+        primaryForeground: read('--primary-foreground') || '#f8fafc'
+      };
+    }
+
+    function buildDiagramData(state){
+      const registry = getRegistry(state);
+      const layout = state.data.layout || {};
+      const selection = state.data.selection || {};
+      const tables = registry.list();
+      const nodes = tables.map(table => {
+        const pos = layout[table.name] || table.layout || { x: 120, y: 120 };
+        return {
+          key: table.name,
+          title: formatIdentifier(table.name),
+          arabicLabel: table.label || '',
+          loc: `${pos.x} ${pos.y}`,
+          selected: selection.table === table.name,
+          items: (table.fields || []).map(field => ({
+            name: field.name,
+            display: formatIdentifier(field.name),
+            type: field.type,
+            isPrimary: !!field.primaryKey,
+            isForeign: !!field.references,
+            nullable: field.nullable !== false,
+            selected: selection.table === table.name && selection.field === field.name,
+            references: field.references || null
+          }))
+        };
+      });
+      const links = [];
+      tables.forEach(table => {
+        (table.fields || []).forEach(field => {
+          if(field.references && field.references.table){
+            links.push({
+              from: table.name,
+              to: field.references.table,
+              fromField: field.name,
+              toField: field.references.column || field.references.field || 'id',
+              fromLabel: formatIdentifier(field.name),
+              toLabel: formatIdentifier(field.references.column || field.references.field || 'id')
+            });
+          }
+        });
+      });
+      return { nodes, links };
+    }
+
+    function scheduleDiagramRender(state){
+      lastDiagramState = state;
+      if(pendingDiagramFrame) return;
+      pendingDiagramFrame = true;
+      requestAnimationFrame(()=>{
+        pendingDiagramFrame = false;
+        const snapshot = erdAppInstance ? erdAppInstance.getState() : lastDiagramState;
+        if(snapshot) renderDiagram(snapshot);
+      });
+    }
+
+    function applyDiagramTemplates(diagram, palette){
+      if(!goMaker) return;
+      const signature = JSON.stringify(palette);
+      if(diagram.__paletteSignature === signature) return;
+      diagram.__paletteSignature = signature;
+      const $ = goMaker;
+      const foreground = palette.foreground || '#0f172a';
+      const muted = palette.muted || '#475569';
+      const border = palette.border || '#d7deed';
+      const surface = palette.surface || '#ffffff';
+      const accent = palette.accent || '#e2e8f0';
+      const accentFg = palette.accentForeground || foreground;
+      const primary = palette.primary || '#2563eb';
+      const primaryFg = palette.primaryForeground || '#f8fafc';
+
+      const itemTemplate = $(go.Panel, 'TableRow',
+        {
+          column: 0,
+          stretch: go.GraphObject.Horizontal,
+          cursor: 'pointer',
+          fromSpot: go.Spot.LeftRightSides,
+          toSpot: go.Spot.LeftRightSides
+        },
+        new go.Binding('portId', 'name'),
+        new go.Binding('background', 'selected', sel => sel ? accent : null),
+        {
+          mouseEnter: (e, row)=>{ if(!row.data?.selected) row.background = accent; },
+          mouseLeave: (e, row)=>{ if(!row.data?.selected) row.background = null; },
+          click: (e, row)=>{
+            const field = row.data;
+            const tableKey = row.part?.data?.key;
+            if(field && tableKey && erdAppInstance){
+              erdAppInstance.setState(s => withFieldSelection(s, tableKey, field.name));
+              erdAppInstance.rebuild();
+            }
+          }
+        },
+        $(go.Shape, 'Circle', {
+          column: 0,
+          width: 7,
+          height: 7,
+          margin: new go.Margin(0, 6, 0, 4),
+          strokeWidth: 1.2,
+          fill: border,
+          stroke: border
+        },
+          new go.Binding('fill', 'isPrimary', isPrimary => isPrimary ? primary : border),
+          new go.Binding('stroke', 'isForeign', isForeign => isForeign ? primary : border),
+          new go.Binding('strokeWidth', 'isForeign', isForeign => isForeign ? 1.6 : 1.2)
+        ),
+        $(go.TextBlock, {
+          column: 1,
+          alignment: go.Spot.Left,
+          margin: new go.Margin(2, 6, 2, 0),
+          font: '600 12px Tajawal, sans-serif',
+          stroke: foreground,
+          maxLines: 1
+        }, new go.Binding('text', 'display')),
+        $(go.TextBlock, {
+          column: 2,
+          alignment: go.Spot.Right,
+          margin: new go.Margin(2, 0, 2, 0),
+          font: '11px Tajawal, sans-serif',
+          stroke: muted,
+          maxLines: 1
+        }, new go.Binding('text', 'type'))
+      );
+
+      diagram.nodeTemplate = $(go.Node, 'Auto',
+        {
+          selectionAdorned: false,
+          resizable: false,
+          cursor: 'move',
+          fromSpot: go.Spot.AllSides,
+          toSpot: go.Spot.AllSides,
+          click:(e,node)=>{
+            const key = node?.data?.key;
+            if(key && erdAppInstance){
+              erdAppInstance.setState(s => withTableSelection(s, key));
+              erdAppInstance.rebuild();
+            }
+          }
+        },
+        new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
+        $(go.Shape, 'RoundedRectangle', {
+          fill: surface,
+          stroke: border,
+          strokeWidth: 1.4,
+          name: 'CARD',
+          portId: '',
+          fromSpot: go.Spot.AllSides,
+          toSpot: go.Spot.AllSides
+        },
+          new go.Binding('stroke', 'selected', sel => sel ? primary : border),
+          new go.Binding('strokeWidth', 'selected', sel => sel ? 2 : 1.4)
+        ),
+        $(go.Panel, 'Table',
+          { stretch: go.GraphObject.Fill, defaultRowSeparatorStroke: border },
+          $(go.RowColumnDefinition, { row: 0, sizing: go.RowColumnDefinition.None }),
+          $(go.TextBlock, {
+            row: 0,
+            margin: new go.Margin(6, 36, 4, 10),
+            font: '600 14px Tajawal, sans-serif',
+            stroke: foreground,
+            maxLines: 1
+          }, new go.Binding('text', 'title')),
+          $('PanelExpanderButton', 'FIELD_LIST', { row: 0, alignment: go.Spot.TopRight, margin: new go.Margin(4, 6, 0, 0) }),
+          $(go.Panel, 'Vertical', {
+            name: 'FIELD_LIST',
+            row: 1,
+            stretch: go.GraphObject.Horizontal,
+            defaultAlignment: go.Spot.Left,
+            itemTemplate,
+            padding: new go.Margin(4, 0, 6, 0)
+          }, new go.Binding('itemArray', 'items'))
+        ),
+        new go.Binding('toolTip', '', data => {
+          if(!data.arabicLabel) return null;
+          return $(go.Adornment, 'Auto',
+            $(go.Shape, { fill: accent, stroke: border }),
+            $(go.TextBlock, { margin: 6, font: '12px Tajawal, sans-serif', stroke: accentFg }, data.arabicLabel)
+          );
+        })
+      );
+
+      diagram.linkTemplate = $(go.Link,
+        {
+          routing: go.Link.AvoidsNodes,
+          corner: 8,
+          curve: go.Link.JumpOver,
+          relinkableFrom: false,
+          relinkableTo: false
+        },
+        $(go.Shape, { stroke: primary, strokeWidth: 1.6 }),
+        $(go.Shape, { toArrow: 'Standard', stroke: null, fill: primary }),
+        $(go.TextBlock, {
+          segmentIndex: 0,
+          segmentOffset: new go.Point(0, -10),
+          font: '11px Tajawal, sans-serif',
+          stroke: muted
+        }, new go.Binding('text', 'fromLabel')),
+        $(go.TextBlock, {
+          segmentIndex: -1,
+          segmentOffset: new go.Point(0, 10),
+          font: '11px Tajawal, sans-serif',
+          stroke: muted
+        }, new go.Binding('text', 'toLabel'))
+      );
+
+      diagram.model = $(go.GraphLinksModel, {
+        copiesArrays: true,
+        copiesArrayObjects: true,
+        linkFromPortIdProperty: 'fromField',
+        linkToPortIdProperty: 'toField'
+      });
+    }
+
+    function persistDiagramLayout(diagram){
+      if(!erdAppInstance) return;
+      const moved = diagram.selection;
+      const updates = {};
+      moved.each(part => {
+        if(part instanceof go.Node){
+          const loc = part.location;
+          updates[part.data.key] = { x: Math.round(loc.x), y: Math.round(loc.y) };
+        }
+      });
+      if(!Object.keys(updates).length) return;
+      let record = null;
+      erdAppInstance.setState(s => {
+        const layout = Object.assign({}, s.data.layout || {});
+        let changed = false;
+        for(const [key, pos] of Object.entries(updates)){
+          if(!pos) continue;
+          const current = layout[key] || {};
+          if(current.x !== pos.x || current.y !== pos.y){
+            layout[key] = { x: pos.x, y: pos.y };
+            changed = true;
+          }
+        }
+        if(!changed) return s;
+        const now = Date.now();
+        const recordInput = {
+          id: s.data.schemaId,
+          name: s.data.schemaMeta?.name || '',
+          title: s.data.schemaMeta?.title || '',
+          description: s.data.schemaMeta?.description || '',
+          schema: s.data.schema,
+          layout,
+          canvas: s.data.canvas,
+          createdAt: s.data.schemaCreatedAt,
+          updatedAt: now
+        };
+        record = recordInput;
+        return {
+          ...s,
+          data:{
+            ...s.data,
+            layout,
+            schemaUpdatedAt: now,
+            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], recordInput) }
+          }
+        };
+      });
+      if(record){
+        erdAppInstance.rebuild();
+        schedulePersist(recordFromState(erdAppInstance.getState()));
+      }
+    }
+
+    function renderDiagram(state){
+      if(!state || typeof window === 'undefined' || !window.go) return;
+      const host = document.getElementById('erd-diagram');
+      if(!host) return;
+      if(!goMaker) goMaker = go.GraphObject.make;
+      if(!goDiagram){
+        goDiagram = goMaker(go.Diagram, host, {
+          'undoManager.isEnabled': false,
+          allowCopy: false,
+          allowDelete: false,
+          allowMove: true,
+          padding: 32,
+          contentAlignment: go.Spot.Center,
+          layout: goMaker(go.ForceDirectedLayout, { defaultSpringLength: 180, defaultElectricalCharge: 180 })
+        });
+        goDiagram.toolManager.mouseWheelBehavior = go.ToolManager.WheelZoom;
+        goDiagram.addDiagramListener('SelectionMoved', e => persistDiagramLayout(e.diagram));
+      }
+      const palette = currentPalette();
+      applyDiagramTemplates(goDiagram, palette);
+      const data = buildDiagramData(state);
+      goDiagram.model.nodeDataArray = data.nodes;
+      goDiagram.model.linkDataArray = data.links;
+      goDiagram.background = palette.background || '#f8fafc';
+      const zoom = state.data.canvas?.zoom || 1;
+      goDiagram.scale = zoom;
+      if(state.data.selection?.table){
+        const node = goDiagram.findNodeForKey(state.data.selection.table);
+        if(node) goDiagram.select(node);
+      }
+    }
 
     const SchemaLibrary = (function(){
       const storeName = 'schemas';
@@ -256,6 +681,40 @@
       return layout;
     }
 
+    function withTableSelection(state, tableName){
+      if(!tableName) return state;
+      const layout = ensureLayout({ data:{ layout: state.data.layout } }, tableName);
+      const tablePos = layout[tableName] || { x: 120, y: 120 };
+      return {
+        ...state,
+        data:{ ...(state.data || {}), selection:{ table: tableName, field:null }, layout },
+        ui:{
+          ...(state.ui || {}),
+          form:{
+            ...(state.ui?.form || {}),
+            field:{ ...(state.ui?.form?.field || {}), table: tableName },
+            relation:{ ...(state.ui?.form?.relation || {}), sourceTable: tableName },
+            layout:{ x: tablePos.x, y: tablePos.y }
+          }
+        }
+      };
+    }
+
+    function withFieldSelection(state, tableName, fieldName){
+      if(!tableName || !fieldName) return state;
+      return {
+        ...state,
+        data:{ ...(state.data || {}), selection:{ table: tableName, field: fieldName } },
+        ui:{
+          ...(state.ui || {}),
+          form:{
+            ...(state.ui?.form || {}),
+            relation:{ ...(state.ui?.form?.relation || {}), sourceTable: tableName, sourceField: fieldName }
+          }
+        }
+      };
+    }
+
     function mergeLibraryItems(list, record){
       const items = Array.isArray(list) ? list.slice() : [];
       const entry = clone(record);
@@ -263,11 +722,6 @@
       if(idx >= 0) items[idx] = entry; else items.push(entry);
       items.sort((a,b)=> (b.updatedAt || 0) - (a.updatedAt || 0));
       return items;
-    }
-
-    function fieldReferenceLabel(field){
-      if(!field.references) return null;
-      return `→ ${field.references.table}`;
     }
 
     const schedulePersist = (function(){
@@ -332,27 +786,39 @@
     function SchemaCanvas(db){
       const registry = getRegistry(db);
       const tables = registry.list();
-      const zoom = db.data.canvas?.zoom || 1;
-      return D.Containers.Div({ attrs:{ class: tw`relative flex-1 overflow-hidden bg-[var(--surface-1)]` }}, [
-        D.Containers.Div({ attrs:{ class: tw`absolute inset-0`, style:`transform:scale(${zoom});transform-origin:top left;` }}, [
-          RelationshipLayer(db, tables),
-          ...tables.map(table=> TableCard(db, table))
-        ])
-      ]);
+      scheduleDiagramRender(db);
+      const hasTables = tables.length > 0;
+      const emptyState = !hasTables
+        ? D.Containers.Div({ attrs:{ class: tw`absolute inset-0 flex items-center justify-center pointer-events-none` }}, [
+            D.Containers.Div({ attrs:{ class: tw`rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-2)]/70 px-6 py-5 text-center text-sm text-[var(--muted)] max-w-md` }}, ['أضف جدولًا جديدًا لبدء بناء المخطط.'])
+          ])
+        : null;
+      return D.Containers.Div({ attrs:{ class: tw`relative flex-1 bg-[var(--surface-1)]` }}, [
+        D.Containers.Div({ attrs:{ id:'erd-diagram', class: tw`absolute inset-0` }}, []),
+        emptyState
+      ].filter(Boolean));
     }
 
     function Toolbar(db){
       const zoom = db.data.canvas?.zoom || 1;
       const metaTitle = db.data.schemaMeta?.title || 'مخطط بدون اسم';
+      const schemaIdentifier = db.data.schemaMeta?.name ? formatIdentifier(db.data.schemaMeta.name) : '';
+      const lang = db.env?.lang || db.i18n?.lang || 'ar';
+      const theme = db.env?.theme || 'dark';
       return UI.Toolbar({
         left:[
-          D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
+            schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [schemaIdentifier]) : null
+          ].filter(Boolean)),
           UI.Button({ attrs:{ gkey:'erd:schema:meta:open' }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط']),
           UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'ghost', size:'sm' }, ['➕ جدول']),
           UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
           UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة'])
         ],
         right:[
+          UI.LanguageSwitch({ lang }),
+          UI.ThemeToggleIcon({ theme }),
           UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
           UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL']),
           UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
@@ -390,76 +856,6 @@
             ...relationships.map(field=> D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`${field.name} → ${field.references.table}.${field.references.column}`]))
           ]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['لا توجد علاقات محددة.'])
         ]) : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['اختر جدولًا من المخطط لاستعراض تفاصيله.'])
-      ]);
-    }
-
-    function TableCard(db, table){
-      const layout = db.data.layout || {};
-      const pos = layout[table.name] || table.layout || { x:0, y:0 };
-      const selected = db.data.selection?.table === table.name;
-      const fields = table.fields || [];
-      return D.Containers.Div({
-        attrs:{
-          class: tw`absolute rounded-2xl border border-[var(--border)] bg-[var(--surface-2)]/90 backdrop-blur shadow-lg p-4 transition ${selected ? 'ring-2 ring-[var(--primary)]' : ''}`,
-          style:`transform:translate(${pos.x}px,${pos.y}px);width:${TABLE_WIDTH}px;`,
-          gkey:'erd:table:select',
-          'data-table-name': table.name
-        }
-      }, [
-        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between mb-3` }}, [
-          D.Text.H4({ attrs:{ class: tw`text-lg font-semibold` }}, [table.label || table.name]),
-          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.sqlName || Schema.utils.toSnakeCase(table.name)])
-        ]),
-        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, fields.map((field, idx)=> FieldRow(db, table, field, idx)))
-      ]);
-    }
-
-    function FieldRow(db, table, field, index){
-      const selected = db.data.selection?.table === table.name && db.data.selection?.field === field.name;
-      return D.Containers.Div({
-        attrs:{
-          class: tw`flex items-center justify-between rounded-lg px-3 py-1 text-sm transition ${selected ? 'bg-[var(--primary)]/15 text-[var(--primary)]' : 'bg-[var(--surface-1)]/60 text-[var(--foreground)]/90'}`,
-          style:`height:${ROW_HEIGHT}px;`,
-          gkey:'erd:field:select',
-          'data-table-name': table.name,
-          'data-field-name': field.name
-        }
-      }, [
-        D.Text.Span({ attrs:{ class: tw`font-medium` }}, [field.name]),
-        D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [field.type]),
-          field.references ? D.Text.Span({ attrs:{ class: tw`text-[10px] px-2 py-0.5 rounded-full bg-[var(--primary)]/15 text-[var(--primary)]` }}, [fieldReferenceLabel(field)]) : null
-        ])
-      ]);
-    }
-
-    function RelationshipLayer(db, tables){
-      const layout = db.data.layout || {};
-      const registry = getRegistry(db);
-      const paths = [];
-      tables.forEach(table=>{
-        const fields = table.fields || [];
-        fields.forEach((field, idx)=>{
-          if(!field.references) return;
-          const target = registry.get(field.references.table);
-          if(!target) return;
-          const sourcePos = layout[table.name] || table.layout || { x:0, y:0 };
-          const targetPos = layout[target.name] || target.layout || { x:0, y:0 };
-          const targetIndex = target.fields.findIndex(col=> (col.columnName || Schema.utils.toSnakeCase(col.name)) === field.references.column || col.name === field.references.column);
-          const startX = sourcePos.x + TABLE_WIDTH;
-          const startY = sourcePos.y + HEADER_HEIGHT + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
-          const endX = targetPos.x;
-          const endY = targetPos.y + HEADER_HEIGHT + (targetIndex >= 0 ? targetIndex : 0) * ROW_HEIGHT + ROW_HEIGHT / 2;
-          paths.push(D.SVG.Path({ attrs:{ d:`M${startX},${startY} C${startX + 40},${startY} ${endX - 40},${endY} ${endX},${endY}`, stroke:'var(--primary)', 'stroke-width':1.5, fill:'none', 'marker-end':'url(#erd-arrow)' } }));
-        });
-      });
-      return D.SVG.Svg({ attrs:{ class: tw`overflow-visible`, width:'2000', height:'1400' }}, [
-        D.SVG.Defs({}, [
-          D.SVG.Marker({ attrs:{ id:'erd-arrow', markerWidth:6, markerHeight:6, refX:6, refY:3, orient:'auto' }}, [
-            D.SVG.Path({ attrs:{ d:'M0,0 L6,3 L0,6 Z', fill:'var(--primary)' } })
-          ])
-        ]),
-        ...paths
       ]);
     }
 
@@ -548,16 +944,18 @@
     function ModalAddTable(db){
       const open = db.ui?.modals?.table;
       const form = db.ui?.form?.table || { name:'', label:'', comment:'', includeId:true };
+      const registry = getRegistry(db);
+      const previewName = form.name || (form.label ? computeTableIdentifier(registry, form.label) : '');
       return UI.Modal({
         open,
         size:'md',
         title:'إنشاء جدول جديد',
-        description:'حدد اسم الجدول بالعربية أو الإنجليزية.',
+        description:'اكتب المسمى العربي وسيتم توليد المعرف التلقائي.',
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'name', value: form.name || '', placeholder:'اسم الجدول' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'العنوان المعروض' } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'المسمى العربي (مثال: المبيعات)' } }),
+            previewName ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`المعرف الإنجليزي: ${previewName}`]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['سيتم توليد المعرف تلقائيًا عند الكتابة.']),
             UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:'ملاحظات' } }),
             UI.Label({ text:'إنشاء حقل id افتراضي؟' }),
             UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'table', 'data-field':'includeId', type:'checkbox', checked: form.includeId !== false } })
@@ -573,6 +971,29 @@
     function ModalAddField(db){
       const open = db.ui?.modals?.field;
       const form = db.ui?.form?.field || {};
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      const tableOptions = tables.map(table => ({
+        value: table.name,
+        label: table.label && table.label !== table.name
+          ? `${formatIdentifier(table.name)} — ${table.label}`
+          : formatIdentifier(table.name)
+      }));
+      const selectedTable = form.table && registry.get(form.table)
+        ? form.table
+        : (tableOptions[0]?.value || '');
+      const currentTable = selectedTable ? registry.get(selectedTable) : null;
+      const previewFieldName = form.name || (form.label ? computeFieldIdentifier(currentTable, form.label) : '');
+      const selectedReferenceTable = form.references?.table && registry.get(form.references.table)
+        ? form.references.table
+        : '';
+      const referenceTableEntity = selectedReferenceTable ? registry.get(selectedReferenceTable) : null;
+      const referenceFieldOptions = referenceTableEntity
+        ? referenceTableEntity.fields.map(field => ({ value: field.name, label: formatIdentifier(field.name) }))
+        : [];
+      const selectedReferenceField = referenceFieldOptions.some(opt => opt.value === form.references?.column)
+        ? form.references?.column
+        : '';
       return UI.Modal({
         open,
         size:'lg',
@@ -581,9 +1002,17 @@
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'table', value: form.table || '', placeholder:'اسم الجدول' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'name', value: form.name || '', placeholder:'اسم الحقل' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'columnName', value: form.columnName || '', placeholder:'اسم العمود في SQL' } }),
+            UI.Select({
+              attrs:{
+                gkey:'erd:form:update',
+                'data-form':'field',
+                'data-field':'table',
+                value: selectedTable || ''
+              },
+              options:[{ value:'', label:'اختر الجدول' }, ...tableOptions]
+            }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'label', value: form.label || '', placeholder:'المسمى العربي للحقل' } }),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)] md:col-span-2` }}, [previewFieldName ? `المعرف الإنجليزي: ${previewFieldName}` : 'سيتم توليد المعرف تلقائيًا عند الكتابة.']),
             UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'type', value: form.type || 'string' }, options: DEFAULT_FIELD_TYPES.map(type=> ({ value:type, label:type })) }),
             UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'defaultValue', value: form.defaultValue || '', placeholder:'قيمة افتراضية' } }),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
@@ -600,10 +1029,42 @@
             ]),
             D.Containers.Div({ attrs:{ class: tw`col-span-full flex flex-col gap-2` }}, [
               D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['علاقة مرجعية اختيارية']),
-              UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRef', 'data-field':'table', value: form.references?.table || '', placeholder:'الجدول الهدف' } }),
-              UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRef', 'data-field':'column', value: form.references?.column || '', placeholder:'العمود الهدف' } }),
-              UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRef', 'data-field':'onDelete', value: form.references?.onDelete || 'CASCADE', placeholder:'On Delete' } }),
-              UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'fieldRef', 'data-field':'onUpdate', value: form.references?.onUpdate || 'CASCADE', placeholder:'On Update' } })
+              UI.Select({
+                attrs:{
+                  gkey:'erd:form:update',
+                  'data-form':'fieldRef',
+                  'data-field':'table',
+                  value: selectedReferenceTable
+                },
+                options:[{ value:'', label:'بدون علاقة' }, ...tableOptions]
+              }),
+              UI.Select({
+                attrs:{
+                  gkey:'erd:form:update',
+                  'data-form':'fieldRef',
+                  'data-field':'column',
+                  value: selectedReferenceField
+                },
+                options:[{ value:'', label:'اختر الحقل' }, ...referenceFieldOptions]
+              }),
+              UI.Select({
+                attrs:{
+                  gkey:'erd:form:update',
+                  'data-form':'fieldRef',
+                  'data-field':'onDelete',
+                  value: form.references?.onDelete || 'CASCADE'
+                },
+                options: RELATION_ACTION_OPTIONS.map(action => ({ value: action, label: action }))
+              }),
+              UI.Select({
+                attrs:{
+                  gkey:'erd:form:update',
+                  'data-form':'fieldRef',
+                  'data-field':'onUpdate',
+                  value: form.references?.onUpdate || 'CASCADE'
+                },
+                options: RELATION_ACTION_OPTIONS.map(action => ({ value: action, label: action }))
+              })
             ])
           ])
         ],
@@ -617,6 +1078,34 @@
     function ModalRelation(db){
       const open = db.ui?.modals?.relation;
       const form = db.ui?.form?.relation || {};
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      const tableOptions = tables.map(table => ({
+        value: table.name,
+        label: table.label && table.label !== table.name
+          ? `${formatIdentifier(table.name)} — ${table.label}`
+          : formatIdentifier(table.name)
+      }));
+      const sourceTableValue = form.sourceTable && registry.get(form.sourceTable)
+        ? form.sourceTable
+        : '';
+      const sourceTableEntity = sourceTableValue ? registry.get(sourceTableValue) : null;
+      const sourceFieldOptions = sourceTableEntity
+        ? sourceTableEntity.fields.map(field => ({ value: field.name, label: formatIdentifier(field.name) }))
+        : [];
+      const sourceFieldValue = sourceFieldOptions.some(opt => opt.value === form.sourceField)
+        ? form.sourceField
+        : '';
+      const targetTableValue = form.targetTable && registry.get(form.targetTable)
+        ? form.targetTable
+        : '';
+      const targetTableEntity = targetTableValue ? registry.get(targetTableValue) : null;
+      const targetFieldOptions = targetTableEntity
+        ? targetTableEntity.fields.map(field => ({ value: field.name, label: formatIdentifier(field.name) }))
+        : [];
+      const targetFieldValue = targetFieldOptions.some(opt => opt.value === form.targetField)
+        ? form.targetField
+        : '';
       return UI.Modal({
         open,
         size:'md',
@@ -624,13 +1113,31 @@
         description:'حدد الجدول المصدر والهدف وأسلوب التحديث.',
         closeGkey:'erd:modal:close',
         content:[
-          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceTable', value: form.sourceTable || '', placeholder:'الجدول المصدر' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceField', value: form.sourceField || '', placeholder:'الحقل المصدر' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetTable', value: form.targetTable || '', placeholder:'الجدول الهدف' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetField', value: form.targetField || '', placeholder:'الحقل الهدف' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onDelete', value: form.onDelete || 'CASCADE', placeholder:'On Delete' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onUpdate', value: form.onUpdate || 'CASCADE', placeholder:'On Update' } })
+          D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3` }}, [
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceTable', value: sourceTableValue },
+              options:[{ value:'', label:'اختر الجدول المصدر' }, ...tableOptions]
+            }),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceField', value: sourceFieldValue },
+              options:[{ value:'', label:'اختر الحقل المصدر' }, ...sourceFieldOptions]
+            }),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetTable', value: targetTableValue },
+              options:[{ value:'', label:'اختر الجدول الهدف' }, ...tableOptions]
+            }),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetField', value: targetFieldValue },
+              options:[{ value:'', label:'اختر الحقل الهدف' }, ...targetFieldOptions]
+            }),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onDelete', value: form.onDelete || 'CASCADE' },
+              options: RELATION_ACTION_OPTIONS.map(action => ({ value: action, label: action }))
+            }),
+            UI.Select({
+              attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onUpdate', value: form.onUpdate || 'CASCADE' },
+              options: RELATION_ACTION_OPTIONS.map(action => ({ value: action, label: action }))
+            })
           ])
         ],
         actions:[
@@ -767,25 +1274,7 @@
           const card = e.target.closest('[data-table-name]');
           if(!card) return;
           const tableName = card.getAttribute('data-table-name');
-          let next;
-          ctx.setState(s=>{
-            const layout = ensureLayout({ data:{ layout: s.data.layout } }, tableName);
-            const tablePos = layout[tableName] || { x:120, y:120 };
-            next = {
-              ...s,
-              data:{ ...s.data, selection:{ table: tableName, field:null }, layout },
-              ui:{
-                ...(s.ui || {}),
-                form:{
-                  ...(s.ui?.form || {}),
-                  field:{ ...(s.ui?.form?.field || {}), table: tableName },
-                  relation:{ ...(s.ui?.form?.relation || {}), sourceTable: tableName },
-                  layout:{ x: tablePos.x, y: tablePos.y }
-                }
-              }
-            };
-            return next;
-          });
+          ctx.setState(s => withTableSelection(s, tableName));
           ctx.rebuild();
         }
       },
@@ -797,11 +1286,7 @@
           if(!row) return;
           const tableName = row.getAttribute('data-table-name');
           const fieldName = row.getAttribute('data-field-name');
-          ctx.setState(s=>({
-            ...s,
-            data:{ ...s.data, selection:{ table: tableName, field: fieldName } },
-            ui:{ ...(s.ui || {}), form:{ ...(s.ui?.form || {}), relation:{ ...(s.ui?.form?.relation || {}), sourceTable: tableName, sourceField: fieldName } } }
-          }));
+          ctx.setState(s => withFieldSelection(s, tableName, fieldName));
           ctx.rebuild();
         }
       },
@@ -898,8 +1383,55 @@
             const currentForms = s.ui?.form || {};
             if(formKey === 'fieldRef' || formKey === 'fieldRefColumn' || parent === 'field'){
               const current = currentForms.field || {};
-              const nextRef = { ...(current.references || {}), [fieldKey]: value };
+              let nextRef = { ...(current.references || {}) };
+              if(fieldKey){
+                nextRef[fieldKey] = value;
+              }
+              if(fieldKey === 'table'){
+                nextRef = { ...nextRef, table: value, column: '' };
+              }
               return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...current, references: nextRef } } } };
+            }
+            if(formKey === 'table' && fieldKey === 'label'){
+              const registry = getRegistry(s);
+              const targetForm = currentForms.table || {};
+              const slug = computeTableIdentifier(registry, value);
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, table:{ ...targetForm, label:value, name: slug } } } };
+            }
+            if(formKey === 'field' && fieldKey === 'label'){
+              const registry = getRegistry(s);
+              const targetForm = currentForms.field || {};
+              const table = targetForm.table ? registry.get(targetForm.table) : null;
+              const slug = computeFieldIdentifier(table, value);
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...targetForm, label:value, name: slug, columnName: slug } } } };
+            }
+            if(formKey === 'field' && fieldKey === 'table'){
+              const registry = getRegistry(s);
+              const targetForm = currentForms.field || {};
+              const table = value ? registry.get(value) : null;
+              let slug = targetForm.name || '';
+              if(targetForm.label){
+                slug = computeFieldIdentifier(table, targetForm.label);
+              }
+              const currentRefs = targetForm.references || {};
+              const references = currentRefs.table === value
+                ? currentRefs
+                : { table:'', column:'', onDelete: currentRefs.onDelete || 'CASCADE', onUpdate: currentRefs.onUpdate || 'CASCADE' };
+              return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, field:{ ...targetForm, table:value, name: slug, columnName: slug, references } } } };
+            }
+            if(formKey === 'relation' && fieldKey === 'sourceTable'){
+              const targetForm = currentForms.relation || {};
+              return {
+                ...s,
+                ui:{ ...(s.ui || {}), form:{ ...currentForms, relation:{ ...targetForm, sourceTable: value, sourceField:'' } } }
+              };
+            }
+            if(formKey === 'relation' && fieldKey === 'targetTable'){
+              const targetForm = currentForms.relation || {};
+              return {
+                ...s,
+                ui:{ ...(s.ui || {}), form:{ ...currentForms, relation:{ ...targetForm, targetTable: value, targetField:'' } } }
+              };
             }
             if(fieldKey){
               const targetForm = currentForms[formKey] || {};
@@ -944,16 +1476,17 @@
         handler:(e,ctx)=>{
           const state = ctx.getState();
           const form = state.ui?.form?.table || {};
-          const name = (form.name || '').trim();
-          if(!name){
-            UI.pushToast(ctx, { title:'يرجى تحديد اسم الجدول', icon:'⚠️' });
+          const registry = getRegistry(state);
+          const label = (form.label || '').trim();
+          if(!label){
+            UI.pushToast(ctx, { title:'يرجى إدخال المسمى العربي للجدول', icon:'⚠️' });
             return;
           }
-          const registry = getRegistry(state);
+          const name = computeTableIdentifier(registry, label);
           try{
             const tableConfig = {
               name,
-              label: form.label || name,
+              label: label,
               comment: form.comment || '',
               layout:{ x: 160 + registry.list().length * 120, y: 120 + registry.list().length * 60 },
               fields: []
@@ -978,14 +1511,13 @@
                 createdAt: s.data.schemaCreatedAt,
                 updatedAt: now
               };
-              next = {
+              let draft = {
                 ...s,
                 head:{ ...(s.head || {}), title: record.title || (s.head?.title || 'مخطط قاعدة بيانات مشكاة') },
                 data:{
                   ...s.data,
                   schema: schemaJSON,
                   layout,
-                  selection:{ table:name, field:null },
                   schemaUpdatedAt: now,
                   library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
                 },
@@ -995,11 +1527,13 @@
                   form:{
                     ...(s.ui?.form || {}),
                     table:{ name:'', label:'', comment:'', includeId:true },
-                    field:{ ...(s.ui?.form?.field || {}), table: name },
+                    field:{ ...(s.ui?.form?.field || {}), table: name, label:'', name:'', columnName:'' },
                     layout:{ x: layout[name].x, y: layout[name].y }
                   }
                 }
               };
+              draft = withTableSelection(draft, name);
+              next = draft;
               return next;
             });
             ctx.rebuild();
@@ -1026,6 +1560,7 @@
                 ...(s.ui?.form || {}),
                 field:{
                   table: s.data.selection?.table || first,
+                  label:'',
                   name:'',
                   columnName:'',
                   type:'string',
@@ -1048,9 +1583,9 @@
           const state = ctx.getState();
           const form = state.ui?.form?.field || {};
           const tableName = (form.table || '').trim();
-          const fieldName = (form.name || '').trim();
-          if(!tableName || !fieldName){
-            UI.pushToast(ctx, { title:'اسم الجدول والحقل مطلوبان', icon:'⚠️' });
+          const label = (form.label || '').trim();
+          if(!tableName || !label){
+            UI.pushToast(ctx, { title:'اسم الجدول والمسمى العربي للحقل مطلوبان', icon:'⚠️' });
             return;
           }
           const registry = getRegistry(state);
@@ -1060,13 +1595,15 @@
             return;
           }
           try{
+            const fieldName = computeFieldIdentifier(table, label);
             const fieldConfig = {
               name: fieldName,
-              columnName: (form.columnName || Schema.utils.toSnakeCase(fieldName)),
+              columnName: form.columnName ? Schema.utils.toSnakeCase(form.columnName) : fieldName,
               type: form.type || 'string',
               nullable: form.nullable !== false,
               primaryKey: !!form.primaryKey,
-              unique: !!form.unique
+              unique: !!form.unique,
+              comment: label
             };
             if(form.defaultValue){
               const val = form.defaultValue;
@@ -1103,21 +1640,22 @@
                 createdAt: s.data.schemaCreatedAt,
                 updatedAt: now
               };
-              next = {
+              let draft = {
                 ...s,
                 data:{
                   ...s.data,
                   schema: schemaJSON,
-                  selection:{ table: tableName, field: fieldName },
                   schemaUpdatedAt: now,
                   library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
                 },
                 ui:{
                   ...(s.ui || {}),
                   modals:{ ...(s.ui?.modals || {}), field:false },
-                  form:{ ...(s.ui?.form || {}), field:{ ...form, name:'', columnName:'', defaultValue:'', primaryKey:false, unique:false } }
+                  form:{ ...(s.ui?.form || {}), field:{ ...form, label:'', name:'', columnName:'', defaultValue:'', primaryKey:false, unique:false } }
                 }
               };
+              draft = withFieldSelection(draft, tableName, fieldName);
+              next = draft;
               return next;
             });
             ctx.rebuild();
@@ -1185,7 +1723,7 @@
                 createdAt: s.data.schemaCreatedAt,
                 updatedAt: now
               };
-              next = {
+              let draft = {
                 ...s,
                 data:{
                   ...s.data,
@@ -1195,6 +1733,8 @@
                 },
                 ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), relation:false } }
               };
+              draft = withFieldSelection(draft, form.sourceTable, form.sourceField);
+              next = draft;
               return next;
             });
             ctx.rebuild();
