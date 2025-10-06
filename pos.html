@@ -33,6 +33,7 @@
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
   <script src="./mishkah-schema.js"></script>
+  <script src="./schema-pos.js"></script>
   <script src="./pos-mock-data.js"></script>
 </head>
 <body>
@@ -93,6 +94,10 @@
       ]
     });
     const SHIFT_SCHEMA_REGISTRY = new Schema.Registry({ tables:[SHIFT_TABLE] });
+    const POS_SCHEMA_SOURCE = (typeof window !== 'undefined' && window.MishkahPOSSchema)
+      ? window.MishkahPOSSchema
+      : SHIFT_SCHEMA_REGISTRY.toJSON();
+    const POS_SCHEMA_REGISTRY = Schema.Registry.fromJSON(POS_SCHEMA_SOURCE);
     const FALLBACK_CURRENCY = 'EGP';
     const normalizeCurrencyCode = (value)=>{
       if(typeof value !== 'string') return null;
@@ -1891,6 +1896,11 @@
         status:{
           indexeddb:{ state: posDB.available ? 'idle' : 'offline', lastSync: null },
           kds:{ state:'idle', endpoint:'wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q' }
+        },
+        schema:{
+          name: POS_SCHEMA_SOURCE?.name || 'mishkah_pos',
+          version: POS_SCHEMA_SOURCE?.version || 1,
+          tables: Array.isArray(POS_SCHEMA_SOURCE?.tables) ? POS_SCHEMA_SOURCE.tables : []
         },
         employees,
         menu:{
@@ -4042,9 +4052,9 @@
         return refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
       },
       schema:{
-        registry: SHIFT_SCHEMA_REGISTRY,
-        toJSON(){ return SHIFT_SCHEMA_REGISTRY.toJSON(); },
-        generateSQL(options){ return SHIFT_SCHEMA_REGISTRY.generateSQL(options || {}); }
+        registry: POS_SCHEMA_REGISTRY,
+        toJSON(){ return POS_SCHEMA_REGISTRY.toJSON(); },
+        generateSQL(options){ return POS_SCHEMA_REGISTRY.generateSQL(options || {}); }
       }
     };
     Object.defineProperty(window, '__MishkahPOSDev__', {
