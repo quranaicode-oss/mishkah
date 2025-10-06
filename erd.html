@@ -162,10 +162,117 @@
     let activeDriverName = null;
     let pendingDiagramFrame = false;
     let lastDiagramState = null;
+    let applyingAutoZoom = false;
+
+    function applyAutoZoom(targetZoom){
+      if(!erdAppInstance) return;
+      const zoom = Math.max(MIN_CANVAS_ZOOM, Math.min(2, Number(targetZoom) || 1));
+      if(applyingAutoZoom) return;
+      const state = erdAppInstance.getState();
+      const currentZoom = state?.data?.canvas?.zoom || 1;
+      if(Math.abs(currentZoom - zoom) < 0.01) return;
+      applyingAutoZoom = true;
+      try {
+        erdAppInstance.setState(s => ({
+          ...s,
+          data:{
+            ...s.data,
+            canvas:{ ...(s.data.canvas || {}), zoom, mode:'auto' },
+          },
+        }));
+        erdAppInstance.rebuild();
+      } finally {
+        applyingAutoZoom = false;
+      }
+    }
 
     const TABLE_WIDTH = 280;
     const HEADER_HEIGHT = 48;
     const ROW_HEIGHT = 28;
+    const AUTO_LAYOUT_ORIGIN_X = 120;
+    const AUTO_LAYOUT_ORIGIN_Y = 120;
+    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 80;
+    const AUTO_LAYOUT_ROW_GAP = 220;
+    const MIN_CANVAS_ZOOM = 0.2;
+
+    function computeTableHeight(fieldCount){
+      const rows = Math.max(1, Number(fieldCount) || 0);
+      return Math.max(HEADER_HEIGHT + rows * ROW_HEIGHT, HEADER_HEIGHT + ROW_HEIGHT);
+    }
+
+    function computeGridPosition(index, total){
+      const columns = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, total || 1))));
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      return {
+        x: AUTO_LAYOUT_ORIGIN_X + col * AUTO_LAYOUT_COLUMN_GAP,
+        y: AUTO_LAYOUT_ORIGIN_Y + row * AUTO_LAYOUT_ROW_GAP,
+      };
+    }
+
+    function normalisePoint(point, fallback){
+      if(point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y))){
+        return { x: Number(point.x), y: Number(point.y) };
+      }
+      return { x: fallback.x, y: fallback.y };
+    }
+
+    function computeLayoutBounds(nodes){
+      if(!Array.isArray(nodes) || !nodes.length){
+        return { width: 0, height: 0, minX: 0, minY: 0, maxX: 0, maxY: 0 };
+      }
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      nodes.forEach(node => {
+        const x = Number(node.x) || 0;
+        const y = Number(node.y) || 0;
+        const width = Number(node.width) || 0;
+        const height = Number(node.height) || 0;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + width);
+        maxY = Math.max(maxY, y + height);
+      });
+      return { minX, minY, maxX, maxY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+    }
+
+    function recommendZoomForBounds(bounds, viewportWidth, viewportHeight){
+      if(!bounds || bounds.width <= 0 || bounds.height <= 0){
+        return 1;
+      }
+      const width = Math.max(1, viewportWidth || 0);
+      const height = Math.max(1, viewportHeight || 0);
+      const paddedWidth = bounds.width + AUTO_LAYOUT_COLUMN_GAP;
+      const paddedHeight = bounds.height + AUTO_LAYOUT_ROW_GAP;
+      const scaleX = width ? width / paddedWidth : 1;
+      const scaleY = height ? height / paddedHeight : 1;
+      const zoom = Math.min(1, scaleX, scaleY);
+      return Math.max(MIN_CANVAS_ZOOM, Number.isFinite(zoom) ? zoom : 1);
+    }
+
+    function normaliseCanvas(canvas){
+      const source = canvas || {};
+      const rawZoom = Number(source.zoom);
+      const zoom = Number.isFinite(rawZoom) ? Math.max(MIN_CANVAS_ZOOM, Math.min(2, rawZoom)) : 1;
+      const mode = source.mode === 'manual' ? 'manual' : 'auto';
+      return { ...source, zoom, mode };
+    }
+
+    function layoutsDiffer(current, computed){
+      const currentMap = current || {};
+      const computedMap = computed || {};
+      const currentKeys = Object.keys(currentMap);
+      const computedKeys = Object.keys(computedMap);
+      if(currentKeys.length !== computedKeys.length) return true;
+      return computedKeys.some(key => {
+        const a = currentMap[key];
+        const b = computedMap[key];
+        if(!a || !b) return true;
+        return Number(a.x) !== Number(b.x) || Number(a.y) !== Number(b.y);
+      });
+    }
 
     const FIELD_TYPE_OPTIONS = [
       { value:'string', label:'String (varchar)' },
@@ -197,6 +304,7 @@
         this.lastState = null;
         this.baseBBox = null;
         this.overrideFitPadding = null;
+        this.dragContext = null;
       }
 
       init(container, hooks){
@@ -252,6 +360,84 @@
         while(this.viewport.firstChild){
           this.viewport.removeChild(this.viewport.firstChild);
         }
+      }
+
+      clientPointToSvg(clientX, clientY){
+        if(!this.svg) return null;
+        const point = this.svg.createSVGPoint();
+        point.x = clientX;
+        point.y = clientY;
+        const ctm = this.svg.getScreenCTM();
+        if(!ctm) return null;
+        const transformed = point.matrixTransform(ctm.inverse());
+        return { x: transformed.x, y: transformed.y };
+      }
+
+      attachNodeInteractions(group, node){
+        if(!group) return;
+        group.style.cursor = 'move';
+        group.style.touchAction = 'none';
+        const handlePointerDown = event => {
+          if(event.button && event.button !== 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const origin = this.clientPointToSvg(event.clientX, event.clientY);
+          if(!origin) return;
+          const pointerId = event.pointerId;
+          if(group.setPointerCapture && pointerId != null){
+            try { group.setPointerCapture(pointerId); }
+            catch(_){}
+          }
+          this.dragContext = {
+            node,
+            group,
+            pointerId,
+            offsetX: origin.x - node.x,
+            offsetY: origin.y - node.y,
+          };
+          const target = this.svg?.ownerDocument || document;
+          target.addEventListener('pointermove', handlePointerMove);
+          target.addEventListener('pointerup', handlePointerUp);
+          target.addEventListener('pointercancel', handlePointerUp);
+        };
+
+        const handlePointerMove = event => {
+          if(!this.dragContext || (event.pointerId != null && this.dragContext.pointerId != null && event.pointerId !== this.dragContext.pointerId)){
+            return;
+          }
+          event.preventDefault();
+          const point = this.clientPointToSvg(event.clientX, event.clientY);
+          if(!point) return;
+          const nextX = point.x - this.dragContext.offsetX;
+          const nextY = point.y - this.dragContext.offsetY;
+          this.dragContext.node.x = nextX;
+          this.dragContext.node.y = nextY;
+          this.dragContext.group.setAttribute('transform', `translate(${nextX} ${nextY})`);
+        };
+
+        const handlePointerUp = event => {
+          if(!this.dragContext || (event.pointerId != null && this.dragContext.pointerId != null && event.pointerId !== this.dragContext.pointerId)){
+            return;
+          }
+          const context = this.dragContext;
+          this.dragContext = null;
+          const target = this.svg?.ownerDocument || document;
+          target.removeEventListener('pointermove', handlePointerMove);
+          target.removeEventListener('pointerup', handlePointerUp);
+          target.removeEventListener('pointercancel', handlePointerUp);
+          if(context.group.releasePointerCapture && context.pointerId != null){
+            try { context.group.releasePointerCapture(context.pointerId); }
+            catch(_){}
+          }
+          const roundedX = Math.round(context.node.x);
+          const roundedY = Math.round(context.node.y);
+          context.group.setAttribute('transform', `translate(${roundedX} ${roundedY})`);
+          context.node.x = roundedX;
+          context.node.y = roundedY;
+          this.hooks?.onNodeMove?.({ id: String(context.node.id), x: roundedX, y: roundedY });
+        };
+
+        group.addEventListener('pointerdown', handlePointerDown);
       }
 
       computeBoundingBox(nodes){
@@ -320,10 +506,13 @@
 
         const svgNS = 'http://www.w3.org/2000/svg';
         const nodes = tables.map((table, index)=>{
-          const position = layout[table.id] || layout[table.name] || { x: 160 + index * 160, y: 120 + index * 120 };
+          const total = Math.max(1, tables.length);
+          const fallback = computeGridPosition(index, total);
+          const source = layout[table.id] || layout[table.name];
+          const { x, y } = normalisePoint(source, fallback);
           const fields = Array.isArray(table.fields) ? table.fields : [];
           const width = TABLE_WIDTH;
-          const height = Math.max(HEADER_HEIGHT + Math.max(1, fields.length) * ROW_HEIGHT, HEADER_HEIGHT + ROW_HEIGHT);
+          const height = computeTableHeight(fields.length);
           const fieldMap = new Map();
           fields.forEach((field, idx)=>{
             const centerY = HEADER_HEIGHT + ROW_HEIGHT * idx + ROW_HEIGHT / 2;
@@ -332,8 +521,8 @@
           return {
             id: table.id,
             table,
-            x: position.x,
-            y: position.y,
+            x,
+            y,
             width,
             height,
             fields,
@@ -418,6 +607,7 @@
           group.appendChild(header);
           group.appendChild(title);
           group.appendChild(fieldTextGroup);
+          this.attachNodeInteractions(group, node);
           nodesGroup.appendChild(group);
         });
 
@@ -602,8 +792,11 @@
         const layout = state?.layout || {};
         const tables = Array.isArray(state?.tables) ? state.tables : [];
         const relations = Array.isArray(state?.relations) ? state.relations : [];
-        const nodes = tables.map(tbl => {
-          const position = layout[tbl.id] || { x: 80, y: 80 };
+        const nodes = tables.map((tbl, index) => {
+          const total = Math.max(1, tables.length);
+          const fallback = computeGridPosition(index, total);
+          const { x, y } = normalisePoint(layout[tbl.id], fallback);
+          const position = { x, y };
           const fields = Array.isArray(tbl.fields) ? tbl.fields : [];
           const lines = fields.map(field => {
             const typeSuffix = field.type ? ` : ${field.type}` : '';
@@ -695,6 +888,11 @@
         if(typeof state?.zoom === 'number' && Number.isFinite(state.zoom)){
           try { this.graph.zoomTo(state.zoom); }
           catch(error){ console.warn('[Mishkah][ERD] zoomTo failed', error); }
+        }
+
+        if(state?.canvasMode !== 'manual'){
+          try { this.graph.centerContent(); }
+          catch(error){ console.warn('[Mishkah][ERD] centerContent failed', error); }
         }
 
         if(!this.initialized){
@@ -826,9 +1024,9 @@
       };
     }
 
-    function buildDriverStateSnapshot(state){
+    function buildDriverStateSnapshot(state, host){
       const registry = getRegistry(state);
-      const layout = state.data.layout || {};
+      const layout = computeLayout(registry, state.data.layout);
       const tables = registry.list().map(table => ({
         id: table.name,
         name: table.name,
@@ -862,12 +1060,38 @@
           }
         });
       });
+      const nodesMeta = tables.map((table, index) => {
+        const total = Math.max(1, tables.length);
+        const fallback = computeGridPosition(index, total);
+        const point = layout[table.id] || layout[table.name];
+        const { x, y } = normalisePoint(point, fallback);
+        return {
+          id: table.id,
+          x,
+          y,
+          width: TABLE_WIDTH,
+          height: computeTableHeight(table.fields.length),
+        };
+      });
+      const bounds = computeLayoutBounds(nodesMeta);
+      const canvasState = normaliseCanvas(state.data.canvas);
+      const canvasMode = canvasState.mode || 'auto';
+      const storedZoom = canvasState.zoom || 1;
+      let zoom = storedZoom;
+      if(canvasMode !== 'manual'){
+        const viewportWidth = host?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 0);
+        const viewportHeight = host?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 0);
+        zoom = recommendZoomForBounds(bounds, viewportWidth, viewportHeight);
+      }
       return {
         tables,
         relations,
         layout,
         selection: state.data.selection || {},
-        zoom: state.data.canvas?.zoom || 1,
+        zoom,
+        canvasMode,
+        storedZoom,
+        bounds,
       };
     }
 
@@ -935,10 +1159,23 @@
       if(!host) return;
       const driver = ensureDriverInstance(state);
       if(!driver) return;
-      const payload = buildDriverStateSnapshot(state);
+      const payload = buildDriverStateSnapshot(state, host);
+      if(layoutsDiffer(state.data.layout, payload.layout)){
+        erdAppInstance.setState(s => ({
+          ...s,
+          data:{
+            ...s.data,
+            layout: payload.layout,
+          },
+        }));
+        erdAppInstance.rebuild();
+      }
       const palette = currentPalette();
       payload.palette = palette;
       host.style.background = palette.background || '#f8fafc';
+      if(payload.canvasMode !== 'manual' && Math.abs(payload.zoom - (payload.storedZoom || 0)) > 0.01){
+        applyAutoZoom(payload.zoom);
+      }
       try {
         driver.render(payload);
       } catch(error){
@@ -1184,10 +1421,12 @@
 
       function buildSeedRecord(){
         const registry = new Schema.Registry({ tables: SEED_SCHEMA.tables });
+        const tables = registry.list();
         const layout = {};
-        registry.list().forEach(table => {
-          const pos = Object.assign({ x:120, y:120 }, table.layout || {});
-          layout[table.name] = { x: pos.x, y: pos.y };
+        tables.forEach((table, index) => {
+          const fallback = computeGridPosition(index, tables.length);
+          const source = table.layout || {};
+          layout[table.name] = normalisePoint(source, fallback);
         });
         const now = Date.now();
         return {
@@ -1197,7 +1436,7 @@
           description: SEED_SCHEMA.description,
           schema: registry.toJSON(),
           layout,
-          canvas:{ zoom:1 },
+          canvas:{ zoom:1, mode:'auto' },
           createdAt: now,
           updatedAt: now
         };
@@ -1211,7 +1450,7 @@
         const description = (input.description || '').trim();
         const schema = clone(input.schema || { tables: [] });
         const layout = clone(input.layout || {});
-        const canvas = clone(input.canvas || { zoom:1 });
+        const canvas = normaliseCanvas(clone(input.canvas || {}));
         const createdAt = input.createdAt || now;
         const updatedAt = bumpUpdatedAt ? now : (input.updatedAt || now);
         return { id, name, title, description, schema, layout, canvas, createdAt, updatedAt };
@@ -1286,7 +1525,7 @@
           description: meta.description || '',
           schema: new Schema.Registry().toJSON(),
           layout:{},
-          canvas:{ zoom:1 },
+          canvas:{ zoom:1, mode:'auto' },
           createdAt: Date.now(),
           updatedAt: Date.now()
         });
@@ -1313,9 +1552,16 @@
 
     function computeLayout(registry, layout){
       const map = Object.assign({}, layout || {});
-      registry.list().forEach((table, index)=>{
-        if(!map[table.name]){
-          map[table.name] = table.layout || { x: 160 + index * 160, y: 120 + index * 80 };
+      const tables = registry.list();
+      const total = Math.max(1, tables.length);
+      tables.forEach((table, index)=>{
+        const fallback = computeGridPosition(index, total);
+        if(map[table.name]){
+          map[table.name] = normalisePoint(map[table.name], fallback);
+        } else if(table.layout){
+          map[table.name] = normalisePoint(table.layout, fallback);
+        } else {
+          map[table.name] = fallback;
         }
       });
       return map;
@@ -1340,7 +1586,7 @@
         schema: activeRegistry.toJSON(),
         layout: initialLayout,
         selection:{ table:firstTable, field:null },
-        canvas: activeRecord.canvas || { zoom:1 },
+        canvas: normaliseCanvas(activeRecord.canvas),
         sqlPreview:'',
         error:null,
         library:{ items: libraryItems, status: SchemaLibrary.status }
@@ -1393,15 +1639,22 @@
       }
     }
 
-    function ensureLayout(db, tableName){
-      const layout = Object.assign({}, db.data.layout || {});
-      if(!layout[tableName]) layout[tableName] = { x: 120, y: 120 };
+    function ensureLayout(db, tableName, options = {}){
+      const registry = options.registry || getRegistry(db);
+      const layout = computeLayout(registry, db.data.layout);
+      if(tableName && !layout[tableName]){
+        const tables = registry.list();
+        const index = Math.max(tables.findIndex(tbl => tbl.name === tableName), tables.length);
+        const fallback = computeGridPosition(index, Math.max(1, tables.length + 1));
+        layout[tableName] = fallback;
+      }
       return layout;
     }
 
     function withTableSelection(state, tableName){
       if(!tableName) return state;
-      const layout = ensureLayout({ data:{ layout: state.data.layout } }, tableName);
+      const registry = getRegistry(state);
+      const layout = ensureLayout(state, tableName, { registry });
       const tablePos = layout[tableName] || { x: 120, y: 120 };
       return {
         ...state,
@@ -1994,6 +2247,7 @@
           let next;
           ctx.setState(s=>{
             const zoom = Math.min(2, (s.data.canvas?.zoom || 1) + 0.1);
+            const canvas = { ...(s.data.canvas || {}), zoom, mode:'manual' };
             const record = {
               id: s.data.schemaId,
               name: s.data.schemaMeta?.name || '',
@@ -2001,7 +2255,7 @@
               description: s.data.schemaMeta?.description || '',
               schema: s.data.schema,
               layout: s.data.layout,
-              canvas:{ zoom },
+              canvas,
               createdAt: s.data.schemaCreatedAt,
               updatedAt: s.data.schemaUpdatedAt
             };
@@ -2009,7 +2263,7 @@
               ...s,
               data:{
                 ...s.data,
-                canvas:{ zoom },
+                canvas,
                 library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
               }
             };
@@ -2025,7 +2279,8 @@
         handler:(e,ctx)=>{
           let next;
           ctx.setState(s=>{
-            const zoom = Math.max(0.2, (s.data.canvas?.zoom || 1) - 0.1);
+            const zoom = Math.max(MIN_CANVAS_ZOOM, (s.data.canvas?.zoom || 1) - 0.1);
+            const canvas = { ...(s.data.canvas || {}), zoom, mode:'manual' };
             const record = {
               id: s.data.schemaId,
               name: s.data.schemaMeta?.name || '',
@@ -2033,7 +2288,7 @@
               description: s.data.schemaMeta?.description || '',
               schema: s.data.schema,
               layout: s.data.layout,
-              canvas:{ zoom },
+              canvas,
               createdAt: s.data.schemaCreatedAt,
               updatedAt: s.data.schemaUpdatedAt
             };
@@ -2041,7 +2296,7 @@
               ...s,
               data:{
                 ...s.data,
-                canvas:{ zoom },
+                canvas,
                 library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
               }
             };
@@ -2057,6 +2312,7 @@
         handler:(e,ctx)=>{
           let next;
           ctx.setState(s=>{
+            const canvas = { ...(s.data.canvas || {}), zoom:1, mode:'auto' };
             const record = {
               id: s.data.schemaId,
               name: s.data.schemaMeta?.name || '',
@@ -2064,7 +2320,7 @@
               description: s.data.schemaMeta?.description || '',
               schema: s.data.schema,
               layout: s.data.layout,
-              canvas:{ zoom:1 },
+              canvas,
               createdAt: s.data.schemaCreatedAt,
               updatedAt: s.data.schemaUpdatedAt
             };
@@ -2072,7 +2328,7 @@
               ...s,
               data:{
                 ...s.data,
-                canvas:{ zoom:1 },
+                canvas,
                 library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
               }
             };
@@ -2441,11 +2697,13 @@
           const name = computeTableIdentifier(registry, englishInput);
           const label = (form.label || '').trim();
           try{
+            const currentTables = registry.list();
+            const fallbackPosition = computeGridPosition(currentTables.length, currentTables.length + 1);
             const tableConfig = {
               name,
               label: label || '',
               comment: form.comment || '',
-              layout:{ x: 160 + registry.list().length * 120, y: 120 + registry.list().length * 60 },
+              layout: fallbackPosition,
               fields: []
             };
             if(form.includeId){
@@ -2455,7 +2713,7 @@
             const schemaJSON = registry.toJSON();
             let next;
             ctx.setState(s=>{
-              const layout = ensureLayout({ data:{ layout: s.data.layout } }, name);
+              const layout = ensureLayout({ data:{ layout: s.data.layout, schema: s.data.schema } }, name, { registry });
               const now = Date.now();
               const record = {
                 id: s.data.schemaId,
@@ -2753,7 +3011,7 @@
               description: parsed.description || '',
               schema: normalizedSchema,
               layout,
-              canvas: parsed.canvas || existing?.canvas || state.data.canvas,
+            canvas: normaliseCanvas(parsed.canvas || existing?.canvas || state.data.canvas),
               createdAt: existing?.createdAt,
               updatedAt: now
             };
@@ -2773,7 +3031,7 @@
                 schema: normalizedSchema,
                 layout,
                 selection:{ table:first, field:null },
-                canvas: saved.canvas || { zoom:1 },
+            canvas: normaliseCanvas(saved.canvas || state.data.canvas),
                 library:{ ...(s.data.library || {}), items: list }
               },
               ui:{
@@ -2875,7 +3133,7 @@
                 schema: registry.toJSON(),
                 layout,
                 selection:{ table:first, field:null },
-                canvas: record.canvas || { zoom:1 },
+                canvas: normaliseCanvas(record.canvas),
                 library:{ ...(s.data.library || {}), items: list }
               },
               ui:{
@@ -2930,7 +3188,7 @@
                 schema: registry.toJSON(),
                 layout,
                 selection:{ table:first, field:null },
-                canvas: record.canvas || { zoom:1 },
+                canvas: normaliseCanvas(record.canvas),
                 library:{ ...(s.data.library || {}), items: list }
               },
               ui:{
@@ -2996,7 +3254,7 @@
                 schema: registry.toJSON(),
                 layout,
                 selection:{ table:first, field:null },
-                canvas: record.canvas || { zoom:1 },
+                canvas: normaliseCanvas(record.canvas),
                 library:{ ...(s.data.library || {}), items: list }
               },
               ui:{
