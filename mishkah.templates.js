@@ -283,11 +283,13 @@
   background: color-mix(in oklab, var(--surface-1) 92%, transparent);
   box-shadow: 0 28px 60px -34px rgba(15, 23, 42, 0.45);
   overflow: hidden;
+  color: color-mix(in oklab, var(--foreground) 94%, transparent);
 }
 .dark .mishkah-mobile-shell {
   background: color-mix(in oklab, var(--surface-2) 94%, transparent);
   border-color: color-mix(in oklab, var(--border) 60%, transparent);
   box-shadow: 0 34px 70px -36px rgba(15, 23, 42, 0.7);
+  color: color-mix(in oklab, var(--foreground) 98%, transparent);
 }
 .mishkah-mobile-shell::before {
   content: '';
@@ -328,10 +330,12 @@
   border-radius: 1.25rem;
   background: color-mix(in oklab, var(--surface-2) 90%, transparent);
   box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.4);
+  color: color-mix(in oklab, var(--foreground) 90%, transparent);
 }
 .dark .mobile-action-btn {
   background: color-mix(in oklab, var(--surface-2) 94%, transparent);
   box-shadow: 0 22px 44px -32px rgba(15, 23, 42, 0.6);
+  color: color-mix(in oklab, var(--foreground) 96%, transparent);
 }
 .mobile-highlight-card {
   border-radius: 1.25rem;
@@ -341,10 +345,12 @@
   gap: 0.4rem;
   border: 1px solid color-mix(in oklab, var(--border) 58%, transparent);
   background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+  color: color-mix(in oklab, var(--foreground) 92%, transparent);
 }
 .dark .mobile-highlight-card {
   background: color-mix(in oklab, var(--surface-2) 95%, transparent);
   border-color: color-mix(in oklab, var(--border) 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 98%, transparent);
 }
 .mobile-transaction {
   display: flex;
@@ -362,19 +368,20 @@
 .mobile-menu-header { display: flex; align-items: center; gap: 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid color-mix(in oklab, var(--border) 55%, transparent); }
 .mobile-menu-body { display: flex; flex-direction: column; gap: 1.25rem; padding-top: 0.75rem; }
 .mobile-menu-items { display: flex; flex-direction: column; gap: 0.5rem; }
-.mobile-menu-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0.95rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; transition: background 0.2s ease, border 0.2s ease; }
+.mobile-menu-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0.95rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; transition: background 0.2s ease, border 0.2s ease; color: color-mix(in oklab, var(--foreground) 92%, transparent); }
 .mobile-menu-item .item-label { display: flex; align-items: center; gap: 0.75rem; font-weight: 500; }
 .mobile-menu-item .item-icon { display: inline-flex; width: 2.1rem; height: 2.1rem; border-radius: 9999px; align-items: center; justify-content: center; background: color-mix(in oklab, var(--surface-2) 90%, transparent); }
 .mobile-menu-item.is-active { border-color: color-mix(in oklab, var(--primary) 55%, transparent); background: color-mix(in oklab, var(--primary) 18%, transparent); color: color-mix(in oklab, var(--primary) 95%, var(--foreground)); }
-.dark .mobile-menu-item { background: color-mix(in oklab, var(--surface-2) 96%, transparent); }
+.dark .mobile-menu-item { background: color-mix(in oklab, var(--surface-2) 96%, transparent); color: color-mix(in oklab, var(--foreground) 96%, transparent); }
 .mobile-menu-preferences { display: flex; flex-direction: column; gap: 0.5rem; }
-.mobile-menu-pref { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 0.9rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); }
+.mobile-menu-pref { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 0.9rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); color: color-mix(in oklab, var(--foreground) 92%, transparent); }
+.dark .mobile-menu-pref { background: color-mix(in oklab, var(--surface-2) 96%, transparent); color: color-mix(in oklab, var(--foreground) 98%, transparent); }
 .mobile-menu-footer { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed color-mix(in oklab, var(--border) 50%, transparent); }
 .mobile-bottom-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; padding-top: 1.25rem; }
-.mobile-bottom-nav button { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; justify-content: center; padding: 0.65rem 0.5rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; font-size: 0.75rem; }
+.mobile-bottom-nav button { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; justify-content: center; padding: 0.65rem 0.5rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; font-size: 0.75rem; color: color-mix(in oklab, var(--foreground) 90%, transparent); }
 .mobile-bottom-nav button .icon { font-size: 1.1rem; }
 .mobile-bottom-nav button.is-active { border-color: color-mix(in oklab, var(--primary) 55%, transparent); background: color-mix(in oklab, var(--primary) 20%, transparent); color: color-mix(in oklab, var(--primary) 90%, var(--foreground)); }
-.dark .mobile-bottom-nav button { background: color-mix(in oklab, var(--surface-2) 95%, transparent); }
+.dark .mobile-bottom-nav button { background: color-mix(in oklab, var(--surface-2) 95%, transparent); color: color-mix(in oklab, var(--foreground) 96%, transparent); }
 .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 92%, transparent); backdrop-filter: blur(28px); border-inline-end: 1px solid color-mix(in oklab, var(--border) 55%, transparent); }
 .dark .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 96%, transparent); }
 .template-atlas-sidebar .template-timeline__item { border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); padding-bottom: 1.25rem; }
