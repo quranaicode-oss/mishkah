@@ -4,6 +4,7 @@
   const M = window.Mishkah = window.Mishkah || {};
   const Apps = M.apps = M.apps || {};
   const IndexApp = Apps.index = Apps.index || {};
+  const Templates = M.templates = M.templates || {};
 
   const D = M.DSL;
   const UI = M.UI;
@@ -37,6 +38,73 @@
     'header.theme.toggle': { ar: 'تبديل الثيم', en: 'Toggle theme' },
     'header.theme.label': { ar: 'الثيم الجاهز', en: 'Theme preset' },
     'header.theme.lab': { ar: 'فتح معمل الثيم المتقدم', en: 'Open advanced theme lab' },
+    'designLab.openButton': { ar: 'مختبر الألوان المتقدم', en: 'Advanced theme lab' },
+    'designLab.title': { ar: 'مختبر تنسيق الواجهة', en: 'Interface Design Lab' },
+    'designLab.subtitle': { ar: 'تحكم في متغيرات CSS ورؤية التغييرات مباشرة.', en: 'Control every CSS variable and preview instantly.' },
+    'designLab.themeTitle': { ar: 'حزم الثيم السريعة', en: 'Theme presets' },
+    'designLab.modeHint': { ar: 'اختر حزمة، ثم عدّل التفاصيل أدناه.', en: 'Pick a preset, then fine-tune every detail below.' },
+    'designLab.resetAll': { ar: 'إرجاع قيم الحزمة', en: 'Reset to preset values' },
+    'designLab.resetVar': { ar: 'إرجاع القيمة الافتراضية', en: 'Revert to default' },
+    'designLab.currentValue': { ar: 'القيمة الحالية', en: 'Current value' },
+    'designLab.defaultValue': { ar: 'قيمة الحزمة', en: 'Preset value' },
+    'designLab.close': { ar: 'إغلاق المعمل', en: 'Close lab' },
+    'designLab.group.core': { ar: 'ألوان جوهرية', en: 'Core palette' },
+    'designLab.group.coreHint': { ar: 'لون الخلفية والنصوص الرئيسية والعناصر البارزة.', en: 'Background, text, and primary accent colors.' },
+    'designLab.group.surface': { ar: 'طبقات السطح والخلفيات', en: 'Surface layers & backgrounds' },
+    'designLab.group.surfaceHint': { ar: 'تحكم في البطاقات والسطوح والزجاجيات والحدود.', en: 'Tune cards, surfaces, glass panels, and borders.' },
+    'designLab.group.effects': { ar: 'التأثيرات البصرية', en: 'Visual effects' },
+    'designLab.group.effectsHint': { ar: 'تعديل الظلال والتوهجات الدقيقة.', en: 'Adjust shadows and subtle glows.' },
+    'designLab.group.typography': { ar: 'منظومة الخطوط', en: 'Typography system' },
+    'designLab.group.typographyHint': { ar: 'ضبط أحجام العناوين والنصوص التفصيلية.', en: 'Set heading and micro typography scales.' },
+    'designLab.group.sizing': { ar: 'أحجام العناصر', en: 'Element sizing' },
+    'designLab.group.sizingHint': { ar: 'تحكم في أبعاد البلاطات ومقياس الخط العام.', en: 'Control tile dimensions and global font scale.' },
+    'designLab.var.background': { ar: 'لون الخلفية', en: 'Background color' },
+    'designLab.var.foreground': { ar: 'لون النص الأساسي', en: 'Foreground text color' },
+    'designLab.var.mutedBase': { ar: 'لون النص الثانوي', en: 'Muted base color' },
+    'designLab.var.muted': { ar: 'لون النص الثانوي المتباين', en: 'Muted foreground' },
+    'designLab.var.primary': { ar: 'لون التمييز الرئيسي', en: 'Primary accent color' },
+    'designLab.var.primaryForeground': { ar: 'نص فوق التمييز', en: 'Text on primary' },
+    'designLab.var.accent': { ar: 'لون مساند', en: 'Accent color' },
+    'designLab.var.accentForeground': { ar: 'نص اللون المساند', en: 'Accent foreground' },
+    'designLab.var.ring': { ar: 'لون الحلقة البارزة', en: 'Ring color' },
+    'designLab.var.accentRing': { ar: 'وهج الحواف', en: 'Accent ring glow' },
+    'designLab.var.card': { ar: 'لون البطاقة', en: 'Card background' },
+    'designLab.var.cardForeground': { ar: 'نص البطاقة', en: 'Card foreground' },
+    'designLab.var.surface1': { ar: 'السطح الأول', en: 'Surface layer 1' },
+    'designLab.var.surface2': { ar: 'السطح الثاني', en: 'Surface layer 2' },
+    'designLab.var.surface3': { ar: 'السطح الثالث', en: 'Surface layer 3' },
+    'designLab.var.border': { ar: 'لون الحدود', en: 'Border color' },
+    'designLab.var.input': { ar: 'حدود المدخلات', en: 'Input border' },
+    'designLab.var.shadow': { ar: 'الظل الرئيسي', en: 'Primary shadow' },
+    'designLab.var.radius': { ar: 'انحناء الزوايا', en: 'Border radius' },
+    'designLab.var.gradient': { ar: 'تدرج الخلفية', en: 'Page gradient' },
+    'designLab.var.overlay1': { ar: 'طبقة ضوئية أولى', en: 'Overlay layer 1' },
+    'designLab.var.overlay2': { ar: 'طبقة ضوئية ثانية', en: 'Overlay layer 2' },
+    'designLab.var.panelGlass': { ar: 'وهج اللوح الزجاجي', en: 'Glass panel tint' },
+    'designLab.var.panelBorder': { ar: 'حدود اللوح', en: 'Panel border' },
+    'designLab.var.tileBg': { ar: 'خلفية البلاطات', en: 'Tile background' },
+    'designLab.var.tileRevealed': { ar: 'خلفية البلاطات المكشوفة', en: 'Revealed tile background' },
+    'designLab.var.tileBorder': { ar: 'حدود البلاطات', en: 'Tile border' },
+    'designLab.var.lettersShadow': { ar: 'ظل الأزرار', en: 'Letter shadow' },
+    'designLab.var.lettersHover': { ar: 'تأثير التحويم', en: 'Letter hover effect' },
+    'designLab.var.tileSize': { ar: 'حجم البلاطات', en: 'Tile size' },
+    'designLab.var.font.body': { ar: 'نص الفقرات', en: 'Body text size' },
+    'designLab.var.font.h1': { ar: 'عنوان ١', en: 'Heading 1 size' },
+    'designLab.var.font.h2': { ar: 'عنوان ٢', en: 'Heading 2 size' },
+    'designLab.var.font.h3': { ar: 'عنوان ٣', en: 'Heading 3 size' },
+    'designLab.var.font.scale3xl': { ar: 'عنوان عرضي (3XL)', en: 'Display heading (3XL)' },
+    'designLab.var.font.scale2xl': { ar: 'عنوان بارز (2XL)', en: 'Hero heading (2XL)' },
+    'designLab.var.font.scaleXl': { ar: 'عنوان فرعي (XL)', en: 'Sub heading (XL)' },
+    'designLab.var.font.scaleLg': { ar: 'نص كبير (LG)', en: 'Large text (LG)' },
+    'designLab.var.font.scaleMd': { ar: 'نص أساسي (MD)', en: 'Body scale (MD)' },
+    'designLab.var.font.scaleSm': { ar: 'نص صغير (SM)', en: 'Small text (SM)' },
+    'designLab.var.font.scaleXs': { ar: 'تفاصيل دقيقة (XS)', en: 'Micro text (XS)' },
+    'designLab.var.font.sidebar': { ar: 'نص القائمة الجانبية', en: 'Sidebar label size' },
+    'designLab.var.font.quote': { ar: 'نص الاقتباس', en: 'Blockquote size' },
+    'designLab.var.font.info': { ar: 'نص اللوحات التوضيحية', en: 'Info panel text size' },
+    'designLab.var.font.letter': { ar: 'حجم حروف اللعب', en: 'Letter button size' },
+    'designLab.var.font.status': { ar: 'حجم شريط الحالة', en: 'Status strip size' },
+    'designLab.var.fontScale': { ar: 'مقياس الخط العام', en: 'Global font scale' },
     'header.theme.presets.modern-dark': { ar: 'ليل مشكاة', en: 'Mishkah Midnight' },
     'header.theme.presets.modern-light': { ar: 'نهار مشكاة', en: 'Mishkah Dawn' },
     'header.theme.presets.amber-dusk': { ar: 'شفق عنبري', en: 'Amber Dusk' },
@@ -247,6 +315,162 @@
       }
     }
   ];
+
+  const DESIGN_LAB_VARIABLES = [
+    { name: '--background', labelKey: 'designLab.var.background', type: 'color', default: 'hsl(214 55% 98%)', group: 'core' },
+    { name: '--foreground', labelKey: 'designLab.var.foreground', type: 'color', default: 'hsl(222 47% 14%)', group: 'core' },
+    { name: '--muted', labelKey: 'designLab.var.mutedBase', type: 'color', default: 'hsl(213 32% 92%)', group: 'core' },
+    { name: '--muted-foreground', labelKey: 'designLab.var.muted', type: 'color', default: 'hsl(215 20% 42%)', group: 'core' },
+    { name: '--primary', labelKey: 'designLab.var.primary', type: 'color', default: 'hsl(221 83% 53%)', group: 'core' },
+    { name: '--primary-foreground', labelKey: 'designLab.var.primaryForeground', type: 'color', default: '#ffffff', group: 'core' },
+    { name: '--accent', labelKey: 'designLab.var.accent', type: 'color', default: 'hsl(199 92% 47%)', group: 'core' },
+    { name: '--accent-foreground', labelKey: 'designLab.var.accentForeground', type: 'color', default: '#06283d', group: 'core' },
+    { name: '--ring', labelKey: 'designLab.var.ring', type: 'color', default: 'hsl(221 83% 53%)', group: 'core' },
+    { name: '--accent-ring', labelKey: 'designLab.var.accentRing', type: 'color', default: 'rgba(99, 102, 241, 0.35)', group: 'core' },
+    { name: '--card', labelKey: 'designLab.var.card', type: 'color', default: 'hsl(0 0% 100%)', group: 'surface' },
+    { name: '--card-foreground', labelKey: 'designLab.var.cardForeground', type: 'color', default: 'hsl(222 47% 14%)', group: 'surface' },
+    { name: '--surface-1', labelKey: 'designLab.var.surface1', type: 'text', default: 'color-mix(in oklab, var(--background) 96%, white)', group: 'surface' },
+    { name: '--surface-2', labelKey: 'designLab.var.surface2', type: 'text', default: 'color-mix(in oklab, var(--background) 92%, white)', group: 'surface' },
+    { name: '--surface-3', labelKey: 'designLab.var.surface3', type: 'text', default: 'color-mix(in oklab, var(--background) 88%, white)', group: 'surface' },
+    { name: '--border', labelKey: 'designLab.var.border', type: 'color', default: 'hsl(216 33% 85%)', group: 'surface' },
+    { name: '--input', labelKey: 'designLab.var.input', type: 'color', default: 'hsl(216 33% 85%)', group: 'surface' },
+    { name: '--shadow', labelKey: 'designLab.var.shadow', type: 'text', default: '0 12px 36px rgba(15, 23, 42, 0.12)', group: 'surface' },
+    { name: '--radius', labelKey: 'designLab.var.radius', type: 'text', default: '1rem', group: 'surface' },
+    { name: '--page-gradient', labelKey: 'designLab.var.gradient', type: 'text', default: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)', group: 'surface' },
+    { name: '--page-overlay-1', labelKey: 'designLab.var.overlay1', type: 'text', default: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)', group: 'surface' },
+    { name: '--page-overlay-2', labelKey: 'designLab.var.overlay2', type: 'text', default: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)', group: 'surface' },
+    { name: '--panel-glass', labelKey: 'designLab.var.panelGlass', type: 'text', default: 'rgba(255, 255, 255, 0.78)', group: 'surface' },
+    { name: '--panel-border', labelKey: 'designLab.var.panelBorder', type: 'text', default: 'rgba(99, 102, 241, 0.12)', group: 'surface' },
+    { name: '--tile-bg', labelKey: 'designLab.var.tileBg', type: 'text', default: 'linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85))', group: 'surface' },
+    { name: '--tile-bg-revealed', labelKey: 'designLab.var.tileRevealed', type: 'text', default: 'linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65))', group: 'surface' },
+    { name: '--tile-border', labelKey: 'designLab.var.tileBorder', type: 'text', default: 'rgba(99, 102, 241, 0.25)', group: 'surface' },
+    { name: '--letters-shadow', labelKey: 'designLab.var.lettersShadow', type: 'text', default: '0 18px 45px -24px rgba(15, 23, 42, 0.35)', group: 'effects' },
+    { name: '--letters-hover', labelKey: 'designLab.var.lettersHover', type: 'text', default: '0 25px 50px -20px rgba(99, 102, 241, 0.45)', group: 'effects' },
+    { name: '--tile-size', labelKey: 'designLab.var.tileSize', type: 'range', min: 2.6, max: 4, step: 0.05, unit: 'rem', default: '3.1rem', group: 'sizing' },
+    { name: '--font-size-body', labelKey: 'designLab.var.font.body', type: 'range', min: 0.85, max: 1.35, step: 0.01, unit: 'rem', default: '1rem', group: 'typography' },
+    { name: '--font-size-heading-1', labelKey: 'designLab.var.font.h1', type: 'range', min: 2.1, max: 3.4, step: 0.05, unit: 'rem', default: '2.6rem', group: 'typography' },
+    { name: '--font-size-heading-2', labelKey: 'designLab.var.font.h2', type: 'range', min: 1.7, max: 2.6, step: 0.05, unit: 'rem', default: '2.05rem', group: 'typography' },
+    { name: '--font-size-heading-3', labelKey: 'designLab.var.font.h3', type: 'range', min: 1.3, max: 2.2, step: 0.05, unit: 'rem', default: '1.62rem', group: 'typography' },
+    { name: '--font-size-scale-3xl', labelKey: 'designLab.var.font.scale3xl', type: 'range', min: 1.7, max: 3.1, step: 0.05, unit: 'rem', default: '2.35rem', group: 'typography' },
+    { name: '--font-size-scale-2xl', labelKey: 'designLab.var.font.scale2xl', type: 'range', min: 1.4, max: 2.6, step: 0.05, unit: 'rem', default: '1.8rem', group: 'typography' },
+    { name: '--font-size-scale-xl', labelKey: 'designLab.var.font.scaleXl', type: 'range', min: 1.1, max: 2.1, step: 0.05, unit: 'rem', default: '1.38rem', group: 'typography' },
+    { name: '--font-size-scale-lg', labelKey: 'designLab.var.font.scaleLg', type: 'range', min: 1, max: 1.9, step: 0.03, unit: 'rem', default: '1.18rem', group: 'typography' },
+    { name: '--font-size-scale-md', labelKey: 'designLab.var.font.scaleMd', type: 'range', min: 0.85, max: 1.6, step: 0.02, unit: 'rem', default: '1rem', group: 'typography' },
+    { name: '--font-size-scale-sm', labelKey: 'designLab.var.font.scaleSm', type: 'range', min: 0.75, max: 1.4, step: 0.02, unit: 'rem', default: '0.9rem', group: 'typography' },
+    { name: '--font-size-scale-xs', labelKey: 'designLab.var.font.scaleXs', type: 'range', min: 0.6, max: 1.2, step: 0.02, unit: 'rem', default: '0.78rem', group: 'typography' },
+    { name: '--font-size-sidebar', labelKey: 'designLab.var.font.sidebar', type: 'range', min: 0.9, max: 1.6, step: 0.02, unit: 'rem', default: '1.05rem', group: 'typography' },
+    { name: '--font-size-quote', labelKey: 'designLab.var.font.quote', type: 'range', min: 1, max: 1.8, step: 0.02, unit: 'rem', default: '1.18rem', group: 'typography' },
+    { name: '--font-size-info', labelKey: 'designLab.var.font.info', type: 'range', min: 1.05, max: 1.9, step: 0.02, unit: 'rem', default: '1.22rem', group: 'typography' },
+    { name: '--font-size-letter', labelKey: 'designLab.var.font.letter', type: 'range', min: 1.1, max: 1.9, step: 0.02, unit: 'rem', default: '1.35rem', group: 'typography' },
+    { name: '--font-size-status', labelKey: 'designLab.var.font.status', type: 'range', min: 1, max: 1.95, step: 0.02, unit: 'rem', default: '1.22rem', group: 'typography' },
+    { name: '--user-font-scale', labelKey: 'designLab.var.fontScale', type: 'range', min: 90, max: 130, step: 2, default: '100', group: 'typography', prefKey: 'fontScale' }
+  ];
+
+  const DESIGN_LAB_VAR_MAP = DESIGN_LAB_VARIABLES.reduce((acc, item) => {
+    acc[item.name] = item;
+    return acc;
+  }, {});
+
+  const DESIGN_LAB_GROUPS = [
+    { id: 'core', labelKey: 'designLab.group.core', hintKey: 'designLab.group.coreHint', vars: ['--background', '--foreground', '--muted', '--muted-foreground', '--primary', '--primary-foreground', '--accent', '--accent-foreground', '--ring', '--accent-ring'] },
+    { id: 'surface', labelKey: 'designLab.group.surface', hintKey: 'designLab.group.surfaceHint', vars: ['--card', '--card-foreground', '--surface-1', '--surface-2', '--surface-3', '--border', '--input', '--shadow', '--radius', '--page-gradient', '--page-overlay-1', '--page-overlay-2', '--panel-glass', '--panel-border', '--tile-bg', '--tile-bg-revealed', '--tile-border'] },
+    { id: 'effects', labelKey: 'designLab.group.effects', hintKey: 'designLab.group.effectsHint', vars: ['--letters-shadow', '--letters-hover'] },
+    { id: 'typography', labelKey: 'designLab.group.typography', hintKey: 'designLab.group.typographyHint', vars: ['--font-size-heading-1', '--font-size-heading-2', '--font-size-heading-3', '--font-size-scale-3xl', '--font-size-scale-2xl', '--font-size-scale-xl', '--font-size-scale-lg', '--font-size-scale-md', '--font-size-scale-sm', '--font-size-scale-xs', '--font-size-body', '--font-size-sidebar', '--font-size-quote', '--font-size-info', '--font-size-letter', '--font-size-status', '--user-font-scale'] },
+    { id: 'sizing', labelKey: 'designLab.group.sizing', hintKey: 'designLab.group.sizingHint', vars: ['--tile-size'] }
+  ];
+
+  const DESIGN_LAB_DEFAULTS = DESIGN_LAB_VARIABLES.reduce((acc, item) => {
+    acc[item.name] = item.default;
+    return acc;
+  }, {});
+
+  function valuesEqual(a, b) {
+    return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim();
+  }
+
+  function parseNumericValue(value, unit) {
+    if (value == null) return NaN;
+    const str = String(value).trim();
+    if (!str) return NaN;
+    if (unit && str.endsWith(unit)) {
+      return Number(str.slice(0, -unit.length));
+    }
+    const cleaned = unit === '%' ? str.replace(/%/g, '') : str;
+    const numeric = Number(cleaned);
+    return Number.isFinite(numeric) ? numeric : NaN;
+  }
+
+  function readComputedCssVar(name, fallback) {
+    if (typeof window === 'undefined' || !window.getComputedStyle) return fallback || '';
+    const root = window.document && window.document.documentElement;
+    if (!root) return fallback || '';
+    const value = window.getComputedStyle(root).getPropertyValue(name);
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed || fallback || '';
+  }
+
+  function getActiveThemePreset(state) {
+    const presets = resolveThemePresets(state.data && state.data.themePresets);
+    const key = state.data && state.data.activeThemePreset;
+    return presets.find((preset) => preset && preset.key === key) || presets[0] || null;
+  }
+
+  function getThemeOverrides(state) {
+    const data = ensureDict(state.data);
+    return ensureDict(data.themeOverrides);
+  }
+
+  function getThemeLabBaseline(state, name) {
+    const preset = getActiveThemePreset(state);
+    const presetOverrides = ensureDict(preset && preset.overrides);
+    if (presetOverrides[name] != null && String(presetOverrides[name]).trim() !== '') {
+      return presetOverrides[name];
+    }
+    return DESIGN_LAB_DEFAULTS[name] || '';
+  }
+
+  function normalizeThemeLabValue(raw, meta) {
+    const { type, unit, defaultValue, min, max, step, prefKey } = meta;
+    if (type === 'color') {
+      if (U && U.Color && typeof U.Color.toHex === 'function') {
+        const hex = U.Color.toHex(raw);
+        if (hex) return hex;
+      }
+      const value = String(raw || '').trim();
+      return value || defaultValue || '';
+    }
+    if (prefKey === 'fontScale') {
+      let numeric = parseNumericValue(raw, '');
+      if (!Number.isFinite(numeric)) {
+        numeric = parseNumericValue(defaultValue, '');
+      }
+      const safeMin = Number.isFinite(min) ? min : 90;
+      const safeMax = Number.isFinite(max) ? max : 130;
+      numeric = Math.min(safeMax, Math.max(safeMin, Math.round(numeric || safeMin)));
+      return String(numeric);
+    }
+    if (type === 'range' || type === 'number') {
+      let numeric = parseNumericValue(raw, unit);
+      if (!Number.isFinite(numeric)) {
+        numeric = parseNumericValue(defaultValue, unit);
+      }
+      if (Number.isFinite(min)) numeric = Math.max(min, numeric);
+      if (Number.isFinite(max)) numeric = Math.min(max, numeric);
+      if (Number.isFinite(step) && step > 0) {
+        const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+        numeric = Number(numeric.toFixed(decimals));
+      }
+      if (type === 'number' && !unit) {
+        return String(numeric);
+      }
+      if (unit === '%') {
+        return `${Math.round(numeric)}`;
+      }
+      return unit ? `${numeric}${unit}` : String(numeric);
+    }
+    const textValue = String(raw || '').trim();
+    return textValue || (typeof defaultValue === 'string' ? defaultValue : '');
+  }
 
   function cloneThemeOverrides(overrides) {
     const src = ensureDict(overrides);
@@ -476,6 +700,219 @@
   /* Components                                                          */
   /* ------------------------------------------------------------------ */
 
+  function ThemeLabPanel(db) {
+    const uiState = ensureDict(db.ui);
+    const shellUi = ensureDict(uiState.pagesShell);
+    const themeLabUi = ensureDict(shellUi.themeLab);
+    if (!themeLabUi.open) return null;
+
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const data = ensureDict(db.data);
+    const presets = resolveThemePresets(data.themePresets);
+    const activePresetKey = data.activeThemePreset;
+    const activePreset = presets.find((preset) => preset && preset.key === activePresetKey) || presets[0] || null;
+    const overrides = ensureDict(data.themeOverrides);
+    const draft = ensureDict(themeLabUi.draft);
+    const presetOverrides = ensureDict(activePreset && activePreset.overrides);
+
+    const quickButtons = presets.map((preset, idx) => {
+      const key = preset.key || `preset-${idx}`;
+      const label = localize(preset.label, lang, fallbackLang) || key;
+      const decor = THEME_DECOR[key] || {};
+      const isActive = activePreset && key === activePreset.key;
+      const baseClass = tw`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition`;
+      const idleClass = tw`bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)]`;
+      const activeClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_16px_36px_-22px_rgba(79,70,229,0.45)]`;
+      return UI.Button({
+        attrs: {
+          gkey: 'ui:theme:select',
+          'data-theme-select': 'true',
+          'data-theme-value': key,
+          class: cx(baseClass, isActive ? activeClass : idleClass)
+        },
+        variant: 'ghost',
+        size: 'sm'
+      }, [`${decor.emoji || (preset.mode === 'dark' ? '🌙' : '🌞')} ${label}`]);
+    });
+
+    const sectionNodes = DESIGN_LAB_GROUPS.map((group) => {
+      const rows = group.vars.map((name) => {
+        const def = DESIGN_LAB_VAR_MAP[name];
+        if (!def) return null;
+        const baseline = presetOverrides[name] != null && String(presetOverrides[name]).trim() !== ''
+          ? presetOverrides[name]
+          : (DESIGN_LAB_DEFAULTS[name] || '');
+        const draftValue = draft[name];
+        const overrideValue = overrides[name];
+        let currentValue = draftValue != null ? draftValue : (overrideValue != null ? overrideValue : baseline);
+        if (currentValue == null || String(currentValue).trim() === '') currentValue = baseline;
+        const appliedValue = readComputedCssVar(name, currentValue);
+        const isCustom = !valuesEqual(currentValue, baseline);
+
+        const metaValue = (value) => {
+          if (def.type === 'color' && U && U.Color && typeof U.Color.toHex === 'function') {
+            return U.Color.toHex(value) || value || '';
+          }
+          return value || '';
+        };
+
+        const normalizedBaseline = metaValue(baseline);
+        const normalizedApplied = metaValue(appliedValue);
+
+        const rowAttrs = {
+          key: `${group.id}-${name}`,
+          class: 'design-lab-row',
+          'data-type': def.type,
+          'data-custom': isCustom ? 'true' : 'false'
+        };
+
+        const labelNode = D.Containers.Div({ attrs: { class: 'design-lab-label' } }, [
+          D.Text.Strong({}, [TL(def.labelKey)]),
+          D.Text.Span({ attrs: { class: 'design-lab-meta' } }, [TL('designLab.defaultValue'), ': ', normalizedBaseline || '—']),
+          D.Text.Span({ attrs: { class: 'design-lab-meta' } }, [TL('designLab.currentValue'), ': ', normalizedApplied || '—'])
+        ]);
+
+        const resetButton = D.Forms.Button({
+          attrs: {
+            type: 'button',
+            gkey: 'index:themeLab:varReset',
+            'data-css-var': name,
+            class: 'design-lab-reset',
+            disabled: isCustom ? undefined : 'disabled',
+            title: TL('designLab.resetVar'),
+            'aria-label': TL('designLab.resetVar')
+          }
+        }, ['↺']);
+
+        const baseAttrs = {
+          'data-css-var': name,
+          'data-css-type': def.type,
+          'data-css-unit': def.unit || '',
+          'data-css-default': baseline,
+          'data-css-min': def.min != null ? String(def.min) : undefined,
+          'data-css-max': def.max != null ? String(def.max) : undefined,
+          'data-css-step': def.step != null ? String(def.step) : undefined,
+          'data-css-pref': def.prefKey || ''
+        };
+
+        if (def.type === 'color') {
+          const colorValue = metaValue(currentValue) || '#6366f1';
+          return D.Containers.Div({ attrs: rowAttrs }, [
+            labelNode,
+            D.Containers.Div({ attrs: { class: 'design-lab-color-chip', style: `background:${colorValue}` } }),
+            D.Inputs.Input({ attrs: Object.assign({
+              type: 'color',
+              value: colorValue,
+              gkey: 'index:themeLab:varUpdate'
+            }, baseAttrs, { class: 'design-lab-color-input' }) }),
+            D.Inputs.Input({ attrs: Object.assign({
+              type: 'text',
+              value: currentValue || '',
+              gkey: 'index:themeLab:varUpdate',
+              class: 'design-lab-value-input',
+              dir: 'ltr'
+            }, baseAttrs) }),
+            resetButton
+          ]);
+        }
+
+        if (def.type === 'range') {
+          const numericValue = parseNumericValue(currentValue, def.unit);
+          const sliderValue = Number.isFinite(numericValue) ? numericValue : (Number.isFinite(def.min) ? def.min : 0);
+          const decimals = def.step && String(def.step).includes('.') ? String(def.step).split('.')[1].length : 0;
+          const numberValue = Number(sliderValue).toFixed(decimals);
+          const previewStyle = def.prefKey === 'fontScale'
+            ? `font-size: calc(var(--font-size-body) * ${sliderValue} / 100);`
+            : `font-size: ${sliderValue}${def.unit || ''};`;
+          const previewText = def.prefKey === 'fontScale'
+            ? `× ${(sliderValue / 100).toFixed(2)}`
+            : 'Aa أب';
+          return D.Containers.Div({ attrs: rowAttrs }, [
+            labelNode,
+            D.Text.Span({ attrs: { class: 'design-lab-font-preview', style: previewStyle } }, [previewText]),
+            D.Inputs.Input({ attrs: Object.assign({
+              type: 'range',
+              min: def.min != null ? String(def.min) : undefined,
+              max: def.max != null ? String(def.max) : undefined,
+              step: def.step != null ? String(def.step) : undefined,
+              value: String(sliderValue),
+              gkey: 'index:themeLab:varUpdate',
+              class: 'design-lab-slider'
+            }, baseAttrs, { 'data-css-editor': 'range' }) }),
+            D.Inputs.Input({ attrs: Object.assign({
+              type: 'number',
+              min: def.min != null ? String(def.min) : undefined,
+              max: def.max != null ? String(def.max) : undefined,
+              step: def.step != null ? String(def.step) : undefined,
+              value: numberValue,
+              gkey: 'index:themeLab:varUpdate',
+              class: 'design-lab-number-input'
+            }, baseAttrs, { 'data-css-editor': 'number' }) }),
+            resetButton
+          ]);
+        }
+
+        return D.Containers.Div({ attrs: rowAttrs }, [
+          labelNode,
+          D.Inputs.Input({ attrs: Object.assign({
+            type: 'text',
+            value: currentValue || '',
+            gkey: 'index:themeLab:varUpdate',
+            class: 'design-lab-value-input',
+            dir: 'ltr'
+          }, baseAttrs, { 'data-css-editor': 'text' }) }),
+          resetButton
+        ]);
+      }).filter(Boolean);
+
+      if (!rows.length) return null;
+
+      return D.Containers.Div({ attrs: { key: `group-${group.id}`, class: tw`space-y-3` } }, [
+        D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+          D.Text.H4({ attrs: { class: tw`text-base font-semibold` } }, [TL(group.labelKey)]),
+          D.Text.Span({ attrs: { class: tw`text-xs uppercase tracking-[0.3em] text-[var(--muted-foreground)]` } }, [TL(group.hintKey)])
+        ]),
+        D.Containers.Div({ attrs: { class: 'design-lab-grid' } }, rows)
+      ]);
+    }).filter(Boolean);
+
+    const contentChildren = [];
+    if (quickButtons.length) {
+      contentChildren.push(
+        D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+          D.Text.H4({ attrs: { class: tw`text-base font-semibold` } }, [TL('designLab.themeTitle')]),
+          D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('designLab.modeHint')]),
+          D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center gap-3` } }, quickButtons)
+        ])
+      );
+    }
+    contentChildren.push(...sectionNodes);
+
+    const actions = [
+      UI.Button({
+        attrs: { gkey: 'index:themeLab:resetAll', class: tw`w-full sm:w-auto` },
+        variant: 'ghost',
+        size: 'sm'
+      }, [`↺ ${TL('designLab.resetAll')}`]),
+      UI.Button({
+        attrs: { gkey: 'index:themeLab:close', class: tw`w-full sm:w-auto` },
+        variant: 'soft',
+        size: 'sm'
+      }, [TL('designLab.close')])
+    ];
+
+    return UI.Modal({
+      open: true,
+      title: TL('designLab.title'),
+      description: TL('designLab.subtitle'),
+      size: 'xl',
+      closeGkey: 'index:themeLab:close',
+      content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, contentChildren),
+      actions
+    });
+  }
+
   function HeaderComp(db) {
     const { TL, lang } = makeLangLookup(db);
     const fallbackLang = lang === 'ar' ? 'en' : 'ar';
@@ -610,7 +1047,7 @@
     const iconCircleClass = tw`flex h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
     const themeLabButton = UI.Button({
       attrs: {
-        gkey: 'pages:theme:lab:open',
+        gkey: 'index:themeLab:open',
         'data-theme-lab': 'open',
         title: TL('header.theme.lab'),
         'aria-label': TL('header.theme.lab'),
@@ -1098,7 +1535,8 @@
     SequenceGameComp,
     ProverbsGameComp,
     ReadmeCompTec,
-    ReadmeCompBase
+    ReadmeCompBase,
+    ThemeLabPanel
   };
 
   IndexApp.pages = [
@@ -1127,6 +1565,12 @@
     const themePresets = resolveThemePresets(DEFAULT_THEME_PRESETS);
     const defaultPreset = themePresets[0] || null;
     const languageOptions = resolveLanguageOptions(DEFAULT_LANG_OPTIONS);
+    const baseOverrides = defaultPreset ? cloneThemeOverrides(defaultPreset.overrides) : {};
+    Object.keys(DESIGN_LAB_DEFAULTS).forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(baseOverrides, key)) {
+        baseOverrides[key] = DESIGN_LAB_DEFAULTS[key];
+      }
+    });
     const initialTheme = defaultPreset && defaultPreset.mode === 'dark' ? 'dark' : 'light';
     return {
       head: { title: dict['app.title'].ar },
@@ -1141,17 +1585,23 @@
         docs: loadDocs(),
         themePresets,
         activeThemePreset: defaultPreset ? defaultPreset.key : '',
-        themeOverrides: defaultPreset ? cloneThemeOverrides(defaultPreset.overrides) : {},
+        themeOverrides: baseOverrides,
+        themeLab: { enabled: false },
         languages: languageOptions,
         slots: {
           header: 'HeaderComp',
-          footer: 'FooterComp'
+          footer: 'FooterComp',
+          themeLab: 'ThemeLabPanel'
         }
       },
       registry: IndexApp.registry,
       ui: {
         pagesShell: {
-          themeLab: { showButton: false }
+          themeLab: {
+            showButton: false,
+            open: false,
+            draft: cloneThemeOverrides(baseOverrides)
+          }
         }
       }
     };
@@ -1270,6 +1720,179 @@
           ...prev,
           data: { ...prev.data, counter: 0 }
         }));
+        context.rebuild();
+      }
+    },
+    'index:themeLab:open': {
+      on: ['click'],
+      gkeys: ['index:themeLab:open'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          if (prevThemeLab.open) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, { open: true })
+              })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'index:themeLab:close': {
+      on: ['click'],
+      gkeys: ['index:themeLab:close'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          if (!prevThemeLab.open) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, { open: false })
+              })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'index:themeLab:resetAll': {
+      on: ['click'],
+      gkeys: ['index:themeLab:resetAll'],
+      handler: (_event, context) => {
+        const state = context.getState();
+        const preset = getActiveThemePreset(state);
+        const baseOverrides = cloneThemeOverrides(preset && preset.overrides);
+        Object.keys(DESIGN_LAB_DEFAULTS).forEach((key) => {
+          if (!Object.prototype.hasOwnProperty.call(baseOverrides, key)) {
+            baseOverrides[key] = DESIGN_LAB_DEFAULTS[key];
+          }
+        });
+        let appliedOverrides = baseOverrides;
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          return {
+            ...prev,
+            data: Object.assign({}, prev.data || {}, { themeOverrides: baseOverrides }),
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, {
+                  draft: cloneThemeOverrides(baseOverrides)
+                })
+              })
+            })
+          };
+        });
+        const shell = M.templates && M.templates.PagesShell;
+        if (shell && typeof shell.applyThemeOverrides === 'function') {
+          shell.applyThemeOverrides(appliedOverrides || {});
+        }
+        context.rebuild();
+      }
+    },
+    'index:themeLab:varUpdate': {
+      on: ['input', 'change'],
+      gkeys: ['index:themeLab:varUpdate'],
+      handler: (event, context) => {
+        const target = event.target && event.target.closest ? event.target.closest('[data-css-var]') : null;
+        if (!target) return;
+        const name = target.getAttribute('data-css-var');
+        if (!name) return;
+        const state = context.getState();
+        const def = DESIGN_LAB_VAR_MAP[name] || {};
+        const baseline = getThemeLabBaseline(state, name);
+        const raw = typeof target.value === 'string' ? target.value : (target.getAttribute('value') || '');
+        const normalized = normalizeThemeLabValue(raw, {
+          type: def.type || 'text',
+          unit: def.unit || '',
+          defaultValue: baseline,
+          min: def.min,
+          max: def.max,
+          step: def.step,
+          prefKey: def.prefKey
+        });
+        let appliedOverrides = null;
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const prevOverrides = ensureDict(prevData.themeOverrides);
+          const nextOverrides = Object.assign({}, prevOverrides, { [name]: normalized });
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          const nextDraft = Object.assign({}, ensureDict(prevThemeLab.draft), { [name]: normalized });
+          appliedOverrides = nextOverrides;
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, { themeOverrides: nextOverrides }),
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, { draft: nextDraft })
+              })
+            })
+          };
+        });
+        const shell = M.templates && M.templates.PagesShell;
+        if (shell && typeof shell.applyThemeOverrides === 'function') {
+          shell.applyThemeOverrides(appliedOverrides || {});
+        }
+        context.rebuild();
+      }
+    },
+    'index:themeLab:varReset': {
+      on: ['click'],
+      gkeys: ['index:themeLab:varReset'],
+      handler: (event, context) => {
+        const btn = event.target && event.target.closest ? event.target.closest('[data-css-var]') : null;
+        if (!btn) return;
+        const name = btn.getAttribute('data-css-var');
+        if (!name) return;
+        const state = context.getState();
+        const def = DESIGN_LAB_VAR_MAP[name] || {};
+        const baseline = getThemeLabBaseline(state, name);
+        const normalized = normalizeThemeLabValue(baseline, {
+          type: def.type || 'text',
+          unit: def.unit || '',
+          defaultValue: baseline,
+          min: def.min,
+          max: def.max,
+          step: def.step,
+          prefKey: def.prefKey
+        });
+        let appliedOverrides = null;
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const prevOverrides = ensureDict(prevData.themeOverrides);
+          const nextOverrides = Object.assign({}, prevOverrides, { [name]: normalized });
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          const nextDraft = Object.assign({}, ensureDict(prevThemeLab.draft), { [name]: normalized });
+          appliedOverrides = nextOverrides;
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, { themeOverrides: nextOverrides }),
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, { draft: nextDraft })
+              })
+            })
+          };
+        });
+        const shell = M.templates && M.templates.PagesShell;
+        if (shell && typeof shell.applyThemeOverrides === 'function') {
+          shell.applyThemeOverrides(appliedOverrides || {});
+        }
         context.rebuild();
       }
     },

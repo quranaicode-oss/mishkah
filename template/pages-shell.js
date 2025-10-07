@@ -553,7 +553,10 @@
       const { mobileNav, sideNav } = renderNavigation(db, pages, activeKey);
       const pageNode = renderPage(db, registry, pages, activeKey);
       const themeLabButton = renderThemeLabButton(db, themeConfig, langInfo);
-      const themeLabModal = renderThemeLabModal(db, themeConfig, langInfo);
+      const customThemeLab = callComponent(registry, slots.themeLab, db);
+      const themeLabModal = customThemeLab != null
+        ? customThemeLab
+        : renderThemeLabModal(db, themeConfig, langInfo);
       const showThemeButton = shouldRenderThemeLabButton(db);
 
       return D.Containers.Div({
@@ -625,6 +628,9 @@
       return Object.assign({}, navOrders, themeOrders);
     }
   };
+
+  PagesShell.applyThemeOverrides = applyThemeOverrides;
+  PagesShell.sanitizeThemeOverrides = sanitizeOverrides;
 
   Templates.PagesShell = PagesShell;
 })(typeof window !== 'undefined' ? window : this);
