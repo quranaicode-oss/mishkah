@@ -48,7 +48,7 @@ def({
   'card/desc':      'text-sm text-[var(--muted-foreground)]',
 
   // bars
-  'toolbar':        'sticky top-0 z-40 flex h-14 w-full shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 84%, transparent)]/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 82%, transparent)]/75',
+  'toolbar':        'sticky top-0 z-[520] flex h-14 w-full shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 84%, transparent)]/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 82%, transparent)]/75',
   'toolbar/section':'flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
   'toolbar/section-end':'flex shrink-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
   'toolbar/group':  'flex shrink-0 items-center gap-2 rounded-full border border-[color-mix(in oklab,var(--border) 70%, transparent)] bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-3 py-1.5 shadow-sm backdrop-blur-sm',
@@ -611,7 +611,7 @@ UI.AppRoot = ({ shell, overlays }) =>
 UI.Toolbar = ({ left=[], right=[] }) => {
   const leftContent = Array.isArray(left) ? left.filter(Boolean) : [];
   const rightContent = Array.isArray(right) ? right.filter(Boolean) : [];
-  return h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}` }}, [
+  return h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}`, style:'--toolbar-height:3.5rem;' }}, [
     h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section')}` }}, leftContent),
     h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section-end')}` }}, rightContent),
   ]);
