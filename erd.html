@@ -360,6 +360,28 @@
       }));
     }
 
+    function createBlankColumnRow(table){
+      const baseIndex = (table?.fields?.length || 0) + 1;
+      const baseName = `column_${baseIndex}`;
+      const uniqueName = table ? ensureUniqueFieldName(table, baseName) : baseName;
+      const key = `${uniqueName}_${Date.now()}`;
+      return {
+        key,
+        originalName:'',
+        name: uniqueName,
+        type:'string',
+        length: typeSupportsLength('string') ? defaultLengthForType('string') : '',
+        precision:'',
+        scale:'',
+        nullable:true,
+        defaultValue:'',
+        primaryKey:false,
+        unique:false,
+        index:false,
+        references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
+      };
+    }
+
     function defaultLengthForType(type){
       if(type === 'string' || type === 'text') return '4000';
       return '';
@@ -651,6 +673,8 @@
         const selection = state?.selection || {};
         const palette = state?.palette || {};
         const zoom = state?.zoom;
+        const direction = (state?.direction || '').toLowerCase();
+        const isRTL = direction === 'rtl';
 
         this.clear();
         console.debug('[Mishkah][ERD] SVG driver render', tables.length, 'tables');
@@ -717,6 +741,7 @@
           this.nodeCache.set(node.id, node);
           const group = document.createElementNS(svgNS, 'g');
           group.setAttribute('data-node-id', node.id);
+          group.setAttribute('data-table-name', node.table?.name || node.id);
           group.setAttribute('transform', `translate(${node.x} ${node.y})`);
 
           const body = document.createElementNS(svgNS, 'rect');
@@ -758,24 +783,31 @@
 
           const tableMeta = node.table || {};
           const title = document.createElementNS(svgNS, 'text');
-          title.setAttribute('x', '20');
+          const headerX = isRTL ? node.width - 20 : 20;
+          title.setAttribute('x', String(headerX));
           title.setAttribute('y', '28');
           title.setAttribute('fill', colors.headerText);
           title.setAttribute('font-size', '14');
           title.setAttribute('font-weight', '700');
           title.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+          if(isRTL){
+            title.setAttribute('text-anchor', 'end');
+          }
           title.textContent = truncateText(tableMeta.displayName || tableMeta.label || tableMeta.name || node.id, 26);
           title.setAttribute('clip-path', `url(#${clipId})`);
 
           let subtitleNode = null;
           if(tableMeta.label && tableMeta.label !== tableMeta.name){
             subtitleNode = document.createElementNS(svgNS, 'text');
-            subtitleNode.setAttribute('x', '20');
+            subtitleNode.setAttribute('x', String(headerX));
             subtitleNode.setAttribute('y', '44');
             subtitleNode.setAttribute('fill', colors.headerSubtle);
             subtitleNode.setAttribute('font-size', '11');
             subtitleNode.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
             subtitleNode.setAttribute('clip-path', `url(#${clipId})`);
+            if(isRTL){
+              subtitleNode.setAttribute('text-anchor', 'end');
+            }
             subtitleNode.textContent = truncateText(tableMeta.label, 32);
           }
 
@@ -790,40 +822,59 @@
             rowRect.setAttribute('width', String(node.width));
             rowRect.setAttribute('height', String(ROW_HEIGHT));
             rowRect.setAttribute('fill', idx % 2 === 0 ? colors.rowEven : colors.rowOdd);
+            rowRect.setAttribute('data-field-name', field.name);
+            rowRect.setAttribute('data-table-name', node.table?.name || node.id);
 
             const display = field.display || buildFieldDisplay(field);
             const baseY = rowTop + ROW_HEIGHT / 2 + 1;
 
             const nameText = document.createElementNS(svgNS, 'text');
-            nameText.setAttribute('x', display.badges ? '40' : '20');
+            const nameX = isRTL
+              ? node.width - (display.badges ? 44 : 20)
+              : (display.badges ? 40 : 20);
+            nameText.setAttribute('x', String(nameX));
             nameText.setAttribute('y', String(baseY));
             nameText.setAttribute('fill', colors.fieldText);
             nameText.setAttribute('font-size', '12');
             nameText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
             nameText.setAttribute('dominant-baseline', 'middle');
             nameText.setAttribute('font-weight', field.pk ? '700' : '500');
+            nameText.setAttribute('data-field-name', field.name);
+            nameText.setAttribute('data-table-name', node.table?.name || node.id);
+            if(isRTL){
+              nameText.setAttribute('text-anchor', 'end');
+            }
             nameText.textContent = display.label || field.name;
 
             if(display.badges){
               const badgeText = document.createElementNS(svgNS, 'text');
-              badgeText.setAttribute('x', '20');
+              const badgeX = isRTL ? node.width - 20 : 20;
+              badgeText.setAttribute('x', String(badgeX));
               badgeText.setAttribute('y', String(baseY));
               badgeText.setAttribute('fill', colors.badge);
               badgeText.setAttribute('font-size', '11');
               badgeText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
               badgeText.setAttribute('dominant-baseline', 'middle');
+              badgeText.setAttribute('data-field-name', field.name);
+              badgeText.setAttribute('data-table-name', node.table?.name || node.id);
+              if(isRTL){
+                badgeText.setAttribute('text-anchor', 'end');
+              }
               badgeText.textContent = display.badges;
               rowsGroup.appendChild(badgeText);
             }
 
             const typeText = document.createElementNS(svgNS, 'text');
-            typeText.setAttribute('x', String(node.width - 20));
+            const typeX = isRTL ? 20 : (node.width - 20);
+            typeText.setAttribute('x', String(typeX));
             typeText.setAttribute('y', String(baseY));
             typeText.setAttribute('fill', colors.fieldType);
             typeText.setAttribute('font-size', '11');
             typeText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
             typeText.setAttribute('dominant-baseline', 'middle');
-            typeText.setAttribute('text-anchor', 'end');
+            typeText.setAttribute('data-field-name', field.name);
+            typeText.setAttribute('data-table-name', node.table?.name || node.id);
+            typeText.setAttribute('text-anchor', isRTL ? 'start' : 'end');
             typeText.textContent = display.type || field.type || '';
 
             rowsGroup.appendChild(rowRect);
@@ -1301,12 +1352,16 @@
     function buildDriverStateSnapshot(state, host){
       const registry = getRegistry(state);
       const layout = computeLayout(registry, state.data.layout);
-      const tables = registry.list().map(table => ({
-        id: table.name,
-        name: table.name,
-        label: table.label || '',
-        displayName: formatIdentifier(table.name),
-        fields: (table.fields || []).map(field => ({
+      const hiddenTables = new Set((state.ui?.hiddenTables || []).map(name => String(name)));
+      const direction = (state.env?.dir || (typeof document !== 'undefined' ? document.documentElement.getAttribute('dir') : '') || 'ltr').toLowerCase();
+      const tables = registry.list()
+        .filter(table => !hiddenTables.has(table.name))
+        .map(table => ({
+          id: table.name,
+          name: table.name,
+          label: table.label || '',
+          displayName: formatIdentifier(table.name),
+          fields: (table.fields || []).map(field => ({
           name: field.name,
           type: field.type,
           pk: !!field.primaryKey,
@@ -1383,6 +1438,8 @@
         canvasMode,
         storedZoom,
         bounds,
+        direction,
+        hidden: Array.from(hiddenTables),
       };
     }
 
@@ -1397,10 +1454,90 @@
       });
     }
 
+    function closeContextMenu(){
+      if(!erdAppInstance) return;
+      erdAppInstance.setState(s => ({
+        ...s,
+        ui:{
+          ...(s.ui || {}),
+          contextMenu:{ open:false, x:0, y:0, type:'canvas', table:'', field:'' }
+        }
+      }));
+      erdAppInstance.rebuild();
+    }
+
+    function openContextMenu(payload){
+      if(!erdAppInstance || !payload) return;
+      const { clientX = 0, clientY = 0, type = 'canvas', table = '', field = '' } = payload;
+      const clampedX = Math.max(0, clientX);
+      const clampedY = Math.max(0, clientY);
+      erdAppInstance.setState(s => ({
+        ...s,
+        ui:{
+          ...(s.ui || {}),
+          contextMenu:{
+            open:true,
+            x: clampedX,
+            y: clampedY,
+            type,
+            table,
+            field
+          }
+        }
+      }));
+      erdAppInstance.rebuild();
+    }
+
+    function ensureContextMenuHandlers(host){
+      if(!host || host.__mishkahContextMenuAttached) return;
+      const handleContextMenu = event => {
+        if(!erdAppInstance) return;
+        if(event) event.preventDefault();
+        const target = event?.target;
+        if(!target || typeof target.closest !== 'function'){
+          openContextMenu({
+            clientX: event?.clientX,
+            clientY: event?.clientY,
+            type:'canvas'
+          });
+          return;
+        }
+        const fieldElement = target.closest('[data-field-name]');
+        if(fieldElement){
+          openContextMenu({
+            clientX: event?.clientX,
+            clientY: event?.clientY,
+            type:'field',
+            field: fieldElement.getAttribute('data-field-name') || '',
+            table: fieldElement.getAttribute('data-table-name') || (fieldElement.closest('[data-table-name]')?.getAttribute('data-table-name') || '')
+          });
+          return;
+        }
+        const tableElement = target.closest('[data-table-name]');
+        if(tableElement){
+          openContextMenu({
+            clientX: event?.clientX,
+            clientY: event?.clientY,
+            type:'table',
+            table: tableElement.getAttribute('data-table-name') || tableElement.getAttribute('data-node-id') || ''
+          });
+          return;
+        }
+        openContextMenu({
+          clientX: event?.clientX,
+          clientY: event?.clientY,
+          type:'canvas'
+        });
+      };
+      host.addEventListener('contextmenu', handleContextMenu);
+      host.__mishkahContextMenuAttached = true;
+    }
+
     function ensureDriverInstance(state){
       if(typeof window === 'undefined') return null;
       const host = document.getElementById('erd-diagram');
       if(!host) return null;
+      ensureContextMenuHandlers(host);
       const driverKey = (state?.env?.graph?.driver || 'fake').toLowerCase();
       if(erdDriver && activeDriverName === driverKey){
         return erdDriver;
@@ -1924,7 +2061,9 @@
           },
           columns:{ table:firstTable || '', rows: buildColumnsFormRows(activeRegistry.get(firstTable || '')) }
         },
-        toolbar:{ exportOpen:false }
+        toolbar:{ exportOpen:false },
+        contextMenu:{ open:false, x:0, y:0, type:'canvas', table:'', field:'' },
+        hiddenTables:[]
       }
     };
 
@@ -1935,6 +2074,14 @@
         console.warn('[Mishkah][ERD] schema parse failed', error);
         return new Schema.Registry();
       }
+    }
+
+    function buildInteractionContext(db){
+      const registry = getRegistry(db);
+      const selection = db.data?.selection || {};
+      const table = selection.table ? registry.get(selection.table) : null;
+      const field = table && selection.field ? table.getField(selection.field) : null;
+      return { registry, selection, table, field };
     }
 
     function ensureLayout(db, tableName, options = {}){
@@ -1991,6 +2138,196 @@
       if(idx >= 0) items[idx] = entry; else items.push(entry);
       items.sort((a,b)=> (b.updatedAt || 0) - (a.updatedAt || 0));
       return items;
+    }
+
+    function toggleTableVisibility(ctx, tableName){
+      if(!tableName) return;
+      ctx.setState(s => {
+        const hidden = new Set((s.ui?.hiddenTables || []).map(name => String(name)));
+        if(hidden.has(tableName)) hidden.delete(tableName); else hidden.add(tableName);
+        const nextHidden = Array.from(hidden);
+        let nextData = s.data;
+        if(hidden.has(tableName) && s.data?.selection?.table === tableName){
+          nextData = { ...(s.data || {}), selection:{ table:null, field:null } };
+        }
+        return {
+          ...s,
+          data: nextData,
+          ui:{ ...(s.ui || {}), hiddenTables: nextHidden }
+        };
+      });
+      ctx.rebuild();
+    }
+
+    function openColumnsManager(ctx, tableName){
+      const state = ctx.getState();
+      const registry = getRegistry(state);
+      const targetName = tableName && registry.get(tableName) ? tableName : (registry.list()[0]?.name || '');
+      const tableEntity = targetName ? registry.get(targetName) : null;
+      const rows = buildColumnsFormRows(tableEntity);
+      ctx.setState(s => ({
+        ...s,
+        ui:{
+          ...(s.ui || {}),
+          modals:{ ...(s.ui?.modals || {}), columns:true },
+          form:{ ...(s.ui?.form || {}), columns:{ table: targetName, rows } }
+        }
+      }));
+      ctx.rebuild();
+    }
+
+    function openRelationModal(ctx, tableName, fieldName){
+      ctx.setState(s => ({
+        ...s,
+        ui:{
+          ...(s.ui || {}),
+          modals:{ ...(s.ui?.modals || {}), relation:true },
+          form:{
+            ...(s.ui?.form || {}),
+            relation:{
+              sourceTable: tableName || s.data?.selection?.table || '',
+              sourceField: fieldName || s.data?.selection?.field || '',
+              targetTable:'',
+              targetField:'',
+              onDelete:'CASCADE',
+              onUpdate:'CASCADE'
+            }
+          }
+        }
+      }));
+      ctx.rebuild();
+    }
+
+    function autoLayoutDiagram(ctx){
+      const state = ctx.getState();
+      const registry = getRegistry(state);
+      const layout = computeLayout(registry, {});
+      let nextState = null;
+      ctx.setState(s => {
+        const now = Date.now();
+        const schemaJSON = registry.toJSON();
+        const record = {
+          id: s.data.schemaId,
+          name: s.data.schemaMeta?.name || '',
+          title: s.data.schemaMeta?.title || '',
+          description: s.data.schemaMeta?.description || '',
+          schema: schemaJSON,
+          layout,
+          canvas: Object.assign({}, s.data.canvas || {}, { mode:'auto' }),
+          createdAt: s.data.schemaCreatedAt,
+          updatedAt: now
+        };
+        const draft = {
+          ...s,
+          data:{
+            ...s.data,
+            schema: schemaJSON,
+            layout,
+            canvas: Object.assign({}, s.data.canvas || {}, { mode:'auto' }),
+            schemaUpdatedAt: now,
+            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
+          }
+        };
+        nextState = draft;
+        return draft;
+      });
+      ctx.rebuild();
+      if(nextState){
+        schedulePersist(recordFromState(nextState));
+      }
+    }
+
+    async function pasteSchemaFromClipboard(ctx){
+      if(typeof navigator === 'undefined' || !navigator.clipboard || typeof navigator.clipboard.readText !== 'function'){
+        UI.pushToast(ctx, { title:'تعذر الوصول إلى الحافظة', icon:'⚠️' });
+        return;
+      }
+      try{
+        const text = await navigator.clipboard.readText();
+        if(!text){
+          UI.pushToast(ctx, { title:'الحافظة فارغة', icon:'⚠️' });
+          return;
+        }
+        ctx.setState(s => ({
+          ...s,
+          ui:{
+            ...(s.ui || {}),
+            modals:{ ...(s.ui?.modals || {}), import:true },
+            form:{ ...(s.ui?.form || {}), import:{ name: s.data.schemaMeta?.name || '', title: s.data.schemaMeta?.title || '', targetId: s.data.schemaId || '', text } }
+          }
+        }));
+        ctx.rebuild();
+        UI.pushToast(ctx, { title:'تم جلب المخطط من الحافظة', icon:'📋' });
+      } catch(error){
+        console.warn('[Mishkah][ERD] clipboard paste failed', error);
+        UI.pushToast(ctx, { title:'تعذر قراءة الحافظة', message:String(error), icon:'🛑' });
+      }
+    }
+
+    function toggleFieldProperty(ctx, tableName, fieldName, property){
+      if(!tableName || !fieldName || !property) return;
+      const state = ctx.getState();
+      const registry = getRegistry(state);
+      const table = registry.get(tableName);
+      if(!table){
+        UI.pushToast(ctx, { title:'الجدول غير موجود', icon:'⚠️' });
+        return;
+      }
+      const field = table.getField(fieldName);
+      if(!field){
+        UI.pushToast(ctx, { title:'الحقل غير موجود', icon:'⚠️' });
+        return;
+      }
+      const patch = {};
+      if(property === 'primaryKey'){
+        patch.primaryKey = !field.primaryKey;
+        if(!field.primaryKey) patch.nullable = false;
+      } else if(property === 'nullable'){
+        patch.nullable = field.nullable === false;
+      } else if(property === 'unique'){
+        patch.unique = !field.unique;
+      } else if(property === 'index'){
+        patch.index = !field.index;
+      }
+      try{
+        table.updateField(fieldName, patch);
+      } catch(error){
+        console.warn('[Mishkah][ERD] field toggle failed', error);
+        UI.pushToast(ctx, { title:'تعذر تحديث الحقل', message:String(error), icon:'🛑' });
+        return;
+      }
+      const schemaJSON = registry.toJSON();
+      let nextState = null;
+      ctx.setState(s => {
+        const now = Date.now();
+        const record = {
+          id: s.data.schemaId,
+          name: s.data.schemaMeta?.name || '',
+          title: s.data.schemaMeta?.title || '',
+          description: s.data.schemaMeta?.description || '',
+          schema: schemaJSON,
+          layout: s.data.layout,
+          canvas: s.data.canvas,
+          createdAt: s.data.schemaCreatedAt,
+          updatedAt: now
+        };
+        const draft = {
+          ...s,
+          data:{
+            ...s.data,
+            schema: schemaJSON,
+            schemaUpdatedAt: now,
+            library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
+          }
+        };
+        nextState = draft;
+        return draft;
+      });
+      ctx.rebuild();
+      if(nextState){
+        schedulePersist(recordFromState(nextState));
+      }
+      UI.pushToast(ctx, { title:'تم تحديث الحقل', icon:'✅' });
     }
 
     const schedulePersist = (function(){
@@ -2601,6 +2938,17 @@
           })
         : [D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['لا توجد أعمدة بعد لهذا الجدول.'])];
 
+      const columnsHeader = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [
+          currentTableName ? `أعمدة الجدول: ${formatIdentifier(currentTableName)}` : 'أعمدة الجدول'
+        ]),
+        UI.Button({
+          attrs:{ gkey:'erd:columns:add-row', 'data-table': currentTableName || '' },
+          variant:'soft',
+          size:'sm'
+        }, ['➕ عمود جديد'])
+      ]);
+
       return UI.Modal({
         open,
         size:'xl',
@@ -2613,7 +2961,7 @@
               D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, ['الجداول']),
               tableNav
             ]),
-            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1` }}, rowElements)
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1` }}, [columnsHeader, ...rowElements])
           ])
         ],
         actions:[
@@ -2621,6 +2969,127 @@
           UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق'])
         ]
       });
+    }
+
+    function buildContextMenuSections(menu, db){
+      const sections = [];
+      const registry = getRegistry(db);
+      const hiddenTables = new Set((db.ui?.hiddenTables || []).map(name => String(name)));
+      if(menu.type === 'canvas'){
+        sections.push({
+          label:'المخطط',
+          items:[
+            { id:'canvas:new-table', label:'Create New Table | إنشاء جدول', icon:'➕' },
+            { id:'canvas:auto-layout', label:'Auto-Layout', icon:'📐' },
+            { id:'canvas:fit', label:'Fit to Screen', icon:'🗺️' },
+            { id:'canvas:paste', label:'Paste', icon:'📋' },
+            { id:'canvas:import', label:'Import…', icon:'⬇️' }
+          ]
+        });
+        return sections;
+      }
+      if(menu.type === 'table'){
+        const table = menu.table ? registry.get(menu.table) : null;
+        const tableLabel = table ? formatIdentifier(table.name) : (menu.table || 'جدول');
+        const isHidden = menu.table && hiddenTables.has(menu.table);
+        sections.push({
+          label:`${tableLabel}`,
+          items:[
+            { id:'table:rename', label:'إعادة تسمية الجدول', icon:'✏️', table: menu.table },
+            { id:'table:duplicate', label:'تكرار الجدول', icon:'🧬', table: menu.table },
+            { id:'table:delete', label:'حذف الجدول', icon:'🗑️', table: menu.table }
+          ]
+        });
+        sections.push({
+          label:'البنية',
+          items:[
+            { id:'table:columns', label:'إدارة الأعمدة', icon:'🗂️', table: menu.table },
+            { id:'table:add-unique', label:'إضافة قيد فريد', icon:'☆', table: menu.table },
+            { id:'table:add-index', label:'إضافة فهرس', icon:'#', table: menu.table },
+            { id:'table:generate-fk', label:'توليد علاقة خارجية', icon:'🔗', table: menu.table }
+          ]
+        });
+        sections.push({
+          label:'المخرجات',
+          items:[
+            { id:'table:export-sql', label:'تصدير هذا الجدول (SQL)', icon:'💾', table: menu.table },
+            { id:'table:export-json', label:'تصدير هذا الجدول (JSON)', icon:'📤', table: menu.table },
+            { id:'table:toggle-visibility', label: isHidden ? 'إظهار في المشهد' : 'إخفاء في المشهد', icon: isHidden ? '👁️' : '🚫', table: menu.table }
+          ]
+        });
+        return sections;
+      }
+      if(menu.type === 'field'){
+        const table = menu.table ? registry.get(menu.table) : null;
+        const field = table && menu.field ? table.getField(menu.field) : null;
+        const label = field ? formatIdentifier(field.name) : (menu.field || 'حقل');
+        sections.push({
+          label:`${label}`,
+          items:[
+            { id:'field:rename', label:'إعادة تسمية الحقل', icon:'✏️', table: menu.table, field: menu.field },
+            { id:'field:type', label:'تغيير نوع الحقل', icon:'🔄', table: menu.table, field: menu.field },
+            { id:'field:length', label:'ضبط الطول/الدقة', icon:'📏', table: menu.table, field: menu.field }
+          ]
+        });
+        if(field){
+          sections.push({
+            label:'الخصائص',
+            items:[
+              { id:'field:pk', label: field.primaryKey ? 'إلغاء المفتاح الأساسي' : 'تعيين كمفتاح أساسي', icon:'🔑', table: menu.table, field: menu.field },
+              { id:'field:null', label: field.nullable === false ? 'السماح بالقيم الفارغة' : 'فرض Not Null', icon:'∅', table: menu.table, field: menu.field },
+              { id:'field:unique', label: field.unique ? 'إزالة من القيد الفريد' : 'إضافة إلى القيد الفريد', icon:'☆', table: menu.table, field: menu.field },
+              { id:'field:index', label: field.index ? 'إزالة من الفهرس' : 'إضافة إلى الفهرس', icon:'#', table: menu.table, field: menu.field }
+            ]
+          });
+        }
+        sections.push({
+          label:'العلاقات',
+          items:[
+            { id:'field:create-fk', label:'Create FK from this field', icon:'🔗', table: menu.table, field: menu.field }
+          ]
+        });
+        return sections;
+      }
+      return sections;
+    }
+
+    function ContextMenu(db){
+      const menu = db.ui?.contextMenu || {};
+      if(!menu.open) return null;
+      const sections = buildContextMenuSections(menu, db).filter(section => Array.isArray(section.items) && section.items.length);
+      if(!sections.length) return null;
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+      const menuWidth = 260;
+      const safeLeft = viewportWidth ? Math.min(menu.x, Math.max(0, viewportWidth - menuWidth - 12)) : menu.x;
+      const safeTop = viewportHeight ? Math.min(menu.y, Math.max(0, viewportHeight - 24 - 12)) : menu.y;
+      const sectionNodes = sections.map(section => {
+        const header = section.label
+          ? D.Text.Span({ attrs:{ class: tw`px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]` }}, [section.label])
+          : null;
+        const items = section.items.map(item => UI.Button({
+          attrs:{
+            gkey:'erd:context:action',
+            'data-action': item.id,
+            'data-table': item.table || menu.table || '',
+            'data-field': item.field || menu.field || '',
+            class: tw`w-full justify-start gap-2`
+          },
+          disabled: !!item.disabled,
+          variant:'ghost',
+          size:'sm'
+        }, [
+          item.icon ? D.Text.Span({ attrs:{ class: tw`text-base` }}, [item.icon]) : null,
+          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [item.label])
+        ].filter(Boolean)));
+        return D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [header, ...items.filter(Boolean)].filter(Boolean));
+      });
+      return D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[80] pointer-events-none` }}, [
+        D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-auto`, gkey:'erd:context:close' }}, []),
+        D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:`left:${safeLeft}px;top:${safeTop}px;` }}, [
+          D.Containers.Div({ attrs:{ class: tw`min-w-[220px] max-w-[280px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 p-2 shadow-2xl flex flex-col gap-2` }}, sectionNodes)
+        ])
+      ]);
     }
 
     function Modals(db){
@@ -2643,6 +3112,7 @@
           Toolbar(db),
           SchemaCanvas(db)
         ]),
+        ContextMenu(db),
         ...Modals(db)
       ]);
     }
@@ -3450,6 +3920,36 @@
           ctx.rebuild();
         }
       },
+      'erd.columns.add-row':{
+        on:['click'],
+        gkeys:['erd:columns:add-row'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-table]');
+          const state = ctx.getState();
+          const registry = getRegistry(state);
+          const columnsForm = state.ui?.form?.columns || {};
+          const requestedTable = button?.getAttribute('data-table') || '';
+          const activeTableName = requestedTable || columnsForm.table || state.data?.selection?.table || '';
+          const table = activeTableName ? registry.get(activeTableName) : null;
+          const nextRow = createBlankColumnRow(table);
+          ctx.setState(s=>{
+            const currentForm = s.ui?.form?.columns || {};
+            const rows = Array.isArray(currentForm.rows) ? currentForm.rows.slice() : [];
+            rows.push(nextRow);
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{
+                  ...(s.ui?.form || {}),
+                  columns:{ table: activeTableName, rows }
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
       'erd.columns.select-table':{
         on:['click'],
         gkeys:['erd:columns:select-table'],
@@ -3748,6 +4248,154 @@
           ctx.rebuild();
           if(persistRecord) schedulePersist(recordFromState(nextState));
           UI.pushToast(ctx, { title:'تم حفظ الأعمدة بنجاح', icon:'✅' });
+        }
+      },
+      'erd.context.close':{
+        on:['click'],
+        gkeys:['erd:context:close'],
+        handler:()=>{
+          closeContextMenu();
+        }
+      },
+      'erd.context.action':{
+        on:['click'],
+        gkeys:['erd:context:action'],
+        handler:async (event, ctx)=>{
+          const button = event.target.closest('[data-action]');
+          if(!button) return;
+          const action = button.getAttribute('data-action');
+          const tableName = button.getAttribute('data-table') || '';
+          const fieldName = button.getAttribute('data-field') || '';
+          closeContextMenu();
+          switch(action){
+            case 'canvas:new-table':{
+              ctx.setState(s=>({
+                ...s,
+                ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), table:true } }
+              }));
+              ctx.rebuild();
+              break;
+            }
+            case 'canvas:auto-layout':
+              autoLayoutDiagram(ctx);
+              break;
+            case 'canvas:fit':{
+              const driver = ensureDriverInstance(ctx.getState());
+              if(driver && typeof driver.fitToScreen === 'function'){
+                try { driver.fitToScreen(16); }
+                catch(error){ console.warn('[Mishkah][ERD] fit failed', error); }
+              }
+              break;
+            }
+            case 'canvas:paste':
+              await pasteSchemaFromClipboard(ctx);
+              break;
+            case 'canvas:import':{
+              const state = ctx.getState();
+              const payload = {
+                name: state.data.schemaMeta?.name || '',
+                title: state.data.schemaMeta?.title || '',
+                description: state.data.schemaMeta?.description || '',
+                schema: state.data.schema,
+                layout: state.data.layout,
+                canvas: state.data.canvas
+              };
+              ctx.setState(s=>({
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  modals:{ ...(s.ui?.modals || {}), import:true },
+                  form:{ ...(s.ui?.form || {}), import:{ name: payload.name, title: payload.title, targetId: s.data.schemaId || '', text: JSON.stringify(payload, null, 2) } }
+                }
+              }));
+              ctx.rebuild();
+              break;
+            }
+            case 'table:columns':
+              openColumnsManager(ctx, tableName);
+              break;
+            case 'table:add-unique':
+            case 'table:add-index':
+              openColumnsManager(ctx, tableName);
+              UI.pushToast(ctx, { title:'استخدم محرر الأعمدة لضبط القيود', icon:'ℹ️' });
+              break;
+            case 'table:generate-fk':
+              openRelationModal(ctx, tableName, '');
+              break;
+            case 'table:toggle-visibility':
+              toggleTableVisibility(ctx, tableName);
+              UI.pushToast(ctx, { title:'تم تحديث حالة الظهور', icon:'👁️' });
+              break;
+            case 'table:export-sql':{
+              const state = ctx.getState();
+              const registry = getRegistry(state);
+              const table = tableName ? registry.get(tableName) : null;
+              if(!table){
+                UI.pushToast(ctx, { title:'الجدول غير موجود', icon:'⚠️' });
+                break;
+              }
+              const sql = table.toSQL({ schemaName:'public' });
+              ctx.setState(s=>({
+                ...s,
+                data:{ ...(s.data || {}), sqlPreview: sql },
+                ui:{
+                  ...(s.ui || {}),
+                  modals:{ ...(s.ui?.modals || {}), exportSql:true },
+                  form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
+                }
+              }));
+              ctx.rebuild();
+              break;
+            }
+            case 'table:export-json':{
+              const state = ctx.getState();
+              const registry = getRegistry(state);
+              const table = tableName ? registry.get(tableName) : null;
+              if(!table){
+                UI.pushToast(ctx, { title:'الجدول غير موجود', icon:'⚠️' });
+                break;
+              }
+              const payload = { tables:[table.toJSON()] };
+              ctx.setState(s=>({
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  modals:{ ...(s.ui?.modals || {}), exportJson:true },
+                  form:{ ...(s.ui?.form || {}), export:{ text: JSON.stringify(payload, null, 2) } }
+                }
+              }));
+              ctx.rebuild();
+              break;
+            }
+            case 'field:pk':
+              toggleFieldProperty(ctx, tableName, fieldName, 'primaryKey');
+              break;
+            case 'field:null':
+              toggleFieldProperty(ctx, tableName, fieldName, 'nullable');
+              break;
+            case 'field:unique':
+              toggleFieldProperty(ctx, tableName, fieldName, 'unique');
+              break;
+            case 'field:index':
+              toggleFieldProperty(ctx, tableName, fieldName, 'index');
+              break;
+            case 'field:create-fk':
+              openRelationModal(ctx, tableName, fieldName);
+              break;
+            case 'field:rename':
+            case 'field:type':
+            case 'field:length':
+              openColumnsManager(ctx, tableName);
+              break;
+            case 'table:rename':
+            case 'table:duplicate':
+            case 'table:delete':
+              UI.pushToast(ctx, { title:'هذه الميزة قيد التطوير', icon:'🛠️' });
+              break;
+            default:
+              UI.pushToast(ctx, { title:'هذه الميزة قيد التطوير', icon:'🛠️' });
+              break;
+          }
         }
       },
       'erd.relation.add':{
