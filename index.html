@@ -45,8 +45,8 @@
         });
 
         const app = M.app.createApp(database, {});
-        const navOrders = template.createNavOrders(database.data.pages);
-        const orders = Object.assign({}, Index.orders, navOrders);
+        const templateOrders = template.createOrders(database);
+        const orders = Object.assign({}, Index.orders, templateOrders);
         const twx = M.utils.twcss.auto(database, app);
         app.setOrders(Object.assign({}, orders, M.UI.orders, twx.orders));
         app.mount('#app');

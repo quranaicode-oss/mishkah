@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mishkah Pages Template</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top, rgba(79, 70, 229, 0.08), transparent 55%),
+                    radial-gradient(circle at bottom, rgba(56, 189, 248, 0.12), transparent 60%),
+                    #f5f7ff;
+        color: #0f172a;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-ui.js"></script>
+    <script src="./template/pages-shell.js"></script>
+
+    <script>
+      (function setupSamplePages() {
+        const M = window.Mishkah;
+        const D = M.DSL;
+        const UI = M.UI;
+        const { tw } = M.utils.twcss;
+
+        function HeaderShell(db) {
+          const lang = (db.env && db.env.lang) || 'ar';
+          const title = lang === 'ar' ? 'لوحة صفحات جاهزة' : 'Pages quick-start shell';
+          const hint = lang === 'ar' ? 'بدّل اللغة أو الثيم فورًا' : 'Toggle language or theme instantly';
+          return D.Containers.Div({
+            attrs: { class: tw`mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4` }
+          }, [
+            D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+              D.Text.Strong({ attrs: { class: tw`text-lg sm:text-xl` } }, [title]),
+              D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [hint])
+            ]),
+            D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+              UI.Button({ attrs: { gkey: 'ui:lang-ar' }, variant: 'ghost', size: 'sm' }, ['AR']),
+              UI.Button({ attrs: { gkey: 'ui:lang-en' }, variant: 'ghost', size: 'sm' }, ['EN']),
+              UI.Button({ attrs: { gkey: 'ui:theme-toggle' }, variant: 'ghost', size: 'sm' }, ['🌓'])
+            ])
+          ]);
+        }
+
+        function FooterShell(db) {
+          const year = new Date().getFullYear();
+          const lang = (db.env && db.env.lang) || 'ar';
+          const text = lang === 'ar' ? 'قالب مشكاة — جاهز للتوصيل' : 'Mishkah template — plug & play';
+          return D.Containers.Div({
+            attrs: { class: tw`mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 text-sm` }
+          }, [
+            D.Text.Span({}, [`© ${year} ${text}`]),
+            D.Text.A({
+              attrs: {
+                href: 'https://github.com/mishkah-js',
+                target: '_blank',
+                rel: 'noreferrer',
+                class: tw`text-[var(--primary)] hover:underline`
+              }
+            }, ['Docs'])
+          ]);
+        }
+
+        function OverviewPage(db) {
+          const lang = (db.env && db.env.lang) || 'ar';
+          const stats = [
+            {
+              title: lang === 'ar' ? 'جلسات نشطة' : 'Active sessions',
+              value: '128',
+              meta: lang === 'ar' ? '+12% هذا الأسبوع' : '+12% this week'
+            },
+            {
+              title: lang === 'ar' ? 'طلبات مكتملة' : 'Completed orders',
+              value: '2,310',
+              meta: lang === 'ar' ? 'متوسط 45/يوم' : 'Avg 45/day'
+            },
+            {
+              title: lang === 'ar' ? 'معدل التحويل' : 'Conversion rate',
+              value: '8.6%',
+              meta: lang === 'ar' ? '+1.4 نقطة' : '+1.4 pts'
+            }
+          ];
+          const statGrid = D.Containers.Div({ attrs: { class: tw`grid gap-4 sm:grid-cols-3` } },
+            stats.map((item, index) => D.Containers.Div({ attrs: { key: `stat-${index}` } }, [
+              UI.StatCard({ title: item.title, value: item.value, meta: item.meta })
+            ]))
+          );
+
+          const actionLabel = lang === 'ar' ? 'تعرف على الـ DSL' : 'Learn the DSL';
+          const heroTitle = lang === 'ar'
+            ? 'كوّن لوحة من صفحات متعددة بمصفوفة واحدة فقط.'
+            : 'Compose a multi-page workspace from a single array.';
+          const heroDescription = lang === 'ar'
+            ? 'مرر المصفوفة وستقوم القوالب ببناء التنقل، ترتيب الصفحات، وتهيئة الأوامر تلقائيًا.'
+            : 'Pass the array and the shell wires navigation, ordering, and orders automatically.';
+
+          return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+            UI.Card({
+              title: heroTitle,
+              description: heroDescription,
+              content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+                statGrid,
+                D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center gap-3` } }, [
+                  UI.Button({ attrs: { gkey: 'pages:go:reports' }, variant: 'solid', size: 'sm' }, ['📊 ', lang === 'ar' ? 'عرض التقارير' : 'View reports']),
+                  D.Text.A({
+                    attrs: {
+                      href: 'https://github.com/mishkah-js/mishkah',
+                      target: '_blank',
+                      rel: 'noreferrer',
+                      class: tw`text-sm font-semibold text-[var(--primary)] hover:underline`
+                    }
+                  }, [`🔧 ${actionLabel}`])
+                ])
+              ])
+            })
+          ]);
+        }
+
+        function ReportsPage(db) {
+          const lang = (db.env && db.env.lang) || 'ar';
+          const rows = [
+            { region: lang === 'ar' ? 'الشمال' : 'North', revenue: '₪ 42,500', trend: '+12%' },
+            { region: lang === 'ar' ? 'الوسط' : 'Central', revenue: '₪ 38,120', trend: '+6%' },
+            { region: lang === 'ar' ? 'الجنوب' : 'South', revenue: '₪ 19,870', trend: '-3%' }
+          ];
+          const note = lang === 'ar'
+            ? 'الأرقام تمثيلية — يمكنك استبدالها ببيانات حية بسهولة.'
+            : 'Sample figures — replace them with live data instantly.';
+
+          return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+            UI.Card({
+              title: lang === 'ar' ? 'تقرير المبيعات' : 'Sales report',
+              description: lang === 'ar'
+                ? 'جدول مبني بواسطة UI.Table مع ترتيب الأعمدة جاهز.'
+                : 'A table rendered with UI.Table and ready-made column mapping.',
+              content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+                UI.Table({
+                  columns: [
+                    { key: 'region', label: lang === 'ar' ? 'المنطقة' : 'Region' },
+                    { key: 'revenue', label: lang === 'ar' ? 'الإيراد' : 'Revenue' },
+                    { key: 'trend', label: lang === 'ar' ? 'التغير' : 'Change' }
+                  ],
+                  rows
+                }),
+                D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [note])
+              ])
+            })
+          ]);
+        }
+
+        window.MishkahPagesTemplate = {
+          head: { title: 'Mishkah Pages Shell' },
+          env: { theme: 'light', lang: 'ar', dir: 'rtl' },
+          pages: [
+            { key: 'overview', order: 1, icon: '✨', label: { ar: 'نظرة عامة', en: 'Overview' }, comp: 'OverviewPage' },
+            { key: 'reports', order: 2, icon: '📊', label: { ar: 'التقارير', en: 'Reports' }, comp: 'ReportsPage' },
+            {
+              key: 'settings',
+              order: 3,
+              icon: '⚙️',
+              label: { ar: 'إعدادات سريعة', en: 'Quick settings' },
+              dsl: function settingsDSL(db, helpers) {
+                const lang = (db.env && db.env.lang) || 'ar';
+                const { tw } = helpers;
+                return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+                  UI.Card({
+                    title: lang === 'ar' ? 'تخصيص واجهة القالب' : 'Template preferences',
+                    description: lang === 'ar'
+                      ? 'كل عنصر هنا يستخدم الذرات الرسمية (Forms + Inputs).' 
+                      : 'Every element here is assembled with the official DSL atoms.',
+                    content: D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+                      UI.Field({
+                        label: lang === 'ar' ? 'إشعارات البريد' : 'Email notifications',
+                        control: UI.Input({ attrs: { type: 'checkbox', checked: 'checked', disabled: 'disabled' } })
+                      }),
+                      UI.Field({
+                        label: lang === 'ar' ? 'اللغة الافتراضية' : 'Default language',
+                        control: UI.Select({
+                          attrs: { disabled: 'disabled', value: (db.env && db.env.lang) || 'ar' },
+                          options: [
+                            { value: 'ar', label: 'العربية' },
+                            { value: 'en', label: 'English' }
+                          ]
+                        })
+                      }),
+                      UI.Button({ attrs: { gkey: 'pages:theme:lab:open' }, variant: 'solid', size: 'sm' }, ['🎨 ', lang === 'ar' ? 'تخصيص الألوان' : 'Customize colors'])
+                    ])
+                  })
+                ]);
+              }
+            }
+          ],
+          registry: {
+            HeaderShell,
+            FooterShell,
+            OverviewPage,
+            ReportsPage
+          },
+          slots: {
+            header: 'HeaderShell',
+            footer: 'FooterShell'
+          },
+          themeLab: {
+            text: {
+              button: { ar: 'محرر الألوان', en: 'Theme lab' },
+              title: { ar: 'تحكم في متغيرات CSS', en: 'Control CSS variables' },
+              description: {
+                ar: 'عدّل الألوان الرئيسية ثم احفظها عبر أوامر القالب المدمجة.',
+                en: 'Adjust the key palette variables and persist them through the built-in orders.'
+              },
+              apply: { ar: 'حفظ التغييرات', en: 'Save changes' },
+              reset: { ar: 'استرجاع الافتراضي', en: 'Reset defaults' }
+            },
+            vars: [
+              { key: '--background', type: 'color' },
+              { key: '--foreground', type: 'color' },
+              { key: '--primary', type: 'color' },
+              { key: '--primary-foreground', type: 'color' },
+              { key: '--accent', type: 'color' },
+              { key: '--accent-foreground', type: 'color' }
+            ]
+          }
+        };
+
+        if (!Array.isArray(window.PAGES)) {
+          window.PAGES = window.MishkahPagesTemplate.pages.slice();
+        }
+        if (!window.PagesRegistry) {
+          window.PagesRegistry = Object.assign({}, window.MishkahPagesTemplate.registry);
+        }
+      })();
+    </script>
+
+    <script>
+      (function bootstrapPagesShell() {
+        const M = window.Mishkah;
+        const template = M.templates.PagesShell;
+        const config = window.MishkahPagesTemplate || {};
+        const pages = Array.isArray(config.pages) ? config.pages.slice() : [];
+        const registry = Object.assign({}, config.registry || {});
+        const head = Object.assign({ title: 'Mishkah Pages Shell' }, config.head || {});
+        const env = Object.assign({ theme: 'light', lang: 'ar', dir: 'rtl' }, config.env || {});
+        const active = config.active || (pages[0] && pages[0].key) || null;
+
+        const database = {
+          head,
+          env,
+          data: {
+            pages,
+            active,
+            themeLab: config.themeLab || { enabled: true },
+            slots: config.slots || {},
+            registry
+          },
+          registry,
+          slots: config.slots || {}
+        };
+
+        M.app.setBody(function renderApp(db) {
+          db.head = head;
+          return template.render(db);
+        });
+
+        const app = M.app.createApp(database, {});
+        const templateOrders = template.createOrders(database);
+        const auto = M.utils.twcss.auto(database, app);
+        app.setOrders(Object.assign({}, templateOrders, M.UI.orders, auto.orders));
+        app.mount('#app');
+      })();
+    </script>
+  </body>
+</html>
