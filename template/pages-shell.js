@@ -374,6 +374,16 @@
     });
   }
 
+  function shouldRenderThemeLabButton(db) {
+    const ui = ensureDict(db.ui);
+    const shell = ensureDict(ui.pagesShell);
+    const themeLabUi = ensureDict(shell.themeLab);
+    if (Object.prototype.hasOwnProperty.call(themeLabUi, 'showButton')) {
+      return themeLabUi.showButton !== false;
+    }
+    return true;
+  }
+
   function sanitizeOverrides(raw, config) {
     const list = config.vars;
     const allowedKeys = new Set(list.map((item) => item.key));
@@ -544,6 +554,7 @@
       const pageNode = renderPage(db, registry, pages, activeKey);
       const themeLabButton = renderThemeLabButton(db, themeConfig, langInfo);
       const themeLabModal = renderThemeLabModal(db, themeConfig, langInfo);
+      const showThemeButton = shouldRenderThemeLabButton(db);
 
       return D.Containers.Div({
         attrs: {
@@ -573,7 +584,7 @@
                   class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] p-6 shadow-sm space-y-6`
                 }
               }, [
-                themeLabButton ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [themeLabButton]) : null,
+                showThemeButton && themeLabButton ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [themeLabButton]) : null,
                 pageNode
               ].filter(Boolean))
             ])

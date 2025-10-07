@@ -8,7 +8,14 @@
   const D = M.DSL;
   const UI = M.UI;
   const U = M.utils;
-  const { tw, cx } = U.twcss;
+  const { tw, cx, setTheme, setDir } = U.twcss;
+
+  const ensureDict = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+
+  const DEFAULT_LANG_OPTIONS = [
+    { code: 'ar', label: { ar: 'العربية', en: 'Arabic' } },
+    { code: 'en', label: { ar: 'الإنجليزية', en: 'English' } }
+  ];
 
   /* ------------------------------------------------------------------ */
   /* i18n helpers                                                        */
@@ -23,6 +30,12 @@
     'header.lang.ar': { ar: 'العربية', en: 'Arabic' },
     'header.lang.en': { ar: 'الإنجليزية', en: 'English' },
     'header.theme.toggle': { ar: 'تبديل الثيم', en: 'Toggle theme' },
+    'header.theme.label': { ar: 'الثيم الجاهز', en: 'Theme preset' },
+    'header.theme.lab': { ar: 'فتح معمل الثيم المتقدم', en: 'Open advanced theme lab' },
+    'header.theme.presets.modern-dark': { ar: 'ليل مشكاة', en: 'Mishkah Midnight' },
+    'header.theme.presets.modern-light': { ar: 'نهار مشكاة', en: 'Mishkah Dawn' },
+    'header.theme.presets.amber-dusk': { ar: 'شفق عنبري', en: 'Amber Dusk' },
+    'header.lang.label': { ar: 'اللغة', en: 'Language' },
     'nav.counter': { ar: 'العداد', en: 'Counter' },
     'nav.proverbs': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
     'nav.sequence': { ar: 'لعبة المتواليات', en: 'Sequence Game' },
@@ -86,6 +99,127 @@
     'sequence.tryAgain': { ar: 'حاول مرة أخرى', en: 'Try again' },
     'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' }
   };
+
+  const DEFAULT_THEME_PRESETS = [
+    {
+      key: 'modern-dark',
+      mode: 'dark',
+      label: dict['header.theme.presets.modern-dark'],
+      overrides: {
+        '--background': 'hsl(222 47% 9%)',
+        '--foreground': 'hsl(214 32% 96%)',
+        '--primary': 'hsl(220 90% 66%)',
+        '--primary-foreground': '#0f172a',
+        '--accent': 'hsl(199 89% 48%)',
+        '--accent-foreground': '#011c33',
+        '--muted': 'hsl(222 34% 18%)',
+        '--border': 'hsl(219 28% 26%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 82%, black)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 76%, black)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 68%, black)'
+      }
+    },
+    {
+      key: 'modern-light',
+      mode: 'light',
+      label: dict['header.theme.presets.modern-light'],
+      overrides: {
+        '--background': 'hsl(214 55% 98%)',
+        '--foreground': 'hsl(222 47% 14%)',
+        '--primary': 'hsl(221 83% 53%)',
+        '--primary-foreground': '#ffffff',
+        '--accent': 'hsl(199 92% 47%)',
+        '--accent-foreground': '#06283d',
+        '--muted': 'hsl(213 32% 92%)',
+        '--border': 'hsl(216 33% 85%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 96%, white)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 92%, white)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 88%, white)'
+      }
+    },
+    {
+      key: 'amber-dusk',
+      mode: 'dark',
+      label: dict['header.theme.presets.amber-dusk'],
+      overrides: {
+        '--background': 'hsl(26 38% 12%)',
+        '--foreground': 'hsl(33 80% 94%)',
+        '--primary': 'hsl(18 86% 62%)',
+        '--primary-foreground': '#2d0a02',
+        '--accent': 'hsl(43 90% 55%)',
+        '--accent-foreground': '#2a1800',
+        '--muted': 'hsl(28 30% 24%)',
+        '--border': 'hsl(28 26% 32%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 74%, black)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 68%, black)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 60%, black)'
+      }
+    }
+  ];
+
+  function cloneThemeOverrides(overrides) {
+    const src = ensureDict(overrides);
+    return Object.keys(src).reduce((acc, key) => {
+      acc[key] = src[key];
+      return acc;
+    }, {});
+  }
+
+  function normalizeThemePreset(entry) {
+    const base = ensureDict(entry);
+    const key = typeof base.key === 'string' ? base.key : '';
+    if (!key) return null;
+    let label = base.label;
+    if (!label) {
+      label = { ar: key, en: key };
+    } else if (typeof label === 'string') {
+      label = { ar: label, en: label };
+    }
+    const mode = typeof base.mode === 'string'
+      ? base.mode
+      : (typeof base.theme === 'string' ? base.theme : 'light');
+    return {
+      key,
+      mode: mode === 'dark' ? 'dark' : 'light',
+      label,
+      overrides: cloneThemeOverrides(base.overrides)
+    };
+  }
+
+  function resolveThemePresets(list) {
+    const normalized = Array.isArray(list)
+      ? list.map(normalizeThemePreset).filter(Boolean)
+      : [];
+    if (normalized.length) return normalized;
+    return DEFAULT_THEME_PRESETS.map(normalizeThemePreset).filter(Boolean);
+  }
+
+  function normalizeLanguageEntry(entry) {
+    if (!entry) return null;
+    if (typeof entry === 'string') {
+      return { code: entry, label: { ar: entry, en: entry } };
+    }
+    const base = ensureDict(entry);
+    const code = typeof base.code === 'string'
+      ? base.code
+      : (typeof base.value === 'string' ? base.value : '');
+    if (!code) return null;
+    let label = base.label;
+    if (!label) {
+      label = { ar: code, en: code };
+    } else if (typeof label === 'string') {
+      label = { ar: label, en: label };
+    }
+    return { code, label };
+  }
+
+  function resolveLanguageOptions(list) {
+    const normalized = Array.isArray(list)
+      ? list.map(normalizeLanguageEntry).filter(Boolean)
+      : [];
+    if (normalized.length) return normalized;
+    return DEFAULT_LANG_OPTIONS.map(normalizeLanguageEntry).filter(Boolean);
+  }
 
   function makeLangLookup(db) {
     const lang = (db.env && db.env.lang) || 'ar';
@@ -253,36 +387,76 @@
 
   function HeaderComp(db) {
     const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const data = ensureDict(db.data);
 
-    const langControls = ['ar', 'en'].map((code) => UI.Button({
+    const presets = resolveThemePresets(data.themePresets);
+    const activePreset = data.activeThemePreset || (presets[0] && presets[0].key) || '';
+    const themeOptions = presets.map((preset, idx) => ({
+      value: preset.key || `theme-${idx}`,
+      label: localize(preset.label, lang, fallbackLang) || preset.key || `Theme ${idx + 1}`
+    }));
+    const themeSelectId = 'header-theme-select';
+    const themeField = UI.Field({
+      id: themeSelectId,
+      label: TL('header.theme.label'),
+      control: UI.Select({
+        attrs: {
+          id: themeSelectId,
+          gkey: 'ui:theme:select',
+          'data-theme-select': 'true',
+          value: activePreset,
+          class: tw`min-w-[180px]`
+        },
+        options: themeOptions
+      })
+    });
+
+    const languages = resolveLanguageOptions(data.languages);
+    const langOptions = languages.map((entry, idx) => ({
+      value: entry.code || `lang-${idx}`,
+      label: localize(entry.label, lang, fallbackLang) || entry.code || `Lang ${idx + 1}`
+    }));
+    const langSelectId = 'header-lang-select';
+    const langField = UI.Field({
+      id: langSelectId,
+      label: TL('header.lang.label'),
+      control: UI.Select({
+        attrs: {
+          id: langSelectId,
+          gkey: 'ui:lang:select',
+          'data-lang-select': 'true',
+          value: lang,
+          class: tw`min-w-[160px]`
+        },
+        options: langOptions
+      })
+    });
+
+    const uiState = ensureDict(db.ui);
+    const shellUi = ensureDict(uiState.pagesShell);
+    const themeLabUi = ensureDict(shellUi.themeLab);
+    const themeLabOpen = !!themeLabUi.open;
+
+    const themeLabButton = UI.Button({
       attrs: {
-        gkey: 'ui:lang',
-        'data-lang': code,
+        gkey: 'pages:theme:lab:open',
+        'data-theme-lab': 'open',
+        title: TL('header.theme.lab'),
+        'aria-label': TL('header.theme.lab'),
+        type: 'button',
         class: cx(
-          tw`rounded-full px-3 py-1 text-sm font-semibold transition`,
-          lang === code
-            ? tw`bg-[var(--primary)] text-[var(--primary-foreground)]`
-            : tw`bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)15%,transparent)]`
+          tw`h-11 w-11 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-xl transition`,
+          themeLabOpen ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow` : ''
         )
       },
       variant: 'ghost',
-      size: 'xs'
-    }, [code === 'ar' ? `ع ${TL('header.lang.ar')}` : `EN ${TL('header.lang.en')}`]));
-
-    const langGroup = D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, langControls);
-
-    const themeButton = UI.Button({
-      attrs: {
-        gkey: 'ui:theme:toggle',
-        class: tw`rounded-full px-3 py-1 text-sm font-semibold bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] hover:bg-[color-mix(in_oklab,var(--primary)15%,transparent)]`
-      },
-      variant: 'ghost',
-      size: 'xs'
-    }, ['🌓 ', TL('header.theme.toggle')]);
+      size: 'sm'
+    }, ['🎛️']);
 
     return D.Containers.Div({
       attrs: {
-        class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6`
+        class: tw`mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6`
       }
     }, [
       D.Containers.Div({
@@ -295,10 +469,11 @@
       ]),
       D.Containers.Div({
         attrs: {
-          class: tw`flex flex-col gap-3 md:flex-row md:items-center md:justify-end`
+          class: tw`flex flex-col gap-4 md:flex-row md:items-end md:justify-between`
         }
       }, [
-        D.Containers.Div({ attrs: { class: tw`flex items-center justify-start gap-2 md:justify-end` } }, [themeButton, langGroup])
+        D.Containers.Div({ attrs: { class: tw`grid gap-3 sm:grid-cols-2` } }, [themeField, langField]),
+        D.Containers.Div({ attrs: { class: tw`flex items-center justify-end` } }, [themeLabButton])
       ])
     ]);
   }
@@ -574,7 +749,7 @@
 
     const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       D.Text.P({ attrs: { class: tw`text-center text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.prompt')]),
-      D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center justify-center gap-3` } }, numbersNodes)
+      D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center justify-center gap-3`, dir: 'ltr' } }, numbersNodes)
     ]);
 
     const guessFieldId = 'sequence-guess-field';
@@ -757,12 +932,11 @@
   };
 
   IndexApp.pages = [
-    { key: 'sequence', order: 1, icon: '🧮', label: { ar: 'لعبة المتواليات', en: 'Sequence Game' }, comp: 'SequenceGameComp' },
-    { key: 'proverbs', order: 2, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
-    { key: 'counter', order: 3, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
-    { key: 'readme:tec', order: 4, icon: '📘', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
+    { key: 'readme:tec', order: 1, icon: '📘', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
+    { key: 'counter', order: 2, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
+    { key: 'sequence', order: 3, icon: '🧮', label: { ar: 'لعبة المتواليات', en: 'Sequence Game' }, comp: 'SequenceGameComp' },
+    { key: 'proverbs', order: 4, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
     { key: 'readme:base', order: 5, icon: '📗', label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' }, comp: 'ReadmeCompBase' }
-
   ];
 
   function loadDocs() {
@@ -780,23 +954,36 @@
   }
 
   IndexApp.buildDatabase = function buildDatabase() {
+    const themePresets = resolveThemePresets(DEFAULT_THEME_PRESETS);
+    const defaultPreset = themePresets[0] || null;
+    const languageOptions = resolveLanguageOptions(DEFAULT_LANG_OPTIONS);
+    const initialTheme = defaultPreset && defaultPreset.mode === 'dark' ? 'dark' : 'light';
     return {
       head: { title: dict['app.title'].ar },
-      env: { theme: 'dark', lang: 'ar', dir: 'rtl' },
+      env: { theme: initialTheme, lang: 'ar', dir: 'rtl' },
       i18n: { lang: 'ar', fallback: 'en', dict },
       data: {
         pages: IndexApp.pages,
-        active: 'sequence',
+        active: 'readme:tec',
         counter: 0,
         game: { ...INITIAL_GAME_STATE },
         sequenceGame: { ...INITIAL_SEQUENCE_STATE },
         docs: loadDocs(),
+        themePresets,
+        activeThemePreset: defaultPreset ? defaultPreset.key : '',
+        themeOverrides: defaultPreset ? cloneThemeOverrides(defaultPreset.overrides) : {},
+        languages: languageOptions,
         slots: {
           header: 'HeaderComp',
           footer: 'FooterComp'
         }
       },
-      registry: IndexApp.registry
+      registry: IndexApp.registry,
+      ui: {
+        pagesShell: {
+          themeLab: { showButton: false }
+        }
+      }
     };
   };
 
@@ -1080,40 +1267,71 @@
         context.rebuild();
       }
     },
-    'ui:lang': {
-      on: ['click'],
-      gkeys: ['ui:lang'],
+    'ui:lang:select': {
+      on: ['change'],
+      gkeys: ['ui:lang:select'],
       handler: (event, context) => {
-        const btn = event.target.closest && event.target.closest('[data-lang]');
-        if (!btn) return;
-        const lang = btn.getAttribute('data-lang');
+        const select = event.target.closest && event.target.closest('[data-lang-select]');
+        if (!select) return;
+        const lang = select.value;
         if (!lang) return;
+        const dir = lang === 'ar' ? 'rtl' : 'ltr';
         context.setState((prev) => ({
           ...prev,
           env: {
             ...prev.env,
             lang,
-            dir: lang === 'ar' ? 'rtl' : 'ltr'
+            dir
           },
           i18n: {
             ...prev.i18n,
             lang
           }
         }));
+        setDir(dir);
         context.rebuild();
       }
     },
-    'ui:theme:toggle': {
-      on: ['click'],
-      gkeys: ['ui:theme:toggle'],
+    'ui:theme:select': {
+      on: ['change'],
+      gkeys: ['ui:theme:select'],
       handler: (event, context) => {
-        context.setState((prev) => ({
-          ...prev,
-          env: {
-            ...prev.env,
-            theme: prev.env.theme === 'dark' ? 'light' : 'dark'
-          }
-        }));
+        const select = event.target.closest && event.target.closest('[data-theme-select]');
+        if (!select) return;
+        const key = select.value;
+        const state = context.getState();
+        const presets = resolveThemePresets(state.data && state.data.themePresets);
+        const fallback = presets[0];
+        const selected = presets.find((preset) => preset.key === key) || fallback;
+        if (!selected) return;
+        const overrides = cloneThemeOverrides(selected.overrides);
+        const nextTheme = selected.mode === 'dark' ? 'dark' : 'light';
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevThemeLab = ensureDict(prevShell.themeLab);
+          return {
+            ...prev,
+            env: {
+              ...prev.env,
+              theme: nextTheme
+            },
+            data: {
+              ...(prev.data || {}),
+              themePresets: presets,
+              activeThemePreset: selected.key,
+              themeOverrides: overrides
+            },
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                themeLab: Object.assign({}, prevThemeLab, {
+                  draft: Object.assign({}, overrides)
+                })
+              })
+            })
+          };
+        });
+        setTheme(nextTheme);
         context.rebuild();
       }
     }
