@@ -1,0 +1,7 @@
+{
+  "name": "mishkah",
+  "version": "1.0.0",
+  "description": "Build tooling metadata for Mishkah.js project.",
+  "license": "MIT",
+  "private": true
+}
