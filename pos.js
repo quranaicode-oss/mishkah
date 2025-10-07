@@ -2517,7 +2517,10 @@
             D.Text.Span({}, [t.ui.paid]),
             UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
           ]),
-          UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.open_payments])
+          UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`w-full flex items-center justify-center gap-2` }, variant:'soft', size:'sm' }, [
+            D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['💳']),
+            D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.open_payments])
+          ])
         ].filter(Boolean))
       });
     }
@@ -2535,16 +2538,15 @@
       const disableNext = currentIndex < 0 || currentIndex >= total - 1;
       const quickActions = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-3` }}, [
         D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [t.ui.order_nav_label]),
-        UI.HStack({ attrs:{ class: tw`gap-2` }}, [
-          UI.Button({ attrs:{ gkey:'pos:order:new', title:t.ui.new_order, class: tw`h-11 w-11 rounded-full text-xl` }, variant:'soft', size:'sm' }, ['🆕']),
-          UI.Button({ attrs:{ gkey:'pos:order:clear', title:t.ui.clear, class: tw`h-11 w-11 rounded-full text-xl` }, variant:'ghost', size:'sm' }, ['🧹'])
-        ])
+        D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [`${t.ui.order_nav_total}: ${total}`])
       ]);
-      const navigatorRow = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-sm` }}, [
+      const navigatorRow = UI.HStack({ attrs:{ class: tw`flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-sm` }}, [
+        UI.Button({ attrs:{ gkey:'pos:order:new', title:t.ui.new_order, class: tw`h-12 w-12 rounded-full text-xl` }, variant:'soft', size:'md' }, ['🆕']),
         UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' }, ['⬅️']),
         D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [label]),
         UI.Button({ attrs:{ gkey:'pos:order:nav:pad', class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' },['🔢']),
-        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' }, ['➡️'])
+        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' }, ['➡️']),
+        UI.Button({ attrs:{ gkey:'pos:order:clear', title:t.ui.clear, class: tw`h-12 w-12 rounded-full text-xl` }, variant:'ghost', size:'md' }, ['🧹'])
       ]);
       const padVisible = !!db.ui.orderNav?.showPad;
       const padValue = db.ui.orderNav?.value || '';
@@ -2688,9 +2690,9 @@
         size:'md'
       }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [saveLabel])]);
       primaryActions.push(saveButton);
-      primaryActions.push(UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
-        D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['💳']),
-        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.open_payments])
+      primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
+        D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🖨️']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.print])
       ]));
       return UI.Footerbar({
         left:[
@@ -5008,6 +5010,8 @@
         handler: async (e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
+          const trigger = e.target.closest('[data-save-mode]');
+          const mode = trigger?.getAttribute('data-save-mode') || 'save-only';
           if(!posDB.available){
             UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
             return;
