@@ -368,8 +368,10 @@
     const ROW_HEIGHT = 28;
     const AUTO_LAYOUT_ORIGIN_X = 240;
     const AUTO_LAYOUT_ORIGIN_Y = 200;
-    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 520;
-    const AUTO_LAYOUT_ROW_GAP = 320;
+    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 680;
+    const AUTO_LAYOUT_ROW_GAP = 420;
+    const FALLBACK_NODE_SPACING_X = 240;
+    const FALLBACK_NODE_SPACING_Y = 180;
     const RTL_TEXT_PADDING = 28;
     const MIN_CANVAS_ZOOM = 0.2;
     const MAX_CANVAS_ZOOM = 3;
@@ -1033,32 +1035,65 @@
         return { minX, minY, maxX, maxY };
       }
 
-      setViewBox(bbox, zoom, padding){
+      setViewBox(bbox, zoom, padding, mode = 'auto'){
         if(!this.svg) return;
         const baseWidth = Math.max(1, (bbox.maxX - bbox.minX));
         const baseHeight = Math.max(1, (bbox.maxY - bbox.minY));
-        const pad = Math.max(16, padding != null ? padding : 120);
-        const centerX = bbox.minX + baseWidth / 2;
-        const centerY = bbox.minY + baseHeight / 2;
-        let viewWidth = baseWidth + pad * 2;
-        let viewHeight = baseHeight + pad * 2;
-        let viewX = centerX - viewWidth / 2;
-        let viewY = centerY - viewHeight / 2;
-        if(this.overrideFitPadding != null){
-          const fitPad = Math.max(16, this.overrideFitPadding);
-          viewWidth = baseWidth + fitPad * 2;
-          viewHeight = baseHeight + fitPad * 2;
-          viewX = bbox.minX - fitPad;
-          viewY = bbox.minY - fitPad;
+        let pad = Math.max(24, padding != null ? padding : 120);
+        let effectiveMode = mode || 'auto';
+        const forcingFit = this.overrideFitPadding != null;
+        if(forcingFit){
+          pad = Math.max(24, this.overrideFitPadding);
+          effectiveMode = 'auto';
           this.overrideFitPadding = null;
-        } else if(zoom && Number.isFinite(zoom) && zoom !== 1){
-          const safeZoom = Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, zoom));
-          viewWidth = viewWidth / safeZoom;
-          viewHeight = viewHeight / safeZoom;
-          viewX = centerX - viewWidth / 2;
-          viewY = centerY - viewHeight / 2;
         }
-        this.svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+        const safeZoom = (zoom && Number.isFinite(zoom))
+          ? Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, zoom))
+          : 1;
+        const zoomValue = forcingFit ? 1 : safeZoom;
+        const contentWidth = baseWidth + pad * 2;
+        const contentHeight = baseHeight + pad * 2;
+        if(effectiveMode === 'manual'){
+          const translateX = pad - bbox.minX;
+          const translateY = pad - bbox.minY;
+          if(this.wrapper){
+            this.wrapper.style.overflow = 'auto';
+            this.wrapper.style.minWidth = `${contentWidth}px`;
+            this.wrapper.style.minHeight = `${contentHeight}px`;
+          }
+          this.svg.setAttribute('viewBox', `0 0 ${contentWidth} ${contentHeight}`);
+          this.svg.style.width = `${contentWidth * zoomValue}px`;
+          this.svg.style.height = `${contentHeight * zoomValue}px`;
+          this.svg.style.maxWidth = 'none';
+          this.svg.style.maxHeight = 'none';
+          if(this.viewport){
+            this.viewport.setAttribute('transform', `translate(${translateX} ${translateY}) scale(${zoomValue})`);
+          }
+        } else {
+          const centerX = bbox.minX + baseWidth / 2;
+          const centerY = bbox.minY + baseHeight / 2;
+          let viewWidth = contentWidth;
+          let viewHeight = contentHeight;
+          if(zoomValue !== 1){
+            viewWidth = viewWidth / zoomValue;
+            viewHeight = viewHeight / zoomValue;
+          }
+          const viewX = centerX - viewWidth / 2;
+          const viewY = centerY - viewHeight / 2;
+          if(this.wrapper){
+            this.wrapper.style.overflow = 'hidden';
+            this.wrapper.style.minWidth = '';
+            this.wrapper.style.minHeight = '';
+          }
+          this.svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+          this.svg.style.width = '100%';
+          this.svg.style.height = '100%';
+          this.svg.style.maxWidth = '';
+          this.svg.style.maxHeight = '';
+          if(this.viewport){
+            this.viewport.removeAttribute('transform');
+          }
+        }
         this.baseBBox = Object.assign({}, bbox, { pad });
       }
 
@@ -1130,6 +1165,7 @@
         const selection = state?.selection || {};
         const palette = state?.palette || {};
         const zoom = state?.zoom;
+        const canvasMode = state?.canvasMode || 'auto';
         const direction = (state?.direction || '').toLowerCase();
         const isRTL = direction === 'rtl';
 
@@ -1145,8 +1181,8 @@
         const nodes = tables.map((table, index)=>{
           const source = layout[table.id] || layout[table.name];
           const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
-            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+            x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
           };
           const { x, y } = normalisePoint(source, fallback);
           const fields = Array.isArray(table.fields) ? table.fields : [];
@@ -1170,7 +1206,7 @@
         });
 
         const bbox = this.computeBoundingBox(nodes);
-        this.setViewBox(bbox, zoom, 120);
+        this.setViewBox(bbox, zoom, 120, canvasMode);
 
         const edgesGroup = document.createElementNS(svgNS, 'g');
         edgesGroup.setAttribute('class', 'm-erd-edges');
@@ -1558,8 +1594,8 @@
         const fallbackPositions = createAutoLayoutFallbackMap(tables);
         const nodes = tables.map((tbl, index) => {
           const fallback = fallbackPositions[tbl.id] || fallbackPositions[tbl.name] || {
-            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+            x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
           };
           const { x, y } = normalisePoint(layout[tbl.id] || layout[tbl.name], fallback);
           const position = { x, y };
@@ -1885,8 +1921,8 @@
       const fallbackPositions = createAutoLayoutFallbackMap(tables);
       const nodesMeta = tables.map((table, index) => {
         const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
-          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
         };
         const point = layout[table.id] || layout[table.name];
         const { x, y } = normalisePoint(point, fallback);
@@ -1969,14 +2005,24 @@
 
     function ensureContextMenuHandlers(host){
       if(!host || host.__mishkahContextMenuAttached) return;
-      const handleContextMenu = event => {
+      const openFromEvent = event => {
         if(!erdAppInstance) return;
-        if(event) event.preventDefault();
+        if(event){
+          if(typeof event.preventDefault === 'function') event.preventDefault();
+          if(typeof event.stopPropagation === 'function') event.stopPropagation();
+        }
         const target = event?.target;
+        if(target && typeof host.contains === 'function' && !host.contains(target)) return;
+        const hostRect = typeof host.getBoundingClientRect === 'function' ? host.getBoundingClientRect() : null;
+        const fallbackX = hostRect ? hostRect.left + hostRect.width / 2 : (typeof window !== 'undefined' ? window.innerWidth / 2 : 0);
+        const fallbackY = hostRect ? hostRect.top + hostRect.height / 2 : (typeof window !== 'undefined' ? window.innerHeight / 2 : 0);
+        const pointX = typeof event?.clientX === 'number' ? event.clientX : fallbackX;
+        const pointY = typeof event?.clientY === 'number' ? event.clientY : fallbackY;
+        host.__mishkahLastContextOpen = Date.now();
         if(!target || typeof target.closest !== 'function'){
           openContextMenu({
-            clientX: event?.clientX,
-            clientY: event?.clientY,
+            clientX: pointX,
+            clientY: pointY,
             type:'canvas'
           });
           return;
@@ -1984,8 +2030,8 @@
         const fieldElement = target.closest('[data-field-name]');
         if(fieldElement){
           openContextMenu({
-            clientX: event?.clientX,
-            clientY: event?.clientY,
+            clientX: pointX,
+            clientY: pointY,
             type:'field',
             field: fieldElement.getAttribute('data-field-name') || '',
             table: fieldElement.getAttribute('data-table-name') || (fieldElement.closest('[data-table-name]')?.getAttribute('data-table-name') || '')
@@ -1995,20 +2041,36 @@
         const tableElement = target.closest('[data-table-name]');
         if(tableElement){
           openContextMenu({
-            clientX: event?.clientX,
-            clientY: event?.clientY,
+            clientX: pointX,
+            clientY: pointY,
             type:'table',
             table: tableElement.getAttribute('data-table-name') || tableElement.getAttribute('data-node-id') || ''
           });
           return;
         }
         openContextMenu({
-          clientX: event?.clientX,
-          clientY: event?.clientY,
+          clientX: pointX,
+          clientY: pointY,
           type:'canvas'
         });
       };
+      const handlePointerDown = event => {
+        if(!event) return;
+        const isRightClick = event.button === 2 || (event.button === 0 && event.ctrlKey);
+        if(!isRightClick) return;
+        openFromEvent(event);
+      };
+      const handleContextMenu = event => {
+        const now = Date.now();
+        const lastOpen = host.__mishkahLastContextOpen || 0;
+        if(now - lastOpen < 150){
+          if(event && typeof event.preventDefault === 'function') event.preventDefault();
+          return;
+        }
+        openFromEvent(event);
+      };
       const options = { capture:true };
+      host.addEventListener('pointerdown', handlePointerDown, options);
       host.addEventListener('contextmenu', handleContextMenu, options);
       const ownerDocument = host.ownerDocument || document;
       if(ownerDocument && !ownerDocument.__mishkahContextMenuKeybound){
@@ -2367,8 +2429,8 @@
         const fallbackPositions = createAutoLayoutFallbackMap(tables);
         tables.forEach((table, index) => {
           const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
-            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+            x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
           };
           const source = table.layout || {};
           layout[table.name] = normalisePoint(source, fallback);
@@ -2502,8 +2564,8 @@
       const used = new Set();
       tables.forEach((table, index)=>{
         const baseFallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
-          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
         };
         const storedPoint = map[table.id] || map[table.name] || table.layout;
         const point = claimPoint(storedPoint, baseFallback, used);
@@ -2608,8 +2670,8 @@
         const index = Math.max(tables.findIndex(tbl => tbl.name === tableName), tables.length);
         const fallbackPositions = createAutoLayoutFallbackMap(tables);
         layout[tableName] = fallbackPositions[tableName] || {
-          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
-          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          x: AUTO_LAYOUT_ORIGIN_X + index * FALLBACK_NODE_SPACING_X,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * FALLBACK_NODE_SPACING_Y,
         };
       }
       return layout;
@@ -2976,7 +3038,7 @@
           'aria-expanded': open ? 'true' : 'false',
           'aria-controls':'erd-toolbar-export-menu',
           type:'button',
-          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[80]' : ''}`
+          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[160]' : 'z-[110]'}`
         },
         variant: open ? 'soft' : 'ghost',
         size:'sm'
@@ -2985,7 +3047,7 @@
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       if(!open){
-        return D.Containers.Div({ attrs:{ class: tw`relative z-[60] overflow-visible` }}, [toggle]);
+        return D.Containers.Div({ attrs:{ class: tw`relative z-[110] overflow-visible` }}, [toggle]);
       }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
@@ -3010,10 +3072,10 @@
           }, [item.label])
         ])
       ));
-      return D.Containers.Div({ attrs:{ class: tw`relative z-[70] overflow-visible` }}, [
-        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[60] pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
+      return D.Containers.Div({ attrs:{ class: tw`relative z-[150] overflow-visible` }}, [
+        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[140] pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
         toggle,
-        D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`absolute right-0 top-full z-[70] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
+        D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`absolute right-0 top-full z-[150] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
       ]);
     }
 
@@ -3624,7 +3686,7 @@
         ].filter(Boolean)));
         return D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [header, ...items.filter(Boolean)].filter(Boolean));
       });
-      return D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[80] pointer-events-none` }}, [
+      return D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[200] pointer-events-none` }}, [
         D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-auto`, gkey:'erd:context:close' }}, []),
         D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:`left:${safeLeft}px;top:${safeTop}px;` }}, [
           D.Containers.Div({ attrs:{ class: tw`min-w-[220px] max-w-[280px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 p-2 shadow-2xl flex flex-col gap-2` }}, sectionNodes)
@@ -4198,8 +4260,8 @@
             const currentTables = registry.list();
             const fallbackMap = createAutoLayoutFallbackMap(currentTables.concat([{ id:name, name, fields:[] }]));
             const fallbackPosition = fallbackMap[name] || {
-              x: AUTO_LAYOUT_ORIGIN_X + currentTables.length * 40,
-              y: AUTO_LAYOUT_ORIGIN_Y + currentTables.length * 20,
+              x: AUTO_LAYOUT_ORIGIN_X + currentTables.length * FALLBACK_NODE_SPACING_X,
+              y: AUTO_LAYOUT_ORIGIN_Y + currentTables.length * FALLBACK_NODE_SPACING_Y,
             };
             const tableConfig = {
               name,
