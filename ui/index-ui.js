@@ -38,6 +38,7 @@
     'header.theme.toggle': { ar: 'تبديل الثيم', en: 'Toggle theme' },
     'header.theme.label': { ar: 'الثيم الجاهز', en: 'Theme preset' },
     'header.theme.lab': { ar: 'فتح معمل الثيم المتقدم', en: 'Open advanced theme lab' },
+    'header.menu.close': { ar: 'إغلاق القائمة', en: 'Close menu' },
     'designLab.openButton': { ar: 'مختبر الألوان المتقدم', en: 'Advanced theme lab' },
     'designLab.title': { ar: 'مختبر تنسيق الواجهة', en: 'Interface Design Lab' },
     'designLab.subtitle': { ar: 'تحكم في متغيرات CSS ورؤية التغييرات مباشرة.', en: 'Control every CSS variable and preview instantly.' },
@@ -129,6 +130,12 @@
     'game.status.running': { ar: 'قيد اللعب', en: 'In progress' },
     'game.status.won': { ar: 'انتصار', en: 'Victory' },
     'game.status.lost': { ar: 'خسارة', en: 'Defeat' },
+    'game.settings.title': { ar: 'إعدادات اللعبة', en: 'Game settings' },
+    'game.settings.subtitle': { ar: 'اضبط زمن الجولة والمكافأة عند الإجابة الصحيحة.', en: 'Adjust the round timer and the correct-answer reward.' },
+    'game.settings.timePerChoice': { ar: 'عدد الثواني لكل اختيار', en: 'Seconds per choice' },
+    'game.settings.timePerChoiceHint': { ar: 'يُعاد ضبط المؤقّت إلى هذا العدد مع كل محاولة جديدة.', en: 'The timer resets to this value on each new attempt.' },
+    'game.settings.bonusLabel': { ar: 'مكافأة الوقت للإجابة الصحيحة', en: 'Time bonus for correct answer' },
+    'game.settings.bonusHint': { ar: 'تُضاف هذه الثواني عند اختيار حرف صحيح (بحد أقصى ٢٠ ثانية).', en: 'Add these seconds after each correct letter (capped at 20 seconds).' },
     'game.feedback.correct': { ar: 'أحسنت! حرف صحيح يقترب بك من الحكمة.', en: 'Great job! The wisdom is closer.' },
     'game.feedback.wrong': { ar: 'هذه المحاولة لم تصب الهدف، جرّب مرة أخرى.', en: 'That guess missed—try again.' },
     'game.feedback.win': { ar: 'إبداع! اكتملت الحكمة بالكامل.', en: 'Brilliant! The proverb is complete.' },
@@ -793,6 +800,49 @@
     }
   ];
 
+  const DEFAULT_GAME_SETTINGS = {
+    perChoiceSeconds: 35,
+    bonusSeconds: 5
+  };
+
+  const GAME_SETTING_LIMITS = {
+    perChoiceMin: 10,
+    perChoiceMax: 120,
+    bonusMin: 0,
+    bonusMax: 20
+  };
+
+  const clampNumber = (value, min, max) => {
+    const clampFn = U.Num && typeof U.Num.clamp === 'function'
+      ? U.Num.clamp
+      : (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const numeric = Number(value);
+    return clampFn(Number.isFinite(numeric) ? numeric : min, min, max);
+  };
+
+  function ensureGameSettings(settings) {
+    const raw = ensureDict(settings);
+    const perChoice = clampNumber(
+      raw.perChoiceSeconds != null ? raw.perChoiceSeconds : DEFAULT_GAME_SETTINGS.perChoiceSeconds,
+      GAME_SETTING_LIMITS.perChoiceMin,
+      GAME_SETTING_LIMITS.perChoiceMax
+    );
+    const bonusBase = clampNumber(
+      raw.bonusSeconds != null ? raw.bonusSeconds : DEFAULT_GAME_SETTINGS.bonusSeconds,
+      GAME_SETTING_LIMITS.bonusMin,
+      GAME_SETTING_LIMITS.bonusMax
+    );
+    const bonus = clampNumber(
+      bonusBase,
+      GAME_SETTING_LIMITS.bonusMin,
+      Math.min(GAME_SETTING_LIMITS.bonusMax, perChoice)
+    );
+    return {
+      perChoiceSeconds: perChoice,
+      bonusSeconds: bonus
+    };
+  }
+
   const INITIAL_GAME_STATE = {
     proverb: null,
     guessed: {},
@@ -800,15 +850,16 @@
     triesLeft: 5,
     status: 'idle',
     timerOn: true,
-    timerSec: 35,
-    timeLeft: 35,
+    timerSec: DEFAULT_GAME_SETTINGS.perChoiceSeconds,
+    timeLeft: DEFAULT_GAME_SETTINGS.perChoiceSeconds,
     intervalId: null,
     revealSolution: false,
     feedback: null,
     musicOn: true,
     audioIdx: 0,
     audioList: MUSIC_TRACKS,
-    soundStamp: 0
+    soundStamp: 0,
+    settings: { ...DEFAULT_GAME_SETTINGS }
   };
 
   const INITIAL_SEQUENCE_STATE = {
@@ -833,11 +884,15 @@
 
   function computeTimeLeft(game) {
     if (!game || !game.timerOn) return null;
+    const settings = ensureGameSettings(game.settings);
+    const cap = settings.perChoiceSeconds;
     if (game.status === 'running') {
       const raw = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
-      return Math.max(0, raw);
+      return Math.max(0, Math.min(cap, raw));
     }
-    return game.status === 'lost' ? 0 : game.timerSec;
+    if (game.status === 'lost') return 0;
+    const standby = typeof game.timerSec === 'number' ? game.timerSec : settings.perChoiceSeconds;
+    return Math.max(0, Math.min(cap, standby));
   }
 
   /* ------------------------------------------------------------------ */
@@ -1091,14 +1146,22 @@
     const activeLang = langOptions.find((entry) => entry.value === lang) || langOptions[0] || null;
 
     const triggerBaseClass = tw`flex h-11 items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_16px_36px_-26px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-30px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
+    const triggerActiveClass = tw`border-[color-mix(in_oklab,var(--accent)55%,transparent)] shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)]`;
     const triggerIconClass = tw`text-xl leading-none`;
     const triggerMetaClass = tw`text-[0.65rem] uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)]`;
     const triggerLabelClass = tw`text-xs font-semibold leading-tight text-[color-mix(in_oklab,var(--foreground)82%,transparent)]`;
+    const panelBaseClass = tw`absolute end-0 z-50 mt-3 w-64 origin-top-right rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200 transform`;
+    const panelOpenClass = tw`pointer-events-auto scale-100 opacity-100 translate-y-0`;
+    const panelClosedClass = tw`pointer-events-none scale-95 opacity-0 translate-y-1.5`;
+    const closeButtonClass = tw`inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)60%,transparent)] text-sm font-semibold text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)] transition hover:bg-[color-mix(in_oklab,var(--surface-2)85%,transparent)] hover:text-[color-mix(in_oklab,var(--foreground)90%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`;
 
-    const menuPanelClass = cx(
-      tw`pointer-events-none absolute end-0 z-30 mt-3 w-64 origin-top-right scale-95 opacity-0 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200`,
-      'group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:scale-100 group-focus-within:opacity-100'
-    );
+    const uiState = ensureDict(db.ui);
+    const shellUi = ensureDict(uiState.pagesShell);
+    const headerMenusUi = ensureDict(shellUi.headerMenus);
+    const themeLabUi = ensureDict(shellUi.themeLab);
+    const themeLabOpen = !!themeLabUi.open;
+    const langOpen = !!headerMenusUi.langOpen;
+    const themeOpen = !!headerMenusUi.themeOpen;
 
     const optionBaseClass = tw`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`;
     const optionActiveClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-22px_rgba(79,70,229,0.55)]`;
@@ -1106,22 +1169,42 @@
 
     const langMenu = D.Containers.Div({
       attrs: {
-        class: tw`group relative inline-flex`
+        class: tw`relative inline-flex`,
+        'data-menu-container': 'lang'
       }
     }, [
       D.Forms.Button({
         attrs: {
           type: 'button',
-          class: triggerBaseClass,
+          class: cx(triggerBaseClass, langOpen ? triggerActiveClass : ''),
           title: TL('header.lang.label'),
-          'aria-haspopup': 'listbox'
+          'aria-haspopup': 'listbox',
+          'aria-expanded': langOpen ? 'true' : 'false',
+          'data-menu-toggle': 'lang',
+          gkey: 'ui:header:menuToggle'
         }
       }, [
         D.Text.Span({ attrs: { class: triggerIconClass } }, [activeLang ? activeLang.emoji : '🌐']),
         D.Text.Span({ attrs: { class: triggerMetaClass } }, [activeLang ? activeLang.short : 'LANG'])
       ]),
-      D.Containers.Div({ attrs: { class: menuPanelClass } }, [
-        D.Text.Span({ attrs: { class: tw`px-2 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.lang.label')]),
+      D.Containers.Div({
+        attrs: {
+          class: cx(panelBaseClass, langOpen ? panelOpenClass : panelClosedClass),
+          'data-menu-panel': 'lang'
+        }
+      }, [
+        D.Containers.Div({ attrs: { class: tw`flex items-center justify-between gap-2 px-2` } }, [
+          D.Text.Span({ attrs: { class: tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.lang.label')]),
+          D.Forms.Button({
+            attrs: {
+              type: 'button',
+              class: closeButtonClass,
+              gkey: 'ui:header:menuClose',
+              'data-menu-close': 'lang',
+              'aria-label': TL('header.menu.close')
+            }
+          }, ['✕'])
+        ]),
         D.Containers.Div({ attrs: { class: tw`mt-3 grid gap-1.5` } }, langOptions.map((option) => D.Forms.Button({
           attrs: {
             type: 'button',
@@ -1143,22 +1226,42 @@
 
     const themeMenu = D.Containers.Div({
       attrs: {
-        class: tw`group relative inline-flex`
+        class: tw`relative inline-flex`,
+        'data-menu-container': 'theme'
       }
     }, [
       D.Forms.Button({
         attrs: {
           type: 'button',
-          class: triggerBaseClass,
+          class: cx(triggerBaseClass, themeOpen ? triggerActiveClass : ''),
           title: TL('header.theme.label'),
-          'aria-haspopup': 'listbox'
+          'aria-haspopup': 'listbox',
+          'aria-expanded': themeOpen ? 'true' : 'false',
+          'data-menu-toggle': 'theme',
+          gkey: 'ui:header:menuToggle'
         }
       }, [
         D.Text.Span({ attrs: { class: triggerIconClass } }, [activeTheme ? activeTheme.emoji : '🎨']),
         D.Text.Span({ attrs: { class: triggerLabelClass } }, [activeTheme ? activeTheme.label : TL('header.theme.label')])
       ]),
-      D.Containers.Div({ attrs: { class: menuPanelClass } }, [
-        D.Text.Span({ attrs: { class: tw`px-2 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.theme.label')]),
+      D.Containers.Div({
+        attrs: {
+          class: cx(panelBaseClass, themeOpen ? panelOpenClass : panelClosedClass),
+          'data-menu-panel': 'theme'
+        }
+      }, [
+        D.Containers.Div({ attrs: { class: tw`flex items-center justify-between gap-2 px-2` } }, [
+          D.Text.Span({ attrs: { class: tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.theme.label')]),
+          D.Forms.Button({
+            attrs: {
+              type: 'button',
+              class: closeButtonClass,
+              gkey: 'ui:header:menuClose',
+              'data-menu-close': 'theme',
+              'aria-label': TL('header.menu.close')
+            }
+          }, ['✕'])
+        ]),
         D.Containers.Div({ attrs: { class: tw`mt-3 grid gap-1.5` } }, themeOptions.map((option) => {
           const isActive = option.value === activePresetKey;
           const badge = option.mode === 'dark'
@@ -1184,11 +1287,6 @@
       ])
     ]);
 
-    const uiState = ensureDict(db.ui);
-    const shellUi = ensureDict(uiState.pagesShell);
-    const themeLabUi = ensureDict(shellUi.themeLab);
-    const themeLabOpen = !!themeLabUi.open;
-
     const iconCircleClass = tw`flex h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
     const themeLabButton = UI.Button({
       attrs: {
@@ -1203,11 +1301,23 @@
       size: 'sm'
     }, ['🎛️']);
 
+    const overlay = (langOpen || themeOpen)
+      ? D.Containers.Div({
+          attrs: {
+            class: tw`fixed inset-0 z-20 bg-black/10 backdrop-blur-[1px]`,
+            'data-menu-overlay': 'true',
+            gkey: 'ui:header:menuClose'
+          }
+        })
+      : null;
+
     return D.Containers.Header({
       attrs: {
-        class: tw`border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`
+        class: cx(tw`relative border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`, (langOpen || themeOpen) ? tw`z-30` : ''),
+        gkey: 'ui:header:menuMaybeClose'
       }
     }, [
+      overlay,
       D.Containers.Div({
         attrs: {
           class: tw`mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6`
@@ -1227,7 +1337,7 @@
           }
         }, [langMenu, themeMenu, themeLabButton])
       ])
-    ]);
+    ].filter(Boolean));
   }
 
   function FooterComp(db) {
@@ -1388,6 +1498,7 @@
   function ProverbsGameComp(db) {
     const { TL } = makeLangLookup(db);
     const game = db.data.game || INITIAL_GAME_STATE;
+    const settings = ensureGameSettings(game.settings);
     const timeLeft = computeTimeLeft(game);
     const hearts = Array.from({ length: game.triesMax }, (_, idx) => (
       D.Text.Span({
@@ -1436,9 +1547,66 @@
       D.Containers.Div({ attrs: { class: tw`flex items-center justify-end gap-3` } }, [startButton])
     ]);
 
+    const timeFieldId = 'proverbs-setting-time';
+    const bonusFieldId = 'proverbs-setting-bonus';
+    const perChoiceField = UI.Field({
+      id: timeFieldId,
+      label: TL('game.settings.timePerChoice'),
+      control: UI.Input({
+        attrs: {
+          id: timeFieldId,
+          type: 'number',
+          inputmode: 'numeric',
+          min: String(GAME_SETTING_LIMITS.perChoiceMin),
+          max: String(GAME_SETTING_LIMITS.perChoiceMax),
+          step: '1',
+          value: String(settings.perChoiceSeconds),
+          dir: 'ltr',
+          gkey: 'game:settings:update',
+          'data-game-setting': 'perChoiceSeconds'
+        }
+      }),
+      helper: TL('game.settings.timePerChoiceHint')
+    });
+
+    const bonusField = UI.Field({
+      id: bonusFieldId,
+      label: TL('game.settings.bonusLabel'),
+      control: UI.Input({
+        attrs: {
+          id: bonusFieldId,
+          type: 'number',
+          inputmode: 'numeric',
+          min: String(GAME_SETTING_LIMITS.bonusMin),
+          max: String(GAME_SETTING_LIMITS.bonusMax),
+          step: '1',
+          value: String(settings.bonusSeconds),
+          dir: 'ltr',
+          gkey: 'game:settings:update',
+          'data-game-setting': 'bonusSeconds'
+        }
+      }),
+      helper: TL('game.settings.bonusHint')
+    });
+
+    const settingsPanel = D.Containers.Div({
+      attrs: {
+        class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.4)]`
+      }
+    }, [
+      D.Containers.Div({
+        attrs: { class: tw`flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between` }
+      }, [
+        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [TL('game.settings.title')]),
+        D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [TL('game.settings.subtitle')])
+      ]),
+      D.Containers.Div({ attrs: { class: tw`mt-4 grid gap-4 sm:grid-cols-2` } }, [perChoiceField, bonusField])
+    ]);
+
     return UI.Card({
       title: TL('game.title'),
       content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+        settingsPanel,
         controlStrip,
         buildGameBoard(db)
       ])
@@ -1757,6 +1925,10 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       registry: IndexApp.registry,
       ui: {
         pagesShell: {
+          headerMenus: {
+            langOpen: false,
+            themeOpen: false
+          },
           themeLab: {
             showButton: false,
             open: false,
@@ -2149,16 +2321,30 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       handler: (event, context) => {
         const state = context.getState();
         const proverb = selectRandomProverb();
+        const previousGame = ensureDict(state.data && state.data.game);
+        const settings = ensureGameSettings(previousGame.settings);
+        const timerSec = settings.perChoiceSeconds;
+        const triesMax = typeof previousGame.triesMax === 'number' ? previousGame.triesMax : INITIAL_GAME_STATE.triesMax;
         const baseGame = {
           ...INITIAL_GAME_STATE,
           proverb,
           status: 'running',
           guessed: {},
-          triesLeft: INITIAL_GAME_STATE.triesMax,
-          timeLeft: INITIAL_GAME_STATE.timerSec,
+          triesMax,
+          triesLeft: triesMax,
+          timerOn: previousGame.timerOn != null ? previousGame.timerOn : INITIAL_GAME_STATE.timerOn,
+          timerSec,
+          timeLeft: timerSec,
+          intervalId: null,
+          revealSolution: false,
+          feedback: null,
+          musicOn: previousGame.musicOn != null ? previousGame.musicOn : INITIAL_GAME_STATE.musicOn,
+          audioIdx: typeof previousGame.audioIdx === 'number' ? previousGame.audioIdx : INITIAL_GAME_STATE.audioIdx,
+          audioList: Array.isArray(previousGame.audioList) && previousGame.audioList.length ? previousGame.audioList : MUSIC_TRACKS,
+          settings,
           soundStamp: Date.now()
         };
-        stopTimer(state.data.game || {});
+        stopTimer(previousGame);
         const withTimer = startTimer(context, baseGame);
         context.setState((prev) => withGame(prev, () => withTimer));
         context.rebuild();
@@ -2194,16 +2380,36 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             stopTimer(game);
           }
         }
+        const settings = ensureGameSettings(game.settings);
+        const timerCap = settings.perChoiceSeconds;
+        let nextTimeLeft = typeof game.timeLeft === 'number' ? game.timeLeft : timerCap;
         let feedbackType = hasLetter ? 'correct' : 'wrong';
         if (status === 'won') feedbackType = 'win';
         if (status === 'lost') feedbackType = 'lose';
+        if (hasLetter && status === 'running' && game.timerOn) {
+          const bonus = clampNumber(settings.bonusSeconds, GAME_SETTING_LIMITS.bonusMin, GAME_SETTING_LIMITS.bonusMax);
+          if (bonus > 0) {
+            nextTimeLeft = Math.min(timerCap, nextTimeLeft + bonus);
+          }
+        }
+        if (!game.timerOn) {
+          nextTimeLeft = timerCap;
+        } else if (status === 'lost') {
+          nextTimeLeft = 0;
+        } else if (status !== 'running') {
+          nextTimeLeft = Math.min(timerCap, nextTimeLeft);
+        } else {
+          nextTimeLeft = Math.min(timerCap, Math.max(0, nextTimeLeft));
+        }
         const feedback = feedbackType ? { type: feedbackType, stamp: Date.now() } : null;
         context.setState((prev) => withGame(prev, () => ({
           ...game,
           guessed,
           triesLeft,
           status,
-          timeLeft: game.timerOn ? (status === 'lost' ? 0 : (typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec)) : 0,
+          timerSec: timerCap,
+          settings,
+          timeLeft: game.timerOn ? nextTimeLeft : timerCap,
           revealSolution: status === 'won' ? true : game.revealSolution,
           feedback
         })));
@@ -2221,6 +2427,44 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         context.rebuild();
       }
     },
+    'game:settings:update': {
+      on: ['input', 'change'],
+      gkeys: ['game:settings:update'],
+      handler: (event, context) => {
+        const control = event.target.closest ? event.target.closest('[data-game-setting]') : event.target;
+        if (!control) return;
+        const key = control.getAttribute('data-game-setting');
+        if (!key) return;
+        const value = Number(control.value);
+        if (!Number.isFinite(value)) return;
+        context.setState((prev) => withGame(prev, (game) => {
+          const currentSettings = ensureGameSettings(game.settings);
+          const nextSettings = { ...currentSettings };
+          if (key === 'perChoiceSeconds') {
+            nextSettings.perChoiceSeconds = clampNumber(value, GAME_SETTING_LIMITS.perChoiceMin, GAME_SETTING_LIMITS.perChoiceMax);
+          } else if (key === 'bonusSeconds') {
+            nextSettings.bonusSeconds = clampNumber(value, GAME_SETTING_LIMITS.bonusMin, GAME_SETTING_LIMITS.bonusMax);
+          } else {
+            return game;
+          }
+          const normalizedSettings = ensureGameSettings(nextSettings);
+          const nextTimerSec = normalizedSettings.perChoiceSeconds;
+          let nextTimeLeft = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
+          if (game.status === 'running' && game.timerOn) {
+            nextTimeLeft = Math.min(nextTimerSec, Math.max(0, nextTimeLeft));
+          } else {
+            nextTimeLeft = nextTimerSec;
+          }
+          return {
+            ...game,
+            settings: normalizedSettings,
+            timerSec: nextTimerSec,
+            timeLeft: game.timerOn ? nextTimeLeft : nextTimerSec
+          };
+        }));
+        context.rebuild();
+      }
+    },
     'ui:lang:select': {
       on: ['change', 'click'],
       gkeys: ['ui:lang:select'],
@@ -2230,18 +2474,28 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         const lang = select.value || select.getAttribute('data-lang-value');
         if (!lang) return;
         const dir = lang === 'ar' ? 'rtl' : 'ltr';
-        context.setState((prev) => ({
-          ...prev,
-          env: {
-            ...prev.env,
-            lang,
-            dir
-          },
-          i18n: {
-            ...prev.i18n,
-            lang
-          }
-        }));
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevMenus = ensureDict(prevShell.headerMenus);
+          return {
+            ...prev,
+            env: {
+              ...prev.env,
+              lang,
+              dir
+            },
+            i18n: {
+              ...prev.i18n,
+              lang
+            },
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false })
+              })
+            })
+          };
+        });
         setDir(dir);
         context.rebuild();
       }
@@ -2264,6 +2518,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           const prevUi = ensureDict(prev.ui);
           const prevShell = ensureDict(prevUi.pagesShell);
           const prevThemeLab = ensureDict(prevShell.themeLab);
+          const prevMenus = ensureDict(prevShell.headerMenus);
           return {
             ...prev,
             env: {
@@ -2278,6 +2533,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             },
             ui: Object.assign({}, prevUi, {
               pagesShell: Object.assign({}, prevShell, {
+                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false }),
                 themeLab: Object.assign({}, prevThemeLab, {
                   draft: Object.assign({}, overrides)
                 })
@@ -2287,6 +2543,108 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         });
         setTheme(nextTheme);
         context.rebuild();
+      }
+    },
+    'ui:header:menuToggle': {
+      on: ['click'],
+      gkeys: ['ui:header:menuToggle'],
+      handler: (event, context) => {
+        const toggle = event.target.closest ? event.target.closest('[data-menu-toggle]') : event.target;
+        if (!toggle) return;
+        const target = toggle.getAttribute('data-menu-toggle');
+        if (!target) return;
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevMenus = ensureDict(prevShell.headerMenus);
+          const nextMenus = Object.assign({}, prevMenus, {
+            langOpen: target === 'lang' ? !prevMenus.langOpen : false,
+            themeOpen: target === 'theme' ? !prevMenus.themeOpen : false
+          });
+          if (target === 'lang') {
+            nextMenus.themeOpen = false;
+          }
+          if (target === 'theme') {
+            nextMenus.langOpen = false;
+          }
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                headerMenus: nextMenus
+              })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'ui:header:menuClose': {
+      on: ['click'],
+      gkeys: ['ui:header:menuClose'],
+      handler: (event, context) => {
+        const control = event.target.closest ? event.target.closest('[data-menu-close],[data-menu-overlay]') : event.target;
+        if (!control) return;
+        const scope = control.getAttribute('data-menu-close') || 'all';
+        let changed = false;
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevMenus = ensureDict(prevShell.headerMenus);
+          const nextMenus = Object.assign({}, prevMenus);
+          if (scope === 'lang' || scope === 'all') {
+            if (nextMenus.langOpen) changed = true;
+            nextMenus.langOpen = false;
+          }
+          if (scope === 'theme' || scope === 'all') {
+            if (nextMenus.themeOpen) changed = true;
+            nextMenus.themeOpen = false;
+          }
+          if (!changed) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                headerMenus: nextMenus
+              })
+            })
+          };
+        });
+        if (changed) context.rebuild();
+      }
+    },
+    'ui:header:menuMaybeClose': {
+      on: ['click'],
+      gkeys: ['ui:header:menuMaybeClose'],
+      handler: (event, context) => {
+        const target = event.target;
+        if (!target) return;
+        if (target.closest('[data-menu-panel]')) return;
+        if (target.closest('[data-menu-toggle]')) return;
+        if (target.closest('[data-menu-overlay]')) return;
+        if (target.closest('[data-menu-close]')) return;
+        const state = context.getState();
+        const prevUi = ensureDict(state.ui);
+        const prevShell = ensureDict(prevUi.pagesShell);
+        const prevMenus = ensureDict(prevShell.headerMenus);
+        if (!prevMenus.langOpen && !prevMenus.themeOpen) return;
+        let changed = false;
+        context.setState((prev) => {
+          const prevUiState = ensureDict(prev.ui);
+          const prevShellState = ensureDict(prevUiState.pagesShell);
+          const prevMenuState = ensureDict(prevShellState.headerMenus);
+          if (!prevMenuState.langOpen && !prevMenuState.themeOpen) return prev;
+          changed = true;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUiState, {
+              pagesShell: Object.assign({}, prevShellState, {
+                headerMenus: Object.assign({}, prevMenuState, { langOpen: false, themeOpen: false })
+              })
+            })
+          };
+        });
+        if (changed) context.rebuild();
       }
     }
   };
