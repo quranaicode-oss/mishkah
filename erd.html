@@ -91,6 +91,155 @@
     const Schema = M.schema;
     const { tw } = U.twcss;
     const Text = U.Text || {};
+    const LangUtils = U.lang || {};
+
+    function createTranslator(db){
+      const lookup = typeof LangUtils.makeLangLookup === 'function'
+        ? LangUtils.makeLangLookup(db)
+        : { TL:(key)=>key };
+      const TL = typeof lookup.TL === 'function' ? lookup.TL : (key)=>key;
+      return (key, fallback)=>{
+        const value = TL(key);
+        return value === key ? (fallback != null ? fallback : key) : value;
+      };
+    }
+
+    const I18N_DICT = {
+      'app.title':{ ar:'مخطط قاعدة بيانات مشكاة', en:'Mishkah Database Diagram' },
+      'schema.untitled':{ ar:'مخطط بدون اسم', en:'Untitled diagram' },
+      'library.title':{ ar:'مكتبة المخططات', en:'Diagram library' },
+      'library.empty':{ ar:'لم يتم حفظ أي مخططات بعد.', en:'No diagrams saved yet.' },
+      'library.storage.indexeddb':{ ar:'IndexedDB', en:'IndexedDB' },
+      'library.storage.memory':{ ar:'ذاكرة مؤقتة', en:'Memory cache' },
+      'library.new.button':{ ar:'مخطط جديد', en:'New diagram' },
+      'library.import.button':{ ar:'استيراد JSON', en:'Import JSON' },
+      'library.delete.title':{ ar:'حذف المخطط', en:'Delete diagram' },
+      'template.overlay.heading':{ ar:'ملخص القالب الحالي', en:'Template overview' },
+      'template.overlay.hide':{ ar:'إخفاء', en:'Hide' },
+      'template.overlay.hide-title':{ ar:'إخفاء الملخص', en:'Hide summary' },
+      'template.overlay.show':{ ar:'عرض', en:'Show' },
+      'template.overlay.description':{ ar:'هذا الملخص يوضح الجداول النشطة وعدد الحقول والعلاقات، مما يساعدك على فهم شكل المخطط بسرعة.', en:'This summary highlights the active tables, field counts, and relationships to give you a quick understanding of the diagram.' },
+      'template.overlay.empty':{ ar:'ابدأ بإضافة جدول لإنشاء قالب المخطط.', en:'Start by adding a table to generate a template.' },
+      'template.overlay.add-column.title':{ ar:'إضافة عمود جديد لهذا الجدول', en:'Add a new column to this table' },
+      'canvas.empty':{ ar:'أضف جدولًا جديدًا لبدء بناء المخطط.', en:'Add a new table to start building the diagram.' },
+      'toolbar.export':{ ar:'تصدير', en:'Export' },
+      'toolbar.schema.group':{ ar:'المخطط', en:'Diagram' },
+      'toolbar.schema.edit':{ ar:'خصائص المخطط', en:'Schema properties' },
+      'toolbar.structure.group':{ ar:'العناصر', en:'Elements' },
+      'toolbar.structure.addTable':{ ar:'جدول', en:'Table' },
+      'toolbar.structure.addField':{ ar:'حقل', en:'Field' },
+      'toolbar.structure.addRelation':{ ar:'علاقة', en:'Relation' },
+      'toolbar.structure.columns':{ ar:'الأعمدة', en:'Columns' },
+      'toolbar.templates.group':{ ar:'القوالب', en:'Templates' },
+      'toolbar.templates.hide':{ ar:'إخفاء القالب', en:'Hide template' },
+      'toolbar.templates.show':{ ar:'عرض القالب', en:'Show template' },
+      'toolbar.ui.group':{ ar:'الواجهة', en:'Interface' },
+      'toolbar.history.group':{ ar:'التاريخ', en:'History' },
+      'toolbar.history.undo.title':{ ar:'تراجع', en:'Undo' },
+      'toolbar.history.redo.title':{ ar:'إعادة', en:'Redo' },
+      'toolbar.history.fit.title':{ ar:'ملاءمة المخطط للشاشة', en:'Fit diagram to screen' },
+      'toolbar.export.group':{ ar:'التصدير', en:'Export' },
+      'toolbar.zoom.group':{ ar:'الحجم', en:'Zoom' },
+      'toolbar.zoom.out.title':{ ar:'تصغير', en:'Zoom out' },
+      'toolbar.zoom.reset.title':{ ar:'إعادة الحجم', en:'Reset zoom' },
+      'toolbar.zoom.in.title':{ ar:'تكبير', en:'Zoom in' },
+      'modal.import.title':{ ar:'استيراد مخطط JSON', en:'Import JSON diagram' },
+      'modal.import.description':{ ar:'ألصق بيانات المخطط أو استبدل مخططًا موجودًا.', en:'Paste the diagram data or replace an existing diagram.' },
+      'modal.import.name.placeholder':{ ar:'المعرف الفريد للمخطط (name)', en:'Unique diagram identifier (name)' },
+      'modal.import.title.placeholder':{ ar:'العنوان المعروض', en:'Displayed title' },
+      'modal.import.target.new':{ ar:'إنشاء مخطط جديد', en:'Create a new diagram' },
+      'modal.import.target.replace':{ ar:'استبدال:', en:'Replace:' },
+      'modal.import.submit':{ ar:'استيراد وتخزين', en:'Import and store' },
+      'modal.close':{ ar:'إغلاق', en:'Close' },
+      'modal.exportJson.title':{ ar:'مخطط JSON', en:'JSON diagram' },
+      'modal.exportJson.description':{ ar:'انسخ المحتوى للاستخدام في أماكن أخرى.', en:'Copy the content for use elsewhere.' },
+      'modal.done':{ ar:'تم', en:'Done' },
+      'modal.exportSql.title':{ ar:'نص SQL', en:'SQL script' },
+      'modal.exportSql.description':{ ar:'هذا النص يمثل أوامر إنشاء الجداول PostgreSQL.', en:'This script represents the PostgreSQL table definitions.' },
+      'modal.schemaMeta.title':{ ar:'خصائص المخطط', en:'Diagram properties' },
+      'modal.schemaMeta.description':{ ar:'قم بتحديث اسم التعريف والعنوان والوصف.', en:'Update the identifier, title, and description.' },
+      'modal.schemaMeta.description.placeholder':{ ar:'وصف مختصر للمخطط', en:'Short diagram description' },
+      'modal.schemaMeta.save':{ ar:'حفظ التعديلات', en:'Save changes' },
+      'modal.table.title':{ ar:'إنشاء جدول جديد', en:'Create new table' },
+      'modal.table.description':{ ar:'الاسم الإنجليزي مطلوب وسيُستخدم كاسم الجدول في قاعدة البيانات. يمكنك إضافة مسمى بلغة أخرى اختياريًا.', en:'An English name is required and will be used as the table name in the database. You can optionally provide another language label.' },
+      'modal.table.name.placeholder':{ ar:'English name (مثال: Sales Orders)', en:'English name (e.g. Sales Orders)' },
+      'modal.table.label.placeholder':{ ar:'اسم الجدول بلغة ثانية (اختياري)', en:'Table label in another language (optional)' },
+      'common.notes.placeholder':{ ar:'ملاحظات', en:'Notes' },
+      'modal.table.includeId':{ ar:'إنشاء حقل id افتراضي؟', en:'Create default id field?' },
+      'common.create':{ ar:'إنشاء', en:'Create' },
+      'common.cancel':{ ar:'إلغاء', en:'Cancel' },
+      'table.create.helper.suggested':{ ar:'سيتم حفظ الجدول في قاعدة البيانات بالاسم: {name} مع ضمان عدم تكرار المعرف داخل المخطط.', en:'The table will be saved in the database with the name: {name}, ensuring the identifier stays unique within the diagram.' },
+      'table.create.helper.prompt':{ ar:'اكتب اسمًا إنجليزيًا، وسيتم تحويل المسافات والمحارف الخاصة تلقائيًا إلى صيغة SQL سليمة.', en:'Type an English name; spaces and special characters will be converted automatically to a valid SQL identifier.' },
+      'modal.field.title':{ ar:'إضافة حقل', en:'Add field' },
+      'modal.field.description':{ ar:'حدد تفاصيل الحقل الجديد مع اسم إنجليزي متوافق مع SQL ومسمى عربي اختياري.', en:'Provide the new field details with an SQL-friendly English name and an optional localized label.' },
+      'modal.field.table.placeholder':{ ar:'اختر الجدول', en:'Select table' },
+      'modal.field.label.placeholder':{ ar:'المسمى العربي للحقل', en:'Field display label' },
+      'modal.field.identifier.preview':{ ar:'المعرف النهائي: {name}', en:'Final identifier: {name}' },
+      'modal.field.identifier.pending':{ ar:'سيتم توليد المعرف تلقائيًا عند الكتابة.', en:'The identifier is generated automatically as you type.' },
+      'modal.field.default.placeholder':{ ar:'قيمة افتراضية', en:'Default value' },
+      'modal.field.nullable':{ ar:'Nullable؟', en:'Nullable?' },
+      'modal.field.primaryKey':{ ar:'Primary Key؟', en:'Primary key?' },
+      'modal.field.unique':{ ar:'Unique؟', en:'Unique?' },
+      'modal.field.reference.title':{ ar:'علاقة مرجعية اختيارية', en:'Optional reference' },
+      'modal.field.reference.none':{ ar:'بدون علاقة', en:'No relation' },
+      'modal.field.reference.selectField':{ ar:'اختر الحقل', en:'Select field' },
+      'common.add':{ ar:'إضافة', en:'Add' },
+      'modal.relation.title':{ ar:'إنشاء علاقة بين الجداول', en:'Create relationship between tables' },
+      'modal.relation.description':{ ar:'حدد الجدول المصدر والهدف وأسلوب التحديث.', en:'Choose the source and target tables and the update strategy.' },
+      'modal.relation.sourceTable':{ ar:'اختر الجدول المصدر', en:'Select source table' },
+      'modal.relation.sourceField':{ ar:'اختر الحقل المصدر', en:'Select source field' },
+      'modal.relation.targetTable':{ ar:'اختر الجدول الهدف', en:'Select target table' },
+      'modal.relation.targetField':{ ar:'اختر الحقل الهدف', en:'Select target field' },
+      'modal.relation.save':{ ar:'حفظ العلاقة', en:'Save relationship' },
+      'modal.columns.empty.title':{ ar:'محرر الأعمدة', en:'Columns editor' },
+      'modal.columns.empty.description':{ ar:'لا توجد جداول في المخطط بعد. قم بإضافة جدول لبدء إدارة الأعمدة.', en:'There are no tables in the diagram yet. Add a table to start managing columns.' },
+      'modal.columns.empty.action':{ ar:'أضف جدولًا جديدًا من شريط الأدوات ثم عد إلى هنا.', en:'Add a new table from the toolbar and come back here.' },
+      'modal.columns.length.placeholder':{ ar:'الطول', en:'Length' },
+      'modal.columns.precision.placeholder':{ ar:'الدقة', en:'Precision' },
+      'modal.columns.scale.placeholder':{ ar:'المقياس', en:'Scale' },
+      'modal.columns.focus':{ ar:'انتقال', en:'Focus' },
+      'modal.columns.name.placeholder':{ ar:'اسم العمود (snake_case)', en:'Column name (snake_case)' },
+      'modal.columns.default.placeholder':{ ar:'القيمة الافتراضية', en:'Default value' },
+      'modal.columns.refTable.placeholder':{ ar:'جدول المرجع (FK)', en:'Reference table (FK)' },
+      'modal.columns.refColumn.placeholder':{ ar:'حقل المرجع (FK)', en:'Reference field (FK)' },
+      'modal.columns.noColumns':{ ar:'لا توجد أعمدة بعد لهذا الجدول.', en:'No columns for this table yet.' },
+      'modal.columns.header':{ ar:'أعمدة الجدول', en:'Table columns' },
+      'modal.columns.header.withName':{ ar:'أعمدة الجدول: {name}', en:'Table columns: {name}' },
+      'modal.columns.addColumn':{ ar:'عمود جديد', en:'New column' },
+      'modal.columns.title':{ ar:'محرر الأعمدة', en:'Columns editor' },
+      'modal.columns.description':{ ar:'تحكم في أعمدة الجدول المحدد بسرعة عبر واجهة واحدة.', en:'Manage the selected table columns from one place.' },
+      'modal.columns.tables':{ ar:'الجداول', en:'Tables' },
+      'modal.columns.save':{ ar:'حفظ الأعمدة', en:'Save columns' },
+      'context.section.schema':{ ar:'المخطط', en:'Diagram' },
+      'context.section.structure':{ ar:'البنية', en:'Structure' },
+      'context.section.outputs':{ ar:'المخرجات', en:'Outputs' },
+      'context.section.relationships':{ ar:'العلاقات', en:'Relationships' },
+      'context.table.rename':{ ar:'إعادة تسمية الجدول', en:'Rename table' },
+      'context.table.duplicate':{ ar:'تكرار الجدول', en:'Duplicate table' },
+      'context.table.delete':{ ar:'حذف الجدول', en:'Delete table' },
+      'context.table.columns':{ ar:'إدارة الأعمدة', en:'Manage columns' },
+      'context.table.addUnique':{ ar:'إضافة قيد فريد', en:'Add unique constraint' },
+      'context.table.addIndex':{ ar:'إضافة فهرس', en:'Add index' },
+      'context.table.generateFk':{ ar:'توليد علاقة خارجية', en:'Generate foreign key' },
+      'context.table.exportSql':{ ar:'تصدير هذا الجدول (SQL)', en:'Export this table (SQL)' },
+      'context.table.exportJson':{ ar:'تصدير هذا الجدول (JSON)', en:'Export this table (JSON)' },
+      'context.table.show':{ ar:'إظهار في المشهد', en:'Show on canvas' },
+      'context.table.hide':{ ar:'إخفاء في المشهد', en:'Hide from canvas' },
+      'context.field.rename':{ ar:'إعادة تسمية الحقل', en:'Rename field' },
+      'context.field.type':{ ar:'تغيير نوع الحقل', en:'Change field type' },
+      'context.field.length':{ ar:'ضبط الطول/الدقة', en:'Adjust length/precision' },
+      'context.field.properties':{ ar:'الخصائص', en:'Properties' },
+      'context.field.pk.add':{ ar:'تعيين كمفتاح أساسي', en:'Set as primary key' },
+      'context.field.pk.remove':{ ar:'إلغاء المفتاح الأساسي', en:'Remove primary key' },
+      'context.field.null.allow':{ ar:'السماح بالقيم الفارغة', en:'Allow null values' },
+      'context.field.null.disallow':{ ar:'فرض Not Null', en:'Enforce not null' },
+      'context.field.unique.add':{ ar:'إضافة إلى القيد الفريد', en:'Add to unique constraint' },
+      'context.field.unique.remove':{ ar:'إزالة من القيد الفريد', en:'Remove from unique constraint' },
+      'context.field.index.add':{ ar:'إضافة إلى الفهرس', en:'Add to index' },
+      'context.field.index.remove':{ ar:'إزالة من الفهرس', en:'Remove from index' },
+      'context.field.relationships':{ ar:'العلاقات', en:'Relationships' },
+      'context.field.createFk':{ ar:'إنشاء علاقة خارجية من هذا الحقل', en:'Create FK from this field' }
+    };
 
     const X6_CDN_SOURCES = [
       'https://unpkg.com/@antv/x6@1.35.3/dist/x6.js',
@@ -2066,6 +2215,7 @@
 
     const erdState = {
       head:{ title: activeRecord.title || 'مخطط قاعدة بيانات مشكاة' },
+      i18n:{ lang:'ar', fallback:'en', dict: I18N_DICT },
       env:{ theme:'dark', lang:'ar', dir:'rtl', graph:{ driver:'x6' } },
       data:{
         schemaId: activeRecord.id,
@@ -2421,6 +2571,7 @@
     }
 
     function SchemaLibraryPanel(db){
+      const t = createTranslator(db);
       const library = db.data.library || {};
       const items = library.items || [];
       const activeId = db.data.schemaId;
@@ -2434,19 +2585,19 @@
                 ]),
                 D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }}, [
                   D.Text.Span({ attrs:{ class: tw`text-[10px] text-[var(--muted)]` }}, [U.Time.fmt(item.updatedAt || item.createdAt || Date.now())]),
-                  UI.Button({ attrs:{ gkey:'erd:library:delete', 'data-schema-id': item.id, title:'حذف المخطط', class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, ['🗑️'])
+                  UI.Button({ attrs:{ gkey:'erd:library:delete', 'data-schema-id': item.id, title:t('library.delete.title', 'حذف المخطط'), class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, ['🗑️'])
                 ])
               ])
             ])))
-        : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['لم يتم حفظ أي مخططات بعد.']);
-      return D.Containers.Aside({ attrs:{ class: tw`hidden lg:flex w-72 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
+        : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('library.empty', 'لم يتم حفظ أي مخططات بعد.')]);
+      return D.Containers.Aside({ attrs:{ class: tw`hidden lg:flex h-full w-72 flex-shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, ['مكتبة المخططات']),
-          D.Text.Span({ attrs:{ class: tw`text-[10px] uppercase tracking-wide text-[var(--muted)]` }}, [library.status === 'indexeddb' ? 'IndexedDB' : 'ذاكرة مؤقتة'])
+          D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('library.title', 'مكتبة المخططات')]),
+          D.Text.Span({ attrs:{ class: tw`text-[10px] uppercase tracking-wide text-[var(--muted)]` }}, [library.status === 'indexeddb' ? t('library.storage.indexeddb', 'IndexedDB') : t('library.storage.memory', 'ذاكرة مؤقتة')])
         ]),
         D.Containers.Div({ attrs:{ class: tw`px-4 py-3 flex flex-col gap-2` }}, [
-          UI.Button({ attrs:{ gkey:'erd:library:new' }, variant:'solid', size:'sm' }, ['➕ مخطط جديد']),
-          UI.Button({ attrs:{ gkey:'erd:import:open' }, variant:'ghost', size:'sm' }, ['⬆️ استيراد JSON'])
+          UI.Button({ attrs:{ gkey:'erd:library:new' }, variant:'solid', size:'sm' }, [`➕ ${t('library.new.button', 'مخطط جديد')}`]),
+          UI.Button({ attrs:{ gkey:'erd:import:open' }, variant:'ghost', size:'sm' }, [`⬆️ ${t('library.import.button', 'استيراد JSON')}`])
         ]),
         D.Containers.Div({ attrs:{ class: tw`flex-1 overflow-y-auto px-3 pb-4` }}, [listContent])
       ]);
@@ -2455,6 +2606,7 @@
     function TemplateOverlay(db, tables){
       const templateState = db.ui?.template || {};
       if(templateState.open === false) return null;
+      const t = createTranslator(db);
       const registryTables = Array.isArray(tables) ? tables : getRegistry(db).list();
       const previewTables = registryTables.slice(0, 6);
       const cards = previewTables.length
@@ -2467,23 +2619,23 @@
                   D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [formatIdentifier(table.name)]),
                   table.label ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.label]) : null
                 ].filter(Boolean)),
-                UI.Button({ attrs:{ gkey:'erd:field:add:table', 'data-table': table.name, title:'إضافة عمود جديد لهذا الجدول' }, variant:'ghost', size:'sm' }, ['➕ عمود'])
+                UI.Button({ attrs:{ gkey:'erd:field:add:table', 'data-table': table.name, title:t('template.overlay.add-column.title', 'إضافة عمود جديد لهذا الجدول') }, variant:'ghost', size:'sm' }, [`➕ ${t('modal.columns.addColumn', 'عمود جديد')}`])
               ]),
               D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)]` }}, [`Fields: ${fieldCount} · Relations: ${relationCount}`])
             ].filter(Boolean));
           })
         : [
-            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['ابدأ بإضافة جدول لإنشاء قالب المخطط.'])
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [t('template.overlay.empty', 'ابدأ بإضافة جدول لإنشاء قالب المخطط.')])
           ];
       return D.Containers.Div({ attrs:{ class: tw`absolute bottom-4 left-4 z-20 w-80 max-w-full pointer-events-auto` }}, [
         D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur flex flex-col` }}, [
           D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]/80` }}, [
-            D.Text.Span({ attrs:{ class: tw`text-sm font-semibold flex items-center gap-2` }}, ['🧩 ملخص القالب الحالي']),
-            UI.Button({ attrs:{ gkey:'erd:template:toggle', title:'إخفاء الملخص', class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, ['إخفاء'])
+            D.Text.Span({ attrs:{ class: tw`text-sm font-semibold flex items-center gap-2` }}, ['🧩 ', t('template.overlay.heading', 'ملخص القالب الحالي')]),
+            UI.Button({ attrs:{ gkey:'erd:template:toggle', title:t('template.overlay.hide-title', 'إخفاء الملخص'), class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, [t('template.overlay.hide', 'إخفاء')])
           ]),
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 px-4 py-3 max-h-60 overflow-y-auto` }}, cards),
           D.Containers.Div({ attrs:{ class: tw`px-4 py-2 border-t border-[var(--border)]/60` }}, [
-            D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)] leading-relaxed` }}, ['هذا الملخص يوضح الجداول النشطة وعدد الحقول والعلاقات، مما يساعدك على فهم شكل المخطط بسرعة.'])
+            D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)] leading-relaxed` }}, [t('template.overlay.description', 'هذا الملخص يوضح الجداول النشطة وعدد الحقول والعلاقات، مما يساعدك على فهم شكل المخطط بسرعة.')])
           ])
         ])
       ]);
@@ -2494,9 +2646,10 @@
       const tables = registry.list();
       scheduleDiagramRender(db);
       const hasTables = tables.length > 0;
+      const t = createTranslator(db);
       const emptyState = !hasTables
         ? D.Containers.Div({ attrs:{ class: tw`absolute inset-0 flex items-center justify-center pointer-events-none` }}, [
-            D.Containers.Div({ attrs:{ class: tw`rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-2)]/70 px-6 py-5 text-center text-sm text-[var(--muted)] max-w-md` }}, ['أضف جدولًا جديدًا لبدء بناء المخطط.'])
+            D.Containers.Div({ attrs:{ class: tw`rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-2)]/70 px-6 py-5 text-center text-sm text-[var(--muted)] max-w-md` }}, [t('canvas.empty', 'أضف جدولًا جديدًا لبدء بناء المخطط.')])
           ])
         : null;
       const overlay = TemplateOverlay(db, tables);
@@ -2508,6 +2661,7 @@
     }
 
     function ToolbarExportMenu(db){
+      const t = createTranslator(db);
       const open = db.ui?.toolbar?.exportOpen;
       const toggle = UI.Button({
         attrs:{
@@ -2518,7 +2672,7 @@
         variant: open ? 'soft' : 'ghost',
         size:'sm'
       }, [
-        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, ['تصدير']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t('toolbar.export', 'تصدير')]),
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       if(!open){
@@ -2555,45 +2709,46 @@
     }
 
     function Toolbar(db){
+      const t = createTranslator(db);
       const zoom = db.data.canvas?.zoom || 1;
-      const metaTitle = db.data.schemaMeta?.title || 'مخطط بدون اسم';
+      const metaTitle = db.data.schemaMeta?.title || t('schema.untitled', 'مخطط بدون اسم');
       const schemaIdentifier = db.data.schemaMeta?.name ? formatIdentifier(db.data.schemaMeta.name) : '';
       const lang = db.env?.lang || db.i18n?.lang || 'ar';
       const theme = db.env?.theme || 'dark';
       const templateOpen = db.ui?.template?.open !== false;
       const exportMenu = ToolbarExportMenu(db);
-      const metaGroup = UI.ToolbarGroup({ attrs:{ class: tw`items-start gap-3` }, label:'المخطط' }, [
+      const metaGroup = UI.ToolbarGroup({ attrs:{ class: tw`items-start gap-3` }, label:t('toolbar.schema.group', 'المخطط') }, [
         D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
           D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
           schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80` }}, [schemaIdentifier]) : null
         ].filter(Boolean)),
-        UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`!px-3` }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط'])
+        UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`!px-3` }, variant:'ghost', size:'sm' }, [`✏️ ${t('toolbar.schema.edit', 'خصائص المخطط')}`])
       ]);
-      const structureGroup = UI.ToolbarGroup({ label:'العناصر' }, [
-        UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'soft', size:'sm' }, ['➕ جدول']),
-        UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
-        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة']),
-        UI.Button({ attrs:{ gkey:'erd:columns:open' }, variant:'ghost', size:'sm' }, ['🗂️ الأعمدة'])
+      const structureGroup = UI.ToolbarGroup({ label:t('toolbar.structure.group', 'العناصر') }, [
+        UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'soft', size:'sm' }, [`➕ ${t('toolbar.structure.addTable', 'جدول')}`]),
+        UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, [`➕ ${t('toolbar.structure.addField', 'حقل')}`]),
+        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, [`🔗 ${t('toolbar.structure.addRelation', 'علاقة')}`]),
+        UI.Button({ attrs:{ gkey:'erd:columns:open' }, variant:'ghost', size:'sm' }, [`🗂️ ${t('toolbar.structure.columns', 'الأعمدة')}`])
       ]);
-      const templateGroup = UI.ToolbarGroup({ label:'القوالب' }, [
-        UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'soft' : 'ghost', size:'sm' }, [templateOpen ? '🧩 إخفاء القالب' : '🧩 عرض القالب'])
+      const templateGroup = UI.ToolbarGroup({ label:t('toolbar.templates.group', 'القوالب') }, [
+        UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'soft' : 'ghost', size:'sm' }, [templateOpen ? `🧩 ${t('toolbar.templates.hide', 'إخفاء القالب')}` : `🧩 ${t('toolbar.templates.show', 'عرض القالب')}`])
       ]);
 
-      const uiGroup = UI.ToolbarGroup({ label:'الواجهة' }, [
+      const uiGroup = UI.ToolbarGroup({ label:t('toolbar.ui.group', 'الواجهة') }, [
         UI.LanguageSwitch({ lang }),
         UI.ThemeToggleIcon({ theme })
       ]);
-      const historyGroup = UI.ToolbarGroup({ label:'التاريخ' }, [
-        UI.Button({ attrs:{ gkey:'erd:undo', title:'تراجع' }, variant:'ghost', size:'sm' }, ['↺']),
-        UI.Button({ attrs:{ gkey:'erd:redo', title:'إعادة' }, variant:'ghost', size:'sm' }, ['↻']),
-        UI.Button({ attrs:{ gkey:'erd:fit', title:'ملاءمة المخطط للشاشة' }, variant:'ghost', size:'sm' }, ['🗺️'])
+      const historyGroup = UI.ToolbarGroup({ label:t('toolbar.history.group', 'التاريخ') }, [
+        UI.Button({ attrs:{ gkey:'erd:undo', title:t('toolbar.history.undo.title', 'تراجع') }, variant:'ghost', size:'sm' }, ['↺']),
+        UI.Button({ attrs:{ gkey:'erd:redo', title:t('toolbar.history.redo.title', 'إعادة') }, variant:'ghost', size:'sm' }, ['↻']),
+        UI.Button({ attrs:{ gkey:'erd:fit', title:t('toolbar.history.fit.title', 'ملاءمة المخطط للشاشة') }, variant:'ghost', size:'sm' }, ['🗺️'])
       ]);
-      const exportGroup = UI.ToolbarGroup({ label:'التصدير' }, [exportMenu]);
-      const zoomGroup = UI.ToolbarGroup({ label:'الحجم' }, [
-        UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
+      const exportGroup = UI.ToolbarGroup({ label:t('toolbar.export.group', 'التصدير') }, [exportMenu]);
+      const zoomGroup = UI.ToolbarGroup({ label:t('toolbar.zoom.group', 'الحجم') }, [
+        UI.Button({ attrs:{ gkey:'erd:zoom:out', title:t('toolbar.zoom.out.title', 'تصغير') }, variant:'ghost', size:'sm' }, ['➖']),
         D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
-        UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:'إعادة الحجم' }, variant:'ghost', size:'sm' }, ['⟳']),
-        UI.Button({ attrs:{ gkey:'erd:zoom:in', title:'تكبير' }, variant:'ghost', size:'sm' }, ['➕'])
+        UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:t('toolbar.zoom.reset.title', 'إعادة الحجم') }, variant:'ghost', size:'sm' }, ['⟳']),
+        UI.Button({ attrs:{ gkey:'erd:zoom:in', title:t('toolbar.zoom.in.title', 'تكبير') }, variant:'ghost', size:'sm' }, ['➕'])
       ]);
 
       return UI.Toolbar({
@@ -2603,6 +2758,7 @@
     }
 
     function ModalImport(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.import;
       const form = db.ui?.form?.import || { name:'', title:'', targetId:'', text:'' };
       const library = db.data.library || {};
@@ -2610,115 +2766,121 @@
       return UI.Modal({
         open,
         size:'lg',
-        title:'استيراد مخطط JSON',
-        description:'ألصق بيانات المخطط أو استبدل مخططًا موجودًا.',
+        title:t('modal.import.title', 'استيراد مخطط JSON'),
+        description:t('modal.import.description', 'ألصق بيانات المخطط أو استبدل مخططًا موجودًا.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'name', value: form.name || '', placeholder:'المعرف الفريد للمخطط (name)' } }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'title', value: form.title || '', placeholder:'العنوان المعروض' } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'name', value: form.name || '', placeholder:t('modal.import.name.placeholder', 'المعرف الفريد للمخطط (name)') } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'title', value: form.title || '', placeholder:t('modal.import.title.placeholder', 'العنوان المعروض') } }),
             UI.Select({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'targetId', value: form.targetId || '' }, options:[
-              { value:'', label:'إنشاء مخطط جديد' },
-              ...items.map(item=> ({ value:item.id, label:`استبدال: ${item.title || item.name}` }))
+              { value:'', label:t('modal.import.target.new', 'إنشاء مخطط جديد') },
+              ...items.map(item=> ({ value:item.id, label:`${t('modal.import.target.replace', 'استبدال:')} ${item.title || item.name}` }))
             ] }),
             UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'import', 'data-field':'text', value: form.text || '', rows:12, class: tw`w-full font-mono text-xs`, placeholder:'{"schema":{...}}' } })
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:import:apply', variant:'solid', size:'sm' }}, ['استيراد وتخزين']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق'])
+          UI.Button({ attrs:{ gkey:'erd:import:apply', variant:'solid', size:'sm' }}, [t('modal.import.submit', 'استيراد وتخزين')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.close', 'إغلاق')])
         ]
       });
     }
 
     function ModalExportJson(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.exportJson;
       const text = db.ui?.form?.export?.text || '';
       return UI.Modal({
         open,
         size:'lg',
-        title:'مخطط JSON',
-        description:'انسخ المحتوى للاستخدام في أماكن أخرى.',
+        title:t('modal.exportJson.title', 'مخطط JSON'),
+        description:t('modal.exportJson.description', 'انسخ المحتوى للاستخدام في أماكن أخرى.'),
         closeGkey:'erd:modal:close',
         content:[
           UI.Textarea({ attrs:{ readonly:true, value: text, rows:14, class: tw`w-full font-mono text-xs` } })
         ],
-        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['تم']) ]
+        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.done', 'تم')]) ]
       });
     }
 
     function ModalExportSql(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.exportSql;
       const text = db.ui?.form?.sql?.text || '';
       return UI.Modal({
         open,
         size:'lg',
-        title:'نص SQL',
-        description:'هذا النص يمثل أوامر إنشاء الجداول PostgreSQL.',
+        title:t('modal.exportSql.title', 'نص SQL'),
+        description:t('modal.exportSql.description', 'هذا النص يمثل أوامر إنشاء الجداول PostgreSQL.'),
         closeGkey:'erd:modal:close',
         content:[ UI.Textarea({ attrs:{ readonly:true, value: text, rows:16, class: tw`w-full font-mono text-xs` } }) ],
-        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['تم']) ]
+        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.done', 'تم')]) ]
       });
     }
 
     function ModalSchemaMeta(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.schemaMeta;
       const form = db.ui?.form?.schemaMeta || { name:'', title:'', description:'' };
       return UI.Modal({
         open,
         size:'md',
-        title:'خصائص المخطط',
-        description:'قم بتحديث اسم التعريف والعنوان والوصف.',
+        title:t('modal.schemaMeta.title', 'خصائص المخطط'),
+        description:t('modal.schemaMeta.description', 'قم بتحديث اسم التعريف والعنوان والوصف.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
             UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'schemaMeta', 'data-field':'name', value: form.name || '', placeholder:'Name (snake_case)' } }),
             UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'schemaMeta', 'data-field':'title', value: form.title || '', placeholder:'Title' } }),
-            UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'schemaMeta', 'data-field':'description', value: form.description || '', rows:4, placeholder:'وصف مختصر للمخطط' } })
+            UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'schemaMeta', 'data-field':'description', value: form.description || '', rows:4, placeholder:t('modal.schemaMeta.description.placeholder', 'وصف مختصر للمخطط') } })
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:schema:meta:save', variant:'solid', size:'sm' }}, ['حفظ التعديلات']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+          UI.Button({ attrs:{ gkey:'erd:schema:meta:save', variant:'solid', size:'sm' }}, [t('modal.schemaMeta.save', 'حفظ التعديلات')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
         ]
       });
     }
 
     function ModalAddTable(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.table;
       const form = db.ui?.form?.table || { name:'', nameInput:'', label:'', comment:'', includeId:true };
       const registry = getRegistry(db);
       const sanitizedName = form.name || '';
       const suggestedName = sanitizedName || (form.label ? sanitizeSqlIdentifier(form.label) : '');
-      const helperText = suggestedName
-        ? `سيتم حفظ الجدول في قاعدة البيانات بالاسم: ${suggestedName} مع ضمان عدم تكرار المعرف داخل المخطط.`
-        : 'اكتب اسمًا إنجليزيًا، وسيتم تحويل المسافات والمحارف الخاصة تلقائيًا إلى صيغة SQL سليمة.';
+      const helperTemplate = suggestedName
+        ? t('table.create.helper.suggested', `سيتم حفظ الجدول في قاعدة البيانات بالاسم: ${suggestedName} مع ضمان عدم تكرار المعرف داخل المخطط.`)
+        : t('table.create.helper.prompt', 'اكتب اسمًا إنجليزيًا، وسيتم تحويل المسافات والمحارف الخاصة تلقائيًا إلى صيغة SQL سليمة.');
+      const helperText = helperTemplate.replace('{name}', suggestedName);
       return UI.Modal({
         open,
         size:'md',
-        title:'إنشاء جدول جديد',
-        description:'الاسم الإنجليزي مطلوب وسيُستخدم كاسم الجدول في قاعدة البيانات. يمكنك إضافة مسمى بلغة أخرى اختياريًا.',
+        title:t('modal.table.title', 'إنشاء جدول جديد'),
+        description:t('modal.table.description', 'الاسم الإنجليزي مطلوب وسيُستخدم كاسم الجدول في قاعدة البيانات. يمكنك إضافة مسمى بلغة أخرى اختياريًا.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'name', value: form.nameInput || '', placeholder:'English name (مثال: Sales Orders)' } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'name', value: form.nameInput || '', placeholder:t('modal.table.name.placeholder', 'English name (مثال: Sales Orders)') } }),
             D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [helperText]),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:'اسم الجدول بلغة ثانية (اختياري)' } }),
-            UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:'ملاحظات' } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'label', value: form.label || '', placeholder:t('modal.table.label.placeholder', 'اسم الجدول بلغة ثانية (اختياري)') } }),
+            UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'table', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:t('common.notes.placeholder', 'ملاحظات') } }),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
               UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'table', 'data-field':'includeId', type:'checkbox', checked: form.includeId !== false } }),
-              UI.Label({ text:'إنشاء حقل id افتراضي؟' })
+              UI.Label({ text:t('modal.table.includeId', 'إنشاء حقل id افتراضي؟') })
             ])
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:table:create', variant:'solid', size:'sm' }}, ['إنشاء']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+          UI.Button({ attrs:{ gkey:'erd:table:create', variant:'solid', size:'sm' }}, [t('common.create', 'إنشاء')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
         ]
       });
     }
 
     function ModalAddField(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.field;
       const form = db.ui?.form?.field || {};
       const registry = getRegistry(db);
@@ -2748,8 +2910,8 @@
       return UI.Modal({
         open,
         size:'lg',
-        title:'إضافة حقل',
-        description:'حدد تفاصيل الحقل الجديد مع اسم إنجليزي متوافق مع SQL ومسمى عربي اختياري.',
+        title:t('modal.field.title', 'إضافة حقل'),
+        description:t('modal.field.description', 'حدد تفاصيل الحقل الجديد مع اسم إنجليزي متوافق مع SQL ومسمى عربي اختياري.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3` }}, [
@@ -2760,7 +2922,7 @@
                 'data-field':'table',
                 value: selectedTable || ''
               },
-              options:[{ value:'', label:'اختر الجدول' }, ...tableOptions]
+              options:[{ value:'', label:t('modal.field.table.placeholder', 'اختر الجدول') }, ...tableOptions]
             }),
             UI.Input({
               attrs:{
@@ -2771,27 +2933,27 @@
                 placeholder:'English column name (snake_case)'
               }
             }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'label', value: form.label || '', placeholder:'المسمى العربي للحقل' } }),
-            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80 md:col-span-2` }}, [previewFieldName ? `المعرف النهائي: ${previewFieldName}` : 'سيتم توليد المعرف تلقائيًا عند الكتابة.']),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'label', value: form.label || '', placeholder:t('modal.field.label.placeholder', 'المسمى العربي للحقل') } }),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80 md:col-span-2` }}, [previewFieldName ? t('modal.field.identifier.preview', `المعرف النهائي: ${previewFieldName}`).replace('{name}', previewFieldName) : t('modal.field.identifier.pending', 'سيتم توليد المعرف تلقائيًا عند الكتابة.')]),
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'type', value: form.type || 'string' },
               options: FIELD_TYPE_OPTIONS
             }),
-            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'defaultValue', value: form.defaultValue || '', placeholder:'قيمة افتراضية' } }),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'field', 'data-field':'defaultValue', value: form.defaultValue || '', placeholder:t('modal.field.default.placeholder', 'قيمة افتراضية') } }),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Label({ text:'Nullable؟' }),
+              UI.Label({ text:t('modal.field.nullable', 'Nullable؟') }),
               UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'nullable', type:'checkbox', checked: form.nullable !== false } })
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Label({ text:'Primary Key؟' }),
+              UI.Label({ text:t('modal.field.primaryKey', 'Primary Key؟') }),
               UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'primaryKey', type:'checkbox', checked: !!form.primaryKey } })
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3` }}, [
-              UI.Label({ text:'Unique؟' }),
+              UI.Label({ text:t('modal.field.unique', 'Unique؟') }),
               UI.Input({ attrs:{ gkey:'erd:form:toggle', 'data-form':'field', 'data-field':'unique', type:'checkbox', checked: !!form.unique } })
             ]),
             D.Containers.Div({ attrs:{ class: tw`col-span-full flex flex-col gap-2` }}, [
-              D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['علاقة مرجعية اختيارية']),
+              D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [t('modal.field.reference.title', 'علاقة مرجعية اختيارية')]),
               UI.Select({
                 attrs:{
                   gkey:'erd:form:update',
@@ -2799,7 +2961,7 @@
                   'data-field':'table',
                   value: selectedReferenceTable
                 },
-                options:[{ value:'', label:'بدون علاقة' }, ...tableOptions]
+                options:[{ value:'', label:t('modal.field.reference.none', 'بدون علاقة') }, ...tableOptions]
               }),
               UI.Select({
                 attrs:{
@@ -2808,7 +2970,7 @@
                   'data-field':'column',
                   value: selectedReferenceField
                 },
-                options:[{ value:'', label:'اختر الحقل' }, ...referenceFieldOptions]
+                options:[{ value:'', label:t('modal.field.reference.selectField', 'اختر الحقل') }, ...referenceFieldOptions]
               }),
               UI.Select({
                 attrs:{
@@ -2832,13 +2994,14 @@
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:field:create', variant:'solid', size:'sm' }}, ['إضافة']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+          UI.Button({ attrs:{ gkey:'erd:field:create', variant:'solid', size:'sm' }}, [t('common.add', 'إضافة')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
         ]
       });
     }
 
     function ModalRelation(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.relation;
       const form = db.ui?.form?.relation || {};
       const registry = getRegistry(db);
@@ -2872,26 +3035,26 @@
       return UI.Modal({
         open,
         size:'md',
-        title:'إنشاء علاقة بين الجداول',
-        description:'حدد الجدول المصدر والهدف وأسلوب التحديث.',
+        title:t('modal.relation.title', 'إنشاء علاقة بين الجداول'),
+        description:t('modal.relation.description', 'حدد الجدول المصدر والهدف وأسلوب التحديث.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3` }}, [
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceTable', value: sourceTableValue },
-              options:[{ value:'', label:'اختر الجدول المصدر' }, ...tableOptions]
+              options:[{ value:'', label:t('modal.relation.sourceTable', 'اختر الجدول المصدر') }, ...tableOptions]
             }),
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'sourceField', value: sourceFieldValue },
-              options:[{ value:'', label:'اختر الحقل المصدر' }, ...sourceFieldOptions]
+              options:[{ value:'', label:t('modal.relation.sourceField', 'اختر الحقل المصدر') }, ...sourceFieldOptions]
             }),
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetTable', value: targetTableValue },
-              options:[{ value:'', label:'اختر الجدول الهدف' }, ...tableOptions]
+              options:[{ value:'', label:t('modal.relation.targetTable', 'اختر الجدول الهدف') }, ...tableOptions]
             }),
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'targetField', value: targetFieldValue },
-              options:[{ value:'', label:'اختر الحقل الهدف' }, ...targetFieldOptions]
+              options:[{ value:'', label:t('modal.relation.targetField', 'اختر الحقل الهدف') }, ...targetFieldOptions]
             }),
             UI.Select({
               attrs:{ gkey:'erd:form:update', 'data-form':'relation', 'data-field':'onDelete', value: form.onDelete || 'CASCADE' },
@@ -2904,13 +3067,14 @@
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:relation:create', variant:'solid', size:'sm' }}, ['حفظ العلاقة']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إلغاء'])
+          UI.Button({ attrs:{ gkey:'erd:relation:create', variant:'solid', size:'sm' }}, [t('modal.relation.save', 'حفظ العلاقة')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
         ]
       });
     }
 
     function ModalColumnsManager(db){
+      const t = createTranslator(db);
       const open = db.ui?.modals?.columns;
       if(!open) return null;
       const registry = getRegistry(db);
@@ -2919,11 +3083,11 @@
         return UI.Modal({
           open,
           size:'lg',
-          title:'محرر الأعمدة',
-          description:'لا توجد جداول في المخطط بعد. قم بإضافة جدول لبدء إدارة الأعمدة.',
+          title:t('modal.columns.empty.title', 'محرر الأعمدة'),
+          description:t('modal.columns.empty.description', 'لا توجد جداول في المخطط بعد. قم بإضافة جدول لبدء إدارة الأعمدة.'),
           closeGkey:'erd:modal:close',
-          content:[ D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['أضف جدولًا جديدًا من شريط الأدوات ثم عد إلى هنا.']) ],
-          actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق']) ]
+          content:[ D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('modal.columns.empty.action', 'أضف جدولًا جديدًا من شريط الأدوات ثم عد إلى هنا.')]) ],
+          actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.close', 'إغلاق')]) ]
         });
       }
       const form = db.ui?.form?.columns || {};
@@ -2951,12 +3115,12 @@
             const supportsLength = typeSupportsLength(row.type);
             const supportsPrecision = typeSupportsPrecision(row.type);
             const lengthControl = supportsLength
-              ? UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'length', value: row.length || '', placeholder:'الطول', class: tw`w-full`, type:'number', min:'1' } })
+              ? UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'length', value: row.length || '', placeholder:t('modal.columns.length.placeholder', 'الطول'), class: tw`w-full`, type:'number', min:'1' } })
               : null;
             const precisionControls = supportsPrecision
               ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-2 gap-2` }}, [
-                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'precision', value: row.precision || '', placeholder:'الدقة', class: tw`w-full`, type:'number', min:'1' } }),
-                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'scale', value: row.scale || '', placeholder:'المقياس', class: tw`w-full`, type:'number', min:'0' } })
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'precision', value: row.precision || '', placeholder:t('modal.columns.precision.placeholder', 'الدقة'), class: tw`w-full`, type:'number', min:'1' } }),
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'scale', value: row.scale || '', placeholder:t('modal.columns.scale.placeholder', 'المقياس'), class: tw`w-full`, type:'number', min:'0' } })
                 ])
               : null;
             const toggleControls = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3 text-xs` }}, [
@@ -2980,57 +3144,59 @@
 
             const quickActions = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
               UI.Button({ attrs:{ gkey:'erd:columns:open-relation', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['FK']),
-              UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['انتقال'])
+              UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, [t('modal.columns.focus', 'انتقال')])
             ]);
 
             return D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-1)]/80 p-4 flex flex-col gap-3` }}, [
               D.Containers.Div({ attrs:{ class: tw`flex flex-col md:flex-row md:items-start md:justify-between gap-3` }}, [
                 D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3 flex-1` }}, [
-                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'name', value: row.name || '', placeholder:'اسم العمود (snake_case)' } }),
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'name', value: row.name || '', placeholder:t('modal.columns.name.placeholder', 'اسم العمود (snake_case)') } }),
                   UI.Select({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'type', value: row.type || 'string' }, options: typeOptions }),
                   lengthControl,
                   precisionControls,
-                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'defaultValue', value: row.defaultValue || '', placeholder:'القيمة الافتراضية' } })
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'defaultValue', value: row.defaultValue || '', placeholder:t('modal.columns.default.placeholder', 'القيمة الافتراضية') } })
                 ].filter(Boolean)),
                 D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [toggleControls, quickActions])
               ]),
               D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-2` }}, [
-                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refTable', value: row.references?.table || '', placeholder:'جدول المرجع (FK)' } }),
-                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refColumn', value: row.references?.column || '', placeholder:'حقل المرجع (FK)' } })
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refTable', value: row.references?.table || '', placeholder:t('modal.columns.refTable.placeholder', 'جدول المرجع (FK)') } }),
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refColumn', value: row.references?.column || '', placeholder:t('modal.columns.refColumn.placeholder', 'حقل المرجع (FK)') } })
               ])
             ]);
           })
-        : [D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['لا توجد أعمدة بعد لهذا الجدول.'])];
+        : [D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('modal.columns.noColumns', 'لا توجد أعمدة بعد لهذا الجدول.')])];
 
       const columnsHeader = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between` }}, [
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [
-          currentTableName ? `أعمدة الجدول: ${formatIdentifier(currentTableName)}` : 'أعمدة الجدول'
+          currentTableName
+            ? t('modal.columns.header.withName', `أعمدة الجدول: ${formatIdentifier(currentTableName)}`).replace('{name}', formatIdentifier(currentTableName))
+            : t('modal.columns.header', 'أعمدة الجدول')
         ]),
         UI.Button({
           attrs:{ gkey:'erd:columns:add-row', 'data-table': currentTableName || '' },
           variant:'soft',
           size:'sm'
-        }, ['➕ عمود جديد'])
+        }, [`➕ ${t('modal.columns.addColumn', 'عمود جديد')}`])
       ]);
 
       return UI.Modal({
         open,
         size:'xl',
-        title:'محرر الأعمدة',
-        description:'تحكم في أعمدة الجدول المحدد بسرعة عبر واجهة واحدة.',
+        title:t('modal.columns.title', 'محرر الأعمدة'),
+        description:t('modal.columns.description', 'تحكم في أعمدة الجدول المحدد بسرعة عبر واجهة واحدة.'),
         closeGkey:'erd:modal:close',
         content:[
           D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-4` }}, [
             D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-2)]/60 p-3 flex flex-col gap-2` }}, [
-              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, ['الجداول']),
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t('modal.columns.tables', 'الجداول')]),
               tableNav
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1` }}, [columnsHeader, ...rowElements])
           ])
         ],
         actions:[
-          UI.Button({ attrs:{ gkey:'erd:columns:save', variant:'solid', size:'sm' }}, ['حفظ الأعمدة']),
-          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق'])
+          UI.Button({ attrs:{ gkey:'erd:columns:save', variant:'solid', size:'sm' }}, [t('modal.columns.save', 'حفظ الأعمدة')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.close', 'إغلاق')])
         ]
       });
     }
@@ -3039,9 +3205,10 @@
       const sections = [];
       const registry = getRegistry(db);
       const hiddenTables = new Set((db.ui?.hiddenTables || []).map(name => String(name)));
+      const t = createTranslator(db);
       if(menu.type === 'canvas'){
         sections.push({
-          label:'المخطط',
+          label:t('context.section.schema', 'المخطط'),
           items:[
             { id:'canvas:new-table', label:'Create New Table | إنشاء جدول', icon:'➕' },
             { id:'canvas:auto-layout', label:'Auto-Layout', icon:'📐' },
@@ -3059,26 +3226,26 @@
         sections.push({
           label:`${tableLabel}`,
           items:[
-            { id:'table:rename', label:'إعادة تسمية الجدول', icon:'✏️', table: menu.table },
-            { id:'table:duplicate', label:'تكرار الجدول', icon:'🧬', table: menu.table },
-            { id:'table:delete', label:'حذف الجدول', icon:'🗑️', table: menu.table }
+            { id:'table:rename', label:t('context.table.rename', 'إعادة تسمية الجدول'), icon:'✏️', table: menu.table },
+            { id:'table:duplicate', label:t('context.table.duplicate', 'تكرار الجدول'), icon:'🧬', table: menu.table },
+            { id:'table:delete', label:t('context.table.delete', 'حذف الجدول'), icon:'🗑️', table: menu.table }
           ]
         });
         sections.push({
-          label:'البنية',
+          label:t('context.section.structure', 'البنية'),
           items:[
-            { id:'table:columns', label:'إدارة الأعمدة', icon:'🗂️', table: menu.table },
-            { id:'table:add-unique', label:'إضافة قيد فريد', icon:'☆', table: menu.table },
-            { id:'table:add-index', label:'إضافة فهرس', icon:'#', table: menu.table },
-            { id:'table:generate-fk', label:'توليد علاقة خارجية', icon:'🔗', table: menu.table }
+            { id:'table:columns', label:t('context.table.columns', 'إدارة الأعمدة'), icon:'🗂️', table: menu.table },
+            { id:'table:add-unique', label:t('context.table.addUnique', 'إضافة قيد فريد'), icon:'☆', table: menu.table },
+            { id:'table:add-index', label:t('context.table.addIndex', 'إضافة فهرس'), icon:'#', table: menu.table },
+            { id:'table:generate-fk', label:t('context.table.generateFk', 'توليد علاقة خارجية'), icon:'🔗', table: menu.table }
           ]
         });
         sections.push({
-          label:'المخرجات',
+          label:t('context.section.outputs', 'المخرجات'),
           items:[
-            { id:'table:export-sql', label:'تصدير هذا الجدول (SQL)', icon:'💾', table: menu.table },
-            { id:'table:export-json', label:'تصدير هذا الجدول (JSON)', icon:'📤', table: menu.table },
-            { id:'table:toggle-visibility', label: isHidden ? 'إظهار في المشهد' : 'إخفاء في المشهد', icon: isHidden ? '👁️' : '🚫', table: menu.table }
+            { id:'table:export-sql', label:t('context.table.exportSql', 'تصدير هذا الجدول (SQL)'), icon:'💾', table: menu.table },
+            { id:'table:export-json', label:t('context.table.exportJson', 'تصدير هذا الجدول (JSON)'), icon:'📤', table: menu.table },
+            { id:'table:toggle-visibility', label: isHidden ? t('context.table.show', 'إظهار في المشهد') : t('context.table.hide', 'إخفاء في المشهد'), icon: isHidden ? '👁️' : '🚫', table: menu.table }
           ]
         });
         return sections;
@@ -3090,26 +3257,26 @@
         sections.push({
           label:`${label}`,
           items:[
-            { id:'field:rename', label:'إعادة تسمية الحقل', icon:'✏️', table: menu.table, field: menu.field },
-            { id:'field:type', label:'تغيير نوع الحقل', icon:'🔄', table: menu.table, field: menu.field },
-            { id:'field:length', label:'ضبط الطول/الدقة', icon:'📏', table: menu.table, field: menu.field }
+            { id:'field:rename', label:t('context.field.rename', 'إعادة تسمية الحقل'), icon:'✏️', table: menu.table, field: menu.field },
+            { id:'field:type', label:t('context.field.type', 'تغيير نوع الحقل'), icon:'🔄', table: menu.table, field: menu.field },
+            { id:'field:length', label:t('context.field.length', 'ضبط الطول/الدقة'), icon:'📏', table: menu.table, field: menu.field }
           ]
         });
         if(field){
           sections.push({
-            label:'الخصائص',
+            label:t('context.field.properties', 'الخصائص'),
             items:[
-              { id:'field:pk', label: field.primaryKey ? 'إلغاء المفتاح الأساسي' : 'تعيين كمفتاح أساسي', icon:'🔑', table: menu.table, field: menu.field },
-              { id:'field:null', label: field.nullable === false ? 'السماح بالقيم الفارغة' : 'فرض Not Null', icon:'∅', table: menu.table, field: menu.field },
-              { id:'field:unique', label: field.unique ? 'إزالة من القيد الفريد' : 'إضافة إلى القيد الفريد', icon:'☆', table: menu.table, field: menu.field },
-              { id:'field:index', label: field.index ? 'إزالة من الفهرس' : 'إضافة إلى الفهرس', icon:'#', table: menu.table, field: menu.field }
+              { id:'field:pk', label: field.primaryKey ? t('context.field.pk.remove', 'إلغاء المفتاح الأساسي') : t('context.field.pk.add', 'تعيين كمفتاح أساسي'), icon:'🔑', table: menu.table, field: menu.field },
+              { id:'field:null', label: field.nullable === false ? t('context.field.null.allow', 'السماح بالقيم الفارغة') : t('context.field.null.disallow', 'فرض Not Null'), icon:'∅', table: menu.table, field: menu.field },
+              { id:'field:unique', label: field.unique ? t('context.field.unique.remove', 'إزالة من القيد الفريد') : t('context.field.unique.add', 'إضافة إلى القيد الفريد'), icon:'☆', table: menu.table, field: menu.field },
+              { id:'field:index', label: field.index ? t('context.field.index.remove', 'إزالة من الفهرس') : t('context.field.index.add', 'إضافة إلى الفهرس'), icon:'#', table: menu.table, field: menu.field }
             ]
           });
         }
         sections.push({
-          label:'العلاقات',
+          label:t('context.section.relationships', 'العلاقات'),
           items:[
-            { id:'field:create-fk', label:'Create FK from this field', icon:'🔗', table: menu.table, field: menu.field }
+            { id:'field:create-fk', label:t('context.field.createFk', 'Create FK from this field'), icon:'🔗', table: menu.table, field: menu.field }
           ]
         });
         return sections;
@@ -3170,11 +3337,13 @@
     }
 
     function AppView(db){
-      return D.Containers.Div({ attrs:{ class: tw`flex h-screen w-full bg-[var(--surface-0)] text-[var(--foreground)]` }}, [
-        SchemaLibraryPanel(db),
-        D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col` }}, [
-          Toolbar(db),
-          SchemaCanvas(db)
+      return D.Containers.Div({ attrs:{ class: tw`flex h-screen w-full flex-col bg-[var(--surface-0)] text-[var(--foreground)]` }}, [
+        Toolbar(db),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-1 min-h-0 w-full` }}, [
+          SchemaLibraryPanel(db),
+          D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col min-h-0` }}, [
+            SchemaCanvas(db)
+          ])
         ]),
         ContextMenu(db),
         ...Modals(db)
