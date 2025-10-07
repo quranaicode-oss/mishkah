@@ -48,7 +48,9 @@ def({
   'card/desc':      'text-sm text-[var(--muted-foreground)]',
 
   // bars
-  'toolbar':        'flex shrink-0 items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 85%, transparent)] backdrop-blur-sm',
+  'toolbar':        'flex w-full shrink-0 items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 85%, transparent)] backdrop-blur-sm',
+  'toolbar/group':  'flex min-h-[3rem] items-center gap-2 rounded-full border border-[color-mix(in oklab,var(--border) 65%, transparent)] bg-[color-mix(in oklab,var(--surface-1) 88%, transparent)] px-4 py-2 shadow-sm backdrop-blur-sm',
+  'toolbar/group-label': 'text-[10px] font-semibold uppercase tracking-[0.2em] text-[color-mix(in oklab,var(--muted-foreground) 90%, var(--foreground)/30%)]',
   'footerbar':      'flex shrink-0 items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)]',
 
   // inputs
@@ -385,6 +387,18 @@ UI.Toolbar = ({ left=[], right=[] }) =>
     h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, left),
     h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, right),
   ]);
+
+UI.ToolbarGroup = ({ attrs={}, label }, children=[]) => {
+  const content = [];
+  if(label){
+    content.push(h.Text.Span({ attrs:{ class: tw`${token('toolbar/group-label')} mb-1` }}, [label]));
+  }
+  const bodyChildren = Array.isArray(children) ? children : [children];
+  if(bodyChildren.length){
+    content.push(h.Containers.Div({ attrs:{ class: tw`${token('hstack')} flex-wrap` }}, bodyChildren));
+  }
+  return h.Containers.Div({ attrs: withClass(attrs, cx('m-toolbar-group', token('toolbar/group'))) }, content);
+};
 
 UI.Footerbar = ({ left=[], right=[] }) =>
   h.Containers.Footer({ attrs:{ class: tw`${token('footerbar')}` }}, [
