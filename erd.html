@@ -73,6 +73,29 @@
     }
     #app { flex: 1 1 auto; display: flex; }
     textarea[readonly] { user-select: all; }
+    #erd-diagram {
+      cursor: grab;
+      overflow: auto;
+      touch-action: pan-x pan-y;
+      scrollbar-gutter: stable;
+    }
+    #erd-diagram:active,
+    #erd-diagram[data-panning="true"] {
+      cursor: grabbing;
+    }
+    #erd-diagram[data-driver='fake'] svg {
+      display: block;
+      min-width: 100%;
+      min-height: 100%;
+    }
+    #erd-diagram .x6-graph-scroller {
+      overflow: auto !important;
+      cursor: inherit;
+    }
+    #erd-diagram .x6-graph-scroller-content {
+      min-width: 100%;
+      min-height: 100%;
+    }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/@antv/x6@1.35.3/dist/x6.css"/>
   <script src="./mishkah-utils.js"></script>
@@ -343,10 +366,10 @@
     const TABLE_WIDTH = 280;
     const HEADER_HEIGHT = 48;
     const ROW_HEIGHT = 28;
-    const AUTO_LAYOUT_ORIGIN_X = 120;
-    const AUTO_LAYOUT_ORIGIN_Y = 120;
-    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 320;
-    const AUTO_LAYOUT_ROW_GAP = 220;
+    const AUTO_LAYOUT_ORIGIN_X = 240;
+    const AUTO_LAYOUT_ORIGIN_Y = 200;
+    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 520;
+    const AUTO_LAYOUT_ROW_GAP = 320;
     const RTL_TEXT_PADDING = 28;
     const MIN_CANVAS_ZOOM = 0.2;
     const MAX_CANVAS_ZOOM = 3;
@@ -2000,11 +2023,29 @@
       host.__mishkahContextMenuAttached = true;
     }
 
+    function ensureCanvasPointerHandlers(host){
+      if(!host || host.__mishkahPointerHandlersAttached) return;
+      const setGrabbing = event => {
+        if(event && typeof event.buttons === 'number' && event.buttons !== 1) return;
+        host.setAttribute('data-panning', 'true');
+      };
+      const clearGrabbing = () => {
+        host.removeAttribute('data-panning');
+      };
+      host.addEventListener('pointerdown', setGrabbing);
+      host.addEventListener('pointerup', clearGrabbing);
+      host.addEventListener('pointerleave', clearGrabbing);
+      host.addEventListener('pointercancel', clearGrabbing);
+      host.addEventListener('pointerout', clearGrabbing);
+      host.__mishkahPointerHandlersAttached = true;
+    }
+
     function ensureDriverInstance(state){
       if(typeof window === 'undefined') return null;
       const host = document.getElementById('erd-diagram');
       if(!host) return null;
       ensureContextMenuHandlers(host);
+      ensureCanvasPointerHandlers(host);
       const driverKey = (state?.env?.graph?.driver || 'fake').toLowerCase();
       if(erdDriver && activeDriverName === driverKey){
         return erdDriver;
