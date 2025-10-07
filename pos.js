@@ -744,7 +744,13 @@
         const table = (db.data.tables || []).find(tbl=> tbl.id === id);
         return table?.name || id;
       });
-      const payments = db.data.payments?.split || [];
+      const splitState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
+      const orderPayments = Array.isArray(order.payments) ? order.payments : [];
+      const payments = splitState.length ? splitState : orderPayments;
+      const methodsCatalog = (db.data.payments?.methods && db.data.payments.methods.length)
+        ? db.data.payments.methods
+        : PAYMENT_METHODS;
+      const methodsMap = new Map(methodsCatalog.map(method=> [method.id, method]));
       const totalPaid = payments.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
       const due = order.totals?.due || 0;
       const changeDue = Math.max(0, round(totalPaid - due));
@@ -779,7 +785,7 @@
         return `<div class="row"><span>${escapeHTML(row.label)}</span><span>${price}</span></div>`;
       }).join('');
       const paymentsHtml = payments.map(entry=>{
-        const method = (db.data.payments?.methods || []).find(m=> m.id === entry.method);
+        const method = methodsMap.get(entry.method);
         const label = method ? `${escapeHTML(localize(method.label, lang))}` : escapeHTML(entry.method || '');
         const price = formatCurrencyValue(db, entry.amount);
         return `<div class="row"><span>${label}</span><span>${price}</span></div>`;
@@ -2401,12 +2407,28 @@
     function TotalsSection(db){
       const t = getTexts(db);
       const totals = db.data.order.totals || {};
+      const paymentsState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
+      const orderPayments = Array.isArray(db.data.order?.payments) ? db.data.order.payments : [];
+      const paymentsEntries = paymentsState.length ? paymentsState : orderPayments;
+      const totalDue = round(Number(totals.due || 0));
+      const totalPaid = round(paymentsEntries.reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
+      const remaining = Math.max(0, round(totalDue - totalPaid));
       const rows = [
         { label:t.ui.subtotal, value: totals.subtotal },
         { label:t.ui.service, value: totals.service },
         { label:t.ui.vat, value: totals.vat },
         totals.deliveryFee ? { label:t.ui.delivery_fee, value: totals.deliveryFee } : null,
         totals.discount ? { label:t.ui.discount, value: totals.discount } : null
+      ].filter(Boolean);
+      const summaryRows = [
+        paymentsEntries.length ? UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
+          D.Text.Span({}, [t.ui.paid]),
+          UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
+        ]) : null,
+        UI.HStack({ attrs:{ class: tw`${token('split')} text-sm font-semibold ${remaining > 0 ? 'text-[var(--accent-foreground)]' : ''}` }}, [
+          D.Text.Span({}, [t.ui.balance_due]),
+          UI.PriceText({ amount: remaining, currency:getCurrency(db), locale:getLocale(db) })
+        ])
       ].filter(Boolean);
       return D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
         ...rows.map(row=> UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
@@ -2417,7 +2439,8 @@
         UI.HStack({ attrs:{ class: tw`${token('split')} text-lg font-semibold` }}, [
           D.Text.Span({}, [t.ui.total]),
           UI.PriceText({ amount:totals.due, currency:getCurrency(db), locale:getLocale(db) })
-        ])
+        ]),
+        ...summaryRows
       ]);
     }
 
@@ -2481,8 +2504,12 @@
 
     function PaymentSummary(db){
       const t = getTexts(db);
-      const split = db.data.payments.split || [];
-      const methods = db.data.payments.methods || [];
+      const splitState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
+      const fallbackPayments = Array.isArray(db.data.order?.payments) ? db.data.order.payments : [];
+      const split = splitState.length ? splitState : fallbackPayments;
+      const methods = (db.data.payments?.methods && db.data.payments.methods.length)
+        ? db.data.payments.methods
+        : PAYMENT_METHODS;
       const due = db.data.order.totals?.due || 0;
       const totalPaid = split.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
       const remaining = Math.max(0, round(due - totalPaid));
@@ -3398,6 +3425,8 @@
         { id:'lines', label:t.ui.orders_line_count, sortable:true },
         { id:'notes', label:t.ui.orders_notes, sortable:true },
         { id:'total', label:t.ui.orders_total, sortable:true },
+        { id:'paid', label:t.ui.paid, sortable:false },
+        { id:'remaining', label:t.ui.balance_due, sortable:false },
         { id:'updatedAt', label:t.ui.orders_updated, sortable:true },
         { id:'actions', label:'', sortable:false }
       ];
@@ -3420,6 +3449,8 @@
         const paymentMeta = orderPaymentMap.get(order.paymentState) || null;
         const totals = order.totals && typeof order.totals === 'object' ? order.totals : calculateTotals(order.lines || [], settings, order.type || 'dine_in');
         const totalDue = Number(totals?.due || 0);
+        const paidAmount = round((Array.isArray(order.payments) ? order.payments : []).reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
+        const remainingAmount = Math.max(0, round(totalDue - paidAmount));
         const tableNames = (order.tableIds || []).map(id=> tablesIndex.get(id)?.name || id).join(', ');
         const updatedStamp = order.updatedAt || order.createdAt;
         return D.Tables.Tr({ attrs:{ key:order.id, class: tw`bg-[var(--surface-1)]` }}, [
@@ -3433,6 +3464,8 @@
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.lines ? order.lines.length : 0)]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.notes ? order.notes.length : 0)]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: totalDue, currency:getCurrency(db), locale:getLocale(db) })]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: paidAmount, currency:getCurrency(db), locale:getLocale(db) })]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: remainingAmount, currency:getCurrency(db), locale:getLocale(db) })]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-xs ${token('muted')}` }}, [formatDateTime(updatedStamp, db.env.lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) || '—']),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-right` }}, [UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])])
         ]);
@@ -3527,6 +3560,9 @@
     function PaymentsSheet(db){
       const t = getTexts(db);
       if(!db.ui.modals.payments) return null;
+      const methods = (db.data.payments?.methods && db.data.payments.methods.length)
+        ? db.data.payments.methods
+        : PAYMENT_METHODS;
       return UI.Drawer({
         open:true,
         side:'end',
@@ -3542,7 +3578,7 @@
         content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
           UI.ChipGroup({
             attrs:{ class: tw`text-base sm:text-lg` },
-            items: (db.data.payments.methods || []).map(method=>({
+            items: methods.map(method=>({
               id: method.id,
               label: `${method.icon} ${localize(method.label, db.env.lang)}`,
               attrs:{ gkey:'pos:payments:method', 'data-method-id':method.id }
@@ -3556,7 +3592,8 @@
             gkey:'pos:payments:amount',
             confirmLabel: t.ui.capture_payment,
             confirmAttrs:{ gkey:'pos:payments:capture', variant:'solid', size:'md', class: tw`w-full` }
-          })
+          }),
+          UI.Button({ attrs:{ gkey:'pos:payments:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
         ])
       });
     }
@@ -5037,6 +5074,22 @@
           }));
           const totals = calculateTotals(safeLines, state.data.settings || {}, order.type || 'dine_in');
           const paymentSplit = Array.isArray(state.data.payments?.split) ? state.data.payments.split : [];
+          const dueAmount = round(Number(totals?.due || 0));
+          const paidAmount = round(paymentSplit.reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
+          const outstanding = Math.max(0, round(dueAmount - paidAmount));
+          if(mode === 'save-print' && outstanding > 0){
+            ctx.setState(s=>({
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), payments:true },
+                paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount: outstanding ? String(outstanding) : '' }
+              }
+            }));
+            ctx.rebuild();
+            UI.pushToast(ctx, { title:t.ui.payments, message:t.ui.balance_due, icon:'💳' });
+            return;
+          }
           const normalizedPayments = paymentSplit.map(entry=>({
             id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
             method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
