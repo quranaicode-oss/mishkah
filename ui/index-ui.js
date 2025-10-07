@@ -17,6 +17,11 @@
     { code: 'en', label: { ar: 'الإنجليزية', en: 'English' } }
   ];
 
+  const LANGUAGE_DECOR = {
+    ar: { emoji: '🕌', short: 'AR' },
+    en: { emoji: '🌍', short: 'EN' }
+  };
+
   /* ------------------------------------------------------------------ */
   /* i18n helpers                                                        */
   /* ------------------------------------------------------------------ */
@@ -35,6 +40,10 @@
     'header.theme.presets.modern-dark': { ar: 'ليل مشكاة', en: 'Mishkah Midnight' },
     'header.theme.presets.modern-light': { ar: 'نهار مشكاة', en: 'Mishkah Dawn' },
     'header.theme.presets.amber-dusk': { ar: 'شفق عنبري', en: 'Amber Dusk' },
+    'header.theme.presets.aurora-night': { ar: 'ليل الشفق', en: 'Aurora Night' },
+    'header.theme.presets.sahara-sunrise': { ar: 'فجر الصحراء', en: 'Sahara Sunrise' },
+    'header.theme.presets.emerald-oasis': { ar: 'واحة الزمرد', en: 'Emerald Oasis' },
+    'header.theme.presets.rose-mist': { ar: 'ضباب الورد', en: 'Rose Mist' },
     'header.lang.label': { ar: 'اللغة', en: 'Language' },
     'nav.counter': { ar: 'العداد', en: 'Counter' },
     'nav.proverbs': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
@@ -100,6 +109,16 @@
     'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' }
   };
 
+  const THEME_DECOR = {
+    'modern-dark': { emoji: '🌌' },
+    'modern-light': { emoji: '🌅' },
+    'amber-dusk': { emoji: '🌇' },
+    'aurora-night': { emoji: '🧭' },
+    'sahara-sunrise': { emoji: '🏜️' },
+    'emerald-oasis': { emoji: '🌿' },
+    'rose-mist': { emoji: '🌸' }
+  };
+
   const DEFAULT_THEME_PRESETS = [
     {
       key: 'modern-dark',
@@ -153,6 +172,78 @@
         '--surface-1': 'color-mix(in oklab, var(--background) 74%, black)',
         '--surface-2': 'color-mix(in oklab, var(--background) 68%, black)',
         '--surface-3': 'color-mix(in oklab, var(--background) 60%, black)'
+      }
+    },
+    {
+      key: 'aurora-night',
+      mode: 'dark',
+      label: dict['header.theme.presets.aurora-night'],
+      overrides: {
+        '--background': 'hsl(229 64% 12%)',
+        '--foreground': 'hsl(214 70% 94%)',
+        '--primary': 'hsl(266 83% 72%)',
+        '--primary-foreground': '#1e0933',
+        '--accent': 'hsl(193 88% 54%)',
+        '--accent-foreground': '#01131f',
+        '--muted': 'hsl(231 36% 22%)',
+        '--border': 'hsl(231 28% 32%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 78%, black)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 72%, black)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 64%, black)'
+      }
+    },
+    {
+      key: 'sahara-sunrise',
+      mode: 'light',
+      label: dict['header.theme.presets.sahara-sunrise'],
+      overrides: {
+        '--background': 'hsl(38 92% 95%)',
+        '--foreground': 'hsl(27 64% 24%)',
+        '--primary': 'hsl(18 84% 58%)',
+        '--primary-foreground': '#2e0a02',
+        '--accent': 'hsl(43 100% 68%)',
+        '--accent-foreground': '#2c1a00',
+        '--muted': 'hsl(33 60% 88%)',
+        '--border': 'hsl(30 45% 78%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 94%, white)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 90%, white)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 86%, white)'
+      }
+    },
+    {
+      key: 'emerald-oasis',
+      mode: 'light',
+      label: dict['header.theme.presets.emerald-oasis'],
+      overrides: {
+        '--background': 'hsl(156 44% 94%)',
+        '--foreground': 'hsl(163 44% 18%)',
+        '--primary': 'hsl(161 78% 40%)',
+        '--primary-foreground': '#e7fff5',
+        '--accent': 'hsl(189 67% 52%)',
+        '--accent-foreground': '#012c32',
+        '--muted': 'hsl(156 36% 88%)',
+        '--border': 'hsl(158 32% 76%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 95%, white)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 90%, white)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 85%, white)'
+      }
+    },
+    {
+      key: 'rose-mist',
+      mode: 'light',
+      label: dict['header.theme.presets.rose-mist'],
+      overrides: {
+        '--background': 'hsl(332 64% 97%)',
+        '--foreground': 'hsl(333 36% 20%)',
+        '--primary': 'hsl(337 80% 72%)',
+        '--primary-foreground': '#3d0013',
+        '--accent': 'hsl(280 76% 74%)',
+        '--accent-foreground': '#220029',
+        '--muted': 'hsl(318 52% 90%)',
+        '--border': 'hsl(320 36% 82%)',
+        '--surface-1': 'color-mix(in oklab, var(--background) 95%, white)',
+        '--surface-2': 'color-mix(in oklab, var(--background) 92%, white)',
+        '--surface-3': 'color-mix(in oklab, var(--background) 88%, white)'
       }
     }
   ];
@@ -391,53 +482,132 @@
     const data = ensureDict(db.data);
 
     const presets = resolveThemePresets(data.themePresets);
-    const activePreset = data.activeThemePreset || (presets[0] && presets[0].key) || '';
-    const themeOptions = presets.map((preset, idx) => ({
-      value: preset.key || `theme-${idx}`,
-      label: localize(preset.label, lang, fallbackLang) || preset.key || `Theme ${idx + 1}`
-    }));
-    const themeSelectId = 'header-theme-select';
-    const themeField = UI.Field({
-      id: themeSelectId,
-      label: TL('header.theme.label'),
-      control: UI.Select({
-        attrs: {
-          id: themeSelectId,
-          gkey: 'ui:theme:select',
-          'data-theme-select': 'true',
-          value: activePreset,
-          class: tw`min-w-[180px]`
-        },
-        options: themeOptions
-      })
+    const activePresetKey = data.activeThemePreset || (presets[0] && presets[0].key) || '';
+    const themeOptions = presets.map((preset, idx) => {
+      const key = preset.key || `theme-${idx}`;
+      const decor = THEME_DECOR[key] || {};
+      return {
+        value: key,
+        label: localize(preset.label, lang, fallbackLang) || key || `Theme ${idx + 1}`,
+        emoji: decor.emoji || (preset.mode === 'dark' ? '🌙' : '🌞'),
+        mode: preset.mode === 'dark' ? 'dark' : 'light'
+      };
     });
+    const activeTheme = themeOptions.find((option) => option.value === activePresetKey) || themeOptions[0] || null;
 
     const languages = resolveLanguageOptions(data.languages);
-    const langOptions = languages.map((entry, idx) => ({
-      value: entry.code || `lang-${idx}`,
-      label: localize(entry.label, lang, fallbackLang) || entry.code || `Lang ${idx + 1}`
-    }));
-    const langSelectId = 'header-lang-select';
-    const langField = UI.Field({
-      id: langSelectId,
-      label: TL('header.lang.label'),
-      control: UI.Select({
-        attrs: {
-          id: langSelectId,
-          gkey: 'ui:lang:select',
-          'data-lang-select': 'true',
-          value: lang,
-          class: tw`min-w-[160px]`
-        },
-        options: langOptions
-      })
+    const langOptions = languages.map((entry, idx) => {
+      const value = entry.code || `lang-${idx}`;
+      const decor = LANGUAGE_DECOR[value] || {};
+      return {
+        value,
+        label: localize(entry.label, lang, fallbackLang) || value || `Lang ${idx + 1}`,
+        emoji: decor.emoji || '🌐',
+        short: decor.short || value.toUpperCase()
+      };
     });
+    const activeLang = langOptions.find((entry) => entry.value === lang) || langOptions[0] || null;
+
+    const triggerBaseClass = tw`flex h-11 items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_16px_36px_-26px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-30px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
+    const triggerIconClass = tw`text-xl leading-none`;
+    const triggerMetaClass = tw`text-[0.65rem] uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)]`;
+    const triggerLabelClass = tw`text-xs font-semibold leading-tight text-[color-mix(in_oklab,var(--foreground)82%,transparent)]`;
+
+    const menuPanelClass = cx(
+      tw`pointer-events-none absolute end-0 z-30 mt-3 w-64 origin-top-right scale-95 opacity-0 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200`,
+      'group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:scale-100 group-focus-within:opacity-100'
+    );
+
+    const optionBaseClass = tw`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`;
+    const optionActiveClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-22px_rgba(79,70,229,0.55)]`;
+    const optionInactiveClass = tw`text-[color-mix(in_oklab,var(--foreground)78%,transparent)] hover:bg-[color-mix(in_oklab,var(--surface-2)85%,transparent)]`;
+
+    const langMenu = D.Containers.Div({
+      attrs: {
+        class: tw`group relative inline-flex`
+      }
+    }, [
+      D.Forms.Button({
+        attrs: {
+          type: 'button',
+          class: triggerBaseClass,
+          title: TL('header.lang.label'),
+          'aria-haspopup': 'listbox'
+        }
+      }, [
+        D.Text.Span({ attrs: { class: triggerIconClass } }, [activeLang ? activeLang.emoji : '🌐']),
+        D.Text.Span({ attrs: { class: triggerMetaClass } }, [activeLang ? activeLang.short : 'LANG'])
+      ]),
+      D.Containers.Div({ attrs: { class: menuPanelClass } }, [
+        D.Text.Span({ attrs: { class: tw`px-2 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.lang.label')]),
+        D.Containers.Div({ attrs: { class: tw`mt-3 grid gap-1.5` } }, langOptions.map((option) => D.Forms.Button({
+          attrs: {
+            type: 'button',
+            gkey: 'ui:lang:select',
+            'data-lang-select': 'true',
+            'data-lang-value': option.value,
+            value: option.value,
+            class: cx(optionBaseClass, option.value === lang ? optionActiveClass : optionInactiveClass)
+          }
+        }, [
+          D.Text.Span({ attrs: { class: tw`text-lg leading-none` } }, [option.emoji]),
+          D.Containers.Div({ attrs: { class: tw`flex flex-col text-start` } }, [
+            D.Text.Span({ attrs: { class: tw`font-semibold` } }, [option.label]),
+            D.Text.Span({ attrs: { class: triggerMetaClass } }, [option.short])
+          ])
+        ])))
+      ])
+    ]);
+
+    const themeMenu = D.Containers.Div({
+      attrs: {
+        class: tw`group relative inline-flex`
+      }
+    }, [
+      D.Forms.Button({
+        attrs: {
+          type: 'button',
+          class: triggerBaseClass,
+          title: TL('header.theme.label'),
+          'aria-haspopup': 'listbox'
+        }
+      }, [
+        D.Text.Span({ attrs: { class: triggerIconClass } }, [activeTheme ? activeTheme.emoji : '🎨']),
+        D.Text.Span({ attrs: { class: triggerLabelClass } }, [activeTheme ? activeTheme.label : TL('header.theme.label')])
+      ]),
+      D.Containers.Div({ attrs: { class: menuPanelClass } }, [
+        D.Text.Span({ attrs: { class: tw`px-2 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.theme.label')]),
+        D.Containers.Div({ attrs: { class: tw`mt-3 grid gap-1.5` } }, themeOptions.map((option) => {
+          const isActive = option.value === activePresetKey;
+          const badge = option.mode === 'dark'
+            ? (lang === 'ar' ? 'ليل' : 'Dark')
+            : (lang === 'ar' ? 'نهار' : 'Light');
+          return D.Forms.Button({
+            attrs: {
+              type: 'button',
+              gkey: 'ui:theme:select',
+              'data-theme-select': 'true',
+              'data-theme-value': option.value,
+              value: option.value,
+              class: cx(optionBaseClass, isActive ? optionActiveClass : optionInactiveClass)
+            }
+          }, [
+            D.Text.Span({ attrs: { class: tw`text-lg leading-none` } }, [option.emoji]),
+            D.Containers.Div({ attrs: { class: tw`flex flex-col text-start` } }, [
+              D.Text.Span({ attrs: { class: tw`font-semibold` } }, [option.label]),
+              D.Text.Span({ attrs: { class: triggerMetaClass } }, [badge])
+            ])
+          ]);
+        }))
+      ])
+    ]);
 
     const uiState = ensureDict(db.ui);
     const shellUi = ensureDict(uiState.pagesShell);
     const themeLabUi = ensureDict(shellUi.themeLab);
     const themeLabOpen = !!themeLabUi.open;
 
+    const iconCircleClass = tw`flex h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
     const themeLabButton = UI.Button({
       attrs: {
         gkey: 'pages:theme:lab:open',
@@ -445,35 +615,35 @@
         title: TL('header.theme.lab'),
         'aria-label': TL('header.theme.lab'),
         type: 'button',
-        class: cx(
-          tw`h-11 w-11 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-xl transition`,
-          themeLabOpen ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow` : ''
-        )
+        class: cx(iconCircleClass, themeLabOpen ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-20px_rgba(79,70,229,0.55)]` : '')
       },
       variant: 'ghost',
       size: 'sm'
     }, ['🎛️']);
 
-    return D.Containers.Div({
+    return D.Containers.Header({
       attrs: {
-        class: tw`mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6`
+        class: tw`border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`
       }
     }, [
       D.Containers.Div({
         attrs: {
-          class: tw`flex flex-col gap-2`
+          class: tw`mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6`
         }
       }, [
-        D.Text.H1({ attrs: { class: tw`text-3xl font-bold` } }, [TL('app.title')]),
-        D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
-      ]),
-      D.Containers.Div({
-        attrs: {
-          class: tw`flex flex-col gap-4 md:flex-row md:items-end md:justify-between`
-        }
-      }, [
-        D.Containers.Div({ attrs: { class: tw`grid gap-3 sm:grid-cols-2` } }, [themeField, langField]),
-        D.Containers.Div({ attrs: { class: tw`flex items-center justify-end` } }, [themeLabButton])
+        D.Containers.Div({
+          attrs: {
+            class: tw`flex min-w-[240px] flex-col gap-1`
+          }
+        }, [
+          D.Text.H1({ attrs: { class: tw`text-3xl font-bold leading-tight` } }, [TL('app.title')]),
+          D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
+        ]),
+        D.Containers.Div({
+          attrs: {
+            class: tw`flex flex-wrap items-center justify-end gap-2`
+          }
+        }, [langMenu, themeMenu, themeLabButton])
       ])
     ]);
   }
@@ -1268,12 +1438,12 @@
       }
     },
     'ui:lang:select': {
-      on: ['change'],
+      on: ['change', 'click'],
       gkeys: ['ui:lang:select'],
       handler: (event, context) => {
         const select = event.target.closest && event.target.closest('[data-lang-select]');
         if (!select) return;
-        const lang = select.value;
+        const lang = select.value || select.getAttribute('data-lang-value');
         if (!lang) return;
         const dir = lang === 'ar' ? 'rtl' : 'ltr';
         context.setState((prev) => ({
@@ -1293,12 +1463,12 @@
       }
     },
     'ui:theme:select': {
-      on: ['change'],
+      on: ['change', 'click'],
       gkeys: ['ui:theme:select'],
       handler: (event, context) => {
         const select = event.target.closest && event.target.closest('[data-theme-select]');
         if (!select) return;
-        const key = select.value;
+        const key = select.value || select.getAttribute('data-theme-value');
         const state = context.getState();
         const presets = resolveThemePresets(state.data && state.data.themePresets);
         const fallback = presets[0];
