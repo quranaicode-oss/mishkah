@@ -216,6 +216,145 @@
 .template-footer__links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; }
 .template-footer__link { color: color-mix(in oklab, var(--muted-foreground) 92%, transparent); font-size: 0.95rem; }
 .template-footer__link:hover { color: var(--foreground); }
+.mishkah-dashboard {
+  position: relative;
+  min-height: 100vh;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--background) 94%, transparent) 0%, color-mix(in oklab, var(--surface-1) 88%, transparent) 100%);
+}
+.dark .mishkah-dashboard {
+  background: linear-gradient(160deg, color-mix(in oklab, var(--background) 92%, black) 0%, color-mix(in oklab, var(--surface-2) 90%, transparent) 100%);
+}
+.mishkah-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: auto;
+  width: 520px;
+  height: 520px;
+  top: -220px;
+  right: -140px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(79,70,229,0.15), transparent 70%);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+.dashboard-stat-grid { display: grid; gap: 1rem; }
+@media (min-width: 768px) { .dashboard-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dashboard-secondary-grid { display: grid; gap: 1rem; }
+.dashboard-secondary-grid > * { height: 100%; }
+.mishkah-dashboard-card {
+  border-radius: 24px;
+  background: color-mix(in oklab, var(--surface-1) 90%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+  box-shadow: 0 28px 68px -38px rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(26px);
+}
+.dark .mishkah-dashboard-card {
+  background: color-mix(in oklab, var(--surface-2) 92%, transparent);
+  border-color: color-mix(in oklab, var(--border) 58%, transparent);
+  box-shadow: 0 32px 70px -36px rgba(15, 23, 42, 0.6);
+}
+.mishkah-chart-canvas {
+  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  border-radius: 1.25rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 48px -32px rgba(15,23,42,0.45);
+}
+.dark .mishkah-chart-canvas {
+  background: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  box-shadow: inset 0 1px 0 rgba(15,23,42,0.35), 0 24px 56px -34px rgba(15,23,42,0.65);
+}
+.mishkah-mobile {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem;
+  background: radial-gradient(circle at 10% 20%, rgba(59,130,246,0.16), transparent 60%), linear-gradient(180deg, color-mix(in oklab, var(--background) 95%, transparent) 0%, color-mix(in oklab, var(--surface-1) 86%, transparent) 100%);
+}
+.dark .mishkah-mobile {
+  background: radial-gradient(circle at 15% 15%, rgba(129,140,248,0.25), transparent 65%), linear-gradient(185deg, color-mix(in oklab, var(--background) 92%, black) 0%, color-mix(in oklab, var(--surface-2) 90%, transparent) 100%);
+}
+.mishkah-mobile-shell {
+  position: relative;
+  width: min(420px, 100%);
+  border-radius: 2.5rem;
+  padding: 1.5rem;
+  border: 1px solid color-mix(in oklab, var(--border) 58%, transparent);
+  background: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  box-shadow: 0 28px 60px -34px rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+}
+.dark .mishkah-mobile-shell {
+  background: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  border-color: color-mix(in oklab, var(--border) 60%, transparent);
+  box-shadow: 0 34px 70px -36px rgba(15, 23, 42, 0.7);
+}
+.mishkah-mobile-shell::before {
+  content: '';
+  position: absolute;
+  inset: -45% -40% auto;
+  height: 140%;
+  background: radial-gradient(circle, rgba(59,130,246,0.18), transparent 68%);
+  opacity: 0.45;
+}
+.mishkah-mobile-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.mobile-balance-card {
+  border-radius: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(160deg, rgba(59,130,246,0.18), rgba(37,99,235,0.12));
+  color: rgba(15,23,42,0.92);
+  box-shadow: 0 24px 56px -32px rgba(37, 99, 235, 0.45);
+}
+.dark .mobile-balance-card {
+  background: linear-gradient(160deg, rgba(129,140,248,0.35), rgba(14,116,144,0.22));
+  color: rgba(226,232,240,0.95);
+  box-shadow: 0 28px 64px -34px rgba(15,23,42,0.7);
+}
+.mobile-status-bar { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; color: color-mix(in oklab, var(--foreground) 88%, transparent); }
+.mobile-quick-actions { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0.75rem; }
+.mobile-action-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem;
+  border-radius: 1.25rem;
+  background: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.4);
+}
+.dark .mobile-action-btn {
+  background: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  box-shadow: 0 22px 44px -32px rgba(15, 23, 42, 0.6);
+}
+.mobile-highlight-card {
+  border-radius: 1.25rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid color-mix(in oklab, var(--border) 58%, transparent);
+  background: color-mix(in oklab, var(--surface-1) 94%, transparent);
+}
+.dark .mobile-highlight-card {
+  background: color-mix(in oklab, var(--surface-2) 95%, transparent);
+  border-color: color-mix(in oklab, var(--border) 60%, transparent);
+}
+.mobile-transaction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+}
+.mobile-transaction:last-child { border-bottom: none; }
 .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 92%, transparent); backdrop-filter: blur(28px); border-inline-end: 1px solid color-mix(in oklab, var(--border) 55%, transparent); }
 .dark .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 96%, transparent); }
 .template-atlas-sidebar .template-timeline__item { border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); padding-bottom: 1.25rem; }
@@ -430,6 +569,544 @@
     }
   };
 
+  const DEFAULT_DASHBOARD_COPY = {
+    brand: {
+      name: 'Mishkah Analytics',
+      subtitle: 'تقرير الأداء الأسبوعي',
+      initials: 'MA'
+    },
+    filters: {
+      activeRange: '7d',
+      searchPlaceholder: 'ابحث في لوحة التحكم',
+      user: 'ليلى أحمد',
+      ranges: [
+        { id: '24h', label: 'آخر ٢٤ ساعة' },
+        { id: '7d', label: 'آخر ٧ أيام' },
+        { id: '30d', label: 'آخر ٣٠ يوم' }
+      ],
+      primaryAction: { label: 'تصدير التقرير', gkey: 'dashboard:export' }
+    },
+    stats: [
+      { id: 'visits', title: 'الزيارات', value: '38,240', meta: '+14% عن الأسبوع الماضي' },
+      { id: 'signups', title: 'التسجيلات الجديدة', value: '1,204', meta: '+6% نمو' },
+      { id: 'conversion', title: 'نسبة التحويل', value: '4.2%', meta: '+0.8 نقطة' },
+      { id: 'retention', title: 'الاحتفاظ', value: '86%', meta: 'ثابت' }
+    ],
+    charts: {
+      performance: {
+        title: 'أداء القنوات الرقمية',
+        subtitle: 'النمو الأسبوعي للزيارات والتحويلات',
+        height: 320,
+        data: {
+          labels: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+          datasets: [
+            {
+              label: 'الزيارات',
+              data: [180, 240, 265, 310, 332, 360, 384],
+              fill: true,
+              backgroundColor: 'rgba(59,130,246,0.18)',
+              borderColor: 'rgba(59,130,246,1)',
+              pointBackgroundColor: 'rgba(59,130,246,1)'
+            },
+            {
+              label: 'التسجيلات',
+              data: [48, 62, 70, 82, 88, 94, 108],
+              fill: false,
+              borderColor: 'rgba(16,185,129,1)',
+              backgroundColor: 'rgba(16,185,129,0.24)',
+              pointBackgroundColor: 'rgba(16,185,129,1)'
+            }
+          ]
+        },
+        options: {
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { suggestedMax: 400 } }
+        }
+      },
+      conversion: {
+        title: 'معدل التحويل لكل قناة',
+        subtitle: 'مقارنة بين الحملات الأساسية',
+        height: 220,
+        data: {
+          labels: ['البريد', 'الإعلانات', 'الشركاء', 'التواصل'],
+          datasets: [
+            {
+              label: 'تسجيلات',
+              data: [85, 64, 48, 38],
+              backgroundColor: [
+                'rgba(56,189,248,0.78)',
+                'rgba(129,140,248,0.85)',
+                'rgba(16,185,129,0.82)',
+                'rgba(251,191,36,0.82)'
+              ],
+              borderRadius: 14
+            }
+          ]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 20 } } }
+        }
+      },
+      breakdown: {
+        title: 'توزيع الأجهزة',
+        subtitle: 'نسبة المستخدمين بحسب الجهاز',
+        height: 220,
+        data: {
+          labels: ['الهاتف', 'الحاسوب', 'الأجهزة اللوحية'],
+          datasets: [
+            {
+              data: [54, 34, 12],
+              backgroundColor: ['#6366F1', '#10B981', '#F59E0B'],
+              borderWidth: 0
+            }
+          ]
+        },
+        options: {
+          plugins: { legend: { position: 'right' } }
+        }
+      }
+    },
+    table: {
+      title: 'أفضل القنوات',
+      subtitle: 'أداء الحملات خلال الفترة المختارة',
+      columns: [
+        { key: 'channel', label: 'القناة' },
+        { key: 'sessions', label: 'الزيارات' },
+        { key: 'signups', label: 'التسجيلات' },
+        { key: 'rate', label: 'التحويل' }
+      ],
+      rows: [
+        { channel: 'البريد الإلكتروني', sessions: '12,350', signups: '640', rate: '5.2%' },
+        { channel: 'الإعلانات المدفوعة', sessions: '9,180', signups: '420', rate: '4.6%' },
+        { channel: 'الشركاء', sessions: '6,420', signups: '318', rate: '5.0%' },
+        { channel: 'وسائل التواصل', sessions: '5,760', signups: '226', rate: '3.9%' }
+      ],
+      action: { label: 'عرض جميع القنوات', gkey: 'dashboard:table:action' }
+    },
+    activity: {
+      title: 'المهام السريعة',
+      subtitle: 'تابع أهم المهام للفريق',
+      items: [
+        { id: 'campaign', icon: '🎯', title: 'إطلاق حملة رمضان', status: 'جاهز للنشر', due: 'اليوم' },
+        { id: 'ux', icon: '🧪', title: 'مراجعة تجربة الدفع', status: 'قيد التنفيذ', due: 'غدًا' },
+        { id: 'report', icon: '📈', title: 'تقرير أسبوعي للإدارة', status: 'قيد المراجعة', due: 'الخميس' }
+      ]
+    }
+  };
+
+  const DASHBOARD_DEFAULT_OPTIONS = {
+    layout: 'command',
+    mount: '#app',
+    theme: 'light',
+    lang: 'ar',
+    scaffold: true
+  };
+
+  const DashboardSections = {
+    topbar: (ctx) => {
+      const { D, UI, tw, cx, ensureDict, toArr, token } = ctx.helpers;
+      const brand = ensureDict(ctx.copy.brand);
+      const filters = ensureDict(ctx.copy.filters);
+      const ranges = toArr(filters.ranges);
+      const activeRange = ctx.db?.ui?.activeRange || filters.activeRange || (ranges[0] && (ranges[0].id || ranges[0].value));
+
+      const initials = brand.initials || (brand.name ? brand.name.slice(0, 2).toUpperCase() : 'MS');
+      const badge = D.Containers.Div({ attrs: { class: tw`grid h-11 w-11 place-items-center rounded-2xl bg-[color-mix(in oklab,var(--primary) 90%, transparent)] text-lg font-semibold text-[var(--primary)] shadow-sm` } }, [
+        brand.icon ? D.Text.Span({}, [brand.icon]) : D.Text.Span({}, [initials])
+      ]);
+
+      const brandBlock = D.Containers.Div({ attrs: { class: tw`flex flex-col gap-0.5` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm font-semibold` } }, [brand.name || 'Mishkah Analytics']),
+        brand.subtitle ? D.Text.Span({ attrs: { class: tw`text-xs ${token('muted')}` } }, [brand.subtitle]) : null
+      ].filter(Boolean));
+
+      const left = D.Containers.Div({ attrs: { class: tw`flex items-center gap-3` } }, [badge, brandBlock]);
+
+      const rangeSelector = ranges.length
+        ? UI.Segmented({
+            items: ranges.map((range, idx) => ({
+              id: range.id || range.value || `range-${idx}`,
+              label: range.label || range.title || `Range ${idx + 1}`,
+              gkey: range.gkey || 'dashboard:filters:range',
+              attrs: { 'data-range-id': range.id || range.value || `range-${idx}` }
+            })),
+            activeId: activeRange,
+            attrs: { class: tw`hidden md:flex bg-[color-mix(in oklab,var(--surface-2) 88%, transparent)]` }
+          })
+        : null;
+
+      const controls = [
+        filters.searchPlaceholder
+          ? UI.SearchBar({
+              placeholder: filters.searchPlaceholder,
+              attrs: { class: tw`hidden lg:flex w-[260px]` },
+              onInput: filters.searchGkey || 'dashboard:search'
+            })
+          : null,
+        rangeSelector,
+        filters.user ? UI.Badge({ variant: 'badge/ghost', text: filters.user, attrs: { class: tw`hidden sm:inline-flex` } }) : null,
+        filters.primaryAction && filters.primaryAction.label
+          ? UI.Button({ attrs: { gkey: filters.primaryAction.gkey || 'dashboard:export' }, variant: 'solid', size: 'sm' }, [filters.primaryAction.label])
+          : null
+      ].filter(Boolean);
+
+      const right = D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center justify-end gap-2` } }, controls);
+
+      return UI.Toolbar({ left: [left], right: [right] });
+    },
+
+    stats: (ctx) => {
+      const { D, UI, tw, cx, toArr, ensureDict } = ctx.helpers;
+      const stats = toArr(ctx.copy.stats);
+      if (!stats.length) return null;
+      const cards = stats.map((entry, idx) => {
+        const item = ensureDict(entry);
+        return UI.StatCard({
+          title: item.title || item.label || `المؤشر ${idx + 1}`,
+          value: item.value || '0',
+          meta: item.meta || item.hint
+        });
+      });
+      return D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`p-4 md:p-6`) } }, [
+        D.Containers.Div({ attrs: { class: 'dashboard-stat-grid' } }, cards)
+      ]);
+    },
+
+    primaryChart: (ctx) => {
+      const { D, UI, tw, ensureDict, cx } = ctx.helpers;
+      const perf = ensureDict(ctx.copy.charts && ctx.copy.charts.performance);
+      if (!Object.keys(perf).length) return null;
+      const height = perf.height || 320;
+      const chart = UI.Chart.Line({
+        data: perf.data,
+        options: perf.options,
+        height,
+        attrs: { 'data-chart-key': 'dashboard:performance' },
+        description: perf.title
+      });
+      const header = D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+        perf.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [perf.title]) : null,
+        perf.subtitle ? D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [perf.subtitle]) : null
+      ].filter(Boolean));
+      const bodyAttrs = { class: tw`flex-1`, style: `min-height:${height}px;` };
+      return D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`flex h-full flex-col gap-4 p-6`) } }, [
+        header,
+        D.Containers.Div({ attrs: bodyAttrs }, [chart])
+      ]);
+    },
+
+    secondaryCharts: (ctx) => {
+      const { D, UI, tw, ensureDict, cx } = ctx.helpers;
+      const conversion = ensureDict(ctx.copy.charts && ctx.copy.charts.conversion);
+      const breakdown = ensureDict(ctx.copy.charts && ctx.copy.charts.breakdown);
+      const cards = [];
+
+      if (Object.keys(conversion).length) {
+        const height = conversion.height || 220;
+        const chart = UI.Chart.Bar({
+          data: conversion.data,
+          options: conversion.options,
+          height,
+          attrs: { 'data-chart-key': 'dashboard:conversion' },
+          description: conversion.title
+        });
+        cards.push(D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`flex flex-col gap-4 p-6`) } }, [
+          conversion.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [conversion.title]) : null,
+          conversion.subtitle ? D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [conversion.subtitle]) : null,
+          D.Containers.Div({ attrs: { class: tw`flex-1`, style: `min-height:${height}px;` } }, [chart])
+        ].filter(Boolean)));
+      }
+
+      if (Object.keys(breakdown).length) {
+        const height = breakdown.height || 220;
+        const chart = UI.Chart.Doughnut({
+          data: breakdown.data,
+          options: breakdown.options,
+          height,
+          attrs: { 'data-chart-key': 'dashboard:breakdown' },
+          description: breakdown.title
+        });
+        cards.push(D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`flex flex-col gap-4 p-6`) } }, [
+          breakdown.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [breakdown.title]) : null,
+          breakdown.subtitle ? D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [breakdown.subtitle]) : null,
+          D.Containers.Div({ attrs: { class: tw`flex-1 items-center justify-center`, style: `min-height:${height}px; display:flex;` } }, [chart])
+        ].filter(Boolean)));
+      }
+
+      if (!cards.length) return null;
+      return D.Containers.Div({ attrs: { class: 'dashboard-secondary-grid' } }, cards);
+    },
+
+    table: (ctx) => {
+      const { D, UI, tw, cx, ensureDict, toArr } = ctx.helpers;
+      const table = ensureDict(ctx.copy.table);
+      const columns = toArr(table.columns);
+      const rows = toArr(table.rows);
+      if (!columns.length || !rows.length) return null;
+      const footerAction = ensureDict(table.action);
+      const tableNode = D.Containers.Div({ attrs: { class: tw`overflow-x-auto` } }, [
+        UI.Table({ columns, rows })
+      ]);
+      const footer = footerAction.label
+        ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [
+            UI.Button({ attrs: { gkey: footerAction.gkey || 'dashboard:table:action' }, variant: 'ghost', size: 'sm' }, [footerAction.label])
+          ])
+        : null;
+      return D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`flex h-full flex-col gap-4 p-6`) } }, [
+        table.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [table.title]) : null,
+        table.subtitle ? D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [table.subtitle]) : null,
+        tableNode,
+        footer
+      ].filter(Boolean));
+    },
+
+    activity: (ctx) => {
+      const { D, UI, tw, ensureDict, toArr } = ctx.helpers;
+      const activity = ensureDict(ctx.copy.activity);
+      const items = toArr(activity.items);
+      if (!items.length) return null;
+      const listItems = items.map((entry, idx) => {
+        const item = ensureDict(entry);
+        const leading = item.icon ? D.Text.Span({ attrs: { class: tw`text-lg` } }, [item.icon]) : null;
+        const content = [
+          item.title ? D.Text.Span({ attrs: { class: tw`text-sm font-semibold` } }, [item.title]) : null,
+          item.status ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.status]) : null
+        ].filter(Boolean);
+        const trailing = item.due ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.due]) : null;
+        return UI.ListItem({
+          leading,
+          content,
+          trailing,
+          attrs: { key: `activity-${item.id || idx}` }
+        });
+      });
+      return D.Containers.Section({ attrs: { class: cx('mishkah-dashboard-card', tw`flex h-full flex-col gap-4 p-6`) } }, [
+        activity.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [activity.title]) : null,
+        activity.subtitle ? D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [activity.subtitle]) : null,
+        UI.List({ children: listItems })
+      ].filter(Boolean));
+    }
+  };
+
+  function LayoutDashboardCommand(ctx) {
+    const { D, tw, cx } = ctx.helpers;
+    const topbar = ctx.render('topbar');
+    const stats = ctx.render('stats');
+    const primary = ctx.render('primaryChart');
+    const secondary = ctx.render('secondaryCharts');
+    const table = ctx.render('table');
+    const activity = ctx.render('activity');
+
+    return D.Containers.Div({ attrs: { class: cx('mishkah-dashboard', tw`flex min-h-screen flex-col`) } }, [
+      D.Containers.Main({ attrs: { class: tw`relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 lg:px-10` } }, [
+        topbar,
+        stats,
+        D.Containers.Div({ attrs: { class: tw`grid gap-6 lg:grid-cols-[2fr_1fr]` } }, [primary, secondary].filter(Boolean)),
+        D.Containers.Div({ attrs: { class: tw`grid gap-6 lg:grid-cols-[2fr_1fr]` } }, [table, activity].filter(Boolean))
+      ].filter(Boolean))
+    ]);
+  }
+
+  const DashboardLayouts = { command: LayoutDashboardCommand };
+
+  const DEFAULT_MOBILE_COPY = {
+    statusBar: { time: '9:41', connectivity: '5G', battery: '🔋 82%' },
+    header: { greeting: 'مرحبًا، سارة', subtitle: 'الرصيد المتاح', avatar: '🪄' },
+    balance: {
+      amount: '24,800 ر.س',
+      change: '+12% هذا الأسبوع',
+      caption: 'آخر تحديث منذ دقيقة',
+      chart: {
+        type: 'line',
+        height: 140,
+        data: {
+          labels: ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز'],
+          datasets: [
+            {
+              label: 'الرصيد',
+              data: [18, 19, 21, 19, 22, 24, 25],
+              fill: true,
+              borderColor: 'rgba(129,140,248,1)',
+              backgroundColor: 'rgba(129,140,248,0.24)',
+              pointRadius: 0
+            }
+          ]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { display: false }, y: { display: false } }
+        }
+      }
+    },
+    quickActions: [
+      { id: 'transfer', label: 'تحويل', icon: '↗️' },
+      { id: 'bill', label: 'دفع فاتورة', icon: '💡' },
+      { id: 'topup', label: 'شحن', icon: '➕' }
+    ],
+    highlights: [
+      { id: 'budget', title: 'الموازنة الشهرية', value: '68% مستهلك', meta: '2,450 ر.س متبقي' },
+      { id: 'savings', title: 'المدخرات الذكية', value: '8,200 ر.س', meta: '+450 ر.س هذا الشهر' }
+    ],
+    transactions: {
+      title: 'الحركات الأخيرة',
+      items: [
+        { id: 'uber', name: 'رحلة أوبر', time: 'اليوم • 09:24', amount: '-34 ر.س', type: 'out' },
+        { id: 'salary', name: 'إيداع راتب', time: 'أمس • 18:10', amount: '+8,500 ر.س', type: 'in' },
+        { id: 'market', name: 'سوبرماركت', time: 'أمس • 13:45', amount: '-240 ر.س', type: 'out' }
+      ],
+      action: { label: 'عرض الكل', gkey: 'mobile:transactions:all' }
+    }
+  };
+
+  const MOBILE_DEFAULT_OPTIONS = {
+    layout: 'neo',
+    mount: '#app',
+    theme: 'light',
+    lang: 'ar',
+    scaffold: true
+  };
+
+  const MobileSections = {
+    status: (ctx) => {
+      const { D, ensureDict } = ctx.helpers;
+      const status = ensureDict(ctx.copy.statusBar);
+      return D.Containers.Div({ attrs: { class: 'mobile-status-bar' } }, [
+        D.Text.Span({}, [status.time || '9:41']),
+        D.Text.Span({}, [status.connectivity || '5G']),
+        D.Text.Span({}, [status.battery || '🔋'])
+      ]);
+    },
+
+    header: (ctx) => {
+      const { D, ensureDict, tw } = ctx.helpers;
+      const header = ensureDict(ctx.copy.header);
+      return D.Containers.Div({ attrs: { class: tw`flex items-center justify-between` } }, [
+        D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+          header.greeting ? D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [header.greeting]) : null,
+          header.subtitle ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [header.subtitle]) : null
+        ].filter(Boolean)),
+        header.avatar
+          ? D.Containers.Div({ attrs: { class: tw`grid h-10 w-10 place-items-center rounded-full bg-[color-mix(in oklab,var(--primary) 90%, transparent)] text-lg shadow-sm` } }, [header.avatar])
+          : null
+      ].filter(Boolean));
+    },
+
+    balance: (ctx) => {
+      const { D, UI, ensureDict, tw } = ctx.helpers;
+      const balance = ensureDict(ctx.copy.balance);
+      const chartCfg = ensureDict(balance.chart);
+      const chartHeight = chartCfg.height || 140;
+      const chart = chartCfg.data
+        ? UI.Chart.factory(chartCfg.type || 'line')({
+            data: chartCfg.data,
+            options: chartCfg.options,
+            height: chartHeight,
+            attrs: { 'data-chart-key': 'mobile:balance' },
+            description: 'منحنى الرصيد'
+          })
+        : null;
+      return D.Containers.Div({ attrs: { class: tw`mobile-balance-card flex flex-col gap-4` } }, [
+        D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+          balance.caption ? D.Text.Span({ attrs: { class: tw`text-xs text-white/70` } }, [balance.caption]) : null,
+          balance.amount ? D.Text.H3({ attrs: { class: tw`text-2xl font-bold` } }, [balance.amount]) : null,
+          balance.change ? D.Text.Span({ attrs: { class: tw`text-xs` } }, [balance.change]) : null
+        ].filter(Boolean)),
+        chart ? D.Containers.Div({ attrs: { class: tw`flex-1`, style: `min-height:${chartHeight}px;` } }, [chart]) : null
+      ].filter(Boolean));
+    },
+
+    quickActions: (ctx) => {
+      const { D, ensureDict, toArr, tw, cx } = ctx.helpers;
+      const actions = toArr(ctx.copy.quickActions);
+      if (!actions.length) return null;
+      const active = ctx.db?.ui?.activeAction;
+      const buttons = actions.map((entry, idx) => {
+        const action = ensureDict(entry);
+        const id = action.id || `action-${idx}`;
+        const isActive = active ? active === id : idx === 0;
+        const btnAttrs = {
+          class: cx('mobile-action-btn', isActive && 'ring-2 ring-[color-mix(in oklab,var(--primary) 65%, transparent)]'),
+          type: 'button',
+          gkey: action.gkey || 'mobile:actions:select',
+          'data-action-id': id
+        };
+        return D.Forms.Button({ attrs: btnAttrs }, [
+          action.icon ? D.Text.Span({ attrs: { class: tw`text-xl` } }, [action.icon]) : null,
+          action.label ? D.Text.Span({ attrs: { class: tw`text-xs font-medium` } }, [action.label]) : null
+        ].filter(Boolean));
+      });
+      return D.Containers.Div({ attrs: { class: 'mobile-quick-actions' } }, buttons);
+    },
+
+    highlights: (ctx) => {
+      const { D, ensureDict, toArr, tw } = ctx.helpers;
+      const highlights = toArr(ctx.copy.highlights);
+      if (!highlights.length) return null;
+      const cards = highlights.map((entry, idx) => {
+        const item = ensureDict(entry);
+        return D.Containers.Div({ attrs: { key: `highlight-${item.id || idx}`, class: 'mobile-highlight-card' } }, [
+          item.title ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.title]) : null,
+          item.value ? D.Text.Strong({ attrs: { class: tw`text-lg font-semibold` } }, [item.value]) : null,
+          item.meta ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.meta]) : null
+        ].filter(Boolean));
+      });
+      return D.Containers.Div({ attrs: { class: tw`grid gap-3 sm:grid-cols-2` } }, cards);
+    },
+
+    transactions: (ctx) => {
+      const { D, UI, ensureDict, toArr, tw } = ctx.helpers;
+      const section = ensureDict(ctx.copy.transactions);
+      const rows = toArr(section.items);
+      if (!rows.length) return null;
+      const entries = rows.map((entry, idx) => {
+        const item = ensureDict(entry);
+        const amountClass = item.type === 'in' ? tw`text-emerald-500 font-semibold` : tw`text-rose-500 font-semibold`;
+        return D.Containers.Div({ attrs: { class: 'mobile-transaction', key: `txn-${item.id || idx}` } }, [
+          D.Containers.Div({ attrs: { class: tw`flex flex-col gap-0.5` } }, [
+            item.name ? D.Text.Span({ attrs: { class: tw`text-sm font-medium` } }, [item.name]) : null,
+            item.time ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [item.time]) : null
+          ].filter(Boolean)),
+          item.amount ? D.Text.Span({ attrs: { class: amountClass } }, [item.amount]) : null
+        ].filter(Boolean));
+      });
+      const footer = ensureDict(section.action);
+      const footerNode = footer.label
+        ? UI.Button({ attrs: { gkey: footer.gkey || 'mobile:transactions:all' }, variant: 'ghost', size: 'sm' }, [footer.label])
+        : null;
+      return D.Containers.Section({ attrs: { class: tw`flex flex-col gap-2` } }, [
+        section.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [section.title]) : null,
+        ...entries,
+        footerNode ? D.Containers.Div({ attrs: { class: tw`pt-1` } }, [footerNode]) : null
+      ].filter(Boolean));
+    }
+  };
+
+  function LayoutMobileNeo(ctx) {
+    const { D, tw, cx } = ctx.helpers;
+    const status = ctx.render('status');
+    const header = ctx.render('header');
+    const balance = ctx.render('balance');
+    const quick = ctx.render('quickActions');
+    const highlights = ctx.render('highlights');
+    const transactions = ctx.render('transactions');
+
+    return D.Containers.Div({ attrs: { class: cx('mishkah-mobile', tw`w-full`) } }, [
+      D.Containers.Div({ attrs: { class: 'mishkah-mobile-shell' } }, [
+        D.Containers.Div({ attrs: { class: 'mishkah-mobile-content' } }, [
+          status,
+          header,
+          balance,
+          quick,
+          highlights,
+          transactions
+        ].filter(Boolean))
+      ])
+    ]);
+  }
+
+  const MobileLayouts = { neo: LayoutMobileNeo };
+
   function LayoutAurora(ctx) {
     const { D, tw, cx } = ctx.helpers;
     const header = ctx.render('header');
@@ -590,6 +1267,66 @@
     }
   };
 
+  const DashboardOrders = {
+    'dashboard.filters.range': {
+      on: ['click'], gkeys: ['dashboard:filters:range'],
+      handler: (event, ctx) => {
+        const target = event.target.closest('[data-range-id]');
+        if (!target) return;
+        const id = target.getAttribute('data-range-id');
+        if (!id) return;
+        ctx.setState((state) => ({
+          ...state,
+          ui: { ...(state.ui || {}), activeRange: id }
+        }));
+        ctx.rebuild();
+        dispatchTemplateEvent('dashboard:filters:range', { id });
+      }
+    },
+    'dashboard.search': {
+      on: ['input', 'change'], gkeys: ['dashboard:search'],
+      handler: (event) => {
+        const value = event && event.target ? event.target.value : '';
+        dispatchTemplateEvent('dashboard:search', { value });
+      }
+    },
+    'dashboard.table.action': {
+      on: ['click'], gkeys: ['dashboard:table:action'],
+      handler: () => {
+        dispatchTemplateEvent('dashboard:table:action', {});
+      }
+    },
+    'dashboard.export': {
+      on: ['click'], gkeys: ['dashboard:export'],
+      handler: () => {
+        dispatchTemplateEvent('dashboard:export', {});
+      }
+    }
+  };
+
+  const MobileOrders = {
+    'mobile.actions.select': {
+      on: ['click'], gkeys: ['mobile:actions:select'],
+      handler: (event, ctx) => {
+        const btn = event.target.closest('[data-action-id]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-action-id');
+        ctx.setState((state) => ({
+          ...state,
+          ui: { ...(state.ui || {}), activeAction: id }
+        }));
+        ctx.rebuild();
+        dispatchTemplateEvent('mobile:actions:select', { id });
+      }
+    },
+    'mobile.transactions.all': {
+      on: ['click'], gkeys: ['mobile:transactions:all'],
+      handler: () => {
+        dispatchTemplateEvent('mobile:transactions:all', {});
+      }
+    }
+  };
+
   function toFactory(entry) {
     if (typeof entry === 'function') return entry;
     if (entry == null) return () => null;
@@ -608,11 +1345,12 @@
     return () => null;
   }
 
-  function normalizeSections(overrides) {
+  function normalizeSectionsWith(baseSections, overrides) {
     const defaults = {};
     const normalized = {};
-    Object.keys(DefaultSections).forEach((key) => {
-      const fn = toFactory(DefaultSections[key]);
+    const source = ensureDict(baseSections);
+    Object.keys(source).forEach((key) => {
+      const fn = toFactory(source[key]);
       defaults[key] = fn;
       normalized[key] = fn;
     });
@@ -623,9 +1361,23 @@
     return { normalized, defaults };
   }
 
+  function normalizeSections(overrides) {
+    return normalizeSectionsWith(DefaultSections, overrides);
+  }
+
   function resolveLayout(name) {
     const key = String(name || 'aurora').toLowerCase();
     return { key, render: Layouts[key] || Layouts.aurora };
+  }
+
+  function resolveDashboardLayout(name) {
+    const key = String(name || 'command').toLowerCase();
+    return { key, render: DashboardLayouts[key] || DashboardLayouts.command };
+  }
+
+  function resolveMobileLayout(name) {
+    const key = String(name || 'neo').toLowerCase();
+    return { key, render: MobileLayouts[key] || MobileLayouts.neo };
   }
 
   function buildDefaultDB(cfg) {
@@ -639,6 +1391,27 @@
       data: {},
       ui: { sidebarOpen: false }
     };
+  }
+
+  function buildDashboardDB(cfg, copy) {
+    const base = buildDefaultDB(cfg);
+    const ui = Object.assign({}, base.ui || {});
+    const filters = ensureDict(copy.filters);
+    const ranges = Array.isArray(filters.ranges) ? filters.ranges : [];
+    ui.activeRange = ui.activeRange || filters.activeRange || (ranges[0] && (ranges[0].id || ranges[0].value)) || '7d';
+    base.ui = ui;
+    return base;
+  }
+
+  function buildMobileDB(cfg, copy) {
+    const base = buildDefaultDB(cfg);
+    const ui = Object.assign({}, base.ui || {});
+    const actions = Array.isArray(copy.quickActions) ? copy.quickActions : [];
+    if (!ui.activeAction && actions.length) {
+      ui.activeAction = actions[0].id || 'action-0';
+    }
+    base.ui = ui;
+    return base;
   }
 
   function buildRenderer(cfg, copy, sections, defaults) {
@@ -669,6 +1442,58 @@
     };
   }
 
+  function buildDashboardRenderer(cfg, copy, sections, defaults) {
+    const { key, render } = resolveDashboardLayout(cfg.layout);
+    return function DashboardBody(db) {
+      const context = {
+        db,
+        cfg,
+        copy,
+        layout: key,
+        sections,
+        defaults,
+        helpers: helperBag,
+        render: null
+      };
+      context.render = function renderSlot(name, fallback) {
+        const factory = sections[name];
+        let node = null;
+        if (typeof factory === 'function') node = factory(context);
+        if (!node && typeof fallback === 'function') {
+          return fallback(context);
+        }
+        return node || null;
+      };
+      return render(context);
+    };
+  }
+
+  function buildMobileRenderer(cfg, copy, sections, defaults) {
+    const { key, render } = resolveMobileLayout(cfg.layout);
+    return function MobileBody(db) {
+      const context = {
+        db,
+        cfg,
+        copy,
+        layout: key,
+        sections,
+        defaults,
+        helpers: helperBag,
+        render: null
+      };
+      context.render = function renderSlot(name, fallback) {
+        const factory = sections[name];
+        let node = null;
+        if (typeof factory === 'function') node = factory(context);
+        if (!node && typeof fallback === 'function') {
+          return fallback(context);
+        }
+        return node || null;
+      };
+      return render(context);
+    };
+  }
+
   function createTemplateApp(options) {
     const cfg = Object.assign({}, DEFAULT_OPTIONS, ensureDict(options));
     const copy = mergeDeep(DEFAULT_COPY, ensureDict(cfg.copy));
@@ -686,6 +1511,9 @@
     const auto = U.twcss.auto(database, app, { pageScaffold: cfg.scaffold !== false, fonts: cfg.fonts });
     app.setOrders(Object.assign({}, UI.orders, auto.orders, orders));
     app.mount(cfg.mount || '#app');
+    if (UI.Chart && typeof UI.Chart.bindApp === 'function') {
+      UI.Chart.bindApp(app, cfg.mount || '#app');
+    }
     return app;
   }
 
@@ -697,7 +1525,89 @@
     return buildRenderer(cfg, copy, sections, defaults);
   }
 
+  function createDashboardApp(options) {
+    const cfg = Object.assign({}, DASHBOARD_DEFAULT_OPTIONS, ensureDict(options));
+    const copy = mergeDeep(DEFAULT_DASHBOARD_COPY, ensureDict(cfg.copy));
+    const { normalized: sections, defaults } = normalizeSectionsWith(DashboardSections, cfg.sections);
+    const renderer = buildDashboardRenderer(cfg, copy, sections, defaults);
+    injectBaseStyles();
+
+    const database = isObj(cfg.database)
+      ? mergeDeep(buildDashboardDB(cfg, copy), cfg.database)
+      : buildDashboardDB(cfg, copy);
+
+    M.app.setBody(renderer);
+    const orders = Object.assign({}, DashboardOrders, ensureDict(cfg.orders));
+    const app = M.app.createApp(database, orders);
+    const auto = U.twcss.auto(database, app, { pageScaffold: cfg.scaffold !== false, fonts: cfg.fonts });
+    app.setOrders(Object.assign({}, UI.orders, auto.orders, orders));
+    app.mount(cfg.mount || '#app');
+    if (UI.Chart && typeof UI.Chart.bindApp === 'function') {
+      UI.Chart.bindApp(app, cfg.mount || '#app');
+    }
+    return app;
+  }
+
+  function createMobileApp(options) {
+    const cfg = Object.assign({}, MOBILE_DEFAULT_OPTIONS, ensureDict(options));
+    const copy = mergeDeep(DEFAULT_MOBILE_COPY, ensureDict(cfg.copy));
+    const { normalized: sections, defaults } = normalizeSectionsWith(MobileSections, cfg.sections);
+    const renderer = buildMobileRenderer(cfg, copy, sections, defaults);
+    injectBaseStyles();
+
+    const database = isObj(cfg.database)
+      ? mergeDeep(buildMobileDB(cfg, copy), cfg.database)
+      : buildMobileDB(cfg, copy);
+
+    M.app.setBody(renderer);
+    const orders = Object.assign({}, MobileOrders, ensureDict(cfg.orders));
+    const app = M.app.createApp(database, orders);
+    const auto = U.twcss.auto(database, app, { pageScaffold: cfg.scaffold !== false, fonts: cfg.fonts });
+    app.setOrders(Object.assign({}, UI.orders, auto.orders, orders));
+    app.mount(cfg.mount || '#app');
+    if (UI.Chart && typeof UI.Chart.bindApp === 'function') {
+      UI.Chart.bindApp(app, cfg.mount || '#app');
+    }
+    return app;
+  }
+
+  function DashboardPage(config) {
+    const cfg = Object.assign({}, DASHBOARD_DEFAULT_OPTIONS, ensureDict(config));
+    const copy = mergeDeep(DEFAULT_DASHBOARD_COPY, ensureDict(cfg.copy));
+    const { normalized: sections, defaults } = normalizeSectionsWith(DashboardSections, cfg.sections);
+    injectBaseStyles();
+    return buildDashboardRenderer(cfg, copy, sections, defaults);
+  }
+
+  function MobilePage(config) {
+    const cfg = Object.assign({}, MOBILE_DEFAULT_OPTIONS, ensureDict(config));
+    const copy = mergeDeep(DEFAULT_MOBILE_COPY, ensureDict(cfg.copy));
+    const { normalized: sections, defaults } = normalizeSectionsWith(MobileSections, cfg.sections);
+    injectBaseStyles();
+    return buildMobileRenderer(cfg, copy, sections, defaults);
+  }
+
   injectBaseStyles();
+
+  const DashboardAPI = {
+    defaults: DEFAULT_DASHBOARD_COPY,
+    sections: DashboardSections,
+    orders: DashboardOrders,
+    create: createDashboardApp,
+    AppPage: DashboardPage,
+    buildDB: (cfg, copy) => buildDashboardDB(cfg || {}, copy || DEFAULT_DASHBOARD_COPY)
+  };
+
+  const MobileAPI = {
+    defaults: DEFAULT_MOBILE_COPY,
+    sections: MobileSections,
+    orders: MobileOrders,
+    create: createMobileApp,
+    AppPage: MobilePage,
+    buildDB: (cfg, copy) => buildMobileDB(cfg || {}, copy || DEFAULT_MOBILE_COPY)
+  };
+
+  const prevCatalog = (M.Templates && M.Templates.catalog) || {};
 
   M.Templates = Object.assign(M.Templates || {}, {
     layouts: Layouts,
@@ -707,7 +1617,20 @@
     create: createTemplateApp,
     bootstrap: createTemplateApp,
     AppPage,
-    buildDB: buildDefaultDB
+    buildDB: buildDefaultDB,
+    dashboard: DashboardAPI,
+    mobile: MobileAPI,
+    catalog: Object.assign({}, prevCatalog, {
+      marketing: {
+        create: createTemplateApp,
+        AppPage,
+        defaults: DEFAULT_COPY,
+        sections: DefaultSections,
+        orders: TemplateOrders
+      },
+      dashboard: DashboardAPI,
+      mobile: MobileAPI
+    })
   });
 
 })(typeof window !== 'undefined' ? window : this);
