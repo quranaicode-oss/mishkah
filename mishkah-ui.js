@@ -48,9 +48,11 @@ def({
   'card/desc':      'text-sm text-[var(--muted-foreground)]',
 
   // bars
-  'toolbar':        'flex w-full shrink-0 items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 85%, transparent)] backdrop-blur-sm',
-  'toolbar/group':  'flex min-h-[3rem] items-center gap-2 rounded-full border border-[color-mix(in oklab,var(--border) 65%, transparent)] bg-[color-mix(in oklab,var(--surface-1) 88%, transparent)] px-4 py-2 shadow-sm backdrop-blur-sm',
-  'toolbar/group-label': 'text-[10px] font-semibold uppercase tracking-[0.2em] text-[color-mix(in oklab,var(--muted-foreground) 90%, var(--foreground)/30%)]',
+  'toolbar':        'sticky top-0 z-40 flex h-14 w-full shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 84%, transparent)]/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 82%, transparent)]/75',
+  'toolbar/section':'flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+  'toolbar/section-end':'flex shrink-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+  'toolbar/group':  'flex shrink-0 items-center gap-2 rounded-full border border-[color-mix(in oklab,var(--border) 70%, transparent)] bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-3 py-1.5 shadow-sm backdrop-blur-sm',
+  'toolbar/group-label': 'text-[10px] font-semibold uppercase tracking-[0.18em] text-[color-mix(in oklab,var(--muted-foreground) 92%, var(--foreground)/35%)]',
   'footerbar':      'flex shrink-0 items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)]',
 
   // inputs
@@ -1429,20 +1431,23 @@ UI.Charts = ChartAPI;
 UI.AppRoot = ({ shell, overlays }) =>
   h.Containers.Div({ attrs:{ class: tw`${token('surface')} flex h-screen min-h-screen flex-col overflow-hidden` }}, [ shell, ...(overlays||[]) ]);
 
-UI.Toolbar = ({ left=[], right=[] }) =>
-  h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}` }}, [
-    h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, left),
-    h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, right),
+UI.Toolbar = ({ left=[], right=[] }) => {
+  const leftContent = Array.isArray(left) ? left.filter(Boolean) : [];
+  const rightContent = Array.isArray(right) ? right.filter(Boolean) : [];
+  return h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}` }}, [
+    h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section')}` }}, leftContent),
+    h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section-end')}` }}, rightContent),
   ]);
+};
 
 UI.ToolbarGroup = ({ attrs={}, label }, children=[]) => {
   const content = [];
   if(label){
     content.push(h.Text.Span({ attrs:{ class: tw`${token('toolbar/group-label')} mb-1` }}, [label]));
   }
-  const bodyChildren = Array.isArray(children) ? children : [children];
+  const bodyChildren = (Array.isArray(children) ? children : [children]).filter(Boolean);
   if(bodyChildren.length){
-    content.push(h.Containers.Div({ attrs:{ class: tw`${token('hstack')} flex-wrap` }}, bodyChildren));
+    content.push(h.Containers.Div({ attrs:{ class: tw`${token('hstack')} flex-nowrap` }}, bodyChildren));
   }
   return h.Containers.Div({ attrs: withClass(attrs, cx('m-toolbar-group', token('toolbar/group'))) }, content);
 };

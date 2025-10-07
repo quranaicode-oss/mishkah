@@ -1673,7 +1673,8 @@
             title: activeRecord.title || '',
             description: activeRecord.description || ''
           }
-        }
+        },
+        toolbar:{ exportOpen:false }
       }
     };
 
@@ -1856,6 +1857,52 @@
       ].filter(Boolean));
     }
 
+    function ToolbarExportMenu(db){
+      const open = db.ui?.toolbar?.exportOpen;
+      const toggle = UI.Button({
+        attrs:{
+          gkey:'erd:toolbar:export',
+          'data-state': open ? 'open' : 'closed',
+          class: tw`!gap-2 !px-4 min-w-max`
+        },
+        variant: open ? 'soft' : 'ghost',
+        size:'sm'
+      }, [
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, ['تصدير']),
+        D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
+      ]);
+      if(!open){
+        return D.Containers.Div({ attrs:{ class: tw`relative` }}, [toggle]);
+      }
+      const formats = [
+        { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
+        { id:'sql:mysql', label:'SQL — MySQL', format:'sql', dialect:'mysql' },
+        { id:'sql:sqlserver', label:'SQL — SQL Server', format:'sql', dialect:'sqlserver' },
+        { id:'json', label:'JSON', format:'json' },
+        { id:'png', label:'PNG', format:'png' },
+        { id:'svg', label:'SVG', format:'svg' }
+      ];
+      const list = D.Lists.Ul({ attrs:{ class: tw`flex flex-col gap-1 p-2` }}, formats.map(item =>
+        D.Lists.Li({ attrs:{ class: tw`list-none` }}, [
+          UI.Button({
+            attrs:{
+              gkey:'erd:export:run',
+              'data-format': item.format,
+              'data-dialect': item.dialect || '',
+              'data-option-id': item.id,
+              class: tw`w-full justify-start text-sm`
+            },
+            variant:'ghost',
+            size:'sm'
+          }, [item.label])
+        ])
+      ));
+      return D.Containers.Div({ attrs:{ class: tw`relative` }}, [
+        toggle,
+        D.Containers.Div({ attrs:{ class: tw`absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md` }}, [list])
+      ]);
+    }
+
     function Toolbar(db){
       const zoom = db.data.canvas?.zoom || 1;
       const metaTitle = db.data.schemaMeta?.title || 'مخطط بدون اسم';
@@ -1863,6 +1910,7 @@
       const lang = db.env?.lang || db.i18n?.lang || 'ar';
       const theme = db.env?.theme || 'dark';
       const templateOpen = db.ui?.template?.open !== false;
+      const exportMenu = ToolbarExportMenu(db);
       const metaGroup = UI.ToolbarGroup({ attrs:{ class: tw`items-start gap-3` }, label:'المخطط' }, [
         D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
           D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
@@ -1888,12 +1936,7 @@
         UI.Button({ attrs:{ gkey:'erd:redo', title:'إعادة' }, variant:'ghost', size:'sm' }, ['↻']),
         UI.Button({ attrs:{ gkey:'erd:fit', title:'ملاءمة المخطط للشاشة' }, variant:'ghost', size:'sm' }, ['🗺️'])
       ]);
-      const exportGroup = UI.ToolbarGroup({ label:'التصدير' }, [
-        UI.Button({ attrs:{ gkey:'erd:export:svg', title:'تصدير SVG' }, variant:'ghost', size:'sm' }, ['🖼️ SVG']),
-        UI.Button({ attrs:{ gkey:'erd:export:png', title:'تصدير PNG' }, variant:'ghost', size:'sm' }, ['🖼️ PNG']),
-        UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
-        UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL'])
-      ]);
+      const exportGroup = UI.ToolbarGroup({ label:'التصدير' }, [exportMenu]);
       const zoomGroup = UI.ToolbarGroup({ label:'الحجم' }, [
         UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
         D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
@@ -2404,58 +2447,131 @@
           if(next) schedulePersist(recordFromState(next));
         }
       },
-      'erd.export.svg':{
+      'erd.toolbar.export.toggle':{
         on:['click'],
-        gkeys:['erd:export:svg'],
-        handler: async (e,ctx)=>{
-          const driver = ensureDriverInstance(ctx.getState());
-          if(!driver || typeof driver.exportSVG !== 'function'){
-            UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير SVG', icon:'⚠️' });
-            return;
-          }
-          try{
-            const svg = await driver.exportSVG();
-            const blob = svg instanceof Blob ? svg : new Blob([svg], { type:'image/svg+xml' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const name = ctx.getState().data?.schemaMeta?.name || 'schema';
-            link.href = url;
-            link.download = `${name}.svg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة SVG', icon:'✅' });
-          } catch(error){
-            console.warn('[Mishkah][ERD] export SVG failed', error);
-            UI.pushToast(ctx, { title:'تعذر تصدير SVG', message:String(error), icon:'🛑' });
-          }
+        gkeys:['erd:toolbar:export'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              toolbar:{
+                ...(s.ui?.toolbar || {}),
+                exportOpen: !(s.ui?.toolbar?.exportOpen)
+              }
+            }
+          }));
+          ctx.rebuild();
         }
       },
-      'erd.export.png':{
+      'erd.export.run':{
         on:['click'],
-        gkeys:['erd:export:png'],
+        gkeys:['erd:export:run'],
         handler: async (e,ctx)=>{
-          const driver = ensureDriverInstance(ctx.getState());
-          if(!driver || typeof driver.exportPNG !== 'function'){
-            UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير PNG', icon:'⚠️' });
+          const target = e.target.closest('[data-format]');
+          if(!target) return;
+          const format = target.getAttribute('data-format') || '';
+          const dialect = target.getAttribute('data-dialect') || '';
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false }
+            }
+          }));
+          ctx.rebuild();
+          const state = ctx.getState();
+          if(format === 'svg'){
+            const driver = ensureDriverInstance(state);
+            if(!driver || typeof driver.exportSVG !== 'function'){
+              UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير SVG', icon:'⚠️' });
+              return;
+            }
+            try{
+              const svg = await driver.exportSVG();
+              const blob = svg instanceof Blob ? svg : new Blob([svg], { type:'image/svg+xml' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              const name = state.data?.schemaMeta?.name || 'schema';
+              link.href = url;
+              link.download = `${name}.svg`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة SVG', icon:'✅' });
+            } catch(error){
+              console.warn('[Mishkah][ERD] export SVG failed', error);
+              UI.pushToast(ctx, { title:'تعذر تصدير SVG', message:String(error), icon:'🛑' });
+            }
             return;
           }
-          try{
-            const blob = await driver.exportPNG({ background: currentPalette().background || '#ffffff' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const name = ctx.getState().data?.schemaMeta?.name || 'schema';
-            link.href = url;
-            link.download = `${name}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة PNG', icon:'✅' });
-          } catch(error){
-            console.warn('[Mishkah][ERD] export PNG failed', error);
-            UI.pushToast(ctx, { title:'تعذر تصدير PNG', message:String(error), icon:'🛑' });
+          if(format === 'png'){
+            const driver = ensureDriverInstance(state);
+            if(!driver || typeof driver.exportPNG !== 'function'){
+              UI.pushToast(ctx, { title:'سائق الرسم لا يدعم تصدير PNG', icon:'⚠️' });
+              return;
+            }
+            try{
+              const blob = await driver.exportPNG({ background: currentPalette().background || '#ffffff' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              const name = state.data?.schemaMeta?.name || 'schema';
+              link.href = url;
+              link.download = `${name}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              UI.pushToast(ctx, { title:'تم تصدير الرسم بصيغة PNG', icon:'✅' });
+            } catch(error){
+              console.warn('[Mishkah][ERD] export PNG failed', error);
+              UI.pushToast(ctx, { title:'تعذر تصدير PNG', message:String(error), icon:'🛑' });
+            }
+            return;
+          }
+          if(format === 'json'){
+            const payload = {
+              name: state.data.schemaMeta?.name || '',
+              title: state.data.schemaMeta?.title || '',
+              description: state.data.schemaMeta?.description || '',
+              schema: state.data.schema,
+              layout: state.data.layout,
+              canvas: state.data.canvas,
+              createdAt: state.data.schemaCreatedAt,
+              updatedAt: state.data.schemaUpdatedAt,
+            };
+            ctx.setState(s=>({
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), exportJson:true },
+                form:{ ...(s.ui?.form || {}), export:{ text: JSON.stringify(payload, null, 2) } }
+              }
+            }));
+            ctx.rebuild();
+            return;
+          }
+          if(format === 'sql'){
+            const registry = getRegistry(state);
+            let sql = '';
+            try {
+              sql = registry.generateSQL({ schemaName:'public', dialect: dialect || 'postgres' });
+            } catch(error){
+              console.warn('[Mishkah][ERD] generateSQL failed', error);
+              sql = registry.generateSQL({ schemaName:'public' });
+            }
+            ctx.setState(s=>({
+              ...s,
+              data:{ ...s.data, sqlPreview: sql },
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), exportSql:true },
+                form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
+              }
+            }));
+            ctx.rebuild();
+            return;
           }
         }
       },
@@ -2501,50 +2617,6 @@
               ...(s.ui || {}),
               modals:{ ...(s.ui?.modals || {}), import:true },
               form:{ ...(s.ui?.form || {}), import:{ name: payload.name, title: payload.title, targetId: s.data.schemaId || '', text: JSON.stringify(payload, null, 2) } }
-            }
-          }));
-          ctx.rebuild();
-        }
-      },
-      'erd.export.json':{
-        on:['click'],
-        gkeys:['erd:export:json'],
-        handler:(e,ctx)=>{
-          const state = ctx.getState();
-          const payload = {
-            name: state.data.schemaMeta?.name || '',
-            title: state.data.schemaMeta?.title || '',
-            description: state.data.schemaMeta?.description || '',
-            schema: state.data.schema,
-            layout: state.data.layout,
-            canvas: state.data.canvas,
-            createdAt: state.data.schemaCreatedAt,
-            updatedAt: state.data.schemaUpdatedAt
-          };
-          ctx.setState(s=>({
-            ...s,
-            ui:{
-              ...(s.ui || {}),
-              modals:{ ...(s.ui?.modals || {}), exportJson:true },
-              form:{ ...(s.ui?.form || {}), export:{ text: JSON.stringify(payload, null, 2) } }
-            }
-          }));
-          ctx.rebuild();
-        }
-      },
-      'erd.export.sql':{
-        on:['click'],
-        gkeys:['erd:export:sql'],
-        handler:(e,ctx)=>{
-          const registry = getRegistry(ctx.getState());
-          const sql = registry.generateSQL({ schemaName:'public' });
-          ctx.setState(s=>({
-            ...s,
-            data:{ ...s.data, sqlPreview: sql },
-            ui:{
-              ...(s.ui || {}),
-              modals:{ ...(s.ui?.modals || {}), exportSql:true },
-              form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
             }
           }));
           ctx.rebuild();
