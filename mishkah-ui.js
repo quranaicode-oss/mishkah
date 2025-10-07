@@ -121,6 +121,262 @@ function withClass(attrs, add){ const a=Object.assign({},attrs||{}); a.class = t
 /* ===================== Components ===================== */
 const UI = {};
 
+/* ===================== Chart.js Bridge & Components ===================== */
+const ChartBridge = (() => {
+  const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : {});
+  const parseSafe = U.JSON && typeof U.JSON.parseSafe === 'function' ? U.JSON.parseSafe : (value => {
+    try { return JSON.parse(value); } catch (_err) { return null; }
+  });
+  const clone = U.JSON && typeof U.JSON.clone === 'function' ? U.JSON.clone : (value => {
+    try { return JSON.parse(JSON.stringify(value)); } catch (_err) { return null; }
+  });
+  const stableStringify = U.JSON && typeof U.JSON.stableStringify === 'function'
+    ? U.JSON.stableStringify
+    : (value => {
+        try { return JSON.stringify(value); } catch (_err) { return ''; }
+      });
+  const deepMerge = U.Data && typeof U.Data.deepMerge === 'function'
+    ? U.Data.deepMerge
+    : ((target, source) => {
+        const base = Object.assign({}, target || {});
+        if (!source || typeof source !== 'object') return base;
+        Object.keys(source).forEach((key) => {
+          const next = source[key];
+          if (next && typeof next === 'object' && !Array.isArray(next)) {
+            base[key] = deepMerge(base[key], next);
+          } else {
+            base[key] = next;
+          }
+        });
+        return base;
+      });
+  const once = U.Control && typeof U.Control.once === 'function'
+    ? U.Control.once
+    : ((fn) => {
+        let called = false;
+        let value;
+        return function onceWrapper() {
+          if (!called) {
+            called = true;
+            value = fn.apply(this, arguments);
+          }
+          return value;
+        };
+      });
+
+  const registry = new WeakMap();
+  const scheduled = new Set();
+  let cdnUrl = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js';
+
+  const loadLibraryOnce = once(() => {
+    if (typeof document === 'undefined') return Promise.resolve(null);
+    if (globalObj.Chart && typeof globalObj.Chart === 'function') {
+      return Promise.resolve(globalObj.Chart);
+    }
+    return new Promise((resolve, reject) => {
+      try {
+        const script = document.createElement('script');
+        script.src = cdnUrl;
+        script.async = true;
+        script.onload = () => resolve(globalObj.Chart || null);
+        script.onerror = (err) => reject(err);
+        document.head.appendChild(script);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+
+  function ensureLibrary() {
+    if (globalObj.Chart && typeof globalObj.Chart === 'function') {
+      return Promise.resolve(globalObj.Chart);
+    }
+    return loadLibraryOnce().catch((err) => {
+      if (M.Auditor && typeof M.Auditor.warn === 'function') {
+        M.Auditor.warn('W-CHART', 'تعذر تحميل مكتبة Chart.js', { error: String(err) });
+      }
+      return null;
+    });
+  }
+
+  function encodePayload(payload) {
+    return stableStringify(payload || {});
+  }
+
+  function buildPayload(type, data, options) {
+    const safeData = (data && typeof data === 'object') ? clone(data) : { labels: [], datasets: [] };
+    if (!Array.isArray(safeData.datasets)) safeData.datasets = [];
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            boxWidth: 12,
+            boxHeight: 12
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: 'rgba(71,85,105,0.75)' }
+        },
+        y: {
+          grid: { color: 'rgba(148,163,184,0.18)' },
+          ticks: { color: 'rgba(71,85,105,0.75)', beginAtZero: true }
+        }
+      },
+      elements: {
+        line: { borderWidth: 2, tension: 0.4 },
+        point: { radius: 3, hoverRadius: 6 }
+      }
+    };
+    const safeOptions = (options && typeof options === 'object') ? clone(options) : {};
+    const merged = deepMerge(baseOptions, safeOptions);
+    return { type, data: safeData, options: merged };
+  }
+
+  function instantiate(node, signature, payload, ChartLib) {
+    if (!node || !ChartLib) return null;
+    const ctx = node.getContext ? node.getContext('2d') : null;
+    if (!ctx) return null;
+    const current = registry.get(node);
+    if (current && current.signature === signature) {
+      return current.instance;
+    }
+    if (current && current.instance && typeof current.instance.destroy === 'function') {
+      try { current.instance.destroy(); } catch (_err) { /* ignore */ }
+    }
+    try {
+      const config = {
+        type: payload.type,
+        data: clone(payload.data),
+        options: clone(payload.options)
+      };
+      const chart = new ChartLib(ctx, config);
+      registry.set(node, { instance: chart, signature });
+      return chart;
+    } catch (err) {
+      if (M.Auditor && typeof M.Auditor.error === 'function') {
+        M.Auditor.error('E-CHART', 'فشل إنشاء الرسم البياني', { error: String(err) });
+      }
+      return null;
+    }
+  }
+
+  function hydrateNow(root) {
+    if (typeof document === 'undefined') return;
+    const scope = (!root || root === document) ? document : root;
+    const nodes = scope.querySelectorAll ? scope.querySelectorAll('[data-m-chart]') : [];
+    if (!nodes.length) return;
+    ensureLibrary().then((ChartLib) => {
+      if (!ChartLib) return;
+      nodes.forEach((node) => {
+        const raw = node.getAttribute('data-m-chart');
+        if (!raw) return;
+        const payload = parseSafe(raw, null);
+        if (!payload || !payload.type) return;
+        instantiate(node, raw, payload, ChartLib);
+      });
+    });
+  }
+
+  function scheduleHydrate(root) {
+    if (typeof window === 'undefined') return;
+    const key = root || document;
+    if (scheduled.has(key)) return;
+    scheduled.add(key);
+    const run = () => {
+      scheduled.delete(key);
+      hydrateNow(root || document);
+    };
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run);
+    } else {
+      setTimeout(run, 16);
+    }
+  }
+
+  function bindApp(app, mount) {
+    if (!app || typeof document === 'undefined') return null;
+    const resolveRoot = () => {
+      if (typeof mount === 'string') {
+        return document.querySelector(mount) || document;
+      }
+      return mount || document;
+    };
+    const target = resolveRoot();
+    scheduleHydrate(target);
+    const original = app.rebuild;
+    app.rebuild = function patchedRebuild() {
+      const result = original.apply(app, arguments);
+      scheduleHydrate(resolveRoot());
+      return result;
+    };
+    return {
+      unbind() {
+        app.rebuild = original;
+      }
+    };
+  }
+
+  function setCDN(url) {
+    if (typeof url === 'string' && url.trim()) {
+      cdnUrl = url.trim();
+    }
+  }
+
+  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN };
+})();
+
+function ChartCanvas({ type='line', data, options, attrs={}, height=320, description, id }) {
+  const payload = ChartBridge.buildPayload(type, data, options);
+  const baseClass = cx('mishkah-chart-canvas', tw`block w-full`);
+  const canvasAttrs = withClass(attrs, baseClass);
+  canvasAttrs['data-m-chart'] = ChartBridge.encodePayload(payload);
+  canvasAttrs['data-chart-type'] = type;
+  if (description && !('aria-label' in canvasAttrs)) {
+    canvasAttrs['aria-label'] = description;
+  }
+  if (id && !('id' in canvasAttrs)) {
+    canvasAttrs.id = id;
+  }
+  const style = canvasAttrs.style ? String(canvasAttrs.style) + ';' : '';
+  if (height != null && height !== false) {
+    if (!('height' in canvasAttrs)) canvasAttrs.height = height;
+    canvasAttrs.style = `${style}min-height:${height}px;`; // keep intrinsic height
+  } else if (style) {
+    canvasAttrs.style = style;
+  }
+  if (!('role' in canvasAttrs)) {
+    canvasAttrs.role = 'img';
+  }
+  return h.Embedded.Canvas({ attrs: canvasAttrs });
+}
+
+function createChartFactory(defaultType) {
+  return (config={}) => ChartCanvas(Object.assign({ type: defaultType }, config));
+}
+
+const ChartAPI = Object.assign({
+  Canvas: ChartCanvas,
+  factory: createChartFactory,
+  Line: createChartFactory('line'),
+  Bar: createChartFactory('bar'),
+  Doughnut: createChartFactory('doughnut'),
+  Pie: createChartFactory('pie'),
+  Radar: createChartFactory('radar'),
+  PolarArea: createChartFactory('polarArea')
+}, ChartBridge);
+
+UI.Chart = ChartAPI;
+UI.Charts = ChartAPI;
+
 UI.AppRoot = ({ shell, overlays }) =>
   h.Containers.Div({ attrs:{ class: tw`${token('surface')} flex h-screen min-h-screen flex-col overflow-hidden` }}, [ shell, ...(overlays||[]) ]);
 
