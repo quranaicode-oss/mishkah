@@ -55,6 +55,8 @@
     'game.revealPrompt': { ar: 'انقر لاكتشاف الحكمة كاملة بعد نهاية الجولة.', en: 'Tap to reveal the full wisdom after the round.' },
     'readme.title': { ar: 'وثيقة مشكاة', en: 'Mishkah Readme' },
     'readme.hint': { ar: 'بدّل اللغة من الأعلى لقراءة الوثيقة بلغتك المفضلة.', en: 'Switch language from the header to read in your preferred language.' },
+    'readme.section.tec': { ar: 'الوثيقة التقنية', en: 'Technical Document' },
+    'readme.section.base': { ar: 'الوثيقة الأساسية', en: 'Foundational Document' },
     'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' }
   };
 
@@ -175,36 +177,6 @@
 
   function HeaderComp(db) {
     const { TL, lang } = makeLangLookup(db);
-    const game = db.data.game || INITIAL_GAME_STATE;
-    const timeLeft = computeTimeLeft(game);
-    const hearts = Array.from({ length: game.triesMax }, (_, idx) => (
-      D.Text.Span({
-        attrs: {
-          key: `heart-${idx}`,
-          class: cx(tw`text-lg`, idx < game.triesLeft ? '' : tw`opacity-40`)
-        }
-      }, [idx < game.triesLeft ? '❤️' : '💔'])
-    ));
-
-    const statusStrip = D.Containers.Div({
-      attrs: {
-        class: tw`flex flex-wrap items-center gap-3 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)75%,transparent)] px-4 py-2 shadow-sm`
-      }
-    }, [
-      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
-        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['⏳ ', TL('game.timeLabel')]),
-        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [timeLeft != null ? String(timeLeft) : '—'])
-      ]),
-      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
-        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['❤️ ', TL('game.tries')]),
-        D.Containers.Div({ attrs: { class: tw`flex items-center gap-1` } }, hearts),
-        D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [`/ ${game.triesMax}`])
-      ]),
-      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
-        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['🎯 ', TL('game.statusLabel')]),
-        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [TL(`game.status.${game.status}`)])
-      ])
-    ]);
 
     const langControls = ['ar', 'en'].map((code) => UI.Button({
       attrs: {
@@ -232,15 +204,6 @@
       size: 'xs'
     }, ['🌓 ', TL('header.theme.toggle')]);
 
-    const startButton = UI.Button({
-      attrs: {
-        gkey: 'game:start',
-        class: tw`rounded-full px-5 py-2 text-sm font-semibold`
-      },
-      variant: 'soft',
-      size: 'sm'
-    }, [game.status === 'running' ? TL('game.new') : TL('game.start')]);
-
     return D.Containers.Div({
       attrs: {
         class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6`
@@ -256,11 +219,10 @@
       ]),
       D.Containers.Div({
         attrs: {
-          class: tw`flex flex-col gap-3 md:flex-row md:items-center md:justify-between`
+          class: tw`flex flex-col gap-3 md:flex-row md:items-center md:justify-end`
         }
       }, [
-        statusStrip,
-        D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [themeButton, langGroup, startButton])
+        D.Containers.Div({ attrs: { class: tw`flex items-center justify-start gap-2 md:justify-end` } }, [themeButton, langGroup])
       ])
     ]);
   }
@@ -383,6 +345,25 @@
       ? D.Media.Audio({ attrs: { autoplay: true, src: SOUND_EFFECTS[feedbackType], class: tw`hidden` } })
       : null;
 
+    const shouldShowReveal = !!(game.proverb && (game.status === 'won' || game.status === 'lost') && !game.revealSolution);
+
+    const revealSection = shouldShowReveal
+      ? D.Containers.Div({ attrs: { class: tw`space-y-3 text-center` } }, [
+        D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('game.revealPrompt')]),
+        UI.Button({
+          attrs: {
+            gkey: 'game:reveal',
+            class: cx(
+              tw`w-full rounded-full py-3 font-semibold transition-shadow`,
+              tw`shadow-[0_0_28px_rgba(250,204,21,0.55)] animate-pulse hover:shadow-none focus-visible:shadow-none`
+            )
+          },
+          variant: 'soft',
+          size: 'lg'
+        }, [TL('game.reveal')])
+      ])
+      : null;
+
     return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
       D.Containers.Div({ attrs: { class: tw`space-y-4 rounded-3xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-6 shadow-md` } }, [
         D.Containers.Div({ attrs: { class: tw`flex flex-wrap justify-center gap-2` } }, tiles),
@@ -395,15 +376,7 @@
       infoTiles.length
         ? D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } }, infoTiles)
         : null,
-      UI.Button({
-        attrs: {
-          gkey: 'game:reveal',
-          disabled: !game.proverb,
-          class: tw`w-full rounded-full py-3 font-semibold`
-        },
-        variant: 'ghost',
-        size: 'lg'
-      }, [TL('game.reveal')]),
+      revealSection,
       audioNode,
       cueNode
     ].filter(Boolean));
@@ -411,21 +384,103 @@
 
   function ProverbsGameComp(db) {
     const { TL } = makeLangLookup(db);
+    const game = db.data.game || INITIAL_GAME_STATE;
+    const timeLeft = computeTimeLeft(game);
+    const hearts = Array.from({ length: game.triesMax }, (_, idx) => (
+      D.Text.Span({
+        attrs: {
+          key: `heart-${idx}`,
+          class: cx(tw`text-lg`, idx < game.triesLeft ? '' : tw`opacity-40`)
+        }
+      }, [idx < game.triesLeft ? '❤️' : '💔'])
+    ));
+
+    const statusStrip = D.Containers.Div({
+      attrs: {
+        class: tw`flex flex-wrap items-center gap-3 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)75%,transparent)] px-4 py-2 shadow-sm`
+      }
+    }, [
+      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['⏳ ', TL('game.timeLabel')]),
+        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [timeLeft != null ? String(timeLeft) : '—'])
+      ]),
+      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['❤️ ', TL('game.tries')]),
+        D.Containers.Div({ attrs: { class: tw`flex items-center gap-1` } }, hearts),
+        D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [`/ ${game.triesMax}`])
+      ]),
+      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['🎯 ', TL('game.statusLabel')]),
+        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [TL(`game.status.${game.status}`)])
+      ])
+    ]);
+
+    const startButton = UI.Button({
+      attrs: {
+        gkey: 'game:start',
+        class: tw`rounded-full px-5 py-2 text-sm font-semibold`
+      },
+      variant: 'soft',
+      size: 'sm'
+    }, [game.status === 'running' ? TL('game.new') : TL('game.start')]);
+
+    const controlStrip = D.Containers.Div({
+      attrs: {
+        class: tw`flex flex-col gap-3 md:flex-row md:items-center md:justify-between`
+      }
+    }, [
+      statusStrip,
+      D.Containers.Div({ attrs: { class: tw`flex items-center justify-end gap-3` } }, [startButton])
+    ]);
+
     return UI.Card({
       title: TL('game.title'),
-      content: buildGameBoard(db)
+      content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+        controlStrip,
+        buildGameBoard(db)
+      ])
     });
   }
 
   function ReadmeComp(db) {
     const { TL, lang } = makeLangLookup(db);
     const docs = db.data.docs || {};
-    const content = docs[lang] || docs.ar || '';
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const pack = docs[lang] || {};
+    const fallbackPack = docs[fallbackLang] || {};
+    const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
+    const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
+
+    const sections = [];
+    if (techDoc) {
+      sections.push(
+        D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+          D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
+          UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
+        ])
+      );
+    }
+    if (techDoc && baseDoc) {
+      sections.push(UI.Divider());
+    }
+    if (baseDoc) {
+      sections.push(
+        D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+          D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
+          UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
+        ])
+      );
+    }
+
     return UI.Card({
       title: TL('readme.title'),
       description: TL('readme.hint'),
-      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
-        UI.Markdown({ content, className: tw`prose max-w-none` })
+      content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
+        UI.EmptyState({
+          icon: '📄',
+          title: TL('readme.title'),
+          message: TL('readme.hint')
+        })
       ])
     });
   }
@@ -448,9 +503,14 @@
     const store = M.readme || {};
     const base = store.base || {};
     const tec = store.tec || {};
-    const ar = base.ar || tec.ar || '';
-    const en = base.en || tec.en || ar || '';
-    return { ar, en };
+    const pack = (lang) => ({
+      base: (base[lang] || '').trim(),
+      tec: (tec[lang] || '').trim()
+    });
+    return {
+      ar: pack('ar'),
+      en: pack('en')
+    };
   }
 
   IndexApp.buildDatabase = function buildDatabase() {
