@@ -15,9 +15,9 @@
   /* ------------------------------------------------------------------ */
 
   const dict = {
-    'app.title': { ar: 'مشكاة — مشكاة النور ولعبة الأمثال', en: 'Mishkah — Lighthouse Docs & Proverbs Game' },
+    'app.title': { ar: 'مشكاة —  إطار عمل النور والنظام  ', en: 'Mishkah — Lighthouse Docs ' },
     'header.subtitle': {
-      ar: 'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال في لوحة واحدة واسعة.',
+      ar: 'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال    .',
       en: 'A radiant hub that unifies the docs, controls, and the Proverbs game in one canvas.'
     },
     'header.lang.ar': { ar: 'العربية', en: 'Arabic' },
@@ -442,61 +442,105 @@
     });
   }
 
-  function ReadmeComp(db) {
-    const { TL, lang } = makeLangLookup(db);
-    const docs = db.data.docs || {};
-    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
-    const pack = docs[lang] || {};
-    const fallbackPack = docs[fallbackLang] || {};
-    const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
-    const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
+    function ReadmeCompTec(db) {
+      const { TL, lang } = makeLangLookup(db);
+      const docs = db.data.docs || {};
+      const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+      const pack = docs[lang] || {};
+      const fallbackPack = docs[fallbackLang] || {};
+      const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
+      const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
 
-    const sections = [];
-    if (techDoc) {
-      sections.push(
-        D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-          D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
-          UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
+      const sections = [];
+      if (techDoc) {
+        sections.push(
+          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
+            UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
+          ])
+        );
+      }
+      if (techDoc && baseDoc) {
+        sections.push(UI.Divider());
+      }
+      if (baseDoc) {
+        sections.push(
+          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
+            UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
+          ])
+        );
+      }
+
+      return UI.Card({
+        title: TL('readme.title'),
+        description: TL('readme.hint'),
+        content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
+          UI.EmptyState({
+            icon: '📄',
+            title: TL('readme.title'),
+            message: TL('readme.hint')
+          })
         ])
-      );
+      });
     }
-    if (techDoc && baseDoc) {
-      sections.push(UI.Divider());
-    }
-    if (baseDoc) {
-      sections.push(
-        D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-          D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
-          UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
+    function ReadmeCompBase(db) {
+      const { TL, lang } = makeLangLookup(db);
+      const docs = db.data.docs || {};
+      const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+      const pack = docs[lang] || {};
+      const fallbackPack = docs[fallbackLang] || {};
+      const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
+      const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
+
+      const sections = [];
+      if (techDoc) {
+        sections.push(
+          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
+            UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
+          ])
+        );
+      }
+      if (techDoc && baseDoc) {
+        sections.push(UI.Divider());
+      }
+      if (baseDoc) {
+        sections.push(
+          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
+            UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
+          ])
+        );
+      }
+
+      return UI.Card({
+        title: TL('readme.title'),
+        description: TL('readme.hint'),
+        content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
+          UI.EmptyState({
+            icon: '📄',
+            title: TL('readme.title'),
+            message: TL('readme.hint')
+          })
         ])
-      );
+      });
     }
-
-    return UI.Card({
-      title: TL('readme.title'),
-      description: TL('readme.hint'),
-      content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
-        UI.EmptyState({
-          icon: '📄',
-          title: TL('readme.title'),
-          message: TL('readme.hint')
-        })
-      ])
-    });
-  }
-
   IndexApp.registry = {
     HeaderComp,
     FooterComp,
     CounterComp,
     ProverbsGameComp,
-    ReadmeComp
+    ReadmeCompTec,
+    ReadmeCompBase
   };
 
   IndexApp.pages = [
     { key: 'proverbs', order: 1, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
     { key: 'counter', order: 2, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
-    { key: 'readme', order: 3, icon: '📚', label: { ar: 'اقرأ الوثيقة', en: 'Read Me' }, comp: 'ReadmeComp' }
+    { key: 'readme', order: 3, icon: '📚', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
+    { key: 'readme', order: 3, icon: '📚', label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' }, comp: 'ReadmeCompBase' }
+
   ];
 
   function loadDocs() {
