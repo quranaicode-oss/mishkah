@@ -29,6 +29,7 @@
       --ring: #2563eb;
       --shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.35);
       --radius: 16px;
+      --toolbar-height: 3.5rem;
     }
     :root.dark {
       color-scheme: dark;
@@ -370,8 +371,8 @@
     const AUTO_LAYOUT_ORIGIN_Y = 200;
     const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 680;
     const AUTO_LAYOUT_ROW_GAP = 420;
-    const FALLBACK_NODE_SPACING_X = 240;
-    const FALLBACK_NODE_SPACING_Y = 180;
+    const FALLBACK_NODE_SPACING_X = TABLE_WIDTH + 420;
+    const FALLBACK_NODE_SPACING_Y = HEADER_HEIGHT + ROW_HEIGHT * 14;
     const RTL_TEXT_PADDING = 28;
     const MIN_CANVAS_ZOOM = 0.2;
     const MAX_CANVAS_ZOOM = 3;
@@ -3038,7 +3039,7 @@
           'aria-expanded': open ? 'true' : 'false',
           'aria-controls':'erd-toolbar-export-menu',
           type:'button',
-          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[160]' : 'z-[110]'}`
+          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[460]' : 'z-[420]'}`
         },
         variant: open ? 'soft' : 'ghost',
         size:'sm'
@@ -3047,7 +3048,7 @@
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       if(!open){
-        return D.Containers.Div({ attrs:{ class: tw`relative z-[110] overflow-visible` }}, [toggle]);
+        return D.Containers.Div({ attrs:{ class: tw`relative z-[420] overflow-visible` }}, [toggle]);
       }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
@@ -3072,10 +3073,14 @@
           }, [item.label])
         ])
       ));
-      return D.Containers.Div({ attrs:{ class: tw`relative z-[150] overflow-visible` }}, [
-        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[140] pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
+      return D.Containers.Div({ attrs:{ class: tw`relative z-[460] overflow-visible` }}, [
         toggle,
-        D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`absolute right-0 top-full z-[150] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
+        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[480] pointer-events-none` }}, [
+          D.Containers.Div({ attrs:{ class: tw`absolute left-0 right-0 bottom-0 pointer-events-auto`, style:'top:var(--toolbar-height, 3.5rem);', gkey:'erd:toolbar:export:close' }}, []),
+          D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:'right:1.5rem;top:calc(var(--toolbar-height, 3.5rem) + 0.75rem);' }}, [
+            D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
+          ])
+        ])
       ]);
     }
 
