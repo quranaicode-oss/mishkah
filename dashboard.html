@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>لوحة تحكم النمو — عرض قالب مشكاة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah.templates.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { Chart } = Mishkah.UI;
+
+    const dashboardCopy = {
+      brand: {
+        name: 'مركز نمو التجارة',
+        subtitle: 'مؤشرات الأداء الأسبوعية للمتاجر الإلكترونية',
+        initials: 'TG'
+      },
+      filters: {
+        activeRange: '7d',
+        searchPlaceholder: 'ابحث عن منتج أو قناة تسويق',
+        user: 'ريم حكيم',
+        ranges: [
+          { id: '24h', label: 'آخر ٢٤ ساعة' },
+          { id: '7d', label: 'آخر ٧ أيام' },
+          { id: '30d', label: 'آخر ٣٠ يوم' },
+          { id: 'ytd', label: 'منذ بداية العام' }
+        ],
+        primaryAction: { label: 'تصدير CSV', gkey: 'dashboard:export' }
+      },
+      stats: [
+        { id: 'gmv', title: 'قيمة المبيعات', value: '482,300 ر.س', meta: '+18% عن الأسبوع الماضي' },
+        { id: 'orders', title: 'عدد الطلبات', value: '8,640', meta: '+6% نمو' },
+        { id: 'aov', title: 'متوسط الطلب', value: '55.8 ر.س', meta: '+3.1 ر.س' },
+        { id: 'repeat', title: 'نسبة تكرار الشراء', value: '42%', meta: '+5 نقاط' }
+      ],
+      charts: {
+        performance: {
+          title: 'التدفق اليومي للمبيعات والتحويلات',
+          subtitle: 'قياس نمو المتاجر المتصلة بمنصة مشكاة',
+          height: 320,
+          data: {
+            labels: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+            datasets: [
+              {
+                label: 'المبيعات (آلاف ر.س)',
+                data: [58, 62, 64, 71, 78, 86, 92],
+                fill: true,
+                backgroundColor: 'rgba(14,165,233,0.18)',
+                borderColor: 'rgba(14,165,233,1)',
+                pointBackgroundColor: 'rgba(14,165,233,1)'
+              },
+              {
+                label: 'التحويلات (%)',
+                data: [3.1, 3.3, 3.4, 3.6, 3.8, 4.1, 4.3],
+                yAxisID: 'percentage',
+                borderColor: 'rgba(251,191,36,1)',
+                backgroundColor: 'rgba(251,191,36,0.28)',
+                pointBackgroundColor: 'rgba(251,191,36,1)',
+                fill: false
+              }
+            ]
+          },
+          options: {
+            scales: {
+              y: { suggestedMax: 100 },
+              percentage: {
+                position: 'right',
+                suggestedMax: 5,
+                ticks: { callback: Chart.formatters.percent(1) }
+              }
+            },
+            plugins: { legend: { position: 'bottom' } }
+          }
+        },
+        conversion: {
+          title: 'معدل التحويل حسب القناة',
+          subtitle: 'حملات هذا الأسبوع مقارنة بالماضي',
+          height: 220,
+          data: {
+            labels: ['إعلانات بحث', 'وسائل التواصل', 'الشركاء', 'النشرات البريدية'],
+            datasets: [
+              {
+                label: 'معدل التحويل',
+                data: [5.4, 3.8, 4.7, 6.1],
+                backgroundColor: [
+                  'rgba(59,130,246,0.85)',
+                  'rgba(129,140,248,0.85)',
+                  'rgba(16,185,129,0.85)',
+                  'rgba(251,191,36,0.85)'
+                ],
+                borderRadius: 16
+              }
+            ]
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { callback: Chart.formatters.percent(1) }
+              }
+            }
+          }
+        },
+        breakdown: {
+          title: 'الأجهزة الأكثر استخدامًا',
+          subtitle: 'نسبة الجلسات عبر القنوات المختلفة',
+          height: 220,
+          data: {
+            labels: ['الهاتف', 'الحاسوب', 'الأجهزة اللوحية'],
+            datasets: [
+              {
+                data: [61, 29, 10],
+                backgroundColor: ['#6366F1', '#10B981', '#F59E0B'],
+                borderWidth: 0
+              }
+            ]
+          },
+          options: {
+            plugins: { legend: { position: 'right' } }
+          }
+        }
+      },
+      table: {
+        title: 'أداء المتاجر المتقدمة',
+        subtitle: 'أفضل ٥ متاجر من حيث النمو',
+        columns: [
+          { key: 'store', label: 'المتجر' },
+          { key: 'sessions', label: 'الزيارات' },
+          { key: 'orders', label: 'الطلبات' },
+          { key: 'rate', label: 'التحويل' }
+        ],
+        rows: [
+          { store: 'نور للعطور', sessions: '24,500', orders: '1,560', rate: '6.4%' },
+          { store: 'مطبخ المذاق', sessions: '17,820', orders: '980', rate: '5.5%' },
+          { store: 'زهرة الرياض', sessions: '14,230', orders: '860', rate: '6.0%' },
+          { store: 'متجر الألعاب الذكية', sessions: '13,940', orders: '720', rate: '5.2%' },
+          { store: 'أزياء نوفا', sessions: '11,310', orders: '610', rate: '5.4%' }
+        ],
+        action: { label: 'عرض جميع المتاجر', gkey: 'dashboard:table:action' }
+      },
+      activity: {
+        title: 'مهام الفريق هذا الأسبوع',
+        subtitle: 'أولويات العمليات والتسويق',
+        items: [
+          { id: 'campaign', icon: '🚀', title: 'إطلاق حملة الصيف', status: 'جاهزة للجدولة', due: 'اليوم' },
+          { id: 'inventory', icon: '📦', title: 'مراجعة المخزون', status: 'قيد التنفيذ', due: 'غدًا' },
+          { id: 'support', icon: '💬', title: 'متابعة تقييمات العملاء', status: 'بحاجة لمراجعة', due: 'الخميس' }
+        ]
+      }
+    };
+
+    Mishkah.Templates.dashboard.create({
+      mount: '#app',
+      theme: 'light',
+      copy: dashboardCopy
+    });
+
+    window.addEventListener('mishkah:template', (event) => {
+      const detail = event.detail || {};
+      const { type, payload } = detail;
+      if (!type) return;
+      if (type === 'dashboard:export') {
+        window.alert('📊 تم تجهيز ملف CSV للتنزيل.');
+      } else if (type === 'dashboard:filters:range') {
+        console.info('🔁 تم تغيير نطاق الوقت:', payload);
+      } else if (type === 'dashboard:table:action') {
+        console.info('📈 عرض المتاجر المتقدمة');
+      }
+    });
+  </script>
+</body>
+</html>
