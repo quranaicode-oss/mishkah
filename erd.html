@@ -65,7 +65,12 @@
       font-family: "Tajawal", "Cairo", system-ui, sans-serif;
       transition: background-color 160ms ease, color 160ms ease;
     }
-    body { display: flex; min-height: 100vh; }
+    body {
+      display: flex;
+      min-height: 100vh;
+      width: 100vw;
+      overflow-x: hidden;
+    }
     #app { flex: 1 1 auto; display: flex; }
     textarea[readonly] { user-select: all; }
   </style>
@@ -294,6 +299,85 @@
 
     const clone = (U.JSON && U.JSON.clone) ? U.JSON.clone : (obj => JSON.parse(JSON.stringify(obj)));
 
+    const FIELD_BADGE_MAP = {
+      pk: '⦿',
+      fk: '↗',
+      uk: '☆',
+      nullable: '∅',
+      index: '#'
+    };
+
+    function truncateText(value, maxLength){
+      const text = String(value ?? '').trim();
+      if(!text) return '';
+      const limit = Math.max(4, Number(maxLength) || 32);
+      if(text.length <= limit) return text;
+      return `${text.slice(0, limit - 1)}…`;
+    }
+
+    function fieldBadges(field){
+      const badges = [];
+      if(field.pk) badges.push(FIELD_BADGE_MAP.pk);
+      if(field.unique && !field.pk) badges.push(FIELD_BADGE_MAP.uk);
+      if(field.references) badges.push(FIELD_BADGE_MAP.fk);
+      if(field.index && !field.unique && !field.pk) badges.push(FIELD_BADGE_MAP.index);
+      if(field.nullable) badges.push(FIELD_BADGE_MAP.nullable);
+      return badges.join(' ');
+    }
+
+    function buildFieldDisplay(field){
+      const badges = fieldBadges(field);
+      const label = truncateText(field.name || '', 22);
+      const type = truncateText(field.type || '', 18);
+      return {
+        badges,
+        label,
+        type
+      };
+    }
+
+    function buildColumnsFormRows(table){
+      if(!table || !Array.isArray(table.fields)) return [];
+      return table.fields.map(field => ({
+        key: field.name,
+        originalName: field.name,
+        name: field.name,
+        type: field.type || 'string',
+        length: field.maxLength != null ? String(field.maxLength) : '',
+        precision: field.precision != null ? String(field.precision) : '',
+        scale: field.scale != null ? String(field.scale) : '',
+        nullable: field.nullable !== false,
+        defaultValue: field.defaultValue != null ? String(field.defaultValue) : '',
+        primaryKey: !!field.primaryKey,
+        unique: !!field.unique,
+        index: !!field.index,
+        references: field.references ? {
+          table: field.references.table || '',
+          column: field.references.column || '',
+          onDelete: field.references.onDelete || 'CASCADE',
+          onUpdate: field.references.onUpdate || 'CASCADE'
+        } : { table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
+      }));
+    }
+
+    function defaultLengthForType(type){
+      if(type === 'string' || type === 'text') return '4000';
+      return '';
+    }
+
+    function defaultPrecisionForType(type){
+      if(type === 'decimal' || type === 'number') return { precision:'18', scale:'2' };
+      return { precision:'', scale:'' };
+    }
+
+    function typeSupportsLength(type){
+      return ['string', 'text'].includes(type);
+    }
+
+    function typeSupportsPrecision(type){
+      return ['decimal', 'number'].includes(type);
+    }
+
     class SvgDriver {
       constructor(){
         this.container = null;
@@ -306,6 +390,8 @@
         this.baseBBox = null;
         this.overrideFitPadding = null;
         this.dragContext = null;
+        this.nodeCache = new Map();
+        this.edgeCache = new Map();
       }
 
       init(container, hooks){
@@ -361,6 +447,9 @@
         while(this.viewport.firstChild){
           this.viewport.removeChild(this.viewport.firstChild);
         }
+        this.nodeCache.clear();
+        this.edgeCache.clear();
+        this.edgeCache.clear();
       }
 
       clientPointToSvg(clientX, clientY){
@@ -414,6 +503,7 @@
           this.dragContext.node.x = nextX;
           this.dragContext.node.y = nextY;
           this.dragContext.group.setAttribute('transform', `translate(${nextX} ${nextY})`);
+          this.updateEdgePaths(this.dragContext.node.id);
         };
 
         const handlePointerUp = event => {
@@ -436,6 +526,7 @@
           context.node.x = roundedX;
           context.node.y = roundedY;
           this.hooks?.onNodeMove?.({ id: String(context.node.id), x: roundedX, y: roundedY });
+          this.updateEdgePaths(context.node.id);
         };
 
         group.addEventListener('pointerdown', handlePointerDown);
@@ -490,6 +581,65 @@
         }
         this.svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
         this.baseBBox = Object.assign({}, bbox, { pad });
+      }
+
+      updateEdgePaths(nodeId){
+        if(!nodeId || !this.edgeCache.size) return;
+        this.edgeCache.forEach(meta => {
+          if(meta.sourceNode !== nodeId && meta.targetNode !== nodeId) return;
+          const geometry = this.computeEdgeGeometry(meta);
+          if(!geometry) return;
+          meta.path.setAttribute('d', geometry.path);
+          if(meta.label){
+            meta.label.setAttribute('x', String(geometry.labelX));
+            meta.label.setAttribute('y', String(geometry.labelY));
+          }
+        });
+      }
+
+      computeEdgeGeometry(meta){
+        if(!meta) return null;
+        const sourceNode = this.nodeCache.get(meta.sourceNode);
+        const targetNode = this.nodeCache.get(meta.targetNode);
+        if(!sourceNode || !targetNode) return null;
+        const sourceFieldY = sourceNode.fieldMap.get(meta.sourceField) || sourceNode.height / 2;
+        const targetFieldY = targetNode.fieldMap.get(meta.targetField) || targetNode.height / 2;
+        const sourceSide = meta.sourceSide === 'left' ? 'left' : 'right';
+        const targetSide = meta.targetSide === 'right' ? 'right' : 'left';
+        const startX = sourceSide === 'left' ? sourceNode.x : sourceNode.x + sourceNode.width;
+        const endX = targetSide === 'right' ? targetNode.x + targetNode.width : targetNode.x;
+        const startY = sourceNode.y + sourceFieldY;
+        const endY = targetNode.y + targetFieldY;
+        const margin = 36;
+        const segments = [`M ${startX} ${startY}`];
+        const forward = startX <= endX;
+        if(forward){
+          const exitX = sourceSide === 'left' ? sourceNode.x - margin : sourceNode.x + sourceNode.width + margin;
+          const entryX = targetSide === 'right' ? targetNode.x + targetNode.width + margin : targetNode.x - margin;
+          const midY = startY + (endY - startY) / 2;
+          segments.push(`L ${exitX} ${startY}`);
+          segments.push(`L ${exitX} ${midY}`);
+          segments.push(`L ${entryX} ${midY}`);
+          segments.push(`L ${entryX} ${endY}`);
+        } else {
+          const verticalDirection = endY >= startY ? 1 : -1;
+          const exitY = verticalDirection > 0
+            ? Math.max(startY + margin, sourceNode.y + sourceNode.height + margin)
+            : Math.min(startY - margin, sourceNode.y - margin);
+          const entryY = verticalDirection > 0
+            ? Math.min(endY - margin, targetNode.y - margin)
+            : Math.max(endY + margin, targetNode.y + targetNode.height + margin);
+          const midX = startX + (endX - startX) / 2;
+          segments.push(`L ${startX} ${exitY}`);
+          segments.push(`L ${midX} ${exitY}`);
+          segments.push(`L ${midX} ${entryY}`);
+          segments.push(`L ${endX} ${entryY}`);
+        }
+        segments.push(`L ${endX} ${endY}`);
+        const path = segments.join(' ');
+        const labelX = (startX + endX) / 2;
+        const labelY = (startY + endY) / 2 - 6;
+        return { path, labelX, labelY };
       }
 
       render(state){
@@ -548,15 +698,23 @@
           tableFill: palette.card || '#111d30',
           headerFill: palette.primary || '#2563eb',
           headerText: palette.primaryForeground || '#f8fafc',
+          headerSubtle: palette.primaryForeground ? `${palette.primaryForeground}cc` : '#e2e8f0cc',
           fieldText: palette.foreground || '#f8fafc',
+          fieldType: palette.muted || '#94a3b8',
+          rowEven: palette.surface || '#0f172a',
+          rowOdd: palette.card || '#111d30',
+          badge: palette.accentForeground || '#102341',
           edge: palette.accentForeground || '#60a5fa',
           background: palette.surface || '#101a2c'
         };
 
         const nodeLookup = new Map();
 
+        this.nodeCache.clear();
+
         nodes.forEach(node => {
           nodeLookup.set(node.id, node);
+          this.nodeCache.set(node.id, node);
           const group = document.createElementNS(svgNS, 'g');
           group.setAttribute('data-node-id', node.id);
           group.setAttribute('transform', `translate(${node.x} ${node.y})`);
@@ -566,71 +724,118 @@
           body.setAttribute('y', '0');
           body.setAttribute('width', String(node.width));
           body.setAttribute('height', String(node.height));
-          body.setAttribute('rx', '16');
-          body.setAttribute('ry', '16');
+          body.setAttribute('rx', '18');
+          body.setAttribute('ry', '18');
           body.setAttribute('fill', colors.tableFill);
           body.setAttribute('stroke', selection.table === node.id ? (palette.primary || '#60a5fa') : colors.tableStroke);
-          body.setAttribute('stroke-width', selection.table === node.id ? '2.4' : '1.6');
+          body.setAttribute('stroke-width', selection.table === node.id ? '2.6' : '1.8');
 
+          const headerHeight = Math.max(HEADER_HEIGHT, 48);
           const header = document.createElementNS(svgNS, 'rect');
           header.setAttribute('x', '0');
           header.setAttribute('y', '0');
           header.setAttribute('width', String(node.width));
-          header.setAttribute('height', String(Math.max(HEADER_HEIGHT, 44)));
-          header.setAttribute('rx', '16');
-          header.setAttribute('ry', '16');
+          header.setAttribute('height', String(headerHeight));
+          header.setAttribute('rx', '18');
+          header.setAttribute('ry', '18');
           header.setAttribute('fill', colors.headerFill);
 
+          const headerClip = document.createElementNS(svgNS, 'clipPath');
+          const clipId = `m-erd-clip-${String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+          if(this.defs){
+            headerClip.setAttribute('id', clipId);
+            headerClip.setAttribute('data-m-erd-dynamic', 'true');
+            const clipRect = document.createElementNS(svgNS, 'rect');
+            clipRect.setAttribute('x', '0');
+            clipRect.setAttribute('y', '0');
+            clipRect.setAttribute('width', String(node.width));
+            clipRect.setAttribute('height', String(node.height));
+            clipRect.setAttribute('rx', '18');
+            clipRect.setAttribute('ry', '18');
+            headerClip.appendChild(clipRect);
+            this.defs.appendChild(headerClip);
+          }
+
+          const tableMeta = node.table || {};
           const title = document.createElementNS(svgNS, 'text');
-          title.setAttribute('x', '18');
+          title.setAttribute('x', '20');
           title.setAttribute('y', '28');
           title.setAttribute('fill', colors.headerText);
           title.setAttribute('font-size', '14');
           title.setAttribute('font-weight', '700');
           title.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
-          const tableMeta = node.table || {};
-          title.textContent = tableMeta.displayName || tableMeta.label || tableMeta.name || node.id;
+          title.textContent = truncateText(tableMeta.displayName || tableMeta.label || tableMeta.name || node.id, 26);
+          title.setAttribute('clip-path', `url(#${clipId})`);
 
-          const fieldTextGroup = document.createElementNS(svgNS, 'g');
-          fieldTextGroup.setAttribute('transform', 'translate(0 0)');
-          let clipId = null;
-          if(this.defs){
-            const safeId = String(node.id || tableMeta?.name || '') || `node-${index}`;
-            clipId = `m-erd-clip-${safeId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-            const clipPath = document.createElementNS(svgNS, 'clipPath');
-            clipPath.setAttribute('id', clipId);
-            clipPath.setAttribute('data-m-erd-dynamic', 'true');
-            const clipRect = document.createElementNS(svgNS, 'rect');
-            const contentTop = Math.max(HEADER_HEIGHT, 44);
-            clipRect.setAttribute('x', '0');
-            clipRect.setAttribute('y', String(contentTop));
-            clipRect.setAttribute('width', String(node.width));
-            clipRect.setAttribute('height', String(Math.max(0, node.height - contentTop)));
-            clipPath.appendChild(clipRect);
-            this.defs.appendChild(clipPath);
+          let subtitleNode = null;
+          if(tableMeta.label && tableMeta.label !== tableMeta.name){
+            subtitleNode = document.createElementNS(svgNS, 'text');
+            subtitleNode.setAttribute('x', '20');
+            subtitleNode.setAttribute('y', '44');
+            subtitleNode.setAttribute('fill', colors.headerSubtle);
+            subtitleNode.setAttribute('font-size', '11');
+            subtitleNode.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+            subtitleNode.setAttribute('clip-path', `url(#${clipId})`);
+            subtitleNode.textContent = truncateText(tableMeta.label, 32);
           }
-          if(clipId){
-            fieldTextGroup.setAttribute('clip-path', `url(#${clipId})`);
-          }
+
+          const contentTop = headerHeight;
+          const rowsGroup = document.createElementNS(svgNS, 'g');
 
           node.fields.forEach((field, idx)=>{
-            const fieldY = HEADER_HEIGHT + ROW_HEIGHT * idx + 18;
-            const rowText = document.createElementNS(svgNS, 'text');
-            rowText.setAttribute('x', '18');
-            rowText.setAttribute('y', String(fieldY));
-            rowText.setAttribute('fill', colors.fieldText);
-            rowText.setAttribute('font-size', '12');
-            rowText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
-            rowText.textContent = field.type
-              ? `${field.name} · ${field.type}`
-              : field.name;
-            fieldTextGroup.appendChild(rowText);
+            const rowTop = contentTop + ROW_HEIGHT * idx;
+            const rowRect = document.createElementNS(svgNS, 'rect');
+            rowRect.setAttribute('x', '0');
+            rowRect.setAttribute('y', String(rowTop));
+            rowRect.setAttribute('width', String(node.width));
+            rowRect.setAttribute('height', String(ROW_HEIGHT));
+            rowRect.setAttribute('fill', idx % 2 === 0 ? colors.rowEven : colors.rowOdd);
+
+            const display = field.display || buildFieldDisplay(field);
+            const baseY = rowTop + ROW_HEIGHT / 2 + 1;
+
+            const nameText = document.createElementNS(svgNS, 'text');
+            nameText.setAttribute('x', display.badges ? '40' : '20');
+            nameText.setAttribute('y', String(baseY));
+            nameText.setAttribute('fill', colors.fieldText);
+            nameText.setAttribute('font-size', '12');
+            nameText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+            nameText.setAttribute('dominant-baseline', 'middle');
+            nameText.setAttribute('font-weight', field.pk ? '700' : '500');
+            nameText.textContent = display.label || field.name;
+
+            if(display.badges){
+              const badgeText = document.createElementNS(svgNS, 'text');
+              badgeText.setAttribute('x', '20');
+              badgeText.setAttribute('y', String(baseY));
+              badgeText.setAttribute('fill', colors.badge);
+              badgeText.setAttribute('font-size', '11');
+              badgeText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+              badgeText.setAttribute('dominant-baseline', 'middle');
+              badgeText.textContent = display.badges;
+              rowsGroup.appendChild(badgeText);
+            }
+
+            const typeText = document.createElementNS(svgNS, 'text');
+            typeText.setAttribute('x', String(node.width - 20));
+            typeText.setAttribute('y', String(baseY));
+            typeText.setAttribute('fill', colors.fieldType);
+            typeText.setAttribute('font-size', '11');
+            typeText.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
+            typeText.setAttribute('dominant-baseline', 'middle');
+            typeText.setAttribute('text-anchor', 'end');
+            typeText.textContent = display.type || field.type || '';
+
+            rowsGroup.appendChild(rowRect);
+            rowsGroup.appendChild(nameText);
+            rowsGroup.appendChild(typeText);
           });
 
           group.appendChild(body);
           group.appendChild(header);
           group.appendChild(title);
-          group.appendChild(fieldTextGroup);
+          if(subtitleNode) group.appendChild(subtitleNode);
+          group.appendChild(rowsGroup);
           this.attachNodeInteractions(group, node);
           nodesGroup.appendChild(group);
         });
@@ -641,52 +846,33 @@
           if(!sourceNode || !targetNode) return;
           const sourceFieldName = rel.from?.field || rel.source?.field;
           const targetFieldName = rel.to?.field || rel.target?.field;
-          const sourceFieldY = sourceNode.fieldMap.get(sourceFieldName) || sourceNode.height / 2;
-          const targetFieldY = targetNode.fieldMap.get(targetFieldName) || targetNode.height / 2;
-          const forward = (sourceNode.x + sourceNode.width) <= targetNode.x;
-          const backward = targetNode.x + targetNode.width <= sourceNode.x;
-          const startX = forward ? sourceNode.x + sourceNode.width : (backward ? sourceNode.x : sourceNode.x + sourceNode.width / 2);
-          const endX = forward ? targetNode.x : (backward ? targetNode.x + targetNode.width : targetNode.x + targetNode.width / 2);
-          const startY = sourceNode.y + sourceFieldY;
-          const endY = targetNode.y + targetFieldY;
-          const margin = 32;
-          const segments = [`M ${startX} ${startY}`];
-          if(forward || backward){
-            const exitX = forward ? sourceNode.x + sourceNode.width + margin : sourceNode.x - margin;
-            const entryX = forward ? targetNode.x - margin : targetNode.x + targetNode.width + margin;
-            const midY = startY + (endY - startY) / 2;
-            segments.push(`L ${exitX} ${startY}`);
-            segments.push(`L ${exitX} ${midY}`);
-            segments.push(`L ${entryX} ${midY}`);
-            segments.push(`L ${entryX} ${endY}`);
-          } else {
-            const verticalDirection = endY >= startY ? 1 : -1;
-            const exitY = verticalDirection > 0
-              ? Math.max(startY + margin, sourceNode.y + sourceNode.height + margin)
-              : Math.min(startY - margin, sourceNode.y - margin);
-            const entryY = verticalDirection > 0
-              ? Math.min(endY - margin, targetNode.y - margin)
-              : Math.max(endY + margin, targetNode.y + targetNode.height + margin);
-            const midX = startX + (endX - startX) / 2;
-            segments.push(`L ${startX} ${exitY}`);
-            segments.push(`L ${midX} ${exitY}`);
-            segments.push(`L ${midX} ${entryY}`);
-            segments.push(`L ${endX} ${entryY}`);
-          }
-          segments.push(`L ${endX} ${endY}`);
+          const edgeId = rel.id || `${sourceNode.id}:${sourceFieldName}→${targetNode.id}:${targetFieldName}`;
+          const meta = {
+            id: edgeId,
+            path: null,
+            label: null,
+            sourceNode: sourceNode.id,
+            targetNode: targetNode.id,
+            sourceField: sourceFieldName,
+            targetField: targetFieldName,
+            sourceSide: rel.from?.side || (rel.from?.port?.endsWith(':left') ? 'left' : 'right'),
+            targetSide: rel.to?.side || (rel.to?.port?.endsWith(':right') ? 'right' : 'left')
+          };
+          const geometry = this.computeEdgeGeometry(meta);
           const path = document.createElementNS(svgNS, 'path');
-          path.setAttribute('d', segments.join(' '));
+          path.setAttribute('d', geometry ? geometry.path : `M ${sourceNode.x} ${sourceNode.y} L ${targetNode.x} ${targetNode.y}`);
           path.setAttribute('fill', 'none');
           path.setAttribute('stroke', colors.edge);
           path.setAttribute('stroke-width', '1.8');
           path.setAttribute('marker-end', 'url(#m-erd-arrow)');
           path.setAttribute('style', `color:${colors.edge}`);
+          path.setAttribute('data-edge-id', edgeId);
           edgesGroup.appendChild(path);
 
           if(rel.cardinality){
             const label = document.createElementNS(svgNS, 'text');
-            const labelX = (startX + endX) / 2;
-            const labelY = (startY + endY) / 2 - 6;
+            const labelX = geometry ? geometry.labelX : (sourceNode.x + targetNode.x) / 2;
+            const labelY = geometry ? geometry.labelY : (sourceNode.y + targetNode.y) / 2 - 6;
             label.setAttribute('x', String(labelX));
             label.setAttribute('y', String(labelY));
             label.setAttribute('fill', colors.fieldText);
@@ -696,7 +882,12 @@
             label.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
             label.textContent = rel.cardinality;
             edgesGroup.appendChild(label);
+            meta.label = label;
+          } else {
+            meta.label = null;
           }
+          meta.path = path;
+          this.edgeCache.set(edgeId, meta);
         });
 
         this.viewport.appendChild(edgesGroup);
@@ -765,6 +956,8 @@
         this.lastState = null;
         this.baseBBox = null;
         this.overrideFitPadding = null;
+        this.nodeCache.clear();
+        this.edgeCache.clear();
       }
     }
 
@@ -844,53 +1037,87 @@
           const { x, y } = normalisePoint(layout[tbl.id], fallback);
           const position = { x, y };
           const fields = Array.isArray(tbl.fields) ? tbl.fields : [];
-          const lines = fields.map(field => {
-            const typeSuffix = field.type ? ` : ${field.type}` : '';
-            return `• ${field.name}${typeSuffix}`;
+          const headerLabel = tbl.displayName || tbl.label || tbl.name || tbl.id;
+          const subtitle = tbl.label && tbl.label !== tbl.name ? ` (${tbl.label})` : '';
+          const headerLine = truncateText(`${headerLabel}${subtitle}`, 42);
+          const fieldLines = fields.map(field => {
+            const display = field.display || buildFieldDisplay(field);
+            const badges = display.badges ? `${display.badges} ` : '';
+            const type = display.type ? ` · ${display.type}` : '';
+            return `${badges}${display.label || field.name}${type}`;
           });
-          const title = tbl.displayName || tbl.label || tbl.name || tbl.id;
-          const bodyText = lines.length ? `${title}\n${lines.join('\n')}` : title;
-          return {
-            id: tbl.id,
-            shape: 'rect',
-            x: position.x,
-            y: position.y,
-            width: 260,
-            height: Math.max(60, 32 + 24 * fields.length),
-            data: { hydrated: true },
-            attrs: {
-              body: { fill: '#0ea5e9', stroke: '#0284c7', rx: 12, ry: 12 },
-              label: {
-                text: bodyText,
-                fill: '#f8fafc',
-                fontSize: 12,
-                fontWeight: 600,
-                lineHeight: 1.4,
-                textAnchor: 'start',
-                refX: 12,
-                refY: 16,
-              },
-            },
-            ports: {
-              groups: {
-                in: {
-                  position: 'left',
-                  attrs: { circle: { r: 4, magnet: true, stroke: '#0f172a', fill: '#f8fafc' } },
-                },
-                out: {
-                  position: 'right',
-                  attrs: { circle: { r: 4, magnet: true, stroke: '#0f172a', fill: '#f8fafc' } },
-                },
-              },
-              items: fields.map((field, index) => ({
-                id: `${tbl.id}:${field.name}`,
-                group: index % 2 === 0 ? 'out' : 'in',
+          const bodyText = [headerLine, ...fieldLines].join('\n');
+          const height = computeTableHeight(fields.length);
+          const portItems = fields.flatMap((field, idx) => {
+            const yOffset = HEADER_HEIGHT + ROW_HEIGHT * idx + ROW_HEIGHT / 2;
+            const portBase = `${tbl.id}:${field.name}`;
+            return [
+              {
+                id: `${portBase}:left`,
+                group: 'in',
                 attrs: {
                   circle: {
                     title: `${field.name}${field.type ? ` (${field.type})` : ''}`,
                   },
                 },
-              })),
+                args: { x: 0, y: yOffset },
+              },
+              {
+                id: `${portBase}:right`,
+                group: 'out',
+                attrs: {
+                  circle: {
+                    title: `${field.name}${field.type ? ` (${field.type})` : ''}`,
+                  },
+                },
+                args: { x: TABLE_WIDTH, y: yOffset },
+              },
+            ];
+          });
+          return {
+            id: tbl.id,
+            shape: 'rect',
+            x: position.x,
+            y: position.y,
+            width: TABLE_WIDTH,
+            height,
+            data: { hydrated: true },
+            attrs: {
+              body: {
+                fill: '#111d30',
+                stroke: '#1f2a3d',
+                rx: 18,
+                ry: 18,
+              },
+              label: {
+                text: bodyText,
+                fill: '#f8fafc',
+                fontSize: 12,
+                fontWeight: 500,
+                lineHeight: 1.35,
+                textAnchor: 'start',
+                refX: 16,
+                refY: 22,
+                textWrap: {
+                  width: TABLE_WIDTH - 32,
+                  height: height - 32,
+                  ellipsis: true,
+                  breakWord: true,
+                },
+              },
+            },
+            ports: {
+              groups: {
+                in: {
+                  position: { name: 'absolute' },
+                  attrs: { circle: { r: 4, magnet: true, stroke: 'transparent', fill: 'transparent' } },
+                },
+                out: {
+                  position: { name: 'absolute' },
+                  attrs: { circle: { r: 4, magnet: true, stroke: 'transparent', fill: 'transparent' } },
+                },
+              },
+              items: portItems,
             },
           };
         });
@@ -898,8 +1125,8 @@
         const edges = relations.map(rel => ({
           id: rel.id || `${rel.from.table}:${rel.from.field}→${rel.to.table}:${rel.to.field}`,
           shape: 'edge',
-          source: { cell: rel.from.table, port: `${rel.from.table}:${rel.from.field}` },
-          target: { cell: rel.to.table, port: `${rel.to.table}:${rel.to.field}` },
+          source: { cell: rel.from.table, port: rel.from.port || `${rel.from.table}:${rel.from.field}:right` },
+          target: { cell: rel.to.table, port: rel.to.port || `${rel.to.table}:${rel.to.field}:left` },
           router: { name: 'manhattan' },
           connector: { name: 'rounded' },
           attrs: { line: { stroke: '#0284c7', strokeWidth: 1.6 } },
@@ -1087,6 +1314,16 @@
           nullable: field.nullable !== false,
           default: field.defaultValue,
           references: field.references || null,
+          index: !!field.index,
+          display: buildFieldDisplay({
+            name: field.name,
+            type: field.type,
+            pk: !!field.primaryKey,
+            unique: !!field.unique,
+            nullable: field.nullable !== false,
+            references: field.references,
+            index: !!field.index
+          }),
         })),
       }));
       const relations = [];
@@ -1095,10 +1332,17 @@
           if(field.references && field.references.table){
             relations.push({
               id: `${table.name}:${field.name}→${field.references.table}:${field.references.column || field.references.field || 'id'}`,
-              from: { table: table.name, field: field.name },
+              from: {
+                table: table.name,
+                field: field.name,
+                port: `${table.name}:${field.name}:right`,
+                side: 'right'
+              },
               to: {
                 table: field.references.table,
                 field: field.references.column || field.references.field || 'id',
+                port: `${field.references.table}:${field.references.column || field.references.field || 'id'}:left`,
+                side: 'left'
               },
               cardinality: field.references.cardinality || '',
               onDelete: field.references.onDelete,
@@ -1234,7 +1478,12 @@
       if(!portId) return '';
       const parts = String(portId).split(':');
       if(parts.length <= 1) return parts[0] || '';
-      return parts.slice(1).join(':');
+      const fieldParts = parts.slice(1);
+      if(fieldParts.length > 1){
+        const last = fieldParts[fieldParts.length - 1];
+        if(last === 'left' || last === 'right') fieldParts.pop();
+      }
+      return fieldParts.join(':');
     }
 
     function handleDriverNodeMove(position){
@@ -1639,7 +1888,7 @@
         library:{ items: libraryItems, status: SchemaLibrary.status }
       },
       ui:{
-        modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false },
+        modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false, columns:false },
         template:{ open:true },
         form:{
           table:{ name:'', nameInput:'', label:'', comment:'', includeId:true },
@@ -1672,7 +1921,8 @@
             name: activeRecord.name || '',
             title: activeRecord.title || '',
             description: activeRecord.description || ''
-          }
+          },
+          columns:{ table:firstTable || '', rows: buildColumnsFormRows(activeRegistry.get(firstTable || '')) }
         },
         toolbar:{ exportOpen:false }
       }
@@ -1921,7 +2171,8 @@
       const structureGroup = UI.ToolbarGroup({ label:'العناصر' }, [
         UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'soft', size:'sm' }, ['➕ جدول']),
         UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
-        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة'])
+        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة']),
+        UI.Button({ attrs:{ gkey:'erd:columns:open' }, variant:'ghost', size:'sm' }, ['🗂️ الأعمدة'])
       ]);
       const templateGroup = UI.ToolbarGroup({ label:'القوالب' }, [
         UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'soft' : 'ghost', size:'sm' }, [templateOpen ? '🧩 إخفاء القالب' : '🧩 عرض القالب'])
@@ -1948,37 +2199,6 @@
         left:[metaGroup, structureGroup, templateGroup],
         right:[uiGroup, historyGroup, exportGroup, zoomGroup]
       });
-    }
-
-    function InspectorPanel(db){
-      const selection = db.data.selection || {};
-      const registry = getRegistry(db);
-      const table = selection.table ? registry.get(selection.table) : null;
-      const layout = db.data.layout || {};
-      const formLayout = db.ui?.form?.layout || { x:0, y:0 };
-      const relationships = table ? (table.fields || []).filter(field=> field.references) : [];
-      return D.Containers.Aside({ attrs:{ class: tw`hidden xl:flex w-80 flex-col border-r border-[var(--border)] bg-[var(--surface-2)]/90 backdrop-blur p-4 gap-4` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
-          D.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, ['خصائص المخطط']),
-          UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`justify-center` }, variant:'secondary', size:'sm' }, ['تحرير الاسم والوصف'])
-        ]),
-        D.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, ['التفاصيل']),
-        table ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [`${table.sqlName || Schema.utils.toSnakeCase(table.name)}`]),
-          table.label ? D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`المسمى الإضافي: ${table.label}`]) : null,
-          D.Text.Span({ attrs:{ class: tw`text-sm` }}, [`عدد الحقول: ${table.fields.length}`]),
-          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [
-            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['إحداثيات اللوحة']),
-            UI.Input({ attrs:{ gkey:'erd:layout:input', 'data-axis':'x', value:String(formLayout.x), type:'number', class: tw`w-full`, placeholder:'المحور X' } }),
-            UI.Input({ attrs:{ gkey:'erd:layout:input', 'data-axis':'y', value:String(formLayout.y), type:'number', class: tw`w-full`, placeholder:'المحور Y' } }),
-            UI.Button({ attrs:{ gkey:'erd:layout:apply', variant:'solid', size:'sm' }}, ['تحديث الموقع'])
-          ]),
-          relationships.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [
-            D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, ['العلاقات الخارجة']),
-            ...relationships.map(field=> D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`${field.name} → ${field.references.table}.${field.references.column}`]))
-          ]) : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, ['لا توجد علاقات محددة.'])
-        ].filter(Boolean)) : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['اختر جدولًا من المخطط لاستعراض تفاصيله.'])
-      ]);
     }
 
     function ModalImport(db){
@@ -2289,6 +2509,120 @@
       });
     }
 
+    function ModalColumnsManager(db){
+      const open = db.ui?.modals?.columns;
+      if(!open) return null;
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      if(!tables.length){
+        return UI.Modal({
+          open,
+          size:'lg',
+          title:'محرر الأعمدة',
+          description:'لا توجد جداول في المخطط بعد. قم بإضافة جدول لبدء إدارة الأعمدة.',
+          closeGkey:'erd:modal:close',
+          content:[ D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['أضف جدولًا جديدًا من شريط الأدوات ثم عد إلى هنا.']) ],
+          actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق']) ]
+        });
+      }
+      const form = db.ui?.form?.columns || {};
+      const currentTableName = form.table && registry.get(form.table)
+        ? form.table
+        : (tables[0]?.name || '');
+      const currentTable = currentTableName ? registry.get(currentTableName) : null;
+      const rows = Array.isArray(form.rows) && form.rows.length ? form.rows : buildColumnsFormRows(currentTable);
+      const tableNav = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }},
+        tables.map(table => UI.Button({
+          attrs:{
+            gkey:'erd:columns:select-table',
+            'data-table': table.name,
+            class: tw`${table.name === currentTableName ? '!bg-[var(--accent)] !text-[var(--accent-foreground)]' : ''}`
+          },
+          variant: table.name === currentTableName ? 'soft' : 'ghost',
+          size:'sm'
+        }, [formatIdentifier(table.name)]))
+      );
+
+      const rowElements = rows.length
+        ? rows.map((row, index) => {
+            const key = row.key || row.originalName || `${currentTableName}:${index}`;
+            const typeOptions = FIELD_TYPE_OPTIONS;
+            const supportsLength = typeSupportsLength(row.type);
+            const supportsPrecision = typeSupportsPrecision(row.type);
+            const lengthControl = supportsLength
+              ? UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'length', value: row.length || '', placeholder:'الطول', class: tw`w-full`, type:'number', min:'1' } })
+              : null;
+            const precisionControls = supportsPrecision
+              ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-2 gap-2` }}, [
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'precision', value: row.precision || '', placeholder:'الدقة', class: tw`w-full`, type:'number', min:'1' } }),
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'scale', value: row.scale || '', placeholder:'المقياس', class: tw`w-full`, type:'number', min:'0' } })
+                ])
+              : null;
+            const toggleControls = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3 text-xs` }}, [
+              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }}, [
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'nullable', type:'checkbox', checked: row.nullable !== false } }),
+                UI.Label({ text:'NULL?' })
+              ]),
+              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }}, [
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'primaryKey', type:'checkbox', checked: !!row.primaryKey } }),
+                UI.Label({ text:'PK' })
+              ]),
+              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }}, [
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'unique', type:'checkbox', checked: !!row.unique } }),
+                UI.Label({ text:'Unique' })
+              ]),
+              D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1` }}, [
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'index', type:'checkbox', checked: !!row.index } }),
+                UI.Label({ text:'Index' })
+              ])
+            ]);
+
+            const quickActions = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+              UI.Button({ attrs:{ gkey:'erd:columns:open-relation', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['FK']),
+              UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['انتقال'])
+            ]);
+
+            return D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-1)]/80 p-4 flex flex-col gap-3` }}, [
+              D.Containers.Div({ attrs:{ class: tw`flex flex-col md:flex-row md:items-start md:justify-between gap-3` }}, [
+                D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-3 flex-1` }}, [
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'name', value: row.name || '', placeholder:'اسم العمود (snake_case)' } }),
+                  UI.Select({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'type', value: row.type || 'string' }, options: typeOptions }),
+                  lengthControl,
+                  precisionControls,
+                  UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'defaultValue', value: row.defaultValue || '', placeholder:'القيمة الافتراضية' } })
+                ].filter(Boolean)),
+                D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, [toggleControls, quickActions])
+              ]),
+              D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-2 gap-2` }}, [
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refTable', value: row.references?.table || '', placeholder:'جدول المرجع (FK)' } }),
+                UI.Input({ attrs:{ gkey:'erd:columns:update', 'data-row': key, 'data-field':'refColumn', value: row.references?.column || '', placeholder:'حقل المرجع (FK)' } })
+              ])
+            ]);
+          })
+        : [D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, ['لا توجد أعمدة بعد لهذا الجدول.'])];
+
+      return UI.Modal({
+        open,
+        size:'xl',
+        title:'محرر الأعمدة',
+        description:'تحكم في أعمدة الجدول المحدد بسرعة عبر واجهة واحدة.',
+        closeGkey:'erd:modal:close',
+        content:[
+          D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-4` }}, [
+            D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-2)]/60 p-3 flex flex-col gap-2` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, ['الجداول']),
+              tableNav
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1` }}, rowElements)
+          ])
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:columns:save', variant:'solid', size:'sm' }}, ['حفظ الأعمدة']),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, ['إغلاق'])
+        ]
+      });
+    }
+
     function Modals(db){
       return [
         ModalImport(db),
@@ -2297,7 +2631,8 @@
         ModalSchemaMeta(db),
         ModalAddTable(db),
         ModalAddField(db),
-        ModalRelation(db)
+        ModalRelation(db),
+        ModalColumnsManager(db)
       ];
     }
 
@@ -2308,7 +2643,6 @@
           Toolbar(db),
           SchemaCanvas(db)
         ]),
-        InspectorPanel(db),
         ...Modals(db)
       ]);
     }
@@ -2628,7 +2962,7 @@
         handler:(e,ctx)=>{
           ctx.setState(s=>({
             ...s,
-            ui:{ ...(s.ui || {}), modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false } }
+            ui:{ ...(s.ui || {}), modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false, columns:false } }
           }));
           ctx.rebuild();
         }
@@ -3087,6 +3421,333 @@
             console.warn('[Mishkah][ERD] failed to add field', error);
             UI.pushToast(ctx, { title:'فشل إضافة الحقل', message:String(error), icon:'🛑' });
           }
+        }
+      },
+      'erd.columns.open':{
+        on:['click'],
+        gkeys:['erd:columns:open'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const registry = getRegistry(state);
+          const selection = state.data.selection || {};
+          const tables = registry.list();
+          const defaultTable = selection.table && registry.get(selection.table)
+            ? selection.table
+            : (tables[0]?.name || '');
+          const tableEntity = defaultTable ? registry.get(defaultTable) : null;
+          const rows = buildColumnsFormRows(tableEntity);
+          ctx.setState(s=>{
+            const nextState = {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), columns:true },
+                form:{ ...(s.ui?.form || {}), columns:{ table: defaultTable, rows } }
+              }
+            };
+            return defaultTable ? withTableSelection(nextState, defaultTable) : nextState;
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.select-table':{
+        on:['click'],
+        gkeys:['erd:columns:select-table'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-table]');
+          if(!button) return;
+          const tableName = button.getAttribute('data-table');
+          const state = ctx.getState();
+          const registry = getRegistry(state);
+          if(!tableName || !registry.get(tableName)) return;
+          const rows = buildColumnsFormRows(registry.get(tableName));
+          ctx.setState(s=>{
+            const draft = {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), columns:true },
+                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows } }
+              }
+            };
+            return withTableSelection(draft, tableName);
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.update':{
+        on:['input','change'],
+        gkeys:['erd:columns:update'],
+        handler:(e,ctx)=>{
+          const input = e.target;
+          const rowKey = input.getAttribute('data-row');
+          const fieldKey = input.getAttribute('data-field');
+          if(!rowKey || !fieldKey) return;
+          const isCheckbox = input.type === 'checkbox';
+          const value = isCheckbox ? input.checked : input.value;
+          ctx.setState(s=>{
+            const columnsForm = s.ui?.form?.columns || { table:'', rows:[] };
+            const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows.map(row => {
+              if((row.key || row.originalName || row.name) !== rowKey) return row;
+              const next = { ...row };
+              switch(fieldKey){
+                case 'name':
+                  next.name = value;
+                  break;
+                case 'type':{
+                  next.type = value || 'string';
+                  if(typeSupportsLength(next.type)){
+                    if(!next.length) next.length = defaultLengthForType(next.type);
+                  } else {
+                    next.length = '';
+                  }
+                  if(typeSupportsPrecision(next.type)){
+                    const defaults = defaultPrecisionForType(next.type);
+                    if(!next.precision) next.precision = defaults.precision;
+                    if(!next.scale) next.scale = defaults.scale;
+                  } else {
+                    next.precision = '';
+                    next.scale = '';
+                  }
+                  break;
+                }
+                case 'length':
+                  next.length = value;
+                  break;
+                case 'precision':
+                  next.precision = value;
+                  break;
+                case 'scale':
+                  next.scale = value;
+                  break;
+                case 'defaultValue':
+                  next.defaultValue = value;
+                  break;
+                case 'nullable':
+                  next.nullable = !!value;
+                  break;
+                case 'primaryKey':
+                  next.primaryKey = !!value;
+                  if(next.primaryKey) next.nullable = false;
+                  break;
+                case 'unique':
+                  next.unique = !!value;
+                  break;
+                case 'index':
+                  next.index = !!value;
+                  break;
+                case 'refTable':{
+                  const refs = Object.assign({ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }, next.references || {});
+                  refs.table = value;
+                  if(!value) refs.column = '';
+                  next.references = refs;
+                  break;
+                }
+                case 'refColumn':{
+                  const refs = Object.assign({ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }, next.references || {});
+                  refs.column = value;
+                  next.references = refs;
+                  break;
+                }
+                default:
+                  break;
+              }
+              return next;
+            }) : [];
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows } }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.open-relation':{
+        on:['click'],
+        gkeys:['erd:columns:open-relation'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-row]');
+          if(!button) return;
+          const rowKey = button.getAttribute('data-row');
+          const tableName = button.getAttribute('data-table');
+          const state = ctx.getState();
+          const columnsForm = state.ui?.form?.columns || {};
+          const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows : [];
+          const row = rows.find(item => (item.key || item.originalName || item.name) === rowKey);
+          if(!row) return;
+          const sourceField = sanitizeSqlIdentifier(row.name || row.originalName || rowKey) || row.originalName || rowKey;
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), columns:false, relation:true },
+              form:{
+                ...(s.ui?.form || {}),
+                relation:{
+                  sourceTable: tableName || columnsForm.table || '',
+                  sourceField,
+                  targetTable: row.references?.table || '',
+                  targetField: row.references?.column || '',
+                  onDelete: row.references?.onDelete || 'CASCADE',
+                  onUpdate: row.references?.onUpdate || 'CASCADE'
+                }
+              }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.focus':{
+        on:['click'],
+        gkeys:['erd:columns:focus'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-row]');
+          if(!button) return;
+          const rowKey = button.getAttribute('data-row');
+          const tableName = button.getAttribute('data-table');
+          ctx.setState(s=>{
+            const columnsForm = s.ui?.form?.columns || {};
+            const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows : [];
+            const row = rows.find(item => (item.key || item.originalName || item.name) === rowKey);
+            const fieldName = row ? (sanitizeSqlIdentifier(row.name || row.originalName || rowKey) || row.originalName || rowKey) : rowKey;
+            const draft = {
+              ...s,
+              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), columns:false } }
+            };
+            return withFieldSelection(draft, tableName || columnsForm.table || '', fieldName);
+          });
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.save':{
+        on:['click'],
+        gkeys:['erd:columns:save'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const form = state.ui?.form?.columns || {};
+          const tableName = form.table || '';
+          const registry = getRegistry(state);
+          const table = tableName ? registry.get(tableName) : null;
+          if(!table){
+            UI.pushToast(ctx, { title:'اختر جدولاً لتحديث أعمدته', icon:'⚠️' });
+            return;
+          }
+          const rows = Array.isArray(form.rows) ? form.rows : [];
+          if(!rows.length){
+            UI.pushToast(ctx, { title:'لا توجد أعمدة لتحديثها', icon:'⚠️' });
+            return;
+          }
+          const renameMap = new Map();
+          try {
+            rows.forEach((row, index)=>{
+              const original = row.originalName || row.key || row.name;
+              if(!original) return;
+              let nextName = sanitizeSqlIdentifier(row.name || original || `column_${index+1}`);
+              if(!nextName){
+                nextName = ensureUniqueFieldName(table, original || 'column');
+              }
+              if(original !== nextName && typeof table.getField === 'function' && table.getField(nextName)){
+                nextName = ensureUniqueFieldName(table, nextName);
+              }
+              const patch = {
+                name: nextName,
+                columnName: nextName,
+                type: row.type || 'string',
+                nullable: row.nullable !== false,
+                primaryKey: !!row.primaryKey,
+                unique: !!row.unique,
+                index: !!row.index,
+                defaultValue: undefined,
+                maxLength: undefined,
+                precision: undefined,
+                scale: undefined
+              };
+              if(typeSupportsLength(patch.type)){
+                const lengthValue = Number(row.length);
+                patch.maxLength = Number.isFinite(lengthValue) && lengthValue > 0 ? lengthValue : undefined;
+              }
+              if(typeSupportsPrecision(patch.type)){
+                const precisionValue = Number(row.precision);
+                const scaleValue = Number(row.scale);
+                patch.precision = Number.isFinite(precisionValue) && precisionValue > 0 ? precisionValue : undefined;
+                patch.scale = Number.isFinite(scaleValue) && scaleValue >= 0 ? scaleValue : undefined;
+              }
+              if(row.defaultValue != null && row.defaultValue !== ''){
+                if(['integer','number','decimal','float'].includes(patch.type)){
+                  const num = Number(row.defaultValue);
+                  patch.defaultValue = Number.isNaN(num) ? row.defaultValue : num;
+                } else if(patch.type === 'boolean'){
+                  patch.defaultValue = ['true','1','yes','on'].includes(String(row.defaultValue).toLowerCase());
+                } else {
+                  patch.defaultValue = row.defaultValue;
+                }
+              }
+              if(row.references && row.references.table && row.references.column){
+                patch.references = {
+                  table: row.references.table,
+                  column: row.references.column,
+                  onDelete: row.references.onDelete || 'CASCADE',
+                  onUpdate: row.references.onUpdate || 'CASCADE'
+                };
+              } else {
+                patch.references = null;
+              }
+              table.updateField(original, patch);
+              if(original !== nextName) renameMap.set(original, nextName);
+            });
+          } catch(error){
+            console.warn('[Mishkah][ERD] failed to save columns', error);
+            UI.pushToast(ctx, { title:'تعذر تحديث الأعمدة', message:String(error), icon:'🛑' });
+            return;
+          }
+          const schemaJSON = registry.toJSON();
+          let persistRecord = null;
+          let nextState = null;
+          ctx.setState(s=>{
+            const now = Date.now();
+            const record = {
+              id: s.data.schemaId,
+              name: s.data.schemaMeta?.name || '',
+              title: s.data.schemaMeta?.title || '',
+              description: s.data.schemaMeta?.description || '',
+              schema: schemaJSON,
+              layout: s.data.layout,
+              canvas: s.data.canvas,
+              createdAt: s.data.schemaCreatedAt,
+              updatedAt: now
+            };
+            persistRecord = record;
+            const refreshedTable = registry.get(tableName);
+            const refreshedRows = buildColumnsFormRows(refreshedTable);
+            let draft = {
+              ...s,
+              data:{
+                ...s.data,
+                schema: schemaJSON,
+                schemaUpdatedAt: now,
+                library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
+              },
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), columns:true },
+                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows: refreshedRows } }
+              }
+            };
+            if(renameMap.size){
+              const currentSelection = draft.data.selection || {};
+              if(currentSelection.table === tableName && currentSelection.field && renameMap.has(currentSelection.field)){
+                draft = withFieldSelection(draft, tableName, renameMap.get(currentSelection.field));
+              }
+            }
+            nextState = draft;
+            return draft;
+          });
+          ctx.rebuild();
+          if(persistRecord) schedulePersist(recordFromState(nextState));
+          UI.pushToast(ctx, { title:'تم حفظ الأعمدة بنجاح', icon:'✅' });
         }
       },
       'erd.relation.add':{
