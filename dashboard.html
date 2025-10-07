@@ -12,6 +12,8 @@
 <body>
   <div id="app"></div>
   <script>
+    const { Chart } = Mishkah.UI;
+
     const dashboardCopy = {
       brand: {
         name: 'مركز نمو التجارة',
@@ -69,7 +71,7 @@
               percentage: {
                 position: 'right',
                 suggestedMax: 5,
-                ticks: { callback: (value) => `${value}%` }
+                ticks: { callback: Chart.formatters.percent(1) }
               }
             },
             plugins: { legend: { position: 'bottom' } }
@@ -100,7 +102,7 @@
             scales: {
               y: {
                 beginAtZero: true,
-                ticks: { callback: (value) => `${value}%` }
+                ticks: { callback: Chart.formatters.percent(1) }
               }
             }
           }

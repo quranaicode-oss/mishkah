@@ -170,6 +170,135 @@ const ChartBridge = (() => {
   const scheduled = new Set();
   let cdnUrl = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js';
 
+  const warnedPaths = new Set();
+
+  function warnNonSerializable(path, kind) {
+    if (!path) return;
+    const key = Array.isArray(path) ? path.join('.') : String(path);
+    if (warnedPaths.has(key)) return;
+    warnedPaths.add(key);
+    if (M.Auditor && typeof M.Auditor.warn === 'function') {
+      M.Auditor.warn('W-CHART-SERIAL', 'تم تجاهل قيمة غير قابلة للنسخ ضمن إعدادات Chart.js', {
+        path: key,
+        kind: kind || typeof kind
+      });
+    }
+  }
+
+  function sanitizeValue(value, path) {
+    if (value == null) return value;
+    const type = typeof value;
+    if (type === 'function') {
+      warnNonSerializable(path, 'function');
+      return null;
+    }
+    if (type !== 'object') {
+      return value;
+    }
+    if (value instanceof Date) {
+      return new Date(value.getTime());
+    }
+    if (Array.isArray(value)) {
+      return value.map((item, index) => sanitizeValue(item, (path || []).concat(index)));
+    }
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      out[key] = sanitizeValue(value[key], (path || []).concat(key));
+    });
+    return out;
+  }
+
+  const formatterResolvers = {
+    percent: (descriptor) => {
+      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 0;
+      const suffix = typeof descriptor?.suffix === 'string' ? descriptor.suffix : '%';
+      const scale = Number.isFinite(descriptor?.scale) ? descriptor.scale : 1;
+      return (value) => {
+        const numeric = typeof value === 'number' ? value : parseFloat(value);
+        if (Number.isFinite(numeric)) {
+          const scaled = numeric * scale;
+          const formatted = Number.isFinite(digits) ? scaled.toFixed(digits) : String(scaled);
+          return `${formatted}${suffix}`;
+        }
+        return `${value}${suffix}`;
+      };
+    },
+    currency: (descriptor) => {
+      const currency = typeof descriptor?.currency === 'string' ? descriptor.currency : 'USD';
+      const locale = typeof descriptor?.locale === 'string' ? descriptor.locale : undefined;
+      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 0;
+      const formatter = new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+      return (value) => {
+        const numeric = typeof value === 'number' ? value : parseFloat(value);
+        if (Number.isFinite(numeric)) {
+          return formatter.format(numeric);
+        }
+        return formatter.format(0);
+      };
+    },
+    compact: (descriptor) => {
+      const locale = typeof descriptor?.locale === 'string' ? descriptor.locale : undefined;
+      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 1;
+      const formatter = new Intl.NumberFormat(locale, {
+        notation: 'compact',
+        maximumFractionDigits: digits
+      });
+      return (value) => {
+        const numeric = typeof value === 'number' ? value : parseFloat(value);
+        if (Number.isFinite(numeric)) {
+          return formatter.format(numeric);
+        }
+        return formatter.format(0);
+      };
+    }
+  };
+
+  function isFormatterDescriptor(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) && typeof value.__chartFormatter === 'string';
+  }
+
+  function resolveFormatter(descriptor) {
+    const resolver = formatterResolvers[descriptor?.__chartFormatter];
+    if (typeof resolver === 'function') {
+      return resolver(descriptor);
+    }
+    return null;
+  }
+
+  function reviveScriptables(target) {
+    if (!target) return target;
+    if (Array.isArray(target)) {
+      for (let i = 0; i < target.length; i += 1) {
+        target[i] = reviveScriptables(target[i]);
+      }
+      return target;
+    }
+    if (typeof target !== 'object') {
+      return target;
+    }
+    if (isFormatterDescriptor(target)) {
+      const fn = resolveFormatter(target);
+      return fn || target;
+    }
+    Object.keys(target).forEach((key) => {
+      const value = target[key];
+      if ((key === 'callback' || key === 'formatter' || key === 'generateLabel' || key === 'label') && isFormatterDescriptor(value)) {
+        const fn = resolveFormatter(value);
+        if (fn) {
+          target[key] = fn;
+          return;
+        }
+      }
+      target[key] = reviveScriptables(value);
+    });
+    return target;
+  }
+
   const loadLibraryOnce = once(() => {
     if (typeof document === 'undefined') return Promise.resolve(null);
     if (globalObj.Chart && typeof globalObj.Chart === 'function') {
@@ -206,7 +335,7 @@ const ChartBridge = (() => {
   }
 
   function buildPayload(type, data, options) {
-    const safeData = (data && typeof data === 'object') ? clone(data) : { labels: [], datasets: [] };
+    const safeData = (data && typeof data === 'object') ? sanitizeValue(data, ['data']) : { labels: [], datasets: [] };
     if (!Array.isArray(safeData.datasets)) safeData.datasets = [];
     const baseOptions = {
       responsive: true,
@@ -238,7 +367,7 @@ const ChartBridge = (() => {
         point: { radius: 3, hoverRadius: 6 }
       }
     };
-    const safeOptions = (options && typeof options === 'object') ? clone(options) : {};
+    const safeOptions = (options && typeof options === 'object') ? sanitizeValue(options, ['options']) : {};
     const merged = deepMerge(baseOptions, safeOptions);
     return { type, data: safeData, options: merged };
   }
@@ -260,6 +389,8 @@ const ChartBridge = (() => {
         data: clone(payload.data),
         options: clone(payload.options)
       };
+      reviveScriptables(config.data);
+      reviveScriptables(config.options);
       const chart = new ChartLib(ctx, config);
       registry.set(node, { instance: chart, signature });
       return chart;
@@ -333,7 +464,13 @@ const ChartBridge = (() => {
     }
   }
 
-  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN };
+  const formatters = {
+    percent: (digits = 0, options = {}) => ({ __chartFormatter: 'percent', digits, suffix: typeof options.suffix === 'string' ? options.suffix : '%', scale: Number.isFinite(options.scale) ? options.scale : 1 }),
+    currency: (currency = 'USD', options = {}) => ({ __chartFormatter: 'currency', currency, locale: options.locale, digits: Number.isFinite(options.digits) ? options.digits : 0 }),
+    compact: (digits = 1, options = {}) => ({ __chartFormatter: 'compact', digits, locale: options.locale })
+  };
+
+  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN, formatters };
 })();
 
 function ChartCanvas({ type='line', data, options, attrs={}, height=320, description, id }) {
@@ -375,6 +512,8 @@ const ChartAPI = Object.assign({
   Radar: createChartFactory('radar'),
   PolarArea: createChartFactory('polarArea')
 }, ChartBridge);
+
+ChartAPI.formatters = Object.assign({}, ChartBridge.formatters);
 
 UI.Chart = ChartAPI;
 UI.Charts = ChartAPI;
@@ -773,14 +912,14 @@ UI.Tabs = ({ items=[], activeId, gkey='ui:tabs:select' })=>{
   return UI.VStack({}, [header, ...panels]);
 };
 
-UI.Drawer = ({ open=false, side='start', header, content })=>{
+UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:close' })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const isRTL = (document.documentElement.getAttribute('dir')||'ltr')==='rtl';
   const start = isRTL? 'right-0':'left-0';
   const end   = isRTL? 'left-0':'right-0';
   const place = side==='start'? start: end;
   return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}` }}, [
-    h.Containers.Div({ attrs:{ class: tw`absolute inset-0`, gkey:'ui:drawer:close' }}, [
+    h.Containers.Div({ attrs:{ class: tw`absolute inset-0`, gkey:closeGkey }}, [
       h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}` }})
     ]),
     h.Containers.Aside({ attrs:{ class: tw`${token('drawer/side')} ${place}` }}, [

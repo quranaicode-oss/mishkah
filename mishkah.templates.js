@@ -355,6 +355,26 @@
   border-bottom: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
 }
 .mobile-transaction:last-child { border-bottom: none; }
+.mobile-page-tabs { display: flex; justify-content: center; }
+.mobile-page-tabs .ui-switcher { width: 100%; }
+.mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 9999px; background: color-mix(in oklab, var(--surface-2) 92%, transparent); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.55); }
+.dark .mobile-menu-toggle { background: color-mix(in oklab, var(--surface-2) 96%, transparent); box-shadow: 0 14px 30px -18px rgba(15,23,42,0.7); }
+.mobile-menu-header { display: flex; align-items: center; gap: 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid color-mix(in oklab, var(--border) 55%, transparent); }
+.mobile-menu-body { display: flex; flex-direction: column; gap: 1.25rem; padding-top: 0.75rem; }
+.mobile-menu-items { display: flex; flex-direction: column; gap: 0.5rem; }
+.mobile-menu-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0.95rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; transition: background 0.2s ease, border 0.2s ease; }
+.mobile-menu-item .item-label { display: flex; align-items: center; gap: 0.75rem; font-weight: 500; }
+.mobile-menu-item .item-icon { display: inline-flex; width: 2.1rem; height: 2.1rem; border-radius: 9999px; align-items: center; justify-content: center; background: color-mix(in oklab, var(--surface-2) 90%, transparent); }
+.mobile-menu-item.is-active { border-color: color-mix(in oklab, var(--primary) 55%, transparent); background: color-mix(in oklab, var(--primary) 18%, transparent); color: color-mix(in oklab, var(--primary) 95%, var(--foreground)); }
+.dark .mobile-menu-item { background: color-mix(in oklab, var(--surface-2) 96%, transparent); }
+.mobile-menu-preferences { display: flex; flex-direction: column; gap: 0.5rem; }
+.mobile-menu-pref { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 0.9rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); }
+.mobile-menu-footer { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed color-mix(in oklab, var(--border) 50%, transparent); }
+.mobile-bottom-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; padding-top: 1.25rem; }
+.mobile-bottom-nav button { display: flex; flex-direction: column; gap: 0.2rem; align-items: center; justify-content: center; padding: 0.65rem 0.5rem; border-radius: 1rem; background: color-mix(in oklab, var(--surface-1) 94%, transparent); border: 1px solid transparent; font-size: 0.75rem; }
+.mobile-bottom-nav button .icon { font-size: 1.1rem; }
+.mobile-bottom-nav button.is-active { border-color: color-mix(in oklab, var(--primary) 55%, transparent); background: color-mix(in oklab, var(--primary) 20%, transparent); color: color-mix(in oklab, var(--primary) 90%, var(--foreground)); }
+.dark .mobile-bottom-nav button { background: color-mix(in oklab, var(--surface-2) 95%, transparent); }
 .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 92%, transparent); backdrop-filter: blur(28px); border-inline-end: 1px solid color-mix(in oklab, var(--border) 55%, transparent); }
 .dark .template-atlas-sidebar { background: color-mix(in oklab, var(--surface-2) 96%, transparent); }
 .template-atlas-sidebar .template-timeline__item { border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); padding-bottom: 1.25rem; }
@@ -956,6 +976,144 @@
         { id: 'market', name: 'سوبرماركت', time: 'أمس • 13:45', amount: '-240 ر.س', type: 'out' }
       ],
       action: { label: 'عرض الكل', gkey: 'mobile:transactions:all' }
+    },
+    pages: [
+      {
+        id: 'overview',
+        label: 'الرئيسية',
+        statusBar: { time: '9:41', connectivity: '5G', battery: '🔋 82%' },
+        header: { greeting: 'مرحبًا، سارة', subtitle: 'الرصيد المتاح', avatar: '🪄', pageTitle: 'الحسابات' },
+        balance: {
+          amount: '24,800 ر.س',
+          change: '+12% هذا الأسبوع',
+          caption: 'آخر تحديث منذ دقيقة',
+          chart: {
+            type: 'line',
+            height: 140,
+            data: {
+              labels: ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز'],
+              datasets: [
+                {
+                  label: 'الرصيد',
+                  data: [18, 19, 21, 19, 22, 24, 25],
+                  fill: true,
+                  borderColor: 'rgba(129,140,248,1)',
+                  backgroundColor: 'rgba(129,140,248,0.24)',
+                  pointRadius: 0
+                }
+              ]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: { x: { display: false }, y: { display: false } }
+            }
+          }
+        },
+        quickActions: [
+          { id: 'transfer', label: 'تحويل', icon: '↗️' },
+          { id: 'bill', label: 'دفع فاتورة', icon: '💡' },
+          { id: 'topup', label: 'شحن', icon: '➕' }
+        ],
+        highlights: [
+          { id: 'budget', title: 'الموازنة الشهرية', value: '68% مستهلك', meta: '2,450 ر.س متبقي' },
+          { id: 'savings', title: 'المدخرات الذكية', value: '8,200 ر.س', meta: '+450 ر.س هذا الشهر' }
+        ],
+        transactions: {
+          title: 'الحركات الأخيرة',
+          items: [
+            { id: 'uber', name: 'رحلة أوبر', time: 'اليوم • 09:24', amount: '-34 ر.س', type: 'out' },
+            { id: 'salary', name: 'إيداع راتب', time: 'أمس • 18:10', amount: '+8,500 ر.س', type: 'in' },
+            { id: 'market', name: 'سوبرماركت', time: 'أمس • 13:45', amount: '-240 ر.س', type: 'out' }
+          ],
+          action: { label: 'عرض الكل', gkey: 'mobile:transactions:all' }
+        }
+      },
+      {
+        id: 'cards',
+        label: 'البطاقات',
+        header: { greeting: 'بطاقاتك', subtitle: 'الإدارة الذكية للبطاقات', avatar: '💳', pageTitle: 'إدارة البطاقات' },
+        quickActions: [
+          { id: 'freeze', label: 'إيقاف بطاقة', icon: '🛑' },
+          { id: 'limit', label: 'تعديل حدود', icon: '🎯' },
+          { id: 'new', label: 'إصدار جديدة', icon: '✨' }
+        ],
+        highlights: [
+          { id: 'visa', title: 'بطاقة Visa', value: '12,500 ر.س حد متاح', meta: 'آخر عملية أمس' },
+          { id: 'digital', title: 'البطاقة الرقمية', value: '4,300 ر.س حد متاح', meta: 'تم استخدامها 3 مرات هذا الأسبوع' }
+        ],
+        transactions: {
+          title: 'استخدام البطاقات',
+          items: [
+            { id: 'flight', name: 'حجز طيران', time: 'اليوم • 07:10', amount: '-1,240 ر.س', type: 'out' },
+            { id: 'refund', name: 'استرداد متجر', time: 'أمس • 19:40', amount: '+320 ر.س', type: 'in' },
+            { id: 'subscription', name: 'اشتراك منصّة', time: 'أمس • 11:05', amount: '-45 ر.س', type: 'out' }
+          ],
+          action: { label: 'إدارة البطاقات', gkey: 'mobile:cards:manage' }
+        }
+      },
+      {
+        id: 'insights',
+        label: 'التحليلات',
+        header: { greeting: 'رؤى مالية', subtitle: 'اتجاهات الإنفاق والادخار', avatar: '📊', pageTitle: 'لوحة التحليلات' },
+        balance: {
+          amount: '5,820 ر.س',
+          change: 'معدل ادخار 22%',
+          caption: 'ميزانية شهر رجب',
+          chart: {
+            type: 'bar',
+            height: 140,
+            data: {
+              labels: ['مواصلات', 'مطاعم', 'تسوق', 'سفر'],
+              datasets: [
+                {
+                  label: 'الإنفاق',
+                  data: [620, 540, 460, 380],
+                  borderRadius: 16,
+                  backgroundColor: ['rgba(56,189,248,0.75)', 'rgba(249,115,22,0.75)', 'rgba(129,140,248,0.78)', 'rgba(16,185,129,0.78)']
+                }
+              ]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true } }
+            }
+          }
+        },
+        highlights: [
+          { id: 'trend', title: 'اتجاه الإنفاق', value: '−8% مقارنة بالشهر الماضي', meta: 'حافظ على المسار الحالي' },
+          { id: 'goal', title: 'الادخار السنوي', value: 'تم تحقيق 62%', meta: 'تبقّى 4 أشهر على الهدف' }
+        ],
+        transactions: {
+          title: 'التذكيرات القادمة',
+          items: [
+            { id: 'rent', name: 'دفعة إيجار', time: 'بعد 3 أيام', amount: '-4,200 ر.س', type: 'out' },
+            { id: 'investment', name: 'استثمار دوري', time: 'بعد أسبوع', amount: '-1,000 ر.س', type: 'out' },
+            { id: 'bonus', name: 'عائد أرباح', time: 'الشهر المقبل', amount: '+2,400 ر.س', type: 'in' }
+          ],
+          action: { label: 'إدارة التذكيرات', gkey: 'mobile:insights:reminders' }
+        }
+      }
+    ],
+    sideMenu: {
+      profile: { name: 'سارة العنزي', email: 'sara@mishkah.app', avatar: '🪄', badge: 'Premium' },
+      items: [
+        { id: 'overview', icon: '🏠', label: 'الرئيسية' },
+        { id: 'cards', icon: '💳', label: 'البطاقات' },
+        { id: 'insights', icon: '📊', label: 'التحليلات' }
+      ],
+      preferences: [
+        { id: 'theme', icon: '🌓', label: 'تبديل الثيم', gkey: 'ui:theme-toggle' },
+        { id: 'lang-ar', icon: '🇸🇦', label: 'العربية', gkey: 'ui:lang-ar' },
+        { id: 'lang-en', icon: '🇬🇧', label: 'English', gkey: 'ui:lang-en' }
+      ],
+      footer: { label: 'تسجيل الخروج', gkey: 'mobile:menu:logout' }
+    },
+    bottomNav: {
+      items: [
+        { id: 'overview', label: 'الرئيسية', icon: '🏠' },
+        { id: 'cards', label: 'البطاقات', icon: '💳' },
+        { id: 'insights', label: 'رؤى', icon: '📈' }
+      ]
     }
   };
 
@@ -967,10 +1125,54 @@
     scaffold: true
   };
 
+  const mobilePageKey = (page, fallback) => page?.id || page?.value || page?.slug || page?.code || fallback;
+
+  function getMobilePages(copy) {
+    return toArr(copy.pages).map((entry) => ensureDict(entry)).filter((entry) => Object.keys(entry).length);
+  }
+
+  function getActiveMobilePage(ctx) {
+    const pages = getMobilePages(ctx.copy);
+    if (!pages.length) return null;
+    const active = ctx.db?.ui?.activePage;
+    if (active) {
+      const found = pages.find((page, index) => mobilePageKey(page, `page-${index}`) === active);
+      if (found) return found;
+    }
+    return pages[0];
+  }
+
+  function resolveActivePageId(ctx) {
+    const pages = getMobilePages(ctx.copy);
+    if (!pages.length) return null;
+    const fallback = mobilePageKey(pages[0], 'page-0');
+    const active = ctx.db?.ui?.activePage;
+    if (active && pages.some((page, index) => mobilePageKey(page, `page-${index}`) === active)) {
+      return active;
+    }
+    return fallback;
+  }
+
+  function pickPageDict(ctx, key) {
+    const fallback = ensureDict(ctx.copy[key]);
+    const page = getActiveMobilePage(ctx);
+    if (!page) return fallback;
+    const override = ensureDict(page[key]);
+    if (!Object.keys(override).length) return fallback;
+    return mergeDeep(fallback, override);
+  }
+
+  function pickPageArray(ctx, key) {
+    const page = getActiveMobilePage(ctx);
+    const override = page ? toArr(page[key]) : [];
+    if (override.length) return override;
+    return toArr(ctx.copy[key]);
+  }
+
   const MobileSections = {
     status: (ctx) => {
-      const { D, ensureDict } = ctx.helpers;
-      const status = ensureDict(ctx.copy.statusBar);
+      const { D } = ctx.helpers;
+      const status = pickPageDict(ctx, 'statusBar');
       return D.Containers.Div({ attrs: { class: 'mobile-status-bar' } }, [
         D.Text.Span({}, [status.time || '9:41']),
         D.Text.Span({}, [status.connectivity || '5G']),
@@ -979,22 +1181,37 @@
     },
 
     header: (ctx) => {
-      const { D, ensureDict, tw } = ctx.helpers;
-      const header = ensureDict(ctx.copy.header);
+      const { D, tw } = ctx.helpers;
+      const header = pickPageDict(ctx, 'header');
+      const showMenu = getMobilePages(ctx.copy).length > 1 || (toArr(ctx.copy.sideMenu?.items).length > 0);
+      const left = D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+        header.greeting ? D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [header.greeting]) : null,
+        header.subtitle ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [header.subtitle]) : null,
+        header.pageTitle ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [header.pageTitle]) : null
+      ].filter(Boolean));
+      const actions = [];
+      if (showMenu) {
+        actions.push(D.Forms.Button({
+          attrs: {
+            class: 'mobile-menu-toggle',
+            type: 'button',
+            gkey: 'mobile:menu:open',
+            'aria-label': 'Open menu'
+          }
+        }, ['☰']));
+      }
+      if (header.avatar) {
+        actions.push(D.Containers.Div({ attrs: { class: tw`grid h-10 w-10 place-items-center rounded-full bg-[color-mix(in oklab,var(--primary) 90%, transparent)] text-lg shadow-sm` } }, [header.avatar]));
+      }
       return D.Containers.Div({ attrs: { class: tw`flex items-center justify-between` } }, [
-        D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
-          header.greeting ? D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [header.greeting]) : null,
-          header.subtitle ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [header.subtitle]) : null
-        ].filter(Boolean)),
-        header.avatar
-          ? D.Containers.Div({ attrs: { class: tw`grid h-10 w-10 place-items-center rounded-full bg-[color-mix(in oklab,var(--primary) 90%, transparent)] text-lg shadow-sm` } }, [header.avatar])
-          : null
+        left,
+        actions.length ? D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, actions) : null
       ].filter(Boolean));
     },
 
     balance: (ctx) => {
-      const { D, UI, ensureDict, tw } = ctx.helpers;
-      const balance = ensureDict(ctx.copy.balance);
+      const { D, UI, tw } = ctx.helpers;
+      const balance = pickPageDict(ctx, 'balance');
       const chartCfg = ensureDict(balance.chart);
       const chartHeight = chartCfg.height || 140;
       const chart = chartCfg.data
@@ -1018,7 +1235,7 @@
 
     quickActions: (ctx) => {
       const { D, ensureDict, toArr, tw, cx } = ctx.helpers;
-      const actions = toArr(ctx.copy.quickActions);
+      const actions = pickPageArray(ctx, 'quickActions');
       if (!actions.length) return null;
       const active = ctx.db?.ui?.activeAction;
       const buttons = actions.map((entry, idx) => {
@@ -1041,7 +1258,7 @@
 
     highlights: (ctx) => {
       const { D, ensureDict, toArr, tw } = ctx.helpers;
-      const highlights = toArr(ctx.copy.highlights);
+      const highlights = pickPageArray(ctx, 'highlights');
       if (!highlights.length) return null;
       const cards = highlights.map((entry, idx) => {
         const item = ensureDict(entry);
@@ -1056,7 +1273,7 @@
 
     transactions: (ctx) => {
       const { D, UI, ensureDict, toArr, tw } = ctx.helpers;
-      const section = ensureDict(ctx.copy.transactions);
+      const section = pickPageDict(ctx, 'transactions');
       const rows = toArr(section.items);
       if (!rows.length) return null;
       const entries = rows.map((entry, idx) => {
@@ -1077,8 +1294,130 @@
       return D.Containers.Section({ attrs: { class: tw`flex flex-col gap-2` } }, [
         section.title ? D.Text.H3({ attrs: { class: tw`text-base font-semibold` } }, [section.title]) : null,
         ...entries,
-        footerNode ? D.Containers.Div({ attrs: { class: tw`pt-1` } }, [footerNode]) : null
+          footerNode ? D.Containers.Div({ attrs: { class: tw`pt-1` } }, [footerNode]) : null
       ].filter(Boolean));
+    },
+
+    pageTabs: (ctx) => {
+      const { D, UI, tw } = ctx.helpers;
+      const pages = getMobilePages(ctx.copy);
+      if (!pages.length) return null;
+      const active = resolveActivePageId(ctx);
+      const items = pages.map((page, index) => {
+        const id = mobilePageKey(page, `page-${index}`);
+        return {
+          id,
+          label: page.label || page.title || `صفحة ${index + 1}`,
+          gkey: 'mobile:page:select'
+        };
+      });
+      return D.Containers.Div({ attrs: { class: 'mobile-page-tabs' } }, [
+        UI.Segmented({ items, activeId: active, attrs: { class: tw`w-full justify-between` } })
+      ]);
+    },
+
+    sideMenu: (ctx) => {
+      const { D, UI, ensureDict, toArr, tw, cx } = ctx.helpers;
+      const menu = ensureDict(ctx.copy.sideMenu);
+      const items = toArr(menu.items);
+      const preferences = toArr(menu.preferences);
+      const footer = ensureDict(menu.footer);
+      const open = !!(ctx.db && ctx.db.ui && ctx.db.ui.sideMenuOpen);
+      if (!open && !items.length && !preferences.length && !footer.label) {
+        return D.Containers.Div({ attrs: { class: tw`hidden` } });
+      }
+      const profile = ensureDict(menu.profile);
+      const activePage = resolveActivePageId(ctx);
+      const header = D.Containers.Div({ attrs: { class: 'mobile-menu-header' } }, [
+        profile.avatar ? D.Containers.Div({ attrs: { class: tw`grid h-12 w-12 place-items-center rounded-full bg-[color-mix(in oklab,var(--primary) 90%, transparent)] text-xl shadow-sm` } }, [profile.avatar]) : null,
+        D.Containers.Div({ attrs: { class: tw`flex flex-col` } }, [
+          profile.name ? D.Text.Strong({ attrs: { class: tw`text-sm` } }, [profile.name]) : null,
+          profile.email ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [profile.email]) : null,
+          profile.badge ? UI.Badge({ text: profile.badge, variant: 'badge/ghost', attrs: { class: tw`text-[0.65rem]` } }) : null
+        ].filter(Boolean))
+      ].filter(Boolean));
+
+      const nav = items.length
+        ? D.Containers.Div({ attrs: { class: 'mobile-menu-items' } }, items.map((entry, index) => {
+            const item = ensureDict(entry);
+            const id = mobilePageKey(item, `page-${index}`);
+            const active = id === activePage;
+            return D.Forms.Button({
+              attrs: {
+                type: 'button',
+                class: cx('mobile-menu-item', active && 'is-active'),
+                gkey: 'mobile:page:select',
+                'data-page-id': id
+              }
+            }, [
+              D.Containers.Div({ attrs: { class: 'item-label' } }, [
+                item.icon ? D.Containers.Div({ attrs: { class: 'item-icon' } }, [item.icon]) : null,
+                item.label ? D.Text.Span({}, [item.label]) : null
+              ].filter(Boolean)),
+              active ? D.Text.Span({ attrs: { class: tw`text-xs` } }, ['›']) : null
+            ].filter(Boolean));
+          }))
+        : null;
+
+      const pref = preferences.length
+        ? D.Containers.Div({ attrs: { class: 'mobile-menu-preferences' } }, preferences.map((entry, index) => {
+            const prefItem = ensureDict(entry);
+            return D.Forms.Button({
+              attrs: {
+                type: 'button',
+                class: 'mobile-menu-pref',
+                gkey: prefItem.gkey || `mobile:pref:${index}`
+              }
+            }, [
+              D.Containers.Div({ attrs: { class: tw`flex items-center gap-2 text-sm` } }, [
+                prefItem.icon ? D.Text.Span({}, [prefItem.icon]) : null,
+                prefItem.label ? D.Text.Span({}, [prefItem.label]) : null
+              ].filter(Boolean)),
+              prefItem.action ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [prefItem.action]) : null
+            ].filter(Boolean));
+          }))
+        : null;
+
+      const footerNode = footer.label
+        ? D.Containers.Div({ attrs: { class: 'mobile-menu-footer' } }, [
+            UI.Button({ attrs: { gkey: footer.gkey || 'mobile:menu:logout' }, variant: 'ghost', size: 'sm' }, [footer.label])
+          ])
+        : null;
+
+      const body = D.Containers.Div({ attrs: { class: 'mobile-menu-body' } }, [nav, pref, footerNode].filter(Boolean));
+
+      return UI.Drawer({
+        open,
+        side: menu.side || 'start',
+        closeGkey: 'mobile:menu:close',
+        header,
+        content: body
+      });
+    },
+
+    bottomNav: (ctx) => {
+      const { D, ensureDict, toArr, tw, cx } = ctx.helpers;
+      const config = ensureDict(ctx.copy.bottomNav);
+      const items = toArr(config.items);
+      if (!items.length) return null;
+      const active = resolveActivePageId(ctx);
+      const buttons = items.map((entry, index) => {
+        const item = ensureDict(entry);
+        const id = mobilePageKey(item, `page-${index}`);
+        const activeClass = id === active ? 'is-active' : '';
+        return D.Forms.Button({
+          attrs: {
+            type: 'button',
+            class: cx(activeClass),
+            gkey: 'mobile:page:select',
+            'data-page-id': id
+          }
+        }, [
+          item.icon ? D.Text.Span({ attrs: { class: 'icon' } }, [item.icon]) : null,
+          item.label ? D.Text.Span({ attrs: { class: tw`text-[0.7rem]` } }, [item.label]) : null
+        ].filter(Boolean));
+      });
+      return D.Containers.Div({ attrs: { class: 'mobile-bottom-nav' } }, buttons);
     }
   };
 
@@ -1086,22 +1425,28 @@
     const { D, tw, cx } = ctx.helpers;
     const status = ctx.render('status');
     const header = ctx.render('header');
+    const pageTabs = ctx.render('pageTabs');
     const balance = ctx.render('balance');
     const quick = ctx.render('quickActions');
     const highlights = ctx.render('highlights');
     const transactions = ctx.render('transactions');
+    const bottomNav = ctx.render('bottomNav');
+    const sideMenu = ctx.render('sideMenu');
 
     return D.Containers.Div({ attrs: { class: cx('mishkah-mobile', tw`w-full`) } }, [
       D.Containers.Div({ attrs: { class: 'mishkah-mobile-shell' } }, [
         D.Containers.Div({ attrs: { class: 'mishkah-mobile-content' } }, [
           status,
           header,
+          pageTabs,
           balance,
           quick,
           highlights,
-          transactions
+          transactions,
+          bottomNav
         ].filter(Boolean))
-      ])
+      ]),
+      sideMenu
     ]);
   }
 
@@ -1324,6 +1669,49 @@
       handler: () => {
         dispatchTemplateEvent('mobile:transactions:all', {});
       }
+    },
+    'mobile.menu.open': {
+      on: ['click'], gkeys: ['mobile:menu:open'],
+      handler: (_event, ctx) => {
+        ctx.setState((state) => ({
+          ...state,
+          ui: { ...(state.ui || {}), sideMenuOpen: true }
+        }));
+        ctx.rebuild();
+        dispatchTemplateEvent('mobile:menu:open', {});
+      }
+    },
+    'mobile.menu.close': {
+      on: ['click'], gkeys: ['mobile:menu:close'],
+      handler: (_event, ctx) => {
+        ctx.setState((state) => ({
+          ...state,
+          ui: { ...(state.ui || {}), sideMenuOpen: false }
+        }));
+        ctx.rebuild();
+        dispatchTemplateEvent('mobile:menu:close', {});
+      }
+    },
+    'mobile.page.select': {
+      on: ['click'], gkeys: ['mobile:page:select'],
+      handler: (event, ctx) => {
+        const target = event.target.closest('[data-page-id]');
+        if (!target) return;
+        const id = target.getAttribute('data-page-id');
+        if (!id) return;
+        ctx.setState((state) => ({
+          ...state,
+          ui: { ...(state.ui || {}), activePage: id, sideMenuOpen: false, activeAction: null }
+        }));
+        ctx.rebuild();
+        dispatchTemplateEvent('mobile:page:select', { id });
+      }
+    },
+    'mobile.menu.logout': {
+      on: ['click'], gkeys: ['mobile:menu:logout'],
+      handler: () => {
+        dispatchTemplateEvent('mobile:menu:logout', {});
+      }
     }
   };
 
@@ -1406,9 +1794,25 @@
   function buildMobileDB(cfg, copy) {
     const base = buildDefaultDB(cfg);
     const ui = Object.assign({}, base.ui || {});
-    const actions = Array.isArray(copy.quickActions) ? copy.quickActions : [];
-    if (!ui.activeAction && actions.length) {
-      ui.activeAction = actions[0].id || 'action-0';
+    const pages = Array.isArray(copy.pages) ? copy.pages.filter(Boolean) : [];
+    if (pages.length) {
+      const firstId = mobilePageKey(ensureDict(pages[0]), 'page-0');
+      ui.activePage = ui.activePage || firstId;
+      const resolved = pages.find((page, index) => mobilePageKey(ensureDict(page), `page-${index}`) === ui.activePage) || ensureDict(pages[0]);
+      const actions = Array.isArray(resolved.quickActions) ? resolved.quickActions.filter(Boolean) : [];
+      if (!ui.activeAction && actions.length) {
+        const firstAction = ensureDict(actions[0]);
+        ui.activeAction = firstAction.id || `action-0`;
+      }
+    } else {
+      const actions = Array.isArray(copy.quickActions) ? copy.quickActions.filter(Boolean) : [];
+      if (!ui.activeAction && actions.length) {
+        const firstAction = ensureDict(actions[0]);
+        ui.activeAction = firstAction.id || 'action-0';
+      }
+    }
+    if (typeof ui.sideMenuOpen !== 'boolean') {
+      ui.sideMenuOpen = false;
     }
     base.ui = ui;
     return base;

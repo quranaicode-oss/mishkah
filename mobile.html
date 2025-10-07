@@ -12,9 +12,11 @@
 <body>
   <div id="app"></div>
   <script>
+    const { Chart } = Mishkah.UI;
+
     const mobileCopy = {
       statusBar: { time: '10:24', connectivity: '5G', battery: '🔋 76%' },
-      header: { greeting: 'أهلاً، وليد', subtitle: 'إجمالي الرصيد المتاح', avatar: '💳' },
+      header: { greeting: 'أهلاً، وليد', subtitle: 'إجمالي الرصيد المتاح', avatar: '💳', pageTitle: 'حساباتي' },
       balance: {
         amount: '52,430 ر.س',
         change: '+2,150 ر.س هذا الشهر',
@@ -58,13 +60,172 @@
           { id: 'rent', name: 'دفعة إيجار', time: 'أمس • 08:00', amount: '-4,200 ر.س', type: 'out' }
         ],
         action: { label: 'عرض السجل الكامل', gkey: 'mobile:transactions:all' }
+      },
+      pages: [
+        {
+          id: 'overview',
+          label: 'الرئيسية',
+          header: { greeting: 'أهلاً، وليد', subtitle: 'إجمالي الرصيد المتاح', avatar: '💳', pageTitle: 'الحسابات النشطة' },
+          balance: {
+            amount: '52,430 ر.س',
+            change: '+2,150 ر.س هذا الشهر',
+            caption: 'تمت المزامنة قبل دقيقة',
+            chart: {
+              type: 'line',
+              height: 140,
+              data: {
+                labels: ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز'],
+                datasets: [
+                  {
+                    label: 'الرصيد التراكمي',
+                    data: [41, 43, 44, 46, 48, 50, 52],
+                    fill: true,
+                    borderColor: 'rgba(59,130,246,1)',
+                    backgroundColor: 'rgba(59,130,246,0.24)',
+                    pointRadius: 0
+                  }
+                ]
+              },
+              options: {
+                plugins: { legend: { display: false } },
+                scales: { x: { display: false }, y: { display: false } }
+              }
+            }
+          },
+          quickActions: [
+            { id: 'transfer', label: 'تحويل سريع', icon: '↗️' },
+            { id: 'split', label: 'تقسيم فاتورة', icon: '🤝' },
+            { id: 'saving', label: 'إيداع ادخار', icon: '💠' }
+          ],
+          highlights: [
+            { id: 'budget', title: 'موازنة السفر', value: '65% مستخدم', meta: '3,500 ر.س متبقي' },
+            { id: 'goals', title: 'هدف العقار', value: '124,000 ر.س', meta: '+2,000 ر.س هذا الربع' }
+          ],
+          transactions: {
+            title: 'آخر الحركات',
+            items: [
+              { id: 'coffee', name: 'مقهى المساء', time: 'اليوم • 08:10', amount: '-18 ر.س', type: 'out' },
+              { id: 'salary', name: 'راتب الشركة', time: 'أمس • 18:30', amount: '+12,500 ر.س', type: 'in' },
+              { id: 'rent', name: 'دفعة إيجار', time: 'أمس • 08:00', amount: '-4,200 ر.س', type: 'out' }
+            ],
+            action: { label: 'عرض السجل الكامل', gkey: 'mobile:transactions:all' }
+          }
+        },
+        {
+          id: 'cards',
+          label: 'البطاقات',
+          header: { greeting: 'البطاقات الذكية', subtitle: 'إدارة البطاقات الرقمية', avatar: '💠', pageTitle: 'إدارة البطاقات' },
+          quickActions: [
+            { id: 'freeze', label: 'إيقاف بطاقة', icon: '🛑' },
+            { id: 'limit', label: 'تعديل الحدود', icon: '🎯' },
+            { id: 'issue', label: 'إصدار بطاقة', icon: '✨' }
+          ],
+          highlights: [
+            { id: 'visa', title: 'بطاقة Visa', value: '12,500 ر.س حد متاح', meta: 'آخر استخدام قبل 12 ساعة' },
+            { id: 'digital', title: 'البطاقة الرقمية', value: '4,300 ر.س حد متاح', meta: 'استخدام أسبوعي 3 مرات' }
+          ],
+          transactions: {
+            title: 'نشاط البطاقات',
+            items: [
+              { id: 'flight', name: 'حجز طيران', time: 'اليوم • 07:10', amount: '-1,240 ر.س', type: 'out' },
+              { id: 'refund', name: 'استرداد متجر', time: 'أمس • 19:40', amount: '+320 ر.س', type: 'in' },
+              { id: 'subscription', name: 'اشتراك منصة', time: 'أمس • 11:05', amount: '-45 ر.س', type: 'out' }
+            ],
+            action: { label: 'إدارة البطاقات', gkey: 'mobile:cards:manage' }
+          }
+        },
+        {
+          id: 'insights',
+          label: 'Insights',
+          header: { greeting: 'Financial Insights', subtitle: 'Global spend overview', avatar: '🌍', pageTitle: 'Analytics' },
+          balance: {
+            amount: '$13,480',
+            change: 'YoY growth 18%',
+            caption: 'Last synced 2 minutes ago',
+            chart: {
+              type: 'bar',
+              height: 160,
+              data: {
+                labels: ['Transport', 'Dining', 'Shopping', 'Travel'],
+                datasets: [
+                  {
+                    label: 'Spending',
+                    data: [620, 540, 460, 380],
+                    borderRadius: 14,
+                    backgroundColor: ['rgba(56,189,248,0.75)', 'rgba(249,115,22,0.78)', 'rgba(129,140,248,0.82)', 'rgba(16,185,129,0.82)']
+                  }
+                ]
+              },
+              options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: { callback: Chart.formatters.currency('USD', { locale: 'en-US', digits: 0 }) }
+                  }
+                }
+              }
+            }
+          },
+          highlights: [
+            { id: 'trend', title: 'Spending trend', value: '-8% vs last month', meta: 'Keep up the pace' },
+            { id: 'saving', title: 'Saving goal', value: '62% completed', meta: '4 months left to target' }
+          ],
+          transactions: {
+            title: 'Upcoming reminders',
+            items: [
+              { id: 'rent', name: 'Rent payment', time: 'Due in 3 days', amount: '-$1,120', type: 'out' },
+              { id: 'invest', name: 'Investment plan', time: 'Due next week', amount: '-$600', type: 'out' },
+              { id: 'bonus', name: 'Annual bonus', time: 'Next month', amount: '+$2,400', type: 'in' }
+            ],
+            action: { label: 'Manage reminders', gkey: 'mobile:insights:reminders' }
+          }
+        }
+      ],
+      sideMenu: {
+        profile: { name: 'وليد ناصر', email: 'waleed@mishkah.app', avatar: '🪪', badge: 'Gold' },
+        items: [
+          { id: 'overview', icon: '🏠', label: 'لوحة الحساب' },
+          { id: 'cards', icon: '💳', label: 'البطاقات الذكية' },
+          { id: 'insights', icon: '📊', label: 'التحليلات' }
+        ],
+        preferences: [
+          { id: 'theme', icon: '🌓', label: 'تبديل الثيم', gkey: 'ui:theme-toggle' },
+          { id: 'lang-ar', icon: '🇸🇦', label: 'العربية', gkey: 'ui:lang-ar' },
+          { id: 'lang-en', icon: '🇬🇧', label: 'English', gkey: 'ui:lang-en' }
+        ],
+        footer: { label: 'تسجيل الخروج', gkey: 'mobile:menu:logout' }
+      },
+      bottomNav: {
+        items: [
+          { id: 'overview', label: 'الرئيسية', icon: '🏠' },
+          { id: 'cards', label: 'البطاقات', icon: '💳' },
+          { id: 'insights', label: 'Insights', icon: '📈' }
+        ]
+      }
+    };
+
+    const demoOrders = {
+      'demo.mobile.cards.manage': {
+        on: ['click'], gkeys: ['mobile:cards:manage'],
+        handler: () => {
+          window.dispatchEvent(new CustomEvent('mishkah:template', { detail: { type: 'mobile:cards:manage', payload: {} } }));
+        }
+      },
+      'demo.mobile.insights.reminders': {
+        on: ['click'], gkeys: ['mobile:insights:reminders'],
+        handler: () => {
+          window.dispatchEvent(new CustomEvent('mishkah:template', { detail: { type: 'mobile:insights:reminders', payload: {} } }));
+        }
       }
     };
 
     Mishkah.Templates.mobile.create({
       mount: '#app',
       theme: 'dark',
-      copy: mobileCopy
+      lang: 'ar',
+      copy: mobileCopy,
+      orders: demoOrders
     });
 
     window.addEventListener('mishkah:template', (event) => {
@@ -74,7 +235,19 @@
       if (type === 'mobile:actions:select') {
         console.info('🟢 تم اختيار إجراء سريع:', payload);
       } else if (type === 'mobile:transactions:all') {
-        window.alert('📱 فتح سجل الحركات الكامل');
+        window.alert('📚 عرض سجل الحركات الكامل');
+      } else if (type === 'mobile:menu:open') {
+        console.debug('📂 فتح قائمة التنقل الجانبية');
+      } else if (type === 'mobile:menu:close') {
+        console.debug('📂 إغلاق قائمة التنقل');
+      } else if (type === 'mobile:page:select') {
+        console.info('📱 تم الانتقال إلى صفحة:', payload);
+      } else if (type === 'mobile:cards:manage') {
+        window.alert('💳 فتح إعدادات إدارة البطاقات');
+      } else if (type === 'mobile:insights:reminders') {
+        window.alert('⏰ عرض تذكيرات التحليلات القادمة');
+      } else if (type === 'mobile:menu:logout') {
+        window.alert('👋 تم تسجيل الخروج من الجلسة التجريبية');
       }
     });
   </script>
