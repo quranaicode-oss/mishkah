@@ -358,31 +358,296 @@
 
     function createAutoLayoutFallbackMap(tables){
       const fallback = {};
-      const list = Array.isArray(tables) ? tables : [];
+      const list = Array.isArray(tables) ? tables.filter(tbl => tbl && tbl.name) : [];
       if(!list.length) return fallback;
-      const columnCount = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, list.length))));
-      const columnHeights = new Array(columnCount).fill(AUTO_LAYOUT_ORIGIN_Y);
-      const columnXs = new Array(columnCount).fill(0).map((_, col)=> AUTO_LAYOUT_ORIGIN_X + col * AUTO_LAYOUT_COLUMN_GAP);
-      list.forEach((table, index)=>{
-        const tableHeight = computeTableHeight(Array.isArray(table?.fields) ? table.fields.length : 0);
-        let targetColumn = index % columnCount;
-        let minHeight = columnHeights[targetColumn];
-        for(let col = 0; col < columnCount; col += 1){
-          if(columnHeights[col] < minHeight){
-            minHeight = columnHeights[col];
-            targetColumn = col;
+
+      const metaByName = new Map();
+      list.forEach(table => {
+        const nameKey = String(table.name);
+        const idKey = table?.id != null ? String(table.id) : '';
+        const fields = Array.isArray(table?.fields) ? table.fields : [];
+        metaByName.set(nameKey, {
+          table,
+          name: nameKey,
+          idKey,
+          fields,
+          height: computeTableHeight(fields.length),
+        });
+      });
+
+      const adjacency = new Map();
+      const directed = new Map();
+
+      function ensureNode(name){
+        if(!adjacency.has(name)) adjacency.set(name, new Set());
+        if(!directed.has(name)) directed.set(name, new Set());
+      }
+
+      const names = Array.from(metaByName.keys());
+      names.forEach(ensureNode);
+
+      names.forEach(name => {
+        const meta = metaByName.get(name);
+        const fields = meta?.fields || [];
+        fields.forEach(field => {
+          const ref = field && field.references;
+          if(!ref || !ref.table) return;
+          const target = String(ref.table);
+          if(!metaByName.has(target)) return;
+          ensureNode(target);
+          directed.get(name).add(target);
+          adjacency.get(name).add(target);
+          adjacency.get(target).add(name);
+        });
+      });
+
+      const components = [];
+      const visited = new Set();
+      names.forEach(name => {
+        if(visited.has(name)) return;
+        const stack = [name];
+        const component = [];
+        visited.add(name);
+        while(stack.length){
+          const current = stack.pop();
+          component.push(current);
+          const neighbors = adjacency.get(current);
+          if(neighbors && neighbors.size){
+            neighbors.forEach(next => {
+              if(!visited.has(next)){
+                visited.add(next);
+                stack.push(next);
+              }
+            });
           }
         }
-        const x = columnXs[targetColumn];
-        const y = columnHeights[targetColumn];
-        const point = { x, y };
-        const idKey = table?.id != null ? String(table.id) : '';
-        const nameKey = table?.name ? String(table.name) : '';
-        if(idKey) fallback[idKey] = point;
-        if(nameKey) fallback[nameKey] = point;
-        columnHeights[targetColumn] = y + tableHeight + AUTO_LAYOUT_ROW_GAP;
+        components.push(component);
       });
+
+      function layoutAsGrid(componentNames, origin){
+        const placements = new Map();
+        const originX = origin.originX;
+        const originY = origin.originY;
+        const columnCount = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, componentNames.length))));
+        const columnHeights = new Array(columnCount).fill(originY);
+        const sortedNames = componentNames.slice().sort((a, b) => {
+          const metaA = metaByName.get(a);
+          const metaB = metaByName.get(b);
+          const heightDiff = (metaB?.height || 0) - (metaA?.height || 0);
+          if(heightDiff !== 0) return heightDiff;
+          return String(a).localeCompare(String(b));
+        });
+        sortedNames.forEach(name => {
+          const meta = metaByName.get(name);
+          if(!meta) return;
+          let targetColumn = 0;
+          let minHeight = columnHeights[0];
+          for(let col = 1; col < columnCount; col += 1){
+            if(columnHeights[col] < minHeight){
+              minHeight = columnHeights[col];
+              targetColumn = col;
+            }
+          }
+          const x = originX + targetColumn * AUTO_LAYOUT_COLUMN_GAP;
+          const y = columnHeights[targetColumn];
+          placements.set(name, { x, y });
+          columnHeights[targetColumn] = y + meta.height + AUTO_LAYOUT_ROW_GAP;
+        });
+        const width = Math.max(TABLE_WIDTH, (columnCount - 1) * AUTO_LAYOUT_COLUMN_GAP + TABLE_WIDTH);
+        const height = Math.max(...columnHeights.map(total => total - originY), computeTableHeight(0));
+        return { placements, width, height };
+      }
+
+      function layoutWithRelations(componentNames, origin){
+        const placements = new Map();
+        const originX = origin.originX;
+        const originY = origin.originY;
+        const outgoing = new Map();
+        const indegree = new Map();
+        componentNames.forEach(name => {
+          outgoing.set(name, new Set());
+          indegree.set(name, 0);
+        });
+        componentNames.forEach(name => {
+          const edges = directed.get(name) || new Set();
+          edges.forEach(target => {
+            if(!outgoing.has(target)) return;
+            outgoing.get(name).add(target);
+          });
+        });
+        componentNames.forEach(name => {
+          outgoing.get(name).forEach(target => {
+            indegree.set(target, (indegree.get(target) || 0) + 1);
+          });
+        });
+        const queue = [];
+        const layers = new Map();
+        componentNames.forEach(name => {
+          if((indegree.get(name) || 0) === 0){
+            queue.push(name);
+            layers.set(name, 0);
+          }
+        });
+        const seen = new Set(queue);
+        while(queue.length){
+          const name = queue.shift();
+          const layer = layers.get(name) || 0;
+          (outgoing.get(name) || new Set()).forEach(target => {
+            const nextLayer = layer + 1;
+            if(!layers.has(target) || nextLayer > layers.get(target)){
+              layers.set(target, nextLayer);
+            }
+            const nextDegree = (indegree.get(target) || 0) - 1;
+            indegree.set(target, nextDegree);
+            if(nextDegree <= 0 && !seen.has(target)){
+              queue.push(target);
+              seen.add(target);
+            }
+          });
+        }
+        let maxLayer = 0;
+        layers.forEach(value => { if(value > maxLayer) maxLayer = value; });
+        const unassigned = componentNames.filter(name => !layers.has(name));
+        unassigned.forEach(name => {
+          const neighbors = adjacency.get(name);
+          let baseLayer = maxLayer + 1;
+          if(neighbors && neighbors.size){
+            let sum = 0;
+            let count = 0;
+            neighbors.forEach(neighbor => {
+              if(layers.has(neighbor)){
+                sum += layers.get(neighbor);
+                count += 1;
+              }
+            });
+            if(count > 0){
+              baseLayer = Math.round(sum / count);
+            }
+          }
+          layers.set(name, baseLayer);
+          if(baseLayer > maxLayer) maxLayer = baseLayer;
+        });
+        if(!layers.size){
+          return layoutAsGrid(componentNames, origin);
+        }
+        const distinctLayers = Array.from(new Set(Array.from(layers.values()).sort((a, b) => a - b)));
+        const layerToColumn = new Map();
+        distinctLayers.forEach((layer, index) => layerToColumn.set(layer, index));
+        const columns = new Map();
+        layers.forEach((layer, name) => {
+          const columnIndex = layerToColumn.get(layer);
+          if(!columns.has(columnIndex)) columns.set(columnIndex, []);
+          columns.get(columnIndex).push(name);
+        });
+        let componentHeight = 0;
+        const sortedColumns = Array.from(columns.keys()).sort((a, b) => a - b);
+        sortedColumns.forEach(columnIndex => {
+          const namesInColumn = columns.get(columnIndex) || [];
+          namesInColumn.sort((a, b) => {
+            const degreeA = adjacency.get(a)?.size || 0;
+            const degreeB = adjacency.get(b)?.size || 0;
+            if(degreeA !== degreeB) return degreeB - degreeA;
+            const heightDiff = (metaByName.get(b)?.height || 0) - (metaByName.get(a)?.height || 0);
+            if(heightDiff !== 0) return heightDiff;
+            return String(a).localeCompare(String(b));
+          });
+          const x = originX + columnIndex * AUTO_LAYOUT_COLUMN_GAP;
+          let y = originY;
+          namesInColumn.forEach(name => {
+            const meta = metaByName.get(name);
+            if(!meta) return;
+            placements.set(name, { x, y });
+            y += meta.height + AUTO_LAYOUT_ROW_GAP;
+          });
+          componentHeight = Math.max(componentHeight, y - originY);
+        });
+        const width = Math.max(TABLE_WIDTH, (sortedColumns.length - 1) * AUTO_LAYOUT_COLUMN_GAP + TABLE_WIDTH);
+        const height = componentHeight || computeTableHeight(0);
+        return { placements, width, height };
+      }
+
+      const maxPerRow = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, components.length))));
+      let originX = AUTO_LAYOUT_ORIGIN_X;
+      let originY = AUTO_LAYOUT_ORIGIN_Y;
+      let rowHeight = 0;
+
+      components
+        .sort((a, b) => b.length - a.length)
+        .forEach((component, index) => {
+          const hasRelations = component.some(name => (directed.get(name) || new Set()).size > 0);
+          const result = hasRelations
+            ? layoutWithRelations(component, { originX, originY })
+            : layoutAsGrid(component, { originX, originY });
+          result.placements.forEach((point, name) => {
+            const meta = metaByName.get(name);
+            if(!meta) return;
+            if(meta.idKey) fallback[meta.idKey] = point;
+            fallback[meta.name] = point;
+          });
+          originX += result.width + AUTO_LAYOUT_COLUMN_GAP;
+          rowHeight = Math.max(rowHeight, result.height || 0);
+          if((index + 1) % maxPerRow === 0){
+            originX = AUTO_LAYOUT_ORIGIN_X;
+            originY += rowHeight + AUTO_LAYOUT_ROW_GAP;
+            rowHeight = 0;
+          }
+        });
+
       return fallback;
+    }
+
+    function pointKey(point){
+      if(!point) return '0:0';
+      const px = Math.round(Number(point.x) || 0);
+      const py = Math.round(Number(point.y) || 0);
+      return `${px}:${py}`;
+    }
+
+    function claimPoint(preferred, fallback, used){
+      const safeFallback = fallback || { x: AUTO_LAYOUT_ORIGIN_X, y: AUTO_LAYOUT_ORIGIN_Y };
+      let candidate = normalisePoint(preferred, safeFallback);
+      let key = pointKey(candidate);
+      if(!used.has(key)){
+        used.add(key);
+        return candidate;
+      }
+      const origin = normalisePoint(safeFallback, safeFallback);
+      const offsets = [
+        { x: 0, y: 0 },
+        { x: AUTO_LAYOUT_COLUMN_GAP * 0.5, y: 0 },
+        { x: -AUTO_LAYOUT_COLUMN_GAP * 0.5, y: 0 },
+        { x: 0, y: AUTO_LAYOUT_ROW_GAP * 0.5 },
+        { x: 0, y: -AUTO_LAYOUT_ROW_GAP * 0.5 },
+      ];
+      for(let idx = 0; idx < offsets.length; idx += 1){
+        const offset = offsets[idx];
+        candidate = { x: origin.x + offset.x, y: origin.y + offset.y };
+        key = pointKey(candidate);
+        if(!used.has(key)){
+          used.add(key);
+          return candidate;
+        }
+      }
+      let radius = 1;
+      while(radius <= 24){
+        const variations = [
+          { x: origin.x + radius * 60, y: origin.y + radius * 40 },
+          { x: origin.x - radius * 60, y: origin.y + radius * 40 },
+          { x: origin.x + radius * 60, y: origin.y - radius * 40 },
+          { x: origin.x - radius * 60, y: origin.y - radius * 40 },
+        ];
+        for(let attempt = 0; attempt < variations.length; attempt += 1){
+          candidate = variations[attempt];
+          key = pointKey(candidate);
+          if(!used.has(key)){
+            used.add(key);
+            return candidate;
+          }
+        }
+        radius += 1;
+      }
+      used.add(key);
+      return candidate;
     }
 
     function normalisePoint(point, fallback){
@@ -2193,18 +2458,18 @@
       const map = Object.assign({}, layout || {});
       const tables = registry.list();
       const fallbackPositions = createAutoLayoutFallbackMap(tables);
+      const used = new Set();
       tables.forEach((table, index)=>{
-        const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
+        const baseFallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
           x: AUTO_LAYOUT_ORIGIN_X + index * 40,
           y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
         };
-        if(map[table.name]){
-          map[table.name] = normalisePoint(map[table.name], fallback);
-        } else if(table.layout){
-          map[table.name] = normalisePoint(table.layout, fallback);
-        } else {
-          map[table.name] = fallback;
-        }
+        const storedPoint = map[table.id] || map[table.name] || table.layout;
+        const point = claimPoint(storedPoint, baseFallback, used);
+        const idKey = table?.id != null ? String(table.id) : '';
+        const nameKey = table?.name != null ? String(table.name) : (idKey || `table_${index}`);
+        if(idKey) map[idKey] = point;
+        map[nameKey] = point;
       });
       return map;
     }
@@ -2667,6 +2932,9 @@
         attrs:{
           gkey:'erd:toolbar:export',
           'data-state': open ? 'open' : 'closed',
+          'aria-expanded': open ? 'true' : 'false',
+          'aria-controls':'erd-toolbar-export-menu',
+          type:'button',
           class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[80]' : ''}`
         },
         variant: open ? 'soft' : 'ghost',
@@ -2676,7 +2944,7 @@
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       if(!open){
-        return D.Containers.Div({ attrs:{ class: tw`relative z-[60]` }}, [toggle]);
+        return D.Containers.Div({ attrs:{ class: tw`relative z-[60] overflow-visible` }}, [toggle]);
       }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
@@ -2701,10 +2969,10 @@
           }, [item.label])
         ])
       ));
-      return D.Containers.Div({ attrs:{ class: tw`relative z-[70]` }}, [
+      return D.Containers.Div({ attrs:{ class: tw`relative z-[70] overflow-visible` }}, [
         D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[60] pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
         toggle,
-        D.Containers.Div({ attrs:{ class: tw`absolute right-0 top-full z-[70] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
+        D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`absolute right-0 top-full z-[70] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
       ]);
     }
 
