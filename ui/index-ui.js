@@ -900,27 +900,41 @@
       startButton
     ]);
 
-    const numbersNodes = (sequence ? sequence.numbers : []).map((num, idx) => (
-      D.Containers.Div({
-        attrs: {
-          key: `seq-${idx}`,
-          class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] text-xl font-semibold`
-        }
-      }, [String(num)])
-    ));
-    numbersNodes.push(
-      D.Containers.Div({
-        attrs: {
-          key: 'seq-next',
-          class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-dashed border-[color-mix(in_oklab,var(--primary)45%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-xl font-semibold`
-        }
-      }, ['?'])
-    );
+  // اتجاه الواجهة (يفضَّل أخذه من db.env.dir)
+const isRTL = (db?.env?.dir || document?.documentElement?.dir || 'rtl') === 'rtl';
 
-    const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
-      D.Text.P({ attrs: { class: tw`text-center text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.prompt')]),
-      D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center justify-center gap-3`, dir: 'ltr' } }, numbersNodes)
-    ]);
+// 1) بناء عقد الأرقام
+const numbersNodes = (sequence?.numbers ?? []).map((num, idx) =>
+  D.Containers.Div({
+    attrs: {
+      key: `seq-${idx}`,
+      class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] text-xl font-semibold`
+    }
+  }, [String(num)])
+);
+
+// 2) إضافة خانة "الرقم التالي"
+numbersNodes.push(
+  D.Containers.Div({
+    attrs: {
+      key: 'seq-next',
+      class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-dashed border-[color-mix(in_oklab,var(--primary)45%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-xl font-semibold`
+    }
+  }, ['?'])
+);
+
+// 3) اللوح: نجعل صف الأرقام يتبع اتجاه الصفحة، مع عزل الـBiDi
+const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+  D.Text.P({ attrs: { class: tw`text-center text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.prompt')]),
+  D.Containers.Div({
+    attrs: {
+      class: tw`flex flex-wrap items-center justify-center gap-3`,
+      dir: isRTL ? 'rtl' : 'ltr',
+      // يمنع تأثير اتجاه الآباء ويضمن ترتيبًا بصريًا ثابتًا
+      style: 'unicode-bidi:isolate-override;'
+    }
+  }, numbersNodes)
+]);
 
     const guessFieldId = 'sequence-guess-field';
     const guessField = UI.Field({
