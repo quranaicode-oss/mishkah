@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>تجربة التطبيق المصرفي — عرض قالب مشكاة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="./mishkah-utils.js"></script>
+  <script src="./mishkah.core.js"></script>
+  <script src="./mishkah-ui.js"></script>
+  <script src="./mishkah.templates.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const mobileCopy = {
+      statusBar: { time: '10:24', connectivity: '5G', battery: '🔋 76%' },
+      header: { greeting: 'أهلاً، وليد', subtitle: 'إجمالي الرصيد المتاح', avatar: '💳' },
+      balance: {
+        amount: '52,430 ر.س',
+        change: '+2,150 ر.س هذا الشهر',
+        caption: 'تم التحديث قبل دقيقة',
+        chart: {
+          type: 'line',
+          height: 140,
+          data: {
+            labels: ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز'],
+            datasets: [
+              {
+                label: 'الرصيد',
+                data: [41, 43, 44, 46, 48, 50, 52],
+                fill: true,
+                borderColor: 'rgba(34,197,94,1)',
+                backgroundColor: 'rgba(34,197,94,0.24)',
+                pointRadius: 0
+              }
+            ]
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false } }
+          }
+        }
+      },
+      quickActions: [
+        { id: 'transfer', label: 'تحويل', icon: '↗️' },
+        { id: 'split', label: 'تقسيم فاتورة', icon: '🤝' },
+        { id: 'topup', label: 'شحن رصيد', icon: '⚡️' }
+      ],
+      highlights: [
+        { id: 'budget', title: 'موازنة السفر', value: '65% مستخدم', meta: '3,500 ر.س متبقي' },
+        { id: 'goals', title: 'ادخار العقار', value: '124,000 ر.س', meta: '+2,000 ر.س هذا الربع' }
+      ],
+      transactions: {
+        title: 'آخر الحركات',
+        items: [
+          { id: 'coffee', name: 'مقهى المساء', time: 'اليوم • 08:10', amount: '-18 ر.س', type: 'out' },
+          { id: 'salary', name: 'راتب الشركة', time: 'أمس • 18:30', amount: '+12,500 ر.س', type: 'in' },
+          { id: 'rent', name: 'دفعة إيجار', time: 'أمس • 08:00', amount: '-4,200 ر.س', type: 'out' }
+        ],
+        action: { label: 'عرض السجل الكامل', gkey: 'mobile:transactions:all' }
+      }
+    };
+
+    Mishkah.Templates.mobile.create({
+      mount: '#app',
+      theme: 'dark',
+      copy: mobileCopy
+    });
+
+    window.addEventListener('mishkah:template', (event) => {
+      const detail = event.detail || {};
+      const { type, payload } = detail;
+      if (!type) return;
+      if (type === 'mobile:actions:select') {
+        console.info('🟢 تم اختيار إجراء سريع:', payload);
+      } else if (type === 'mobile:transactions:all') {
+        window.alert('📱 فتح سجل الحركات الكامل');
+      }
+    });
+  </script>
+</body>
+</html>
