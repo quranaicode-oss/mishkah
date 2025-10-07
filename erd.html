@@ -196,8 +196,9 @@
     const ROW_HEIGHT = 28;
     const AUTO_LAYOUT_ORIGIN_X = 120;
     const AUTO_LAYOUT_ORIGIN_Y = 120;
-    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 80;
-    const AUTO_LAYOUT_ROW_GAP = 220;
+    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 200;
+    const AUTO_LAYOUT_ROW_GAP = 180;
+    const RTL_TEXT_PADDING = 28;
     const MIN_CANVAS_ZOOM = 0.2;
     const MAX_CANVAS_ZOOM = 1;
 
@@ -206,14 +207,33 @@
       return Math.max(HEADER_HEIGHT + rows * ROW_HEIGHT, HEADER_HEIGHT + ROW_HEIGHT);
     }
 
-    function computeGridPosition(index, total){
-      const columns = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, total || 1))));
-      const col = index % columns;
-      const row = Math.floor(index / columns);
-      return {
-        x: AUTO_LAYOUT_ORIGIN_X + col * AUTO_LAYOUT_COLUMN_GAP,
-        y: AUTO_LAYOUT_ORIGIN_Y + row * AUTO_LAYOUT_ROW_GAP,
-      };
+    function createAutoLayoutFallbackMap(tables){
+      const fallback = {};
+      const list = Array.isArray(tables) ? tables : [];
+      if(!list.length) return fallback;
+      const columnCount = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, list.length))));
+      const columnHeights = new Array(columnCount).fill(AUTO_LAYOUT_ORIGIN_Y);
+      const columnXs = new Array(columnCount).fill(0).map((_, col)=> AUTO_LAYOUT_ORIGIN_X + col * AUTO_LAYOUT_COLUMN_GAP);
+      list.forEach((table, index)=>{
+        const tableHeight = computeTableHeight(Array.isArray(table?.fields) ? table.fields.length : 0);
+        let targetColumn = index % columnCount;
+        let minHeight = columnHeights[targetColumn];
+        for(let col = 0; col < columnCount; col += 1){
+          if(columnHeights[col] < minHeight){
+            minHeight = columnHeights[col];
+            targetColumn = col;
+          }
+        }
+        const x = columnXs[targetColumn];
+        const y = columnHeights[targetColumn];
+        const point = { x, y };
+        const idKey = table?.id != null ? String(table.id) : '';
+        const nameKey = table?.name ? String(table.name) : '';
+        if(idKey) fallback[idKey] = point;
+        if(nameKey) fallback[nameKey] = point;
+        columnHeights[targetColumn] = y + tableHeight + AUTO_LAYOUT_ROW_GAP;
+      });
+      return fallback;
     }
 
     function normalisePoint(point, fallback){
@@ -684,10 +704,13 @@
           const dynamicDefs = Array.from(this.defs.querySelectorAll('clipPath[data-m-erd-dynamic="true"]'));
           dynamicDefs.forEach(def => def.remove());
         }
+        const fallbackPositions = createAutoLayoutFallbackMap(tables);
         const nodes = tables.map((table, index)=>{
-          const total = Math.max(1, tables.length);
-          const fallback = computeGridPosition(index, total);
           const source = layout[table.id] || layout[table.name];
+          const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
+            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          };
           const { x, y } = normalisePoint(source, fallback);
           const fields = Array.isArray(table.fields) ? table.fields : [];
           const width = TABLE_WIDTH;
@@ -783,7 +806,7 @@
 
           const tableMeta = node.table || {};
           const title = document.createElementNS(svgNS, 'text');
-          const headerX = isRTL ? node.width - 20 : 20;
+          const headerX = isRTL ? node.width - RTL_TEXT_PADDING : RTL_TEXT_PADDING;
           title.setAttribute('x', String(headerX));
           title.setAttribute('y', '28');
           title.setAttribute('fill', colors.headerText);
@@ -792,6 +815,9 @@
           title.setAttribute('font-family', '"Cairo", "Tajawal", system-ui, sans-serif');
           if(isRTL){
             title.setAttribute('text-anchor', 'end');
+            title.setAttribute('style', 'direction: rtl; unicode-bidi: isolate;');
+          } else {
+            title.setAttribute('style', 'direction: ltr; unicode-bidi: isolate;');
           }
           title.textContent = truncateText(tableMeta.displayName || tableMeta.label || tableMeta.name || node.id, 26);
           title.setAttribute('clip-path', `url(#${clipId})`);
@@ -807,6 +833,9 @@
             subtitleNode.setAttribute('clip-path', `url(#${clipId})`);
             if(isRTL){
               subtitleNode.setAttribute('text-anchor', 'end');
+              subtitleNode.setAttribute('style', 'direction: rtl; unicode-bidi: isolate;');
+            } else {
+              subtitleNode.setAttribute('style', 'direction: ltr; unicode-bidi: isolate;');
             }
             subtitleNode.textContent = truncateText(tableMeta.label, 32);
           }
@@ -829,9 +858,11 @@
             const baseY = rowTop + ROW_HEIGHT / 2 + 1;
 
             const nameText = document.createElementNS(svgNS, 'text');
+            const rtlNamePadding = display.badges ? RTL_TEXT_PADDING + 16 : RTL_TEXT_PADDING;
+            const ltrNamePadding = display.badges ? 40 : 20;
             const nameX = isRTL
-              ? node.width - (display.badges ? 44 : 20)
-              : (display.badges ? 40 : 20);
+              ? node.width - rtlNamePadding
+              : ltrNamePadding;
             nameText.setAttribute('x', String(nameX));
             nameText.setAttribute('y', String(baseY));
             nameText.setAttribute('fill', colors.fieldText);
@@ -843,12 +874,15 @@
             nameText.setAttribute('data-table-name', node.table?.name || node.id);
             if(isRTL){
               nameText.setAttribute('text-anchor', 'end');
+              nameText.setAttribute('style', 'direction: rtl; unicode-bidi: isolate;');
+            } else {
+              nameText.setAttribute('style', 'direction: ltr; unicode-bidi: isolate;');
             }
             nameText.textContent = display.label || field.name;
 
             if(display.badges){
               const badgeText = document.createElementNS(svgNS, 'text');
-              const badgeX = isRTL ? node.width - 20 : 20;
+              const badgeX = isRTL ? node.width - RTL_TEXT_PADDING : RTL_TEXT_PADDING;
               badgeText.setAttribute('x', String(badgeX));
               badgeText.setAttribute('y', String(baseY));
               badgeText.setAttribute('fill', colors.badge);
@@ -860,12 +894,13 @@
               if(isRTL){
                 badgeText.setAttribute('text-anchor', 'end');
               }
+              badgeText.setAttribute('style', 'direction: ltr; unicode-bidi: isolate;');
               badgeText.textContent = display.badges;
               rowsGroup.appendChild(badgeText);
             }
 
             const typeText = document.createElementNS(svgNS, 'text');
-            const typeX = isRTL ? 20 : (node.width - 20);
+            const typeX = isRTL ? RTL_TEXT_PADDING : (node.width - RTL_TEXT_PADDING);
             typeText.setAttribute('x', String(typeX));
             typeText.setAttribute('y', String(baseY));
             typeText.setAttribute('fill', colors.fieldType);
@@ -875,6 +910,7 @@
             typeText.setAttribute('data-field-name', field.name);
             typeText.setAttribute('data-table-name', node.table?.name || node.id);
             typeText.setAttribute('text-anchor', isRTL ? 'start' : 'end');
+            typeText.setAttribute('style', isRTL ? 'direction: ltr; unicode-bidi: isolate;' : 'direction: ltr; unicode-bidi: isolate;');
             typeText.textContent = display.type || field.type || '';
 
             rowsGroup.appendChild(rowRect);
@@ -1082,10 +1118,13 @@
         const layout = state?.layout || {};
         const tables = Array.isArray(state?.tables) ? state.tables : [];
         const relations = Array.isArray(state?.relations) ? state.relations : [];
+        const fallbackPositions = createAutoLayoutFallbackMap(tables);
         const nodes = tables.map((tbl, index) => {
-          const total = Math.max(1, tables.length);
-          const fallback = computeGridPosition(index, total);
-          const { x, y } = normalisePoint(layout[tbl.id], fallback);
+          const fallback = fallbackPositions[tbl.id] || fallbackPositions[tbl.name] || {
+            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          };
+          const { x, y } = normalisePoint(layout[tbl.id] || layout[tbl.name], fallback);
           const position = { x, y };
           const fields = Array.isArray(tbl.fields) ? tbl.fields : [];
           const headerLabel = tbl.displayName || tbl.label || tbl.name || tbl.id;
@@ -1406,9 +1445,12 @@
           }
         });
       });
+      const fallbackPositions = createAutoLayoutFallbackMap(tables);
       const nodesMeta = tables.map((table, index) => {
-        const total = Math.max(1, tables.length);
-        const fallback = computeGridPosition(index, total);
+        const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
+          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+        };
         const point = layout[table.id] || layout[table.name];
         const { x, y } = normalisePoint(point, fallback);
         return {
@@ -1856,8 +1898,12 @@
         const registry = new Schema.Registry({ tables: SEED_SCHEMA.tables });
         const tables = registry.list();
         const layout = {};
+        const fallbackPositions = createAutoLayoutFallbackMap(tables);
         tables.forEach((table, index) => {
-          const fallback = computeGridPosition(index, tables.length);
+          const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
+            x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+            y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+          };
           const source = table.layout || {};
           layout[table.name] = normalisePoint(source, fallback);
         });
@@ -1986,9 +2032,12 @@
     function computeLayout(registry, layout){
       const map = Object.assign({}, layout || {});
       const tables = registry.list();
-      const total = Math.max(1, tables.length);
+      const fallbackPositions = createAutoLayoutFallbackMap(tables);
       tables.forEach((table, index)=>{
-        const fallback = computeGridPosition(index, total);
+        const fallback = fallbackPositions[table.id] || fallbackPositions[table.name] || {
+          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+        };
         if(map[table.name]){
           map[table.name] = normalisePoint(map[table.name], fallback);
         } else if(table.layout){
@@ -2090,8 +2139,11 @@
       if(tableName && !layout[tableName]){
         const tables = registry.list();
         const index = Math.max(tables.findIndex(tbl => tbl.name === tableName), tables.length);
-        const fallback = computeGridPosition(index, Math.max(1, tables.length + 1));
-        layout[tableName] = fallback;
+        const fallbackPositions = createAutoLayoutFallbackMap(tables);
+        layout[tableName] = fallbackPositions[tableName] || {
+          x: AUTO_LAYOUT_ORIGIN_X + index * 40,
+          y: AUTO_LAYOUT_ORIGIN_Y + index * 20,
+        };
       }
       return layout;
     }
@@ -2450,7 +2502,7 @@
         attrs:{
           gkey:'erd:toolbar:export',
           'data-state': open ? 'open' : 'closed',
-          class: tw`!gap-2 !px-4 min-w-max`
+          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[80]' : ''}`
         },
         variant: open ? 'soft' : 'ghost',
         size:'sm'
@@ -2459,7 +2511,7 @@
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       if(!open){
-        return D.Containers.Div({ attrs:{ class: tw`relative` }}, [toggle]);
+        return D.Containers.Div({ attrs:{ class: tw`relative z-[60]` }}, [toggle]);
       }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
@@ -2484,9 +2536,10 @@
           }, [item.label])
         ])
       ));
-      return D.Containers.Div({ attrs:{ class: tw`relative` }}, [
+      return D.Containers.Div({ attrs:{ class: tw`relative z-[70]` }}, [
+        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[60] pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
         toggle,
-        D.Containers.Div({ attrs:{ class: tw`absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md` }}, [list])
+        D.Containers.Div({ attrs:{ class: tw`absolute right-0 top-full z-[70] mt-2 min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
       ]);
     }
 
@@ -3268,6 +3321,20 @@
           ctx.rebuild();
         }
       },
+      'erd.toolbar.export.close':{
+        on:['click'],
+        gkeys:['erd:toolbar:export:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
       'erd.export.run':{
         on:['click'],
         gkeys:['erd:export:run'],
@@ -3640,7 +3707,11 @@
           const label = (form.label || '').trim();
           try{
             const currentTables = registry.list();
-            const fallbackPosition = computeGridPosition(currentTables.length, currentTables.length + 1);
+            const fallbackMap = createAutoLayoutFallbackMap(currentTables.concat([{ id:name, name, fields:[] }]));
+            const fallbackPosition = fallbackMap[name] || {
+              x: AUTO_LAYOUT_ORIGIN_X + currentTables.length * 40,
+              y: AUTO_LAYOUT_ORIGIN_Y + currentTables.length * 20,
+            };
             const tableConfig = {
               name,
               label: label || '',
