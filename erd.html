@@ -369,10 +369,10 @@
     const ROW_HEIGHT = 28;
     const AUTO_LAYOUT_ORIGIN_X = 240;
     const AUTO_LAYOUT_ORIGIN_Y = 200;
-    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 680;
-    const AUTO_LAYOUT_ROW_GAP = 420;
-    const FALLBACK_NODE_SPACING_X = TABLE_WIDTH + 420;
-    const FALLBACK_NODE_SPACING_Y = HEADER_HEIGHT + ROW_HEIGHT * 14;
+    const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 520;
+    const AUTO_LAYOUT_ROW_GAP = HEADER_HEIGHT + ROW_HEIGHT * 14;
+    const FALLBACK_NODE_SPACING_X = AUTO_LAYOUT_COLUMN_GAP;
+    const FALLBACK_NODE_SPACING_Y = AUTO_LAYOUT_ROW_GAP + ROW_HEIGHT * 6;
     const RTL_TEXT_PADDING = 28;
     const MIN_CANVAS_ZOOM = 0.2;
     const MAX_CANVAS_ZOOM = 3;
@@ -2349,7 +2349,6 @@
           {
             name:'customers',
             label:'العملاء',
-            layout:{ x:120, y:160 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'full_name', type:'string', nullable:false, maxLength:180, comment:'اسم العميل الكامل' },
@@ -2361,7 +2360,6 @@
           {
             name:'orders',
             label:'الطلبات',
-            layout:{ x:420, y:160 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'order_number', type:'string', nullable:false, unique:true, comment:'رقم الطلب الظاهر للعميل' },
@@ -2374,7 +2372,6 @@
           {
             name:'order_items',
             label:'بنود الطلبات',
-            layout:{ x:720, y:200 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'order_id', type:'uuid', nullable:false, references:{ table:'orders', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
@@ -2387,7 +2384,6 @@
           {
             name:'products',
             label:'المنتجات',
-            layout:{ x:420, y:360 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'name', type:'string', nullable:false, maxLength:160 },
@@ -2401,7 +2397,6 @@
           {
             name:'categories',
             label:'التصنيفات',
-            layout:{ x:120, y:360 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'name', type:'string', nullable:false, unique:true },
@@ -2411,7 +2406,6 @@
           {
             name:'payments',
             label:'المدفوعات',
-            layout:{ x:720, y:360 },
             fields:[
               { name:'id', type:'uuid', nullable:false, primaryKey:true },
               { name:'order_id', type:'uuid', nullable:false, references:{ table:'orders', column:'id', onDelete:'CASCADE', onUpdate:'CASCADE' } },
@@ -3039,7 +3033,7 @@
           'aria-expanded': open ? 'true' : 'false',
           'aria-controls':'erd-toolbar-export-menu',
           type:'button',
-          class: tw`!gap-2 !px-4 min-w-max relative ${open ? 'z-[460]' : 'z-[420]'}`
+          class: tw`!gap-2 !px-4 min-w-max`
         },
         variant: open ? 'soft' : 'ghost',
         size:'sm'
@@ -3047,8 +3041,9 @@
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t('toolbar.export', 'تصدير')]),
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
+      const button = D.Containers.Div({ attrs:{ class: tw`relative overflow-visible`, style:'z-index:2147482000;' }}, [toggle]);
       if(!open){
-        return D.Containers.Div({ attrs:{ class: tw`relative z-[420] overflow-visible` }}, [toggle]);
+        return { button, overlay:null };
       }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
@@ -3073,15 +3068,13 @@
           }, [item.label])
         ])
       ));
-      return D.Containers.Div({ attrs:{ class: tw`relative z-[460] overflow-visible` }}, [
-        toggle,
-        D.Containers.Div({ attrs:{ class: tw`fixed inset-0 z-[480] pointer-events-none` }}, [
-          D.Containers.Div({ attrs:{ class: tw`absolute left-0 right-0 bottom-0 pointer-events-auto`, style:'top:var(--toolbar-height, 3.5rem);', gkey:'erd:toolbar:export:close' }}, []),
-          D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:'right:1.5rem;top:calc(var(--toolbar-height, 3.5rem) + 0.75rem);' }}, [
-            D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`min-w-[220px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
-          ])
+      const overlay = D.Containers.Div({ attrs:{ class: tw`fixed inset-0 pointer-events-none`, style:'z-index:2147482000;' }}, [
+        D.Containers.Div({ attrs:{ class: tw`absolute left-0 right-0 bottom-0 pointer-events-auto`, style:'top:var(--toolbar-height, 3.5rem);', gkey:'erd:toolbar:export:close' }}, []),
+        D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:'right:1.5rem;top:calc(var(--toolbar-height, 3.5rem) + 0.75rem);' }}, [
+          D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`min-w-[240px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
         ])
       ]);
+      return { button, overlay };
     }
 
     function Toolbar(db){
@@ -3119,7 +3112,7 @@
         UI.Button({ attrs:{ gkey:'erd:redo', title:t('toolbar.history.redo.title', 'إعادة') }, variant:'ghost', size:'sm' }, ['↻']),
         UI.Button({ attrs:{ gkey:'erd:fit', title:t('toolbar.history.fit.title', 'ملاءمة المخطط للشاشة') }, variant:'ghost', size:'sm' }, ['🗺️'])
       ]);
-      const exportGroup = UI.ToolbarGroup({ label:t('toolbar.export.group', 'التصدير') }, [exportMenu]);
+      const exportGroup = UI.ToolbarGroup({ label:t('toolbar.export.group', 'التصدير') }, [exportMenu.button]);
       const zoomGroup = UI.ToolbarGroup({ label:t('toolbar.zoom.group', 'الحجم') }, [
         UI.Button({ attrs:{ gkey:'erd:zoom:out', title:t('toolbar.zoom.out.title', 'تصغير') }, variant:'ghost', size:'sm' }, ['➖']),
         D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
@@ -3127,10 +3120,12 @@
         UI.Button({ attrs:{ gkey:'erd:zoom:in', title:t('toolbar.zoom.in.title', 'تكبير') }, variant:'ghost', size:'sm' }, ['➕'])
       ]);
 
-      return UI.Toolbar({
+      const view = UI.Toolbar({
         left:[metaGroup, structureGroup, templateGroup],
         right:[uiGroup, historyGroup, exportGroup, zoomGroup]
       });
+      const overlays = exportMenu.overlay ? [exportMenu.overlay] : [];
+      return { view, overlays };
     }
 
     function ModalImport(db){
@@ -3713,14 +3708,18 @@
     }
 
     function AppView(db){
+      const toolbarResult = Toolbar(db);
+      const toolbarView = toolbarResult && toolbarResult.view ? toolbarResult.view : toolbarResult;
+      const toolbarOverlays = (toolbarResult && Array.isArray(toolbarResult.overlays) ? toolbarResult.overlays : []).filter(Boolean);
       return D.Containers.Div({ attrs:{ class: tw`flex h-screen w-full flex-col bg-[var(--surface-0)] text-[var(--foreground)]` }}, [
-        Toolbar(db),
+        toolbarView,
         D.Containers.Div({ attrs:{ class: tw`flex flex-1 min-h-0 w-full` }}, [
           SchemaLibraryPanel(db),
           D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col min-h-0` }}, [
             SchemaCanvas(db)
           ])
         ]),
+        ...toolbarOverlays,
         ContextMenu(db),
         ...Modals(db)
       ]);
