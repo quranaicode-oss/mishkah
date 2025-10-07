@@ -166,7 +166,7 @@
 
     function applyAutoZoom(targetZoom){
       if(!erdAppInstance) return;
-      const zoom = Math.max(MIN_CANVAS_ZOOM, Math.min(2, Number(targetZoom) || 1));
+      const zoom = Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, Number(targetZoom) || 1));
       if(applyingAutoZoom) return;
       const state = erdAppInstance.getState();
       const currentZoom = state?.data?.canvas?.zoom || 1;
@@ -194,6 +194,7 @@
     const AUTO_LAYOUT_COLUMN_GAP = TABLE_WIDTH + 80;
     const AUTO_LAYOUT_ROW_GAP = 220;
     const MIN_CANVAS_ZOOM = 0.2;
+    const MAX_CANVAS_ZOOM = 1;
 
     function computeTableHeight(fieldCount){
       const rows = Math.max(1, Number(fieldCount) || 0);
@@ -255,7 +256,7 @@
     function normaliseCanvas(canvas){
       const source = canvas || {};
       const rawZoom = Number(source.zoom);
-      const zoom = Number.isFinite(rawZoom) ? Math.max(MIN_CANVAS_ZOOM, Math.min(2, rawZoom)) : 1;
+      const zoom = Number.isFinite(rawZoom) ? Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, rawZoom)) : 1;
       const mode = source.mode === 'manual' ? 'manual' : 'auto';
       return { ...source, zoom, mode };
     }
@@ -481,7 +482,7 @@
           viewY = bbox.minY - fitPad;
           this.overrideFitPadding = null;
         } else if(zoom && Number.isFinite(zoom) && zoom !== 1){
-          const safeZoom = Math.max(0.2, Math.min(4, zoom));
+          const safeZoom = Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, zoom));
           viewWidth = viewWidth / safeZoom;
           viewHeight = viewHeight / safeZoom;
           viewX = centerX - viewWidth / 2;
@@ -505,6 +506,10 @@
         console.debug('[Mishkah][ERD] SVG driver render', tables.length, 'tables');
 
         const svgNS = 'http://www.w3.org/2000/svg';
+        if(this.defs && typeof this.defs.querySelectorAll === 'function'){
+          const dynamicDefs = Array.from(this.defs.querySelectorAll('clipPath[data-m-erd-dynamic="true"]'));
+          dynamicDefs.forEach(def => def.remove());
+        }
         const nodes = tables.map((table, index)=>{
           const total = Math.max(1, tables.length);
           const fallback = computeGridPosition(index, total);
@@ -588,6 +593,25 @@
 
           const fieldTextGroup = document.createElementNS(svgNS, 'g');
           fieldTextGroup.setAttribute('transform', 'translate(0 0)');
+          let clipId = null;
+          if(this.defs){
+            const safeId = String(node.id || tableMeta?.name || '') || `node-${index}`;
+            clipId = `m-erd-clip-${safeId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            const clipPath = document.createElementNS(svgNS, 'clipPath');
+            clipPath.setAttribute('id', clipId);
+            clipPath.setAttribute('data-m-erd-dynamic', 'true');
+            const clipRect = document.createElementNS(svgNS, 'rect');
+            const contentTop = Math.max(HEADER_HEIGHT, 44);
+            clipRect.setAttribute('x', '0');
+            clipRect.setAttribute('y', String(contentTop));
+            clipRect.setAttribute('width', String(node.width));
+            clipRect.setAttribute('height', String(Math.max(0, node.height - contentTop)));
+            clipPath.appendChild(clipRect);
+            this.defs.appendChild(clipPath);
+          }
+          if(clipId){
+            fieldTextGroup.setAttribute('clip-path', `url(#${clipId})`);
+          }
 
           node.fields.forEach((field, idx)=>{
             const fieldY = HEADER_HEIGHT + ROW_HEIGHT * idx + 18;
@@ -625,11 +649,33 @@
           const endX = forward ? targetNode.x : (backward ? targetNode.x + targetNode.width : targetNode.x + targetNode.width / 2);
           const startY = sourceNode.y + sourceFieldY;
           const endY = targetNode.y + targetFieldY;
-          const bend = forward ? 48 : (backward ? -48 : 0);
-          const control1X = startX + bend;
-          const control2X = endX - bend;
+          const margin = 32;
+          const segments = [`M ${startX} ${startY}`];
+          if(forward || backward){
+            const exitX = forward ? sourceNode.x + sourceNode.width + margin : sourceNode.x - margin;
+            const entryX = forward ? targetNode.x - margin : targetNode.x + targetNode.width + margin;
+            const midY = startY + (endY - startY) / 2;
+            segments.push(`L ${exitX} ${startY}`);
+            segments.push(`L ${exitX} ${midY}`);
+            segments.push(`L ${entryX} ${midY}`);
+            segments.push(`L ${entryX} ${endY}`);
+          } else {
+            const verticalDirection = endY >= startY ? 1 : -1;
+            const exitY = verticalDirection > 0
+              ? Math.max(startY + margin, sourceNode.y + sourceNode.height + margin)
+              : Math.min(startY - margin, sourceNode.y - margin);
+            const entryY = verticalDirection > 0
+              ? Math.min(endY - margin, targetNode.y - margin)
+              : Math.max(endY + margin, targetNode.y + targetNode.height + margin);
+            const midX = startX + (endX - startX) / 2;
+            segments.push(`L ${startX} ${exitY}`);
+            segments.push(`L ${midX} ${exitY}`);
+            segments.push(`L ${midX} ${entryY}`);
+            segments.push(`L ${endX} ${entryY}`);
+          }
+          segments.push(`L ${endX} ${endY}`);
           const path = document.createElementNS(svgNS, 'path');
-          path.setAttribute('d', `M ${startX} ${startY} C ${control1X} ${startY} ${control2X} ${endY} ${endX} ${endY}`);
+          path.setAttribute('d', segments.join(' '));
           path.setAttribute('fill', 'none');
           path.setAttribute('stroke', colors.edge);
           path.setAttribute('stroke-width', '1.8');
@@ -739,8 +785,8 @@
         this.graph = new Graph({
           container,
           grid: true,
-          scroller: { enabled: true, pannable: true },
-          mousewheel: { enabled: true, modifiers: ['ctrl','meta'] },
+          scroller: { enabled: true, pannable: true, minScale: MIN_CANVAS_ZOOM, maxScale: MAX_CANVAS_ZOOM },
+          mousewheel: { enabled: true, modifiers: ['ctrl','meta'], minScale: MIN_CANVAS_ZOOM, maxScale: MAX_CANVAS_ZOOM },
           history: { enabled: true },
           selecting: { enabled: true, multiple: true, rubberband: true },
           keyboard: { enabled: true },
@@ -886,7 +932,8 @@
         }
 
         if(typeof state?.zoom === 'number' && Number.isFinite(state.zoom)){
-          try { this.graph.zoomTo(state.zoom); }
+          const safeZoom = Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, state.zoom));
+          try { this.graph.zoomTo(safeZoom); }
           catch(error){ console.warn('[Mishkah][ERD] zoomTo failed', error); }
         }
 
@@ -1763,9 +1810,14 @@
         ? previewTables.map(table => {
             const fieldCount = (table.fields || []).length;
             const relationCount = (table.fields || []).filter(field => field.references).length;
-            return D.Containers.Div({ attrs:{ class: tw`rounded-xl border border-[var(--border)]/70 bg-[var(--surface-2)]/60 px-3 py-2 flex flex-col gap-1` }}, [
-              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [formatIdentifier(table.name)]),
-              table.label ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.label]) : null,
+            return D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-2)]/60 px-4 py-3 flex flex-col gap-2 shadow-sm` }}, [
+              D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+                D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
+                  D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [formatIdentifier(table.name)]),
+                  table.label ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [table.label]) : null
+                ].filter(Boolean)),
+                UI.Button({ attrs:{ gkey:'erd:field:add:table', 'data-table': table.name, title:'إضافة عمود جديد لهذا الجدول' }, variant:'ghost', size:'sm' }, ['➕ عمود'])
+              ]),
               D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)]` }}, [`Fields: ${fieldCount} · Relations: ${relationCount}`])
             ].filter(Boolean));
           })
@@ -1811,33 +1863,47 @@
       const lang = db.env?.lang || db.i18n?.lang || 'ar';
       const theme = db.env?.theme || 'dark';
       const templateOpen = db.ui?.template?.open !== false;
+      const metaGroup = UI.ToolbarGroup({ attrs:{ class: tw`items-start gap-3` }, label:'المخطط' }, [
+        D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
+          schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80` }}, [schemaIdentifier]) : null
+        ].filter(Boolean)),
+        UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`!px-3` }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط'])
+      ]);
+      const structureGroup = UI.ToolbarGroup({ label:'العناصر' }, [
+        UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'soft', size:'sm' }, ['➕ جدول']),
+        UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
+        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة'])
+      ]);
+      const templateGroup = UI.ToolbarGroup({ label:'القوالب' }, [
+        UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'soft' : 'ghost', size:'sm' }, [templateOpen ? '🧩 إخفاء القالب' : '🧩 عرض القالب'])
+      ]);
+
+      const uiGroup = UI.ToolbarGroup({ label:'الواجهة' }, [
+        UI.LanguageSwitch({ lang }),
+        UI.ThemeToggleIcon({ theme })
+      ]);
+      const historyGroup = UI.ToolbarGroup({ label:'التاريخ' }, [
+        UI.Button({ attrs:{ gkey:'erd:undo', title:'تراجع' }, variant:'ghost', size:'sm' }, ['↺']),
+        UI.Button({ attrs:{ gkey:'erd:redo', title:'إعادة' }, variant:'ghost', size:'sm' }, ['↻']),
+        UI.Button({ attrs:{ gkey:'erd:fit', title:'ملاءمة المخطط للشاشة' }, variant:'ghost', size:'sm' }, ['🗺️'])
+      ]);
+      const exportGroup = UI.ToolbarGroup({ label:'التصدير' }, [
+        UI.Button({ attrs:{ gkey:'erd:export:svg', title:'تصدير SVG' }, variant:'ghost', size:'sm' }, ['🖼️ SVG']),
+        UI.Button({ attrs:{ gkey:'erd:export:png', title:'تصدير PNG' }, variant:'ghost', size:'sm' }, ['🖼️ PNG']),
+        UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
+        UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL'])
+      ]);
+      const zoomGroup = UI.ToolbarGroup({ label:'الحجم' }, [
+        UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
+        UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:'إعادة الحجم' }, variant:'ghost', size:'sm' }, ['⟳']),
+        UI.Button({ attrs:{ gkey:'erd:zoom:in', title:'تكبير' }, variant:'ghost', size:'sm' }, ['➕'])
+      ]);
+
       return UI.Toolbar({
-        left:[
-          D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
-            D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
-            schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80` }}, [schemaIdentifier]) : null
-          ].filter(Boolean)),
-          UI.Button({ attrs:{ gkey:'erd:schema:meta:open' }, variant:'ghost', size:'sm' }, ['✏️ خصائص المخطط']),
-          UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'ghost', size:'sm' }, ['➕ جدول']),
-          UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, ['➕ حقل']),
-          UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, ['🔗 علاقة']),
-          UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'secondary' : 'ghost', size:'sm' }, [templateOpen ? '🧩 إخفاء القالب' : '🧩 عرض القالب'])
-        ],
-        right:[
-          UI.LanguageSwitch({ lang }),
-          UI.ThemeToggleIcon({ theme }),
-          UI.Button({ attrs:{ gkey:'erd:undo', title:'تراجع' }, variant:'ghost', size:'sm' }, ['↺']),
-          UI.Button({ attrs:{ gkey:'erd:redo', title:'إعادة' }, variant:'ghost', size:'sm' }, ['↻']),
-          UI.Button({ attrs:{ gkey:'erd:fit', title:'ملاءمة المخطط للشاشة' }, variant:'ghost', size:'sm' }, ['🗺️']),
-          UI.Button({ attrs:{ gkey:'erd:export:svg', title:'تصدير SVG' }, variant:'ghost', size:'sm' }, ['🖼️ SVG']),
-          UI.Button({ attrs:{ gkey:'erd:export:png', title:'تصدير PNG' }, variant:'ghost', size:'sm' }, ['🖼️ PNG']),
-          UI.Button({ attrs:{ gkey:'erd:export:json' }, variant:'ghost', size:'sm' }, ['⬇️ تصدير JSON']),
-          UI.Button({ attrs:{ gkey:'erd:export:sql' }, variant:'ghost', size:'sm' }, ['🧾 SQL']),
-          UI.Button({ attrs:{ gkey:'erd:zoom:out', title:'تصغير' }, variant:'ghost', size:'sm' }, ['➖']),
-          D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
-          UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:'إعادة الحجم' }, variant:'ghost', size:'sm' }, ['⟳']),
-          UI.Button({ attrs:{ gkey:'erd:zoom:in', title:'تكبير' }, variant:'ghost', size:'sm' }, ['➕'])
-        ]
+        left:[metaGroup, structureGroup, templateGroup],
+        right:[uiGroup, historyGroup, exportGroup, zoomGroup]
       });
     }
 
@@ -2246,7 +2312,7 @@
         handler:(e,ctx)=>{
           let next;
           ctx.setState(s=>{
-            const zoom = Math.min(2, (s.data.canvas?.zoom || 1) + 0.1);
+            const zoom = Math.min(MAX_CANVAS_ZOOM, (s.data.canvas?.zoom || 1) + 0.1);
             const canvas = { ...(s.data.canvas || {}), zoom, mode:'manual' };
             const record = {
               id: s.data.schemaId,
@@ -2790,6 +2856,49 @@
               }
             }
           }));
+          ctx.rebuild();
+        }
+      },
+      'erd.field.add.table':{
+        on:['click'],
+        gkeys:['erd:field:add:table'],
+        handler:(event, ctx)=>{
+          const state = ctx.getState();
+          const registry = getRegistry(state);
+          const target = (event?.target && typeof event.target.closest === 'function')
+            ? event.target.closest('[data-m-gkey="erd:field:add:table"]')
+            : null;
+          const button = target || event.currentTarget;
+          const requestedTable = button?.getAttribute ? button.getAttribute('data-table') : '';
+          const fallbackTable = state.data.selection?.table || registry.list()[0]?.name || '';
+          const tableName = requestedTable && registry.get(requestedTable) ? requestedTable : fallbackTable;
+          ctx.setState(s=>{
+            const nextState = {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), field:true },
+                form:{
+                  ...(s.ui?.form || {}),
+                  field:{
+                    table: tableName,
+                    label:'',
+                    name:'',
+                    nameInput:'',
+                    nameManual:false,
+                    columnName:'',
+                    type:'string',
+                    nullable:true,
+                    primaryKey:false,
+                    unique:false,
+                    defaultValue:'',
+                    references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
+                  }
+                }
+              }
+            };
+            return tableName ? withTableSelection(nextState, tableName) : nextState;
+          });
           ctx.rebuild();
         }
       },
