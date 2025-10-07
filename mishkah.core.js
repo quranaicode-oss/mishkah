@@ -288,11 +288,39 @@
     Misc:       createAtomCategory("Misc",       ["hr","br"])
   };
 
+  (function(){
+    if (!hAtoms.Tables || !hAtoms.Tables.Tbody) return;
+    var baseTbody = hAtoms.Tables.Tbody;
+    hAtoms.Tables.Tbody = function(config){
+      var children = [];
+      for (var a=1;a<arguments.length;a++) children.push(arguments[a]);
+      var cfg = isObj(config) ? config : {};
+      var util = (M && M.utils && typeof M.utils.virtualizeTable === 'function') ? M.utils.virtualizeTable : null;
+      var threshold = (cfg && cfg.virtualizeThreshold!=null) ? cfg.virtualizeThreshold : 200;
+      var flag = cfg ? cfg.virtualize : undefined;
+      var shouldVirtualize = false;
+      if (flag === true) shouldVirtualize = true;
+      else if (flag === false) shouldVirtualize = false;
+      else if (flag && typeof flag === 'object') shouldVirtualize = true;
+      else if (children.length > threshold) shouldVirtualize = true;
+      if (util && shouldVirtualize){
+        return util('tbody', cfg, children);
+      }
+      return baseTbody.apply(null, arguments);
+    };
+  })();
+
   // -------------------------------------------------------------------
   // VDOM
   // -------------------------------------------------------------------
   var VDOM = (function(){
     var uid = 0;
+    var domToVNode = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
+
+    function trackVNodeDom(vnode){
+      if (!domToVNode || !vnode || !vnode._dom) return;
+      try { domToVNode.set(vnode._dom, vnode); } catch(_){ }
+    }
 
     function normalizeChildren(children){
       var arr = flat(children), out = [];
@@ -351,6 +379,9 @@
       var tag = el.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA'){
         var active = (global.document && global.document.activeElement === el);
+        var shouldRestoreScroll = (tag === 'TEXTAREA');
+        var scrollTop = shouldRestoreScroll ? el.scrollTop : null;
+        var scrollLeft = shouldRestoreScroll ? el.scrollLeft : null;
         if (active && typeof el.selectionStart==='number' && typeof el.selectionEnd==='number'){
           var s=el.selectionStart, e=el.selectionEnd;
           if (el.value !== value) el.value = value;
@@ -358,8 +389,13 @@
         } else {
           if (el.value !== value) el.value = value;
         }
+        if (shouldRestoreScroll){
+          if (scrollTop != null) el.scrollTop = scrollTop;
+          if (scrollLeft != null) el.scrollLeft = scrollLeft;
+        }
         return true;
       }
+      if (el.value !== value){ el.value = value; return true; }
       return false;
     }
 
@@ -417,7 +453,10 @@
 
       if (vnode._type === 'text'){
         var tn = global.document.createTextNode(vnode && vnode.props ? String(vnode.props.nodeValue==null?'':vnode.props.nodeValue) : '');
-        vnode._dom = tn; vnode._path = (parentPath||'') + '/#text'; return tn;
+        vnode._dom = tn;
+        vnode._path = (parentPath||'') + '/#text';
+        trackVNodeDom(vnode);
+        return tn;
       }
 
       try { M.Guardian.checkBuiltIn(vnode); } catch(e) { M.Auditor && M.Auditor.warn('W-G-BUILTIN','Guardian.checkBuiltIn', e); }
@@ -430,8 +469,9 @@
       vnode._path = parentPath + '/' + vnode.tag + (vnode.key?('#'+vnode.key):'');
       if (vnode.key!=null)  el.setAttribute('data-m-key', String(vnode.key));
       if (vnode.gkey!=null) el.setAttribute('data-m-gkey', String(vnode.gkey));
-      el.setAttribute('data-m-uid', vnode._uid || '');
-      el.setAttribute('data-m-path', vnode._path);
+      if (M.Devtools && M.Devtools.debug){
+        el.setAttribute('data-m-uid', vnode._uid || '');
+      }
 
       updateProps(el, vnode.props||{}, {}, db);
 
@@ -444,6 +484,7 @@
       }
 
       vnode._dom = el;
+      trackVNodeDom(vnode);
       return el;
     }
 
@@ -465,16 +506,18 @@
         if (dom && dom.nodeType===3){
           var nv = (next.props && next.props.nodeValue!=null) ? next.props.nodeValue : "";
           var pv = (prev.props && prev.props.nodeValue!=null) ? prev.props.nodeValue : "";
-          if (nv!==pv) dom.nodeValue = nv; next._dom = dom;
+          if (nv!==pv) dom.nodeValue = nv; next._dom = dom; trackVNodeDom(next);
         } else {
           var n = global.document.createTextNode(String(next.props && next.props.nodeValue!=null ? next.props.nodeValue : ""));
           next._dom = n; if (dom){ try{ host.replaceChild(n, dom); }catch(_){ host.appendChild(n); } } else host.appendChild(n);
+          trackVNodeDom(next);
         }
         return;
       }
       next._dom = dom;
       next._path = prev._path || (parentPath + '/' + next.tag + (next.key?('#'+next.key):''));
       updateProps(dom, next.props||{}, prev.props||{}, db);
+      trackVNodeDom(next);
       patchChildren(dom, next.children||[], prev.children||[], db, opts, next._path);
     }
 
@@ -517,14 +560,26 @@
 
       var seq = lis(newIndexToOld), j = seq.length-1;
       for (i=nextList.length-1; i>=0; i--){
-        var ref = parent.childNodes[i+1] || null, el2 = nextList[i] && nextList[i]._dom;
+        var nextSiblingVNode = (i+1 < nextList.length) ? nextList[i+1] : null;
+        var ref = nextSiblingVNode && nextSiblingVNode._dom ? nextSiblingVNode._dom : null;
+        if (ref && ref.parentNode !== parent) ref = null;
+        var el2 = nextList[i] && nextList[i]._dom;
         if (newIndexToOld[i] === -1){ if (el2 && el2 !== ref) parent.insertBefore(el2, ref); }
         else { if (j<0 || i!==seq[j]){ if (el2 && el2 !== ref) parent.insertBefore(el2, ref); } else { j--; } }
       }
     }
 
-    return { h:h, render:render, patch:patch };
+    return {
+      h: h,
+      render: render,
+      patch: patch,
+      lookupVNode: function(el){ return domToVNode && el ? domToVNode.get(el) : null; }
+    };
   })();
+
+  if (M.Devtools && typeof M.Devtools.lookupVNode !== 'function'){
+    M.Devtools.lookupVNode = function(el){ return VDOM.lookupVNode(el); };
+  }
 
   // -------------------------------------------------------------------
   // Event delegation (pure core) — يستدعي Guardian/RuleCenter/Auditor إن وُجدوا
@@ -711,11 +766,32 @@
         if (!node) return null;
 
         if (!selector && node.getAttribute){
-          var pathAttr = node.getAttribute('data-m-path');
-          if (pathAttr){ selector = '[data-m-path="' + String(pathAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+          var keyAttr = node.getAttribute('data-m-key');
+          if (keyAttr){
+            var keyToken = null;
+            var keyParts = String(keyAttr).split(/[\s,]+/);
+            for (var kp=0; kp<keyParts.length && !keyToken; kp++) if (keyParts[kp]) keyToken = keyParts[kp];
+            if (keyToken){
+              selector = '[data-m-key~="' + String(keyToken).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]';
+            } else {
+              selector = '[data-m-key="' + String(keyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]';
+            }
+          }
           if (!selector){
-            var keyAttr = node.getAttribute('data-m-key');
-            if (keyAttr){ selector = '[data-m-key="' + String(keyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]'; }
+            var gkeyAttr = node.getAttribute('data-m-gkey');
+            if (gkeyAttr){
+              var gkeyToken = null;
+              var gkeyParts = String(gkeyAttr).split(/[\s,]+/);
+              for (var gp=0; gp<gkeyParts.length && !gkeyToken; gp++) if (gkeyParts[gp]) gkeyToken = gkeyParts[gp];
+              if (gkeyToken){
+                selector = '[data-m-gkey~="' + String(gkeyToken).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]';
+              } else {
+                selector = '[data-m-gkey="' + String(gkeyAttr).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]';
+              }
+            }
+          }
+          if (!selector && node.id){
+            selector = '#' + String(node.id).replace(/([^a-zA-Z0-9_\-:\.])/g, '\\$1');
           }
         }
 
