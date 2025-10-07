@@ -173,6 +173,8 @@
           customer_edit:'تعديل العميل', customer_remove_address:'حذف العنوان',
           avg_ticket:'متوسط الفاتورة', top_selling:'الأكثر مبيعًا', sales_today:'مبيعات اليوم', save_order:'حفظ الطلب',
           settle_and_print:'تحصيل وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
+          balance_due:'المتبقي غير المسدد', exchange_due:'باقي الفكة',
+          line_modifiers:'الإضافات والمنزوعات', line_modifiers_title:'تعديل الإضافات والمنزوعات', line_modifiers_addons:'الإضافات', line_modifiers_removals:'المنزوعات', line_modifiers_apply:'تطبيق التعديلات', line_modifiers_empty:'لا توجد خيارات متاحة', line_modifiers_free:'بدون رسوم', line_modifiers_missing:'السطر غير متاح', line_modifiers_unit:'السعر للوحدة',
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
           arabic:'عربي', english:'English', service_type:'نوع الطلب', guests:'عدد الأفراد', kds:'نظام المطبخ (KDS)',
           status_online:'متصل', status_offline:'غير متصل', status_idle:'انتظار', order_id:'طلب', last_orders:'الطلبات الأخيرة',
@@ -231,7 +233,7 @@
           amount_required:'من فضلك أدخل قيمة صحيحة', indexeddb_missing:'IndexedDB غير متاحة في هذا المتصفح',
           indexeddb_error:'تعذر حفظ البيانات محليًا', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
           discount_stub:'سيتم تفعيل الخصومات لاحقًا', notes_updated:'تم تحديث الملاحظات', add_note:'أدخل ملاحظة ترسل للمطبخ',
-          set_qty:'أدخل الكمية الجديدة', line_actions:'سيتم فتح إجراءات السطر لاحقًا', confirm_clear:'هل تريد مسح الطلب الحالي؟',
+          set_qty:'أدخل الكمية الجديدة', line_actions:'سيتم فتح إجراءات السطر لاحقًا', line_modifiers_applied:'تم تحديث الإضافات والمنزوعات', confirm_clear:'هل تريد مسح الطلب الحالي؟',
           order_locked:'لا يمكن تعديل هذا الطلب بعد حفظه', line_locked:'لا يمكن تعديل هذا السطر بعد حفظه',
           order_additions_blocked:'لا يمكن إضافة أصناف جديدة لهذا النوع من الطلبات بعد الحفظ',
           order_stage_locked:'لا يمكن تعديل الأصناف في هذه المرحلة', orders_loaded:'تم تحديث قائمة الطلبات',
@@ -295,7 +297,7 @@
           customer_edit:'Edit customer', customer_remove_address:'Remove address',
           avg_ticket:'Average ticket', top_selling:'Top seller', sales_today:'Sales today', save_order:'Save order',
           settle_and_print:'Settle & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
-          new_order:'New order', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
+          new_order:'New order', balance_due:'Outstanding balance', exchange_due:'Change due', line_modifiers:'Add-ons & removals', line_modifiers_title:'Customize add-ons & removals', line_modifiers_addons:'Add-ons', line_modifiers_removals:'Removals', line_modifiers_apply:'Apply changes', line_modifiers_empty:'No options available', line_modifiers_free:'No charge', line_modifiers_missing:'Line is no longer available', line_modifiers_unit:'Unit price', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
           light:'Light', dark:'Dark', language:'Language', arabic:'Arabic', english:'English', service_type:'Service type',
           guests:'Guests', kds:'Kitchen display', status_online:'Online', status_offline:'Offline', status_idle:'Idle',
           order_id:'Order', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect', print_size:'Print size',
@@ -354,7 +356,7 @@
           amount_required:'Enter a valid amount', indexeddb_missing:'IndexedDB is not available in this browser',
           indexeddb_error:'Failed to persist locally', print_stub:'Printer integration coming soon',
           discount_stub:'Discount workflow coming soon', notes_updated:'Notes updated', add_note:'Add a note for the kitchen',
-          set_qty:'Enter the new quantity', line_actions:'Line actions coming soon', confirm_clear:'Clear the current order?',
+          set_qty:'Enter the new quantity', line_actions:'Line actions coming soon', line_modifiers_applied:'Line modifiers updated', confirm_clear:'Clear the current order?',
           order_locked:'This order is locked after saving', line_locked:'This line can no longer be modified',
           order_additions_blocked:'Cannot add new items to this order type after saving',
           order_stage_locked:'Items cannot be modified at this stage', orders_loaded:'Orders list refreshed',
@@ -434,8 +436,40 @@
       return Math.round((Number(value) || 0) * 100) / 100;
     }
 
+    function getLineUnitPrice(line){
+      if(!line) return 0;
+      const base = Number(line.basePrice != null ? line.basePrice : line.price) || 0;
+      const modifiers = Array.isArray(line.modifiers) ? line.modifiers : [];
+      const modifierDelta = modifiers.reduce((sum, mod)=> sum + (Number(mod.priceChange ?? mod.price_change ?? 0) || 0), 0);
+      return round(base + modifierDelta);
+    }
+
+    function applyLinePricing(line){
+      if(!line) return line;
+      const unitPrice = getLineUnitPrice(line);
+      const qty = Number(line.qty) || 0;
+      const base = Number(line.basePrice != null ? line.basePrice : line.price) || 0;
+      return {
+        ...line,
+        basePrice: round(base),
+        price: unitPrice,
+        total: round(unitPrice * qty)
+      };
+    }
+
+    function updateLineWithPricing(line, updates){
+      if(!line) return line;
+      return applyLinePricing({ ...line, ...(updates || {}) });
+    }
+
     function calculateTotals(lines, cfg, type){
-      const subtotal = (lines || []).reduce((sum, line)=> sum + (Number(line.qty)||0) * (Number(line.price)||0), 0);
+      const subtotal = (lines || []).reduce((sum, line)=>{
+        const qty = Number(line.qty) || 0;
+        const unit = getLineUnitPrice(line);
+        const fallbackTotal = Number(line.total);
+        if(Number.isFinite(fallbackTotal)) return sum + fallbackTotal;
+        return sum + qty * unit;
+      }, 0);
       const serviceRate = type === 'dine_in' ? (cfg.service_charge_rate || 0) : 0;
       const service = subtotal * serviceRate;
       const vatBase = subtotal + service;
@@ -646,12 +680,13 @@
       const price = Number(item.price) || 0;
       const now = Date.now();
       const uniqueId = overrides?.id || `ln-${item.id}-${now.toString(36)}-${Math.random().toString(16).slice(2,6)}`;
-      return {
+      const baseLine = {
         id: uniqueId,
         itemId: item.id,
         name: item.name,
         description: item.description,
         price,
+        basePrice: price,
         qty: quantity,
         total: round(price * quantity),
         modifiers: overrides?.modifiers || [],
@@ -663,6 +698,7 @@
         createdAt: overrides?.createdAt || now,
         updatedAt: overrides?.updatedAt || now
       };
+      return applyLinePricing(baseLine);
     }
 
     function filterMenu(menu, lang){
@@ -728,7 +764,15 @@
       const lineItems = (order.lines || []).map(line=>{
         const name = `${escapeHTML(localize(line.name, lang))} × ${Number(line.qty)||0}`;
         const price = formatCurrencyValue(db, line.total);
-        return `<div class="row"><span>${name}</span><span>${price}</span></div>`;
+        const modifiers = Array.isArray(line.modifiers) ? line.modifiers : [];
+        const modifiersHtml = modifiers.map(mod=>{
+          const delta = Number(mod.priceChange || 0) || 0;
+          const priceLabel = delta ? `${delta > 0 ? '+' : '−'} ${formatCurrencyValue(db, Math.abs(delta))}` : escapeHTML(t.ui.line_modifiers_free);
+          return `<div class="row sub"><span>${escapeHTML(localize(mod.label, lang))}</span><span>${priceLabel}</span></div>`;
+        }).join('');
+        const notes = Array.isArray(line.notes) ? line.notes.filter(Boolean).join(' • ') : (line.notes || '');
+        const notesHtml = notes ? `<div class="row note"><span>📝 ${escapeHTML(notes)}</span><span></span></div>` : '';
+        return `<div class="row"><span>${name}</span><span>${price}</span></div>${modifiersHtml}${notesHtml}`;
       }).join('');
       const totalsHtml = totalsRows.map(row=> {
         const price = formatCurrencyValue(db, row.value);
@@ -773,6 +817,8 @@
       .receipt .meta { margin:4px 0; color:#64748b; font-size:${preset.meta}; }
       .receipt .rows { margin:16px 0; }
       .receipt .row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin:8px 0; font-size:${preset.fontSize}; }
+      .receipt .row.sub { font-size:${preset.meta}; color:#64748b; padding-inline-start:16px; }
+      .receipt .row.note { font-size:${preset.meta}; color:#94a3b8; padding-inline-start:16px; }
       .receipt .row span:last-child { font-weight:600; }
       .receipt .separator { height:1px; background:#e2e8f0; margin:16px 0; }
       .receipt .muted { text-align:center; color:#cbd5f5; margin:24px 0; }
@@ -1426,6 +1472,26 @@
 
     const menuIndex = new Map(menuItems.map(item=> [String(item.id), item]));
 
+    const rawModifiers = typeof MOCK.modifiers === 'object' && MOCK.modifiers ? MOCK.modifiers : {};
+    const normalizeModifierEntry = (entry, fallbackType)=>{
+      if(!entry) return null;
+      const id = entry.id ?? entry.code ?? entry.key;
+      if(id == null) return null;
+      const priceChange = Number(entry.price_change ?? entry.priceChange ?? entry.amount ?? 0) || 0;
+      return {
+        id: String(id),
+        type: fallbackType,
+        label:{
+          ar: entry.name?.ar || entry.name?.en || String(id),
+          en: entry.name?.en || entry.name?.ar || String(id)
+        },
+        priceChange: round(priceChange)
+      };
+    };
+    const addOns = (Array.isArray(rawModifiers.add_ons) ? rawModifiers.add_ons : rawModifiers.addOns || []).map(entry=> normalizeModifierEntry(entry, 'add_on')).filter(Boolean);
+    const removals = (Array.isArray(rawModifiers.removals) ? rawModifiers.removals : rawModifiers.remove || []).map(entry=> normalizeModifierEntry(entry, 'removal')).filter(Boolean);
+    const modifiersCatalog = { addOns, removals };
+
     const orderStages = (Array.isArray(MOCK.order_stages) && MOCK.order_stages.length ? MOCK.order_stages : [
       { id:'new', stage_name:{ ar:'جديد', en:'New' }, sequence:1, lock_line_edits:false },
       { id:'preparing', stage_name:{ ar:'جاري التجهيز', en:'Preparing' }, sequence:2, lock_line_edits:true },
@@ -1918,6 +1984,7 @@
         },
         customers: createInitialCustomers(),
         customerAreas: CAIRO_DISTRICTS,
+        modifiers: modifiersCatalog,
         print:{
           size:'thermal_80',
           docType:'customer',
@@ -1960,7 +2027,7 @@
         }
       },
       ui:{
-        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false },
+        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false, modifiers:false },
         modalSizes: savedModalSizes,
         drawers:{},
         settings:{ open:false, activeTheme: initialTheme },
@@ -1971,7 +2038,8 @@
         orders:{ tab:'all', search:'', sort:{ field:'updatedAt', direction:'desc' } },
         shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null, activeTab:'summary' },
         customer:{ open:false, mode:'search', search:'', keypad:'', selectedCustomerId:null, selectedAddressId:null, form:createEmptyCustomerForm() },
-        orderNav:{ showPad:false, value:'' }
+        orderNav:{ showPad:false, value:'' },
+        lineModifiers:{ lineId:null, addOns:[], removals:[] }
       }
     };
 
@@ -2174,15 +2242,15 @@
           UI.Badge({ text:`${orderType.icon} ${localize(orderType.label, db.env.lang)}`, variant:'badge/ghost', attrs:{ class: tw`text-sm` } })
         ],
         right:[
-          UI.Button({ attrs:{ gkey:'pos:settings:open', title:t.ui.settings_center }, variant:'ghost', size:'sm' }, ['⚙️']),
+          UI.Button({ attrs:{ gkey:'pos:settings:open', title:t.ui.settings_center }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl` }}, ['⚙️'])]),
           ShiftControls(db),
           ThemeSwitch(db),
           LangSwitch(db),
-          UI.Button({ attrs:{ gkey:'pos:tables:open', title:t.ui.tables }, variant:'ghost', size:'sm' }, ['🪑']),
-          UI.Button({ attrs:{ gkey:'pos:reservations:open', title:t.ui.reservations }, variant:'ghost', size:'sm' }, ['📅']),
-          UI.Button({ attrs:{ gkey:'pos:orders:open', title:t.ui.orders_queue }, variant:'ghost', size:'sm' }, ['🧾']),
+          UI.Button({ attrs:{ gkey:'pos:tables:open', title:t.ui.tables }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl` }}, ['🪑'])]),
+          UI.Button({ attrs:{ gkey:'pos:reservations:open', title:t.ui.reservations }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl` }}, ['📅'])]),
+          UI.Button({ attrs:{ gkey:'pos:orders:open', title:t.ui.orders_queue }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl` }}, ['🧾'])]),
           UI.Badge({ text:`${t.ui.cashier}: ${user.name}`, leading:'👤', variant:'badge/ghost' }),
-          UI.Button({ attrs:{ gkey:'pos:session:logout', title:'Logout' }, variant:'ghost', size:'sm' }, ['🚪'])
+          UI.Button({ attrs:{ gkey:'pos:session:logout', title:'Logout' }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-xl sm:text-2xl` }}, ['🚪'])])
         ]
       });
     }
@@ -2291,17 +2359,41 @@
     }
 
     function OrderLine(db, line){
+      const t = getTexts(db);
       const lang = db.env.lang;
+      const modifiers = Array.isArray(line.modifiers) ? line.modifiers : [];
+      const notes = Array.isArray(line.notes) ? line.notes.filter(Boolean).join(' • ') : (line.notes || '');
+      const modifiersRow = modifiers.length
+        ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]` }}, modifiers.map(mod=>{
+            const delta = Number(mod.priceChange || mod.price_change || 0) || 0;
+            const priceLabel = delta ? `${delta > 0 ? '+' : '−'} ${formatCurrencyValue(db, Math.abs(delta))}` : '';
+            return D.Containers.Div({ attrs:{ class: tw`rounded-full bg-[color-mix(in oklab,var(--surface-2) 92%, transparent)] px-2 py-1` }}, [
+              `${localize(mod.label, lang)}${priceLabel ? ` (${priceLabel})` : ''}`
+            ]);
+          }))
+        : null;
+      const notesRow = notes
+        ? D.Text.Span({ attrs:{ class: tw`text-[10px] sm:text-xs ${token('muted')}` }}, ['📝 ', notes])
+        : null;
       return UI.ListItem({
         leading: D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🍲']),
         content:[
           D.Text.Strong({}, [localize(line.name, lang)]),
-          line.notes ? D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, ['📝 ', line.notes]) : null
+          modifiersRow,
+          notesRow
         ].filter(Boolean),
         trailing:[
           UI.QtyStepper({ value: line.qty, gkeyDec:'pos:order:line:dec', gkeyInc:'pos:order:line:inc', gkeyEdit:'pos:order:line:qty', dataId: line.id }),
           UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) }),
-          UI.Button({ attrs:{ gkey:'pos:order:line:actions', 'data-line-id':line.id }, variant:'ghost', size:'sm' }, ['⋯'])
+          UI.Button({
+            attrs:{
+              gkey:'pos:order:line:modifiers',
+              'data-line-id':line.id,
+              title: t.ui.line_modifiers
+            },
+            variant:'ghost',
+            size:'sm'
+          }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['➕/➖'])])
         ]
       });
     }
@@ -2335,9 +2427,7 @@
         TotalsSection(db),
         UI.HStack({ attrs:{ class: tw`gap-2` }}, [
           UI.Button({ attrs:{ gkey:'pos:order:discount', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.discount_action]),
-          UI.Button({ attrs:{ gkey:'pos:order:note', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.notes]),
-          UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.new_order]),
-          UI.Button({ attrs:{ gkey:'pos:order:clear' }, variant:'ghost', size:'sm' }, [t.ui.clear])
+          UI.Button({ attrs:{ gkey:'pos:order:note', class: tw`flex-1` }, variant:'ghost', size:'sm' }, [t.ui.notes])
         ])
       ]);
     }
@@ -2396,10 +2486,24 @@
       const due = db.data.order.totals?.due || 0;
       const totalPaid = split.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
       const remaining = Math.max(0, round(due - totalPaid));
+      const change = Math.max(0, round(totalPaid - due));
+      const balanceSummary = remaining > 0 || change > 0
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-2 rounded-[var(--radius)] bg-[color-mix(in oklab,var(--surface-2) 92%, transparent)] px-3 py-2 text-sm` }}, [
+            remaining > 0 ? UI.HStack({ attrs:{ class: tw`${token('split')} font-semibold text-[var(--accent-foreground)]` }}, [
+              D.Text.Span({}, [t.ui.balance_due]),
+              UI.PriceText({ amount: remaining, currency:getCurrency(db), locale:getLocale(db) })
+            ]) : null,
+            change > 0 ? UI.HStack({ attrs:{ class: tw`${token('split')} text-[var(--muted-foreground)]` }}, [
+              D.Text.Span({}, [t.ui.exchange_due]),
+              UI.PriceText({ amount: change, currency:getCurrency(db), locale:getLocale(db) })
+            ]) : null
+          ].filter(Boolean))
+        : null;
       return UI.Card({
         variant:'card/soft-1',
         title: t.ui.split_payments,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+          balanceSummary,
           ...split.map(entry=>{
             const method = methods.find(m=> m.id === entry.method);
             const label = method ? `${method.icon} ${localize(method.label, db.env.lang)}` : entry.method;
@@ -2412,10 +2516,6 @@
           UI.HStack({ attrs:{ class: tw`${token('split')} text-sm font-semibold` }}, [
             D.Text.Span({}, [t.ui.paid]),
             UI.PriceText({ amount: totalPaid, currency:getCurrency(db), locale:getLocale(db) })
-          ]),
-          UI.HStack({ attrs:{ class: tw`${token('split')} text-sm` }}, [
-            D.Text.Span({ attrs:{ class: tw`${token('muted')}` }}, [t.ui.remaining]),
-            UI.PriceText({ amount: remaining, currency:getCurrency(db), locale:getLocale(db) })
           ]),
           UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.open_payments])
         ].filter(Boolean))
@@ -2433,11 +2533,18 @@
       const label = currentSeq ? `#${currentSeq} / ${total}` : `— / ${total}`;
       const disablePrev = currentIndex <= 0;
       const disableNext = currentIndex < 0 || currentIndex >= total - 1;
+      const quickActions = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-3` }}, [
+        D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [t.ui.order_nav_label]),
+        UI.HStack({ attrs:{ class: tw`gap-2` }}, [
+          UI.Button({ attrs:{ gkey:'pos:order:new', title:t.ui.new_order, class: tw`h-11 w-11 rounded-full text-xl` }, variant:'soft', size:'sm' }, ['🆕']),
+          UI.Button({ attrs:{ gkey:'pos:order:clear', title:t.ui.clear, class: tw`h-11 w-11 rounded-full text-xl` }, variant:'ghost', size:'sm' }, ['🧹'])
+        ])
+      ]);
       const navigatorRow = UI.HStack({ attrs:{ class: tw`items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3 text-sm` }}, [
-        UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['⬅️']),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:prev', disabled:disablePrev, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' }, ['⬅️']),
         D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [label]),
-        UI.Button({ attrs:{ gkey:'pos:order:nav:pad', class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['🔢']),
-        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'sm' }, ['➡️'])
+        UI.Button({ attrs:{ gkey:'pos:order:nav:pad', class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' },['🔢']),
+        UI.Button({ attrs:{ gkey:'pos:order:nav:next', disabled:disableNext, class: tw`h-12 w-12 rounded-full text-lg` }, variant:'soft', size:'md' }, ['➡️'])
       ]);
       const padVisible = !!db.ui.orderNav?.showPad;
       const padValue = db.ui.orderNav?.value || '';
@@ -2458,7 +2565,7 @@
             ])
           })
         : null;
-      return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [navigatorRow, pad].filter(Boolean));
+      return D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [quickActions, navigatorRow, pad].filter(Boolean));
     }
 
     function OrderCustomerPanel(db){
@@ -2509,8 +2616,6 @@
                 variant:'card/soft-1',
                 content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
                   UI.Segmented({ items: serviceSegments, activeId: order.type }),
-                  OrderNavigator(db),
-                  OrderCustomerPanel(db),
                   D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
                     D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
                     order.type === 'dine_in'
@@ -2546,7 +2651,9 @@
                   CartFooter(db)
                 ])
               }),
-              PaymentSummary(db)
+              PaymentSummary(db),
+              OrderCustomerPanel(db),
+              OrderNavigator(db)
             ])
           ]
         })
@@ -2558,6 +2665,11 @@
       const reports = computeRealtimeReports(db);
       const salesToday = new Intl.NumberFormat(getLocale(db)).format(reports.salesToday || 0);
       const currencyLabel = getCurrencySymbol(db);
+      const order = db.data.order || {};
+      const orderType = order.type || 'dine_in';
+      const isPersisted = !!order.isPersisted;
+      const saveMode = (orderType === 'dine_in' && !isPersisted) ? 'save-only' : 'save-print';
+      const saveLabel = (orderType === 'dine_in' && !isPersisted) ? t.ui.save_order : t.ui.settle_and_print;
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${currencyLabel}`]),
         D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
@@ -2565,6 +2677,21 @@
           UI.Button({ attrs:{ gkey:'pos:reports:toggle' }, variant:'ghost', size:'sm' }, [t.ui.open_reports])
         ])
       ]);
+      const primaryActions = [];
+      primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:new', class: tw`min-w-[120px] flex items-center justify-center gap-2` }, variant:'ghost', size:'md' }, [
+        D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🆕']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.new_order])
+      ]));
+      const saveButton = UI.Button({
+        attrs:{ gkey:'pos:order:save', 'data-save-mode':saveMode, class: tw`min-w-[180px] flex items-center justify-center gap-2` },
+        variant:'solid',
+        size:'md'
+      }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [saveLabel])]);
+      primaryActions.push(saveButton);
+      primaryActions.push(UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
+        D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['💳']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.open_payments])
+      ]));
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
@@ -2572,27 +2699,9 @@
         ],
         right:[
           reportsSummary,
-          QuickActionButton({ gkey:'pos:order:new', icon:'🆕', label:t.ui.new_order, shortcut:'Ctrl+N', variant:'ghost' }),
-          QuickActionButton({ gkey:'pos:order:save', icon:'💾', label:t.ui.save_order, shortcut:'Ctrl+S', variant:'soft' }),
-          UI.Button({ attrs:{ gkey:'pos:payments:open', class: tw`min-w-[160px]` }, variant:'solid', size:'md' }, [t.ui.settle_and_print]),
-          UI.Button({ attrs:{ gkey:'pos:order:export', class: tw`min-w-[150px]` }, variant:'ghost', size:'md' }, [t.ui.export_pdf]),
-          UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[120px]` }, variant:'ghost', size:'md' }, [t.ui.print])
+          ...primaryActions
         ]
       });
-    }
-
-    function QuickActionButton({ gkey, icon, label, shortcut, variant }){
-      return UI.Button({
-        attrs:{ gkey, class: tw`min-w-[140px]` },
-        variant: variant || 'soft',
-        size:'md'
-      }, [
-        D.Containers.Div({ attrs:{ class: tw`flex w-full flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-2` }}, [
-          icon ? D.Text.Span({ attrs:{ class: tw`text-lg` }}, [icon]) : null,
-          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [label]),
-          shortcut ? UI.Badge({ text:shortcut, variant:'badge/ghost', attrs:{ class: tw`text-[0.7rem]` } }) : null
-        ].filter(Boolean))
-      ]);
     }
 
     function TablesModal(db){
@@ -2872,11 +2981,30 @@
 
       const previewPreset = sizePresets[selectedSize] || sizePresets.thermal_80;
 
-      const previewLineClass = tw`justify-between ${previewPreset.body} leading-6`;
-      const previewLines = (order.lines || []).map(line=> UI.HStack({ attrs:{ class: previewLineClass }}, [
-        D.Text.Span({}, [`${localize(line.name, lang)} × ${line.qty}`]),
-        UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) })
-      ]));
+      const previewLineClass = tw`${previewPreset.body} leading-6`;
+      const previewLines = (order.lines || []).map(line=>{
+        const modifiers = Array.isArray(line.modifiers) ? line.modifiers : [];
+        const modifierRows = modifiers.map(mod=>{
+          const delta = Number(mod.priceChange || 0) || 0;
+          const priceLabel = delta ? `${delta > 0 ? '+' : '−'} ${formatCurrencyValue(db, Math.abs(delta))}` : t.ui.line_modifiers_free;
+          return UI.HStack({ attrs:{ class: tw`justify-between ps-6 text-xs text-neutral-500` }}, [
+            D.Text.Span({}, [localize(mod.label, lang)]),
+            D.Text.Span({}, [priceLabel])
+          ]);
+        });
+        const notes = Array.isArray(line.notes) ? line.notes.filter(Boolean).join(' • ') : (line.notes || '');
+        const notesRow = notes
+          ? D.Text.Span({ attrs:{ class: tw`block ps-6 text-[11px] text-neutral-400` }}, [`📝 ${notes}`])
+          : null;
+        return D.Containers.Div({ attrs:{ class: previewLineClass }}, [
+          UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+            D.Text.Span({}, [`${localize(line.name, lang)} × ${line.qty}`]),
+            UI.PriceText({ amount: line.total, currency:getCurrency(db), locale:getLocale(db) })
+          ]),
+          ...modifierRows,
+          notesRow
+        ].filter(Boolean));
+      });
 
       const currentDocLabel = docTypes.find(dt=> dt.id === docType)?.label || t.ui.print_doc_customer;
       const paymentsList = payments.length
@@ -3400,15 +3528,18 @@
       return UI.Drawer({
         open:true,
         side:'end',
+        closeGkey:'pos:payments:close',
+        panelAttrs:{ class: tw`w-[min(420px,92vw)] sm:w-[420px]` },
         header: D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
           D.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
             D.Text.Strong({}, [t.ui.payments]),
             D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [t.ui.split_payments])
           ]),
-          UI.Button({ attrs:{ gkey:'pos:payments:close' }, variant:'ghost', size:'sm' }, [t.ui.close])
+          UI.Button({ attrs:{ gkey:'pos:payments:close' }, variant:'ghost', size:'md' }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['✕'])])
         ]),
         content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
           UI.ChipGroup({
+            attrs:{ class: tw`text-base sm:text-lg` },
             items: (db.data.payments.methods || []).map(method=>({
               id: method.id,
               label: `${method.icon} ${localize(method.label, db.env.lang)}`,
@@ -3425,6 +3556,91 @@
             confirmAttrs:{ gkey:'pos:payments:capture', variant:'solid', size:'md', class: tw`w-full` }
           })
         ])
+      });
+    }
+
+    function LineModifiersModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.modifiers) return null;
+      const order = db.data.order || {};
+      const state = db.ui.lineModifiers || {};
+      const lineId = state.lineId;
+      const line = (order.lines || []).find(entry=> entry.id === lineId);
+      const lang = db.env.lang;
+      const catalog = db.data.modifiers || { addOns:[], removals:[] };
+      const selectedAddOns = new Set((state.addOns || []).map(String));
+      const selectedRemovals = new Set((state.removals || []).map(String));
+      const mapModifier = (entry)=> entry ? { id:String(entry.id), type: entry.type, label: entry.label, priceChange: Number(entry.priceChange ?? entry.price_change ?? 0) } : null;
+      const selectedModifiers = [
+        ...catalog.addOns.filter(entry=> selectedAddOns.has(String(entry.id))).map(mapModifier),
+        ...catalog.removals.filter(entry=> selectedRemovals.has(String(entry.id))).map(mapModifier)
+      ].filter(Boolean);
+      const previewLine = line ? applyLinePricing({ ...line, modifiers: selectedModifiers }) : null;
+
+      const buildModifierButtons = (items, type, selected)=>{
+        if(!items.length){
+          return UI.EmptyState({ icon:'ℹ️', title:t.ui.line_modifiers_empty });
+        }
+        return D.Containers.Div({ attrs:{ class: tw`grid grid-cols-1 gap-2 sm:grid-cols-2` }}, items.map(item=>{
+          const active = selected.has(String(item.id));
+          const delta = Number(item.priceChange ?? item.price_change ?? 0) || 0;
+          const price = delta ? `${delta > 0 ? '+' : '−'} ${formatCurrencyValue(db, Math.abs(delta))}` : t.ui.line_modifiers_free;
+          return UI.Button({
+            attrs:{
+              gkey:'pos:order:line:modifiers.toggle',
+              'data-line-id': lineId,
+              'data-mod-type':type,
+              'data-mod-id':item.id,
+              class: tw`justify-between`
+            },
+            variant: active ? 'solid' : 'ghost',
+            size:'sm'
+          }, [
+            D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [localize(item.label, lang)]),
+            D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [price])
+          ]);
+        }));
+      };
+
+      const addOnsSection = buildModifierButtons(catalog.addOns || [], 'add_on', selectedAddOns);
+      const removalsSection = buildModifierButtons(catalog.removals || [], 'removal', selectedRemovals);
+      const summaryRows = line && previewLine
+        ? D.Containers.Div({ attrs:{ class: tw`space-y-2 rounded-[var(--radius)] bg-[color-mix(in oklab,var(--surface-2) 90%, transparent)] px-3 py-2 text-sm` }}, [
+            UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+              D.Text.Span({}, [t.ui.line_modifiers_unit]),
+              UI.PriceText({ amount: previewLine.price, currency:getCurrency(db), locale:getLocale(db) })
+            ]),
+            UI.HStack({ attrs:{ class: tw`justify-between` }}, [
+              D.Text.Span({}, [t.ui.total]),
+              UI.PriceText({ amount: previewLine.total, currency:getCurrency(db), locale:getLocale(db) })
+            ])
+          ])
+        : null;
+
+      const description = line
+        ? `${localize(line.name, lang)} × ${line.qty}`
+        : t.ui.line_modifiers_missing;
+
+      return UI.Modal({
+        open:true,
+        title: t.ui.line_modifiers_title,
+        description,
+        closeGkey:'pos:order:line:modifiers.close',
+        content: D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Strong({}, [t.ui.line_modifiers_addons]),
+            addOnsSection
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+            D.Text.Strong({}, [t.ui.line_modifiers_removals]),
+            removalsSection
+          ]),
+          summaryRows
+        ].filter(Boolean)),
+        actions:[
+          UI.Button({ attrs:{ gkey:'pos:order:line:modifiers.close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close]),
+          line ? UI.Button({ attrs:{ gkey:'pos:order:line:modifiers.apply', 'data-line-id':lineId, class: tw`w-full` }, variant:'solid', size:'sm' }, [t.ui.line_modifiers_apply]) : null
+        ].filter(Boolean)
       });
     }
 
@@ -3986,6 +4202,7 @@
           TablesModal(db),
           ReservationsModal(db),
           PrintModal(db),
+          LineModifiersModal(db),
           PaymentsSheet(db),
           ReportsDrawer(db),
           OrdersQueueModal(db),
@@ -4262,11 +4479,8 @@
             const canMerge = !isPersisted;
             const idx = canMerge ? lines.findIndex(line=> String(line.itemId) === String(item.id)) : -1;
             if(idx >= 0){
-              const line = { ...lines[idx] };
-              line.qty += 1;
-              line.total = round(line.qty * line.price);
-              line.updatedAt = Date.now();
-              lines[idx] = line;
+              const existing = lines[idx];
+              lines[idx] = updateLineWithPricing(existing, { qty: (existing.qty || 0) + 1, updatedAt: Date.now() });
             } else {
               lines.push(createOrderLine(item, 1, { kitchenSection: item.kitchenSection }));
             }
@@ -4355,10 +4569,7 @@
             }
             const lines = (order.lines || []).map(l=>{
               if(l.id !== lineId) return l;
-              const next = { ...l, qty: l.qty + 1 };
-              next.total = round(next.qty * next.price);
-              next.updatedAt = Date.now();
-              return next;
+              return updateLineWithPricing(l, { qty: (l.qty || 0) + 1, updatedAt: Date.now() });
             });
             const totals = calculateTotals(lines, data.settings || {}, order.type);
             return {
@@ -4397,9 +4608,7 @@
                 continue;
               }
               if(line.qty <= 1) continue;
-              const next = { ...line, qty: line.qty - 1, updatedAt: Date.now() };
-              next.total = round(next.qty * next.price);
-              lines.push(next);
+              lines.push(updateLineWithPricing(line, { qty: line.qty - 1, updatedAt: Date.now() }));
             }
             const totals = calculateTotals(lines, data.settings || {}, order.type);
             return {
@@ -4435,10 +4644,7 @@
             const order = data.order || {};
             const lines = (order.lines || []).map(line=>{
               if(line.id !== lineId) return line;
-              const next = { ...line, qty };
-              next.total = round(next.qty * next.price);
-              next.updatedAt = Date.now();
-              return next;
+              return updateLineWithPricing(line, { qty, updatedAt: Date.now() });
             });
             const totals = calculateTotals(lines, data.settings || {}, order.type);
             return {
@@ -4452,12 +4658,141 @@
           ctx.rebuild();
         }
       },
-      'pos.order.line.actions':{
+      'pos.order.line.modifiers':{
         on:['click'],
-        gkeys:['pos:order:line:actions'],
+        gkeys:['pos:order:line:modifiers'],
         handler:(e,ctx)=>{
-          const t = getTexts(ctx.getState());
-          UI.pushToast(ctx, { title:t.toast.line_actions, icon:'🛠️' });
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          if(!lineId) return;
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          const line = (order.lines || []).find(entry=> entry.id === lineId);
+          if(!line){
+            UI.pushToast(ctx, { title:t.toast.order_nav_not_found, icon:'❓' });
+            return;
+          }
+          if(line.locked || (order.isPersisted && order.lockLineEdits) || (line.status && line.status !== 'draft')){
+            UI.pushToast(ctx, { title:t.toast.line_locked, icon:'🔒' });
+            return;
+          }
+          const selectedAddOns = (Array.isArray(line.modifiers) ? line.modifiers : []).filter(mod=> mod.type === 'add_on').map(mod=> String(mod.id));
+          const selectedRemovals = (Array.isArray(line.modifiers) ? line.modifiers : []).filter(mod=> mod.type === 'removal').map(mod=> String(mod.id));
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), modifiers:true },
+              lineModifiers:{ lineId, addOns:selectedAddOns, removals:selectedRemovals }
+            }
+          }));
+          ctx.rebuild();
+        }
+      },
+      'pos.order.line.modifiers.toggle':{
+        on:['click'],
+        gkeys:['pos:order:line:modifiers.toggle'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-mod-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          const modId = btn.getAttribute('data-mod-id');
+          const modType = btn.getAttribute('data-mod-type');
+          if(!lineId || !modId) return;
+          ctx.setState(s=>{
+            const current = s.ui?.lineModifiers || {};
+            if(current.lineId !== lineId){
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  lineModifiers:{ lineId, addOns: modType === 'removal' ? [] : [modId], removals: modType === 'removal' ? [modId] : [] }
+                }
+              };
+            }
+            const key = modType === 'removal' ? 'removals' : 'addOns';
+            const existing = new Set((current[key] || []).map(String));
+            if(existing.has(modId)) existing.delete(modId); else existing.add(modId);
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                lineModifiers:{
+                  ...current,
+                  lineId,
+                  [key]: Array.from(existing)
+                }
+              }
+            };
+          });
+          ctx.rebuild();
+        }
+      },
+      'pos.order.line.modifiers.apply':{
+        on:['click'],
+        gkeys:['pos:order:line:modifiers.apply'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          if(!lineId) return;
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          const line = (order.lines || []).find(entry=> entry.id === lineId);
+          if(!line){
+            UI.pushToast(ctx, { title:t.toast.order_nav_not_found, icon:'❓' });
+            return;
+          }
+          if(line.locked || (order.isPersisted && order.lockLineEdits) || (line.status && line.status !== 'draft')){
+            UI.pushToast(ctx, { title:t.toast.line_locked, icon:'🔒' });
+            return;
+          }
+          const catalog = state.data.modifiers || { addOns:[], removals:[] };
+          const draft = state.ui?.lineModifiers || {};
+          const addOnIds = new Set((draft.addOns || []).map(String));
+          const removalIds = new Set((draft.removals || []).map(String));
+          const mapModifier = (entry)=> entry ? { id:String(entry.id), type: entry.type, label: entry.label, priceChange: Number(entry.priceChange || 0) } : null;
+          const nextModifiers = [
+            ...((catalog.addOns || []).filter(entry=> addOnIds.has(String(entry.id))).map(mapModifier)),
+            ...((catalog.removals || []).filter(entry=> removalIds.has(String(entry.id))).map(mapModifier))
+          ].filter(Boolean);
+          const lines = (order.lines || []).map(item=>{
+            if(item.id !== lineId) return item;
+            return updateLineWithPricing(item, { modifiers: nextModifiers, updatedAt: Date.now() });
+          });
+          const totals = calculateTotals(lines, state.data.settings || {}, order.type);
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              order:{ ...order, lines, totals, updatedAt: Date.now() }
+            },
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), modifiers:false },
+              lineModifiers:{ lineId:null, addOns:[], removals:[] }
+            }
+          }));
+          ctx.rebuild();
+          UI.pushToast(ctx, { title:t.toast.line_modifiers_applied, icon:'✨' });
+        }
+      },
+      'pos.order.line.modifiers.close':{
+        on:['click'],
+        gkeys:['pos:order:line:modifiers.close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), modifiers:false },
+              lineModifiers:{ lineId:null, addOns:[], removals:[] }
+            }
+          }));
+          ctx.rebuild();
         }
       },
       'pos.order.clear':{
@@ -4487,6 +4822,8 @@
         on:['click'],
         gkeys:['pos:order:new'],
         handler: async (e,ctx)=>{
+          const trigger = e.target.closest('[data-save-mode]');
+          const mode = trigger?.getAttribute('data-save-mode') || 'save-only';
           const state = ctx.getState();
           const t = getTexts(state);
           const newId = await generateOrderId();
@@ -4776,6 +5113,17 @@
             });
             ctx.rebuild();
             await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+            if(mode === 'save-print'){
+              ctx.setState(s=>({
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  modals:{ ...(s.ui?.modals || {}), print:true },
+                  print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' }
+                }
+              }));
+              ctx.rebuild();
+            }
             UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });

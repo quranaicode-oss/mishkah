@@ -74,7 +74,7 @@ def({
 
   // numpad
   'numpad/root':      'flex flex-col gap-4',
-  'numpad/display':   'rounded-[var(--radius)] border-2 border-[color-mix(in oklab,var(--primary) 45%, transparent)] bg-[color-mix(in oklab,var(--card) 88%, var(--primary)/10%)] px-6 py-6 text-center text-4xl font-bold tracking-[0.6em] text-[var(--foreground)] shadow-[0_22px_48px_-24px_rgba(15,23,42,0.65)] transition-all',
+  'numpad/display':   'rounded-[var(--radius)] border-2 border-[color-mix(in oklab,var(--primary) 45%, transparent)] bg-[color-mix(in oklab,var(--card) 88%, var(--primary)/10%)] px-6 py-6 text-center text-3xl font-semibold tracking-[0.08em] leading-tight text-[var(--foreground)] shadow-[0_22px_48px_-24px_rgba(15,23,42,0.65)] transition-all',
   'numpad/grid':      'grid grid-cols-3 gap-3',
   'numpad/key':       'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--foreground)] shadow-[0_18px_40px_-24px_rgba(15,23,42,0.55)] transition-transform duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_26px_48px_-20px_rgba(15,23,42,0.55)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] select-none',
   'numpad/key-disabled':'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--muted-foreground)] opacity-60',
@@ -1002,7 +1002,7 @@ UI.Tabs = ({ items=[], activeId, gkey='ui:tabs:select' })=>{
   return UI.VStack({}, [header, ...panels]);
 };
 
-UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:close' })=>{
+UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:close', panelAttrs={} })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const isRTL = (document.documentElement.getAttribute('dir')||'ltr')==='rtl';
   const start = isRTL? 'right-0':'left-0';
@@ -1012,7 +1012,7 @@ UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:c
     h.Containers.Div({ attrs:{ class: tw`absolute inset-0`, gkey:closeGkey }}, [
       h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}` }})
     ]),
-    h.Containers.Aside({ attrs:{ class: tw`${token('drawer/side')} ${place}` }}, [
+    h.Containers.Aside({ attrs: withClass(panelAttrs, tw`${token('drawer/side')} ${place}`) }, [
       h.Containers.Div({ attrs:{ class: tw`${token('drawer/body')}` }}, [ header, content ])
     ])
   ]);
