@@ -319,33 +319,159 @@
   const DESIGN_LAB_VARIABLES = [
     { name: '--background', labelKey: 'designLab.var.background', type: 'color', default: 'hsl(214 55% 98%)', group: 'core' },
     { name: '--foreground', labelKey: 'designLab.var.foreground', type: 'color', default: 'hsl(222 47% 14%)', group: 'core' },
-    { name: '--muted', labelKey: 'designLab.var.mutedBase', type: 'color', default: 'hsl(213 32% 92%)', group: 'core' },
-    { name: '--muted-foreground', labelKey: 'designLab.var.muted', type: 'color', default: 'hsl(215 20% 42%)', group: 'core' },
+    {
+      name: '--muted',
+      labelKey: 'designLab.var.mutedBase',
+      type: 'color',
+      default: 'hsl(213 32% 92%)',
+      darkDefault: 'hsl(222 34% 18%)',
+      group: 'core'
+    },
+    {
+      name: '--muted-foreground',
+      labelKey: 'designLab.var.muted',
+      type: 'color',
+      default: 'hsl(215 20% 42%)',
+      darkDefault: 'hsl(215 18% 72%)',
+      group: 'core'
+    },
     { name: '--primary', labelKey: 'designLab.var.primary', type: 'color', default: 'hsl(221 83% 53%)', group: 'core' },
     { name: '--primary-foreground', labelKey: 'designLab.var.primaryForeground', type: 'color', default: '#ffffff', group: 'core' },
     { name: '--accent', labelKey: 'designLab.var.accent', type: 'color', default: 'hsl(199 92% 47%)', group: 'core' },
     { name: '--accent-foreground', labelKey: 'designLab.var.accentForeground', type: 'color', default: '#06283d', group: 'core' },
-    { name: '--ring', labelKey: 'designLab.var.ring', type: 'color', default: 'hsl(221 83% 53%)', group: 'core' },
-    { name: '--accent-ring', labelKey: 'designLab.var.accentRing', type: 'color', default: 'rgba(99, 102, 241, 0.35)', group: 'core' },
-    { name: '--card', labelKey: 'designLab.var.card', type: 'color', default: 'hsl(0 0% 100%)', group: 'surface' },
-    { name: '--card-foreground', labelKey: 'designLab.var.cardForeground', type: 'color', default: 'hsl(222 47% 14%)', group: 'surface' },
+    {
+      name: '--ring',
+      labelKey: 'designLab.var.ring',
+      type: 'color',
+      default: 'hsl(221 83% 53%)',
+      darkDefault: 'hsl(220 90% 66%)',
+      group: 'core'
+    },
+    {
+      name: '--accent-ring',
+      labelKey: 'designLab.var.accentRing',
+      type: 'color',
+      default: 'rgba(99, 102, 241, 0.35)',
+      darkDefault: 'rgba(129, 140, 248, 0.35)',
+      group: 'core'
+    },
+    {
+      name: '--card',
+      labelKey: 'designLab.var.card',
+      type: 'color',
+      default: 'hsl(0 0% 100%)',
+      darkDefault: 'hsl(222 42% 12%)',
+      group: 'surface'
+    },
+    {
+      name: '--card-foreground',
+      labelKey: 'designLab.var.cardForeground',
+      type: 'color',
+      default: 'hsl(222 47% 14%)',
+      darkDefault: 'hsl(214 32% 96%)',
+      group: 'surface'
+    },
     { name: '--surface-1', labelKey: 'designLab.var.surface1', type: 'text', default: 'color-mix(in oklab, var(--background) 96%, white)', group: 'surface' },
     { name: '--surface-2', labelKey: 'designLab.var.surface2', type: 'text', default: 'color-mix(in oklab, var(--background) 92%, white)', group: 'surface' },
     { name: '--surface-3', labelKey: 'designLab.var.surface3', type: 'text', default: 'color-mix(in oklab, var(--background) 88%, white)', group: 'surface' },
     { name: '--border', labelKey: 'designLab.var.border', type: 'color', default: 'hsl(216 33% 85%)', group: 'surface' },
-    { name: '--input', labelKey: 'designLab.var.input', type: 'color', default: 'hsl(216 33% 85%)', group: 'surface' },
-    { name: '--shadow', labelKey: 'designLab.var.shadow', type: 'text', default: '0 12px 36px rgba(15, 23, 42, 0.12)', group: 'surface' },
+    {
+      name: '--input',
+      labelKey: 'designLab.var.input',
+      type: 'color',
+      default: 'hsl(216 33% 85%)',
+      darkDefault: 'hsl(217 24% 28%)',
+      group: 'surface'
+    },
+    {
+      name: '--shadow',
+      labelKey: 'designLab.var.shadow',
+      type: 'text',
+      default: '0 12px 36px rgba(15, 23, 42, 0.12)',
+      darkDefault: '0 20px 48px rgba(2, 6, 23, 0.55)',
+      group: 'surface'
+    },
     { name: '--radius', labelKey: 'designLab.var.radius', type: 'text', default: '1rem', group: 'surface' },
-    { name: '--page-gradient', labelKey: 'designLab.var.gradient', type: 'text', default: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)', group: 'surface' },
-    { name: '--page-overlay-1', labelKey: 'designLab.var.overlay1', type: 'text', default: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)', group: 'surface' },
-    { name: '--page-overlay-2', labelKey: 'designLab.var.overlay2', type: 'text', default: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)', group: 'surface' },
-    { name: '--panel-glass', labelKey: 'designLab.var.panelGlass', type: 'text', default: 'rgba(255, 255, 255, 0.78)', group: 'surface' },
-    { name: '--panel-border', labelKey: 'designLab.var.panelBorder', type: 'text', default: 'rgba(99, 102, 241, 0.12)', group: 'surface' },
-    { name: '--tile-bg', labelKey: 'designLab.var.tileBg', type: 'text', default: 'linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85))', group: 'surface' },
-    { name: '--tile-bg-revealed', labelKey: 'designLab.var.tileRevealed', type: 'text', default: 'linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65))', group: 'surface' },
-    { name: '--tile-border', labelKey: 'designLab.var.tileBorder', type: 'text', default: 'rgba(99, 102, 241, 0.25)', group: 'surface' },
-    { name: '--letters-shadow', labelKey: 'designLab.var.lettersShadow', type: 'text', default: '0 18px 45px -24px rgba(15, 23, 42, 0.35)', group: 'effects' },
-    { name: '--letters-hover', labelKey: 'designLab.var.lettersHover', type: 'text', default: '0 25px 50px -20px rgba(99, 102, 241, 0.45)', group: 'effects' },
+    {
+      name: '--page-gradient',
+      labelKey: 'designLab.var.gradient',
+      type: 'text',
+      default: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)',
+      darkDefault: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)',
+      group: 'surface'
+    },
+    {
+      name: '--page-overlay-1',
+      labelKey: 'designLab.var.overlay1',
+      type: 'text',
+      default: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)',
+      darkDefault: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)',
+      group: 'surface'
+    },
+    {
+      name: '--page-overlay-2',
+      labelKey: 'designLab.var.overlay2',
+      type: 'text',
+      default: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)',
+      darkDefault: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)',
+      group: 'surface'
+    },
+    {
+      name: '--panel-glass',
+      labelKey: 'designLab.var.panelGlass',
+      type: 'text',
+      default: 'rgba(255, 255, 255, 0.78)',
+      darkDefault: 'rgba(17, 25, 40, 0.75)',
+      group: 'surface'
+    },
+    {
+      name: '--panel-border',
+      labelKey: 'designLab.var.panelBorder',
+      type: 'text',
+      default: 'rgba(99, 102, 241, 0.12)',
+      darkDefault: 'rgba(148, 163, 184, 0.32)',
+      group: 'surface'
+    },
+    {
+      name: '--tile-bg',
+      labelKey: 'designLab.var.tileBg',
+      type: 'text',
+      default: 'linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85))',
+      darkDefault: 'linear-gradient(160deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.92))',
+      group: 'surface'
+    },
+    {
+      name: '--tile-bg-revealed',
+      labelKey: 'designLab.var.tileRevealed',
+      type: 'text',
+      default: 'linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65))',
+      darkDefault: 'linear-gradient(160deg, rgba(99, 102, 241, 0.55), rgba(79, 70, 229, 0.38))',
+      group: 'surface'
+    },
+    {
+      name: '--tile-border',
+      labelKey: 'designLab.var.tileBorder',
+      type: 'text',
+      default: 'rgba(99, 102, 241, 0.25)',
+      darkDefault: 'rgba(148, 163, 184, 0.35)',
+      group: 'surface'
+    },
+    {
+      name: '--letters-shadow',
+      labelKey: 'designLab.var.lettersShadow',
+      type: 'text',
+      default: '0 18px 45px -24px rgba(15, 23, 42, 0.35)',
+      darkDefault: '0 20px 40px -18px rgba(148, 163, 184, 0.35)',
+      group: 'effects'
+    },
+    {
+      name: '--letters-hover',
+      labelKey: 'designLab.var.lettersHover',
+      type: 'text',
+      default: '0 25px 50px -20px rgba(99, 102, 241, 0.45)',
+      darkDefault: '0 28px 60px -20px rgba(99, 102, 241, 0.6)',
+      group: 'effects'
+    },
     { name: '--tile-size', labelKey: 'designLab.var.tileSize', type: 'range', min: 2.6, max: 4, step: 0.05, unit: 'rem', default: '3.1rem', group: 'sizing' },
     { name: '--font-size-body', labelKey: 'designLab.var.font.body', type: 'range', min: 0.85, max: 1.35, step: 0.01, unit: 'rem', default: '1rem', group: 'typography' },
     { name: '--font-size-heading-1', labelKey: 'designLab.var.font.h1', type: 'range', min: 2.1, max: 3.4, step: 0.05, unit: 'rem', default: '2.6rem', group: 'typography' },
@@ -379,10 +505,28 @@
     { id: 'sizing', labelKey: 'designLab.group.sizing', hintKey: 'designLab.group.sizingHint', vars: ['--tile-size'] }
   ];
 
-  const DESIGN_LAB_DEFAULTS = DESIGN_LAB_VARIABLES.reduce((acc, item) => {
-    acc[item.name] = item.default;
+  const DESIGN_LAB_DEFAULTS_BY_MODE = DESIGN_LAB_VARIABLES.reduce((acc, item) => {
+    const lightValue = item.default;
+    const darkValue = Object.prototype.hasOwnProperty.call(item, 'darkDefault')
+      ? item.darkDefault
+      : item.default;
+    acc.light[item.name] = lightValue;
+    acc.dark[item.name] = darkValue;
     return acc;
-  }, {});
+  }, { light: {}, dark: {} });
+
+  function getDesignLabDefaults(mode) {
+    return mode === 'dark' ? DESIGN_LAB_DEFAULTS_BY_MODE.dark : DESIGN_LAB_DEFAULTS_BY_MODE.light;
+  }
+
+  function getDesignLabDefaultValue(name, mode) {
+    const defaults = getDesignLabDefaults(mode);
+    if (Object.prototype.hasOwnProperty.call(defaults, name)) {
+      return defaults[name];
+    }
+    const lightDefaults = DESIGN_LAB_DEFAULTS_BY_MODE.light;
+    return Object.prototype.hasOwnProperty.call(lightDefaults, name) ? lightDefaults[name] : '';
+  }
 
   function valuesEqual(a, b) {
     return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim();
@@ -426,7 +570,7 @@
     if (presetOverrides[name] != null && String(presetOverrides[name]).trim() !== '') {
       return presetOverrides[name];
     }
-    return DESIGN_LAB_DEFAULTS[name] || '';
+    return getDesignLabDefaultValue(name, preset && preset.mode);
   }
 
   function normalizeThemeLabValue(raw, meta) {
@@ -715,6 +859,7 @@
     const overrides = ensureDict(data.themeOverrides);
     const draft = ensureDict(themeLabUi.draft);
     const presetOverrides = ensureDict(activePreset && activePreset.overrides);
+    const activeMode = activePreset && activePreset.mode;
 
     const quickButtons = presets.map((preset, idx) => {
       const key = preset.key || `preset-${idx}`;
@@ -742,7 +887,7 @@
         if (!def) return null;
         const baseline = presetOverrides[name] != null && String(presetOverrides[name]).trim() !== ''
           ? presetOverrides[name]
-          : (DESIGN_LAB_DEFAULTS[name] || '');
+          : getDesignLabDefaultValue(name, activeMode);
         const draftValue = draft[name];
         const overrideValue = overrides[name];
         let currentValue = draftValue != null ? draftValue : (overrideValue != null ? overrideValue : baseline);
@@ -1580,9 +1725,10 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
     const defaultPreset = themePresets[0] || null;
     const languageOptions = resolveLanguageOptions(DEFAULT_LANG_OPTIONS);
     const baseOverrides = defaultPreset ? cloneThemeOverrides(defaultPreset.overrides) : {};
-    Object.keys(DESIGN_LAB_DEFAULTS).forEach((key) => {
+    const defaultsForMode = getDesignLabDefaults(defaultPreset && defaultPreset.mode);
+    Object.keys(defaultsForMode).forEach((key) => {
       if (!Object.prototype.hasOwnProperty.call(baseOverrides, key)) {
-        baseOverrides[key] = DESIGN_LAB_DEFAULTS[key];
+        baseOverrides[key] = defaultsForMode[key];
       }
     });
     const initialTheme = defaultPreset && defaultPreset.mode === 'dark' ? 'dark' : 'light';
@@ -1786,9 +1932,10 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         const state = context.getState();
         const preset = getActiveThemePreset(state);
         const baseOverrides = cloneThemeOverrides(preset && preset.overrides);
-        Object.keys(DESIGN_LAB_DEFAULTS).forEach((key) => {
+        const defaultsForMode = getDesignLabDefaults(preset && preset.mode);
+        Object.keys(defaultsForMode).forEach((key) => {
           if (!Object.prototype.hasOwnProperty.call(baseOverrides, key)) {
-            baseOverrides[key] = DESIGN_LAB_DEFAULTS[key];
+            baseOverrides[key] = defaultsForMode[key];
           }
         });
         let appliedOverrides = baseOverrides;
