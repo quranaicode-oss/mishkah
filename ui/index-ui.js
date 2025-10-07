@@ -25,6 +25,7 @@
     'header.theme.toggle': { ar: 'تبديل الثيم', en: 'Toggle theme' },
     'nav.counter': { ar: 'العداد', en: 'Counter' },
     'nav.proverbs': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
+    'nav.sequence': { ar: 'لعبة المتواليات', en: 'Sequence Game' },
     'nav.readme': { ar: 'اقرأ الوثيقة', en: 'Read Me' },
     'counter.title': { ar: 'عداد بسيط', en: 'Simple Counter' },
     'counter.reset': { ar: 'إعادة', en: 'Reset' },
@@ -57,6 +58,32 @@
     'readme.hint': { ar: 'بدّل اللغة من الأعلى لقراءة الوثيقة بلغتك المفضلة.', en: 'Switch language from the header to read in your preferred language.' },
     'readme.section.tec': { ar: 'الوثيقة التقنية', en: 'Technical Document' },
     'readme.section.base': { ar: 'الوثيقة الأساسية', en: 'Foundational Document' },
+    'sequence.title': { ar: 'لعبة تخمين المتواليات العددية', en: 'Number Sequence Challenge' },
+    'sequence.description': { ar: 'حلّل النمط وتوقّع الرقم التالي في المتوالية.', en: 'Analyze the pattern and predict the next number in the sequence.' },
+    'sequence.start': { ar: 'ابدأ التحدي', en: 'Start challenge' },
+    'sequence.new': { ar: 'متوالية جديدة', en: 'New sequence' },
+    'sequence.submit': { ar: 'تحقّق من الإجابة', en: 'Check answer' },
+    'sequence.inputLabel': { ar: 'توقع الرقم التالي', en: 'Guess the next number' },
+    'sequence.tries': { ar: 'المحاولات المتبقية', en: 'Tries left' },
+    'sequence.statusLabel': { ar: 'حالة اللعبة', en: 'Game status' },
+    'sequence.status.idle': { ar: 'جاهزة للبدء', en: 'Ready to start' },
+    'sequence.status.running': { ar: 'قيد اللعب', en: 'In progress' },
+    'sequence.status.won': { ar: 'انتصار', en: 'Victory' },
+    'sequence.status.lost': { ar: 'خسارة', en: 'Defeat' },
+    'sequence.feedback.correct': { ar: 'توقع صحيح! استمر في التحليل.', en: 'Great prediction! Keep reading the pattern.' },
+    'sequence.feedback.wrong': { ar: 'المتوالية تشير لرقم مختلف، حاول مجددًا.', en: 'The sequence points elsewhere—try again.' },
+    'sequence.feedback.win': { ar: 'إجابة مذهلة! اكتشفت النمط الكامل.', en: 'Brilliant! You uncovered the full pattern.' },
+    'sequence.feedback.lose': { ar: 'انتهت المحاولات، فلنتعلّم من النمط.', en: 'Out of tries—let’s learn from the pattern.' },
+    'sequence.hintTitle': { ar: 'تلميح عن النمط', en: 'Pattern hint' },
+    'sequence.rule': { ar: 'قاعدة المتوالية', en: 'Sequence rule' },
+    'sequence.answer': { ar: 'الإجابة الصحيحة', en: 'Correct answer' },
+    'sequence.lesson': { ar: 'ما نتعلمه', en: 'Lesson' },
+    'sequence.prompt': { ar: 'ما هو الرقم التالي؟', en: 'What is the next number?' },
+    'sequence.historyTitle': { ar: 'سجل المحاولات', en: 'Attempt history' },
+    'sequence.history.empty': { ar: 'ابدأ اللعب لتظهر محاولاتك هنا.', en: 'Start playing to see your attempts here.' },
+    'sequence.reveal': { ar: 'اكتشف الحل', en: 'Reveal solution' },
+    'sequence.revealPrompt': { ar: 'انقر لاكتشاف شرح النمط بعد انتهاء الجولة.', en: 'Tap to reveal the pattern explanation after the round.' },
+    'sequence.tryAgain': { ar: 'حاول مرة أخرى', en: 'Try again' },
     'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' }
   };
 
@@ -78,6 +105,13 @@
       return text;
     };
     return { TL, lang };
+  }
+
+  function localize(entry, lang, fallback) {
+    if (!entry) return '';
+    if (typeof entry === 'string') return entry;
+    if (entry[lang]) return entry[lang];
+    return entry[fallback] || '';
   }
 
   /* ------------------------------------------------------------------ */
@@ -117,6 +151,37 @@
     }
   ];
 
+  const SEQUENCE_BANK = [
+    {
+      numbers: [2, 4, 6, 8],
+      answer: 10,
+      hint: { ar: 'كل رقم يزيد بمقدار ثابت.', en: 'Each number increases by the same fixed amount.' },
+      rule: { ar: 'نضيف ٢ في كل خطوة.', en: 'Add 2 at every step.' },
+      lesson: { ar: 'راقب الفروق الثابتة لاكتشاف الأنماط البسيطة.', en: 'Watch fixed differences to spot simple patterns.' }
+    },
+    {
+      numbers: [3, 9, 27],
+      answer: 81,
+      hint: { ar: 'تضاعف سريع لكل عنصر.', en: 'A rapid multiplication for every entry.' },
+      rule: { ar: 'نضرب في ٣ في كل مرة.', en: 'Multiply by 3 each time.' },
+      lesson: { ar: 'الأساسات الأسية تكشف عن نمو متسارع.', en: 'Exponential bases expose accelerating growth.' }
+    },
+    {
+      numbers: [1, 1, 2, 3, 5],
+      answer: 8,
+      hint: { ar: 'الرقم التالي يعتمد على مجموع رقمين سابقين.', en: 'Each term depends on the sum of two previous terms.' },
+      rule: { ar: 'كل رقم هو مجموع الرقمين السابقين.', en: 'Each number is the sum of the previous two.' },
+      lesson: { ar: 'التراكم المرحلي يبني أنماطًا غنية.', en: 'Stepwise accumulation builds rich patterns.' }
+    },
+    {
+      numbers: [5, 10, 20, 40],
+      answer: 80,
+      hint: { ar: 'النسبة تتضاعف.', en: 'The ratio doubles every time.' },
+      rule: { ar: 'نضرب في ٢ في كل انتقال.', en: 'Multiply by 2 at every transition.' },
+      lesson: { ar: 'تتبع معاملات الضرب يكشف المتواليات الهندسية.', en: 'Tracking multiplication factors reveals geometric sequences.' }
+    }
+  ];
+
   const SOUND_EFFECTS = {
     correct: 'https://cdn.mishkah.dev/audio/correct.mp3',
     wrong: 'https://cdn.mishkah.dev/audio/wrong.mp3',
@@ -151,6 +216,17 @@
     audioIdx: 0,
     audioList: MUSIC_TRACKS,
     soundStamp: 0
+  };
+
+  const INITIAL_SEQUENCE_STATE = {
+    sequence: null,
+    status: 'idle',
+    guess: '',
+    triesMax: 3,
+    triesLeft: 3,
+    feedback: null,
+    history: [],
+    reveal: false
   };
 
   function norm(ch) {
@@ -442,104 +518,250 @@
     });
   }
 
-    function ReadmeCompTec(db) {
-      const { TL, lang } = makeLangLookup(db);
-      const docs = db.data.docs || {};
-      const fallbackLang = lang === 'ar' ? 'en' : 'ar';
-      const pack = docs[lang] || {};
-      const fallbackPack = docs[fallbackLang] || {};
-      const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
-      const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
+  function SequenceGameComp(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const state = db.data.sequenceGame || INITIAL_SEQUENCE_STATE;
+    const sequence = state.sequence;
+    const status = state.status || 'idle';
+    const triesLeft = typeof state.triesLeft === 'number' ? state.triesLeft : state.triesMax;
+    const guessValue = typeof state.guess === 'string' ? state.guess : '';
+    const canSubmit = status === 'running' && guessValue.trim() !== '';
 
-      const sections = [];
-      if (techDoc) {
-        sections.push(
-          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
-            UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
-          ])
-        );
-      }
-      if (techDoc && baseDoc) {
-        sections.push(UI.Divider());
-      }
-      if (baseDoc) {
-        sections.push(
-          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
-            UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
-          ])
-        );
-      }
+    const startLabel = status === 'running' ? TL('sequence.new') : status === 'idle' ? TL('sequence.start') : TL('sequence.tryAgain');
 
-      return UI.Card({
-        title: TL('readme.title'),
-        description: TL('readme.hint'),
-        content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
-          UI.EmptyState({
-            icon: '📄',
-            title: TL('readme.title'),
-            message: TL('readme.hint')
-          })
-        ])
-      });
+    const startButton = UI.Button({
+      attrs: {
+        gkey: 'sequence:start',
+        class: tw`rounded-full px-4 py-2 text-sm font-semibold`
+      },
+      variant: 'soft',
+      size: 'sm'
+    }, [startLabel]);
+
+    const summaryStrip = D.Containers.Div({
+      attrs: {
+        class: tw`flex flex-wrap items-center justify-between gap-3 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)75%,transparent)] px-4 py-2 shadow-sm`
+      }
+    }, [
+      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['🎯 ', TL('sequence.statusLabel')]),
+        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [TL(`sequence.status.${status}`)])
+      ]),
+      D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, ['❤️ ', TL('sequence.tries')]),
+        D.Text.Span({ attrs: { class: tw`text-base font-semibold` } }, [`${triesLeft}/${state.triesMax}`])
+      ]),
+      startButton
+    ]);
+
+    const numbersNodes = (sequence ? sequence.numbers : []).map((num, idx) => (
+      D.Containers.Div({
+        attrs: {
+          key: `seq-${idx}`,
+          class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] text-xl font-semibold`
+        }
+      }, [String(num)])
+    ));
+    numbersNodes.push(
+      D.Containers.Div({
+        attrs: {
+          key: 'seq-next',
+          class: tw`grid h-12 w-12 place-items-center rounded-2xl border border-dashed border-[color-mix(in_oklab,var(--primary)45%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-xl font-semibold`
+        }
+      }, ['?'])
+    );
+
+    const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+      D.Text.P({ attrs: { class: tw`text-center text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.prompt')]),
+      D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center justify-center gap-3` } }, numbersNodes)
+    ]);
+
+    const guessFieldId = 'sequence-guess-field';
+    const guessField = UI.Field({
+      id: guessFieldId,
+      label: TL('sequence.inputLabel'),
+      control: UI.Input({
+        attrs: {
+          id: guessFieldId,
+          type: 'number',
+          inputmode: 'numeric',
+          value: guessValue,
+          placeholder: TL('sequence.prompt'),
+          gkey: 'sequence:update',
+          'data-field': 'guess'
+        }
+      })
+    });
+
+    const submitButton = UI.Button({
+      attrs: {
+        gkey: 'sequence:submit',
+        class: tw`md:self-end`,
+        disabled: !canSubmit
+      },
+      variant: 'soft',
+      size: 'md'
+    }, [TL('sequence.submit')]);
+
+    const formRow = D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]` } }, [guessField, submitButton]);
+
+    const revealPrompt = sequence && (status === 'won' || status === 'lost') && !state.reveal
+      ? D.Containers.Div({ attrs: { class: tw`space-y-3 text-center` } }, [
+        D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.revealPrompt')]),
+        UI.Button({
+          attrs: { gkey: 'sequence:reveal', class: tw`w-full rounded-full py-3 font-semibold` },
+          variant: 'soft',
+          size: 'lg'
+        }, [TL('sequence.reveal')])
+      ])
+      : null;
+
+    const feedbackMessages = {
+      correct: TL('sequence.feedback.correct'),
+      wrong: TL('sequence.feedback.wrong'),
+      win: TL('sequence.feedback.win'),
+      lose: TL('sequence.feedback.lose')
+    };
+
+    const infoTiles = [];
+    const feedbackType = state.feedback && state.feedback.type;
+    if (feedbackType && feedbackMessages[feedbackType]) {
+      infoTiles.push(
+        UI.Card({
+          tone: feedbackType === 'wrong' ? 'warning' : feedbackType === 'lose' ? 'danger' : 'success',
+          icon: feedbackType === 'correct' ? '✅' : feedbackType === 'wrong' ? '⚠️' : feedbackType === 'win' ? '🏆' : '💔',
+          title: TL('sequence.statusLabel'),
+          description: feedbackMessages[feedbackType]
+        })
+      );
     }
-    function ReadmeCompBase(db) {
-      const { TL, lang } = makeLangLookup(db);
-      const docs = db.data.docs || {};
-      const fallbackLang = lang === 'ar' ? 'en' : 'ar';
-      const pack = docs[lang] || {};
-      const fallbackPack = docs[fallbackLang] || {};
-      const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
-      const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
 
-      const sections = [];
-      if (techDoc) {
-        sections.push(
-          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.tec')]),
-            UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
-          ])
-        );
-      }
-      if (techDoc && baseDoc) {
-        sections.push(UI.Divider());
-      }
-      if (baseDoc) {
-        sections.push(
-          D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
-            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [TL('readme.section.base')]),
-            UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
-          ])
-        );
-      }
-
-      return UI.Card({
-        title: TL('readme.title'),
-        description: TL('readme.hint'),
-        content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, sections.length ? sections : [
-          UI.EmptyState({
-            icon: '📄',
-            title: TL('readme.title'),
-            message: TL('readme.hint')
-          })
-        ])
-      });
+    if (sequence) {
+      infoTiles.push(
+        UI.Card({
+          icon: '💡',
+          title: TL('sequence.hintTitle'),
+          description: localize(sequence.hint, lang, fallbackLang)
+        })
+      );
     }
+
+    if (sequence && state.reveal) {
+      infoTiles.push(
+        UI.Card({
+          icon: '🧠',
+          title: TL('sequence.rule'),
+          description: D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+            D.Text.P({ attrs: { class: tw`font-semibold` } }, [TL('sequence.answer'), ': ', String(sequence.answer)]),
+            D.Text.P({}, [TL('sequence.rule'), ': ', localize(sequence.rule, lang, fallbackLang)]),
+            D.Text.P({}, [TL('sequence.lesson'), ': ', localize(sequence.lesson, lang, fallbackLang)])
+          ])
+        })
+      );
+    }
+
+    const infoSection = infoTiles.length
+      ? D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } }, infoTiles)
+      : null;
+
+    const historyItems = (state.history || []).map((entry, idx) => (
+      D.Lists.Li({
+        attrs: {
+          key: `history-${idx}`,
+          class: tw`flex items-center justify-between rounded-lg border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2`
+        }
+      }, [
+        D.Text.Span({ attrs: { class: tw`text-sm font-medium` } }, [entry.guess != null && entry.guess !== '' ? String(entry.guess) : '—']),
+        D.Text.Span({
+          attrs: {
+            class: cx(
+              tw`text-xs font-semibold`,
+              entry.result === 'correct'
+                ? tw`text-emerald-600 dark:text-emerald-400`
+                : tw`text-amber-600 dark:text-amber-400`
+            )
+          }
+        }, [TL(`sequence.feedback.${entry.result === 'correct' ? 'correct' : 'wrong'}`)])
+      ])
+    ));
+
+    const historyContent = historyItems.length
+      ? D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, historyItems)
+      : D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('sequence.history.empty')]);
+
+    const historyCard = UI.Card({
+      title: TL('sequence.historyTitle'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [historyContent])
+    });
+
+    return UI.Card({
+      title: TL('sequence.title'),
+      description: TL('sequence.description'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+        summaryStrip,
+        board,
+        formRow,
+        revealPrompt,
+        infoSection,
+        historyCard
+      ].filter(Boolean))
+    });
+  }
+
+  function ReadmeCompTec(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const docs = db.data.docs || {};
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const pack = docs[lang] || {};
+    const fallbackPack = docs[fallbackLang] || {};
+    const techDoc = (pack.tec && pack.tec.trim()) || (fallbackPack.tec && fallbackPack.tec.trim()) || '';
+
+    const content = techDoc
+      ? UI.Markdown({ content: techDoc, className: tw`prose max-w-none` })
+      : UI.EmptyState({ icon: '📄', title: TL('readme.section.tec'), message: TL('readme.hint') });
+
+    return UI.Card({
+      title: TL('readme.section.tec'),
+      description: TL('readme.hint'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [content])
+    });
+  }
+
+  function ReadmeCompBase(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const docs = db.data.docs || {};
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const pack = docs[lang] || {};
+    const fallbackPack = docs[fallbackLang] || {};
+    const baseDoc = (pack.base && pack.base.trim()) || (fallbackPack.base && fallbackPack.base.trim()) || '';
+
+    const content = baseDoc
+      ? UI.Markdown({ content: baseDoc, className: tw`prose max-w-none` })
+      : UI.EmptyState({ icon: '📄', title: TL('readme.section.base'), message: TL('readme.hint') });
+
+    return UI.Card({
+      title: TL('readme.section.base'),
+      description: TL('readme.hint'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [content])
+    });
+  }
   IndexApp.registry = {
     HeaderComp,
     FooterComp,
     CounterComp,
+    SequenceGameComp,
     ProverbsGameComp,
     ReadmeCompTec,
     ReadmeCompBase
   };
 
   IndexApp.pages = [
-    { key: 'proverbs', order: 1, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
-    { key: 'counter', order: 2, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
-    { key: 'readme', order: 3, icon: '📚', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
-    { key: 'readme', order: 3, icon: '📚', label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' }, comp: 'ReadmeCompBase' }
+    { key: 'sequence', order: 1, icon: '🧮', label: { ar: 'لعبة المتواليات', en: 'Sequence Game' }, comp: 'SequenceGameComp' },
+    { key: 'proverbs', order: 2, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
+    { key: 'counter', order: 3, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
+    { key: 'readme:tec', order: 4, icon: '📘', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
+    { key: 'readme:base', order: 5, icon: '📗', label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' }, comp: 'ReadmeCompBase' }
 
   ];
 
@@ -564,9 +786,10 @@
       i18n: { lang: 'ar', fallback: 'en', dict },
       data: {
         pages: IndexApp.pages,
-        active: 'proverbs',
+        active: 'sequence',
         counter: 0,
         game: { ...INITIAL_GAME_STATE },
+        sequenceGame: { ...INITIAL_SEQUENCE_STATE },
         docs: loadDocs(),
         slots: {
           header: 'HeaderComp',
@@ -585,6 +808,18 @@
       data: {
         ...state.data,
         game: next
+      }
+    };
+  }
+
+  function withSequence(state, updater) {
+    const current = state.data.sequenceGame || { ...INITIAL_SEQUENCE_STATE };
+    const next = typeof updater === 'function' ? updater(current) : current;
+    return {
+      ...state,
+      data: {
+        ...state.data,
+        sequenceGame: next
       }
     };
   }
@@ -638,6 +873,15 @@
     return PROVERBS[Math.floor(Math.random() * PROVERBS.length)];
   }
 
+  function selectRandomSequence() {
+    if (!SEQUENCE_BANK.length) return null;
+    const hasRandomInt = U && U.Num && typeof U.Num.randomInt === 'function';
+    const idx = hasRandomInt
+      ? U.Num.randomInt(0, SEQUENCE_BANK.length - 1)
+      : Math.floor(Math.random() * SEQUENCE_BANK.length);
+    return SEQUENCE_BANK[idx];
+  }
+
   IndexApp.orders = {
     'counter:inc': {
       on: ['click'],
@@ -669,6 +913,92 @@
           ...prev,
           data: { ...prev.data, counter: 0 }
         }));
+        context.rebuild();
+      }
+    },
+    'sequence:start': {
+      on: ['click'],
+      gkeys: ['sequence:start'],
+      handler: (event, context) => {
+        const sequence = selectRandomSequence();
+        if (!sequence) return;
+        context.setState((prev) => withSequence(prev, () => ({
+          ...INITIAL_SEQUENCE_STATE,
+          sequence,
+          status: 'running',
+          triesLeft: INITIAL_SEQUENCE_STATE.triesMax,
+          feedback: null,
+          history: []
+        })));
+        context.rebuild();
+      }
+    },
+    'sequence:update': {
+      on: ['input'],
+      gkeys: ['sequence:update'],
+      handler: (event, context) => {
+        const field = event.target.closest ? event.target.closest('[data-field]') : event.target;
+        if (!field || field.getAttribute('data-field') !== 'guess') return;
+        const value = typeof field.value === 'string' ? field.value : '';
+        context.setState((prev) => withSequence(prev, (seq) => ({
+          ...seq,
+          guess: value
+        })));
+        context.rebuild();
+      }
+    },
+    'sequence:submit': {
+      on: ['click'],
+      gkeys: ['sequence:submit'],
+      handler: (event, context) => {
+        const state = context.getState();
+        const seqGame = state.data.sequenceGame;
+        if (!seqGame || seqGame.status !== 'running' || !seqGame.sequence) return;
+        const rawGuess = typeof seqGame.guess === 'string' ? seqGame.guess : '';
+        const trimmed = rawGuess.trim();
+        if (!trimmed) return;
+        const guessNumber = Number(trimmed);
+        const isCorrect = Number.isFinite(guessNumber) && guessNumber === seqGame.sequence.answer;
+        let triesLeft = typeof seqGame.triesLeft === 'number' ? seqGame.triesLeft : seqGame.triesMax;
+        let status = seqGame.status;
+        let reveal = seqGame.reveal;
+        let result = 'wrong';
+        if (isCorrect) {
+          status = 'won';
+          reveal = true;
+          result = 'correct';
+        } else {
+          triesLeft = Math.max(0, triesLeft - 1);
+          if (triesLeft === 0) {
+            status = 'lost';
+            reveal = true;
+          }
+        }
+        const history = Array.isArray(seqGame.history) ? seqGame.history.slice() : [];
+        history.push({ guess: trimmed, result });
+        let feedbackType = result;
+        if (status === 'won') feedbackType = 'win';
+        if (status === 'lost') feedbackType = 'lose';
+        context.setState((prev) => withSequence(prev, () => ({
+          ...seqGame,
+          status,
+          triesLeft,
+          guess: '',
+          reveal,
+          history,
+          feedback: feedbackType ? { type: feedbackType, stamp: Date.now() } : null
+        })));
+        context.rebuild();
+      }
+    },
+    'sequence:reveal': {
+      on: ['click'],
+      gkeys: ['sequence:reveal'],
+      handler: (event, context) => {
+        context.setState((prev) => withSequence(prev, (seq) => ({
+          ...seq,
+          reveal: true
+        })));
         context.rebuild();
       }
     },
