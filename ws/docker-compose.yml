@@ -1,0 +1,28 @@
+services:
+ws-gateway:
+build: .
+image: ws-gateway:latest
+env_file: .env
+ports:
+- "3001:3001" # سيقوم Nginx بالـ proxy لهذا البورت (يمكنك إزالة التعريض خارجيًا لو أردت)
+depends_on:
+- redis
+healthcheck:
+test: ["CMD", "curl", "-fsS", "http://localhost:3001/healthz"]
+interval: 10s
+timeout: 3s
+retries: 5
+start_period: 5s
+
+
+redis:
+image: redis:7-alpine
+command: ["redis-server", "--save", "", "--appendonly", "no"]
+ports:
+- "6379:6379" # اختياري للديبغ؛ بالإنتاج اجعله داخليًا فقط
+healthcheck:
+test: ["CMD", "redis-cli", "ping"]
+interval: 10s
+timeout: 3s
+retries: 5
+start_period: 5s
