@@ -29,6 +29,7 @@
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-ui.js"></script>
+    <script src="./mishkah.pages.js"></script>
     <script src="./template/pages-shell.js"></script>
 
     <script>
@@ -249,38 +250,26 @@
     <script>
       (function bootstrapPagesShell() {
         const M = window.Mishkah;
-        const template = M.templates.PagesShell;
         const config = window.MishkahPagesTemplate || {};
-        const pages = Array.isArray(config.pages) ? config.pages.slice() : [];
-        const registry = Object.assign({}, config.registry || {});
-        const head = Object.assign({ title: 'Mishkah Pages Shell' }, config.head || {});
-        const env = Object.assign({ theme: 'light', lang: 'ar', dir: 'rtl' }, config.env || {});
-        const active = config.active || (pages[0] && pages[0].key) || null;
 
-        const database = {
-          head,
-          env,
-          data: {
-            pages,
-            active,
-            themeLab: config.themeLab || { enabled: true },
-            slots: config.slots || {},
-            registry
-          },
-          registry,
-          slots: config.slots || {}
-        };
-
-        M.app.setBody(function renderApp(db) {
-          db.head = head;
-          return template.render(db);
+        const app = M.Pages.createV2({
+          template: typeof config.template === 'string' ? config.template : 'PagesShell',
+          pages: Array.isArray(config.pages) ? config.pages.slice() : [],
+          active: config.active,
+          title: config.head && typeof config.head.title === 'string' ? config.head.title : 'Mishkah Pages Shell',
+          theme: config.env && typeof config.env.theme === 'string' ? config.env.theme : undefined,
+          lang: config.env && typeof config.env.lang === 'string' ? config.env.lang : undefined,
+          dir: config.env && typeof config.env.dir === 'string' ? config.env.dir : undefined,
+          themeLab: config.themeLab,
+          registry: Object.assign({}, config.registry || {}),
+          slots: Object.assign({}, config.slots || {}),
+          orders: Object.assign({}, config.orders || {}),
+          useDefaultPages: config.useDefaultPages !== false,
+          autoHeader: config.autoHeader !== false,
+          mount: '#app'
         });
 
-        const app = M.app.createApp(database, {});
-        const templateOrders = template.createOrders(database);
-        const auto = M.utils.twcss.auto(database, app);
-        app.setOrders(Object.assign({}, templateOrders, M.UI.orders, auto.orders));
-        app.mount('#app');
+        window.MishkahPagesApp = app;
       })();
     </script>
   </body>
