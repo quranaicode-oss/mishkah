@@ -571,9 +571,21 @@
         const defaults = applyDefaults(nextId, state);
         const pages = defaults || state.data?.pages || [];
         const active = defaults && defaults.length ? (defaults[0]?.key || null) : state.data?.active || null;
+        const prevUi = ensureDict(state.ui);
+        const prevShell = ensureDict(prevUi.pagesShell);
+        const prevMenus = ensureDict(prevShell.headerMenus);
         return Object.assign({}, state, {
           env: Object.assign({}, state.env || {}, { template: nextId }),
-          data: Object.assign({}, state.data || {}, { pages, active })
+          data: Object.assign({}, state.data || {}, { pages, active }),
+          ui: Object.assign({}, prevUi, {
+            pagesShell: Object.assign({}, prevShell, {
+              headerMenus: Object.assign({}, prevMenus, {
+                templateOpen: false,
+                langOpen: false,
+                themeOpen: false
+              })
+            })
+          })
         });
       });
       ctx.rebuild();
