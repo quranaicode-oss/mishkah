@@ -2284,9 +2284,81 @@
 
     function ensureCanvasPointerHandlers(host){
       if(!host || host.__mishkahPointerHandlersAttached) return;
+      const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
+      const supportsTouchEvents = !supportsPointerEvents && typeof window !== 'undefined' && ('ontouchstart' in window);
+      const ownerDocument = host.ownerDocument || (typeof document !== 'undefined' ? document : null);
+      const passiveFalse = { passive:false };
+
+      const getEventPoint = (event, pointerId)=>{
+        if(!event) return null;
+        if(event.pointerId != null && (pointerId == null || pointerId === event.pointerId)){
+          return { x:event.clientX, y:event.clientY, pointerId:event.pointerId };
+        }
+        const touchLists = [event.touches, event.changedTouches];
+        for(let i=0;i<touchLists.length;i++){
+          const list = touchLists[i];
+          if(!list || typeof list.length !== 'number') continue;
+          for(let j=0;j<list.length;j++){
+            const touch = list[j];
+            const id = touch && touch.identifier != null ? touch.identifier : null;
+            if(pointerId == null || pointerId === id){
+              if(typeof touch.clientX === 'number' && typeof touch.clientY === 'number'){
+                return { x:touch.clientX, y:touch.clientY, pointerId:id };
+              }
+            }
+          }
+        }
+        if(typeof event.clientX === 'number' && typeof event.clientY === 'number'){
+          return { x:event.clientX, y:event.clientY, pointerId:pointerId != null ? pointerId : null };
+        }
+        return null;
+      };
+
+      const detectPointerType = event => {
+        if(!event) return '';
+        if(typeof event.pointerType === 'string') return event.pointerType;
+        if(event.type && event.type.indexOf('mouse') === 0) return 'mouse';
+        if(event.type && event.type.indexOf('touch') === 0) return 'touch';
+        return '';
+      };
+
+      const attachFallbackListeners = pointerType => {
+        if(supportsPointerEvents || !ownerDocument) return;
+        const type = pointerType === 'touch' ? 'touch' : 'mouse';
+        host.__mishkahActivePanDoc = ownerDocument;
+        host.__mishkahActivePanType = type;
+        if(type === 'touch'){
+          ownerDocument.addEventListener('touchmove', movePan, passiveFalse);
+          ownerDocument.addEventListener('touchend', endPan, passiveFalse);
+          ownerDocument.addEventListener('touchcancel', endPan, passiveFalse);
+        } else {
+          ownerDocument.addEventListener('mousemove', movePan, passiveFalse);
+          ownerDocument.addEventListener('mouseup', endPan, passiveFalse);
+        }
+      };
+
+      const detachFallbackListeners = () => {
+        if(supportsPointerEvents) return;
+        const doc = host.__mishkahActivePanDoc;
+        if(!doc) return;
+        const type = host.__mishkahActivePanType === 'touch' ? 'touch' : 'mouse';
+        if(type === 'touch'){
+          doc.removeEventListener('touchmove', movePan, passiveFalse);
+          doc.removeEventListener('touchend', endPan, passiveFalse);
+          doc.removeEventListener('touchcancel', endPan, passiveFalse);
+        } else {
+          doc.removeEventListener('mousemove', movePan, passiveFalse);
+          doc.removeEventListener('mouseup', endPan, passiveFalse);
+        }
+        host.__mishkahActivePanDoc = null;
+        host.__mishkahActivePanType = null;
+      };
+
       const assignPanState = (pointer) => {
+        if(!pointer) return;
         const state = {
           pointerId: pointer.pointerId,
+          pointerType: pointer.pointerType || '',
           x: pointer.x,
           y: pointer.y,
           scrollLeft: host.scrollLeft,
@@ -2295,18 +2367,32 @@
         };
         host.__mishkahPanState = state;
         host.__mishkahPanPendingToken = null;
-        if(typeof host.setPointerCapture === 'function' && pointer.pointerId != null){
+        if(supportsPointerEvents && typeof host.setPointerCapture === 'function' && pointer.pointerId != null){
           try { host.setPointerCapture(pointer.pointerId); }
           catch(error){ /* noop */ }
         }
+        if(!supportsPointerEvents) attachFallbackListeners(pointer.pointerType);
       };
+
       const startPan = event => {
-        if(!event || event.button !== 0 || (typeof event.buttons === 'number' && event.buttons !== 1)) return;
+        if(!event) return;
+        if(host.__mishkahPanState) return;
+        const pointerType = detectPointerType(event);
+        if(pointerType === 'mouse'){
+          if(event.button !== 0) return;
+          if(typeof event.buttons === 'number' && event.buttons !== 1) return;
+        }
+        const point = getEventPoint(event);
+        if(!point) return;
         const pointer = {
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY
+          pointerId: point.pointerId != null ? point.pointerId : (event.pointerId != null ? event.pointerId : null),
+          pointerType,
+          x: point.x,
+          y: point.y
         };
+        if(pointer.pointerType === 'touch' && typeof event.preventDefault === 'function'){
+          event.preventDefault();
+        }
         let switchedToManual = false;
         if(erdAppInstance && typeof erdAppInstance.getState === 'function'){
           const appState = erdAppInstance.getState();
@@ -2335,12 +2421,15 @@
           assignPanState(pointer);
         }
       };
+
       const movePan = event => {
         const state = host.__mishkahPanState;
-        if(!state || (state.pointerId != null && event.pointerId != null && state.pointerId !== event.pointerId)) return;
-        if(typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
-        const dx = event.clientX - state.x;
-        const dy = event.clientY - state.y;
+        if(!state) return;
+        if(state.pointerId != null && event.pointerId != null && state.pointerId !== event.pointerId) return;
+        const point = getEventPoint(event, state.pointerId);
+        if(!point) return;
+        const dx = point.x - state.x;
+        const dy = point.y - state.y;
         const threshold = 3;
         if(!state.moved){
           if(Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
@@ -2351,25 +2440,75 @@
         host.scrollTop = state.scrollTop - dy;
         if(typeof event.preventDefault === 'function') event.preventDefault();
       };
+
       const endPan = event => {
-        host.__mishkahPanPendingToken = null;
         const state = host.__mishkahPanState;
-        if(state && typeof host.releasePointerCapture === 'function'){
+        if(!state) return;
+        if(state.pointerId != null){
+          if(event && event.pointerId != null && state.pointerId !== event.pointerId) return;
+          if(event && event.changedTouches && event.changedTouches.length){
+            let matched = false;
+            for(let i=0;i<event.changedTouches.length;i++){
+              const touch = event.changedTouches[i];
+              if(touch && touch.identifier === state.pointerId){
+                matched = true;
+                break;
+              }
+            }
+            if(!matched){
+              const touches = event.touches;
+              if(touches && touches.length){
+                for(let j=0;j<touches.length;j++){
+                  if(touches[j] && touches[j].identifier === state.pointerId){
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+        if(event){
+          const type = event.type || '';
+          if(supportsPointerEvents && (type === 'pointerout' || type === 'pointerleave')){
+            if(typeof event.buttons === 'number' && event.buttons !== 0) return;
+          }
+          if(!supportsPointerEvents && state.pointerType === 'mouse' && (type === 'mouseout' || type === 'mouseleave')){
+            if(typeof event.buttons === 'number' && event.buttons !== 0) return;
+          }
+        }
+        host.__mishkahPanPendingToken = null;
+        if(supportsPointerEvents && state && typeof host.releasePointerCapture === 'function' && state.pointerId != null){
           try { host.releasePointerCapture(state.pointerId); }
           catch(error){ /* noop */ }
         }
         host.__mishkahPanState = null;
         host.removeAttribute('data-panning');
-        if(state && state.moved && event && typeof event.preventDefault === 'function'){
+        if(!supportsPointerEvents) detachFallbackListeners();
+        if(state.moved && event && typeof event.preventDefault === 'function'){
           event.preventDefault();
         }
       };
-      host.addEventListener('pointerdown', startPan);
-      host.addEventListener('pointermove', movePan);
-      host.addEventListener('pointerup', endPan);
-      host.addEventListener('pointerleave', endPan);
-      host.addEventListener('pointercancel', endPan);
-      host.addEventListener('pointerout', endPan);
+
+      if(supportsPointerEvents){
+        host.addEventListener('pointerdown', startPan);
+        host.addEventListener('pointermove', movePan);
+        host.addEventListener('pointerup', endPan);
+        host.addEventListener('pointerleave', endPan);
+        host.addEventListener('pointercancel', endPan);
+        host.addEventListener('pointerout', endPan);
+      } else {
+        host.addEventListener('mousedown', startPan);
+        host.addEventListener('mousemove', movePan);
+        host.addEventListener('mouseup', endPan);
+        host.addEventListener('mouseleave', endPan);
+        host.addEventListener('mouseout', endPan);
+        if(supportsTouchEvents){
+          host.addEventListener('touchstart', startPan, passiveFalse);
+          host.addEventListener('touchmove', movePan, passiveFalse);
+          host.addEventListener('touchend', endPan, passiveFalse);
+          host.addEventListener('touchcancel', endPan, passiveFalse);
+        }
+      }
       host.__mishkahPointerHandlersAttached = true;
     }
 
