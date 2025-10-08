@@ -38,19 +38,94 @@
     };
   }
 
+  function normalizeCopy(entry) {
+    if (entry == null) return { ar: '', en: '' };
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim();
+      return { ar: trimmed, en: trimmed };
+    }
+    const src = ensureDict(entry);
+    const ar = typeof src.ar === 'string' ? src.ar : (typeof src.value === 'string' ? src.value : null);
+    const en = typeof src.en === 'string' ? src.en : (typeof src.value === 'string' ? src.value : null);
+    const title = typeof src.title === 'string' ? src.title : null;
+    const text = typeof src.text === 'string' ? src.text : null;
+    const fallback = ar || en || title || text || '';
+    return { ar: ar || fallback, en: en || fallback };
+  }
+
   function normalizePages(list) {
     return toArr(list).map((page, index) => {
       const obj = ensureDict(page);
+      const classKey = typeof obj.classKey === 'string'
+        ? obj.classKey
+        : (typeof obj.section === 'string' ? obj.section : (typeof obj.category === 'string' ? obj.category : null));
+      const desc = obj.desc != null ? normalizeCopy(obj.desc) : { ar: '', en: '' };
+      const keywords = Array.isArray(obj.keywords)
+        ? obj.keywords.filter((kw) => typeof kw === 'string' && kw.trim()).map((kw) => kw.trim())
+        : [];
+      const meta = ensureDict(obj.meta);
       return {
         key: typeof obj.key === 'string' ? obj.key : (typeof obj.id === 'string' ? obj.id : `page-${index + 1}`),
         order: Number.isFinite(obj.order) ? obj.order : index,
         icon: typeof obj.icon === 'string' ? obj.icon : (typeof obj.emoji === 'string' ? obj.emoji : ''),
         label: normalizeLabel(obj),
+        desc,
+        classKey,
+        keywords,
+        meta,
         dsl: typeof obj.dsl === 'function' ? obj.dsl : null,
         comp: typeof obj.comp === 'string' ? obj.comp : null,
         orders: ensureDict(obj.orders)
       };
     });
+  }
+
+  function normalizeClasses(list) {
+    return toArr(list).map((entry, index) => {
+      const obj = ensureDict(entry);
+      const key = typeof obj.key === 'string'
+        ? obj.key
+        : (typeof obj.id === 'string' ? obj.id : (typeof obj.name === 'string' ? obj.name : `class-${index + 1}`));
+      if (!key) return null;
+      const parent = typeof obj.parent === 'string'
+        ? obj.parent
+        : (typeof obj.parentKey === 'string'
+          ? obj.parentKey
+          : (typeof obj.parent_id === 'string' ? obj.parent_id : null));
+      return {
+        key,
+        parent,
+        icon: typeof obj.icon === 'string' ? obj.icon : (typeof obj.emoji === 'string' ? obj.emoji : ''),
+        label: normalizeLabel(obj),
+        desc: obj.desc != null ? normalizeCopy(obj.desc) : { ar: '', en: '' },
+        sort: Number.isFinite(obj.sort) ? obj.sort : index,
+        meta: ensureDict(obj.meta)
+      };
+    }).filter(Boolean);
+  }
+
+  function buildClassMap(pages, classes) {
+    const map = {};
+    toArr(pages).forEach((page) => {
+      if (!page || !page.key) return;
+      const classKey = page.classKey || null;
+      if (!classKey) return;
+      if (!map[classKey]) {
+        map[classKey] = [];
+      }
+      map[classKey].push(page.key);
+    });
+    Object.keys(map).forEach((key) => {
+      const unique = [];
+      const seen = new Set();
+      map[key].forEach((pageKey) => {
+        if (!pageKey || seen.has(pageKey)) return;
+        seen.add(pageKey);
+        unique.push(pageKey);
+      });
+      map[key] = unique;
+    });
+    return map;
   }
 
   function normalizeThemeEntry(entry, index) {
@@ -172,6 +247,20 @@
     const langInfo = detectLang(pagesNorm);
     const lang = typeof cfg.lang === 'string' ? cfg.lang : (typeof cfg.env?.lang === 'string' ? cfg.env.lang : langInfo.lang);
     const dir = typeof cfg.dir === 'string' ? cfg.dir : (typeof cfg.env?.dir === 'string' ? cfg.env.dir : langInfo.dir);
+    const classSource = []
+      .concat(toArr(cfg.pageClasses))
+      .concat(toArr(cfg.classes))
+      .concat(toArr(cfg.sections))
+      .concat(toArr((cfg.data && cfg.data.pageClasses) || []));
+    const classesNormRaw = normalizeClasses(classSource);
+    const classesNorm = [];
+    const seenClasses = new Set();
+    classesNormRaw.forEach((cls) => {
+      if (!cls || !cls.key || seenClasses.has(cls.key)) return;
+      seenClasses.add(cls.key);
+      classesNorm.push(cls);
+    });
+
     const requestedThemes = normalizeThemes(cfg.themes);
     const autoThemes = normalizeThemes(
       typeof twApi.listThemes === 'function'
@@ -223,6 +312,23 @@
     };
 
     database.data = Object.assign({}, extraData, database.data);
+
+    if (classesNorm.length) {
+      database.data.pageClasses = classesNorm;
+    } else if (Array.isArray(database.data.pageClasses)) {
+      database.data.pageClasses = normalizeClasses(database.data.pageClasses);
+    }
+
+    const classMap = buildClassMap(database.data.pages, database.data.pageClasses);
+    if (Object.keys(classMap).length) {
+      const baseMap = ensureDict(database.data.classMap);
+      database.data.classMap = Object.assign({}, baseMap, classMap);
+      Object.keys(database.data.classMap).forEach((classKey) => {
+        if (database.data[classKey] == null) {
+          database.data[classKey] = database.data.classMap[classKey].slice();
+        }
+      });
+    }
 
     return database;
   }

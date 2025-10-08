@@ -12,6 +12,7 @@
   const { tw, cx, setTheme, setDir } = U.twcss;
 
   const ensureDict = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+  const ensureArray = (value) => (Array.isArray(value) ? value : []);
 
   const DEFAULT_LANG_OPTIONS = [
     { code: 'ar', label: { ar: 'العربية', en: 'Arabic' } },
@@ -39,6 +40,10 @@
     'header.theme.label': { ar: 'الثيم الجاهز', en: 'Theme preset' },
     'header.theme.lab': { ar: 'فتح معمل الثيم المتقدم', en: 'Open advanced theme lab' },
     'header.menu.close': { ar: 'إغلاق القائمة', en: 'Close menu' },
+    'header.search.placeholder': { ar: 'ابحث في الصفحات وفلسفة مشكاة...', en: 'Search pages and Mishkah philosophy...' },
+    'header.search.results': { ar: 'نتائج البحث', en: 'Search results' },
+    'header.search.noResults': { ar: 'لا توجد نتائج مطابقة.', en: 'No matching results yet.' },
+    'header.templates.label': { ar: 'قوالب العرض', en: 'Display templates' },
     'designLab.openButton': { ar: 'مختبر الألوان المتقدم', en: 'Advanced theme lab' },
     'designLab.title': { ar: 'مختبر تنسيق الواجهة', en: 'Interface Design Lab' },
     'designLab.subtitle': { ar: 'تحكم في متغيرات CSS ورؤية التغييرات مباشرة.', en: 'Control every CSS variable and preview instantly.' },
@@ -181,7 +186,48 @@
     'sequence.reveal': { ar: 'اكتشف الحل', en: 'Reveal solution' },
     'sequence.revealPrompt': { ar: 'انقر لاكتشاف شرح النمط بعد انتهاء الجولة.', en: 'Tap to reveal the pattern explanation after the round.' },
     'sequence.tryAgain': { ar: 'حاول مرة أخرى', en: 'Try again' },
-    'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' }
+    'footer.text': { ar: 'مشكاة — بناء التطبيقات بنور منظم.', en: 'Mishkah — build luminous applications with order.' },
+    'about.team.title': { ar: 'فريق مشكاة', en: 'The Mishkah Team' },
+    'about.team.subtitle': { ar: 'مجموعة من البنائين تجمع بين الفلسفة والتصميم والهندسة.', en: 'A guild of builders blending philosophy, design, and engineering.' },
+    'about.team.architect.title': { ar: 'المهندس المعماري', en: 'Architect' },
+    'about.team.architect.desc': { ar: 'يحوّل فلسفة مشكاة إلى خرائط تطبيقية واضحة ويضمن الانسجام بين المكونات.', en: 'Translates Mishkah’s philosophy into precise application blueprints and keeps components in harmony.' },
+    'about.team.strategist.title': { ar: 'الراوي الاستراتيجي', en: 'Strategist' },
+    'about.team.strategist.desc': { ar: 'يربط بين رؤية المنصة وحاجات المطور ويقود دليل التصميم والـ SDK.', en: 'Connects the platform vision with developer needs and curates the design/SDK narrative.' },
+    'about.team.designer.title': { ar: 'مصمم التجربة', en: 'Experience Designer' },
+    'about.team.designer.desc': { ar: 'ينحت الواجهات والتمبلتس لتبقى مضيئة وقابلة للتخصيص.', en: 'Shapes templates and layouts to stay luminous and customizable.' },
+    'about.team.engineer.title': { ar: 'مهندس التنفيذ', en: 'Implementation Engineer' },
+    'about.team.engineer.desc': { ar: 'يبني الأوامر والـ DSL ويضمن أن التطبيق ينبض بالحياة بترتيب.', en: 'Builds the orders and DSL so the application comes alive with order.' },
+    'about.goals.title': { ar: 'أهداف إطار مشكاة', en: 'Goals of the Mishkah framework' },
+    'about.goals.subtitle': { ar: 'مسار واضح يخدم المطور أولًا ويعيد الفرح للحرفة.', en: 'A clear path that serves the developer first and restores joy to the craft.' },
+    'about.goals.devJoy': { ar: 'تقديم أدوات ترفع عن المطور عبء التشتت وتمنحه متعة البناء.', en: 'Deliver tools that remove fragmentation and give developers the joy of building.' },
+    'about.goals.playfulDocs': { ar: 'دمج الوثائق مع الألعاب التفاعلية كي يتحول التعلم إلى تجربة مرحة.', en: 'Blend documentation with interactive games so learning becomes playful.' },
+    'about.goals.holistic': { ar: 'توحيد الثيمات، القوالب، والـ DSL في مصدر واحد يمكن تطويره واستعراضه فورًا.', en: 'Unify themes, templates, and DSL in a single source that can be evolved and previewed instantly.' },
+    'about.goals.openCraft': { ar: 'صياغة إطار يخدم الفرق الصغيرة والمستقلين قبل المؤسسات الضخمة.', en: 'Craft a framework that empowers small teams and independents before large corporations.' },
+    'ui.components.title': { ar: 'عرض مكونات الواجهة', en: 'UI component showcase' },
+    'ui.components.subtitle': { ar: 'مكتبة مضيئة من الأزرار والبطاقات والتنبيهات مبنية لخدمة المنصات التفاعلية.', en: 'A luminous library of buttons, cards, and toasts tailored for interactive platforms.' },
+    'ui.components.core': { ar: 'المكونات الجوهرية', en: 'Core components' },
+    'ui.components.patterns': { ar: 'أنماط الواجهات', en: 'Interface patterns' },
+    'ui.components.story': { ar: 'كل عنصر يأتي مع قصة استخدام في الدليل التطبيقي.', en: 'Each element ships with usage stories in the application guide.' },
+    'utils.title': { ar: 'مكتبة الأدوات', en: 'Utilities library' },
+    'utils.subtitle': { ar: 'واجهات موحدة للتخزين، الوقت، الشبكات، والرسوم تجعل التطبيق ثابتًا.', en: 'Unified APIs for storage, time, networking, and formatting keep applications consistent.' },
+    'utils.point.storage': { ar: 'طبقة تخزين موحدة (IndexedDB / LocalStorage) مع مسارات واضحة للنسخ الاحتياطي.', en: 'Unified storage layer (IndexedDB / LocalStorage) with clear backup strategies.' },
+    'utils.point.time': { ar: 'مساعدات الزمن والتنسيق تجعل التحويل بين المناطق أمرًا بسيطًا.', en: 'Time and formatting helpers make time-zone conversion effortless.' },
+    'utils.point.network': { ar: 'قنوات اتصال موحدة WebSocket/REST مع معالجة أخطاء متسقة.', en: 'Unified REST/WebSocket helpers with consistent error handling.' },
+    'sdk.title': { ar: 'دليل الـ SDK', en: 'SDK guide' },
+    'sdk.subtitle': { ar: 'كيف تستخدم Pages.create لتوليد تطبيقات متعددة القوالب من مصدر واحد.', en: 'Use Pages.create to generate multi-template apps from a single source of truth.' },
+    'sdk.point.bootstrap': { ar: 'تهيئة واحدة تجمع البيانات، الأوامر، والـ slots ثم تترك القوالب تتكفل بالباقي.', en: 'Single bootstrap that wires data, orders, and slots, letting templates handle the rest.' },
+    'sdk.point.templates': { ar: 'تبديل فوري بين القوالب لمعاينة نفس المحتوى في سياقات مختلفة.', en: 'Instantly swap templates to preview the same content in multiple contexts.' },
+    'sdk.point.extensibility': { ar: 'قابلية توسعة عبر pageClasses لتوزيع الصفحات على أقسام مرنة.', en: 'Extend via pageClasses to distribute pages into flexible sections.' },
+    'ui.pos.title': { ar: 'واجهات نقاط البيع POS', en: 'POS interface patterns' },
+    'ui.pos.subtitle': { ar: 'تصميم يعزز سرعة الطلبات ويُظهِر حالة الطاولات والطلبات في لحظة.', en: 'Design focused on rapid ordering with instant table and order status awareness.' },
+    'ui.pos.point.orders': { ar: 'لوحة أوامر بصرية تدعم البحث السريع والاختصارات.', en: 'Visual order board supporting quick search and shortcuts.' },
+    'ui.pos.point.tickets': { ar: 'تدفق تذاكر متزامن مع الطهاة وخط الإعداد.', en: 'Synchronized ticket flow connecting chefs and prep stations.' },
+    'ui.pos.point.analytics': { ar: 'إحصائيات فورية للمبيعات والمخزون قابلة للتخصيص.', en: 'Instant analytics for sales and inventory with customizable views.' },
+    'ui.kds.title': { ar: 'لوحات عرض المطابخ KDS', en: 'Kitchen display systems' },
+    'ui.kds.subtitle': { ar: 'عرض تتابعي للطلبات يمكّن الفريق من رؤية الأولويات بوضوح.', en: 'Sequential ticket view that lets teams see priorities at a glance.' },
+    'ui.kds.point.timing': { ar: 'مؤقتات مرئية وتنبيهات ألوان لتتبع تقدم الأطباق.', en: 'Visual timers and color alerts to track dish progress.' },
+    'ui.kds.point.sync': { ar: 'تحديث لحظي مع الـ POS لضمان عدم فقدان أي طلب.', en: 'Real-time sync with POS to ensure no ticket is missed.' },
+    'ui.kds.point.modes': { ar: 'أوضاع عرض مختلفة (تحضير / تقديم) قابلة للتبديل بسهولة.', en: 'Switchable modes (prep/service) tailored to kitchen rhythms.' }
   };
 
   const THEME_DECOR = {
@@ -882,6 +928,97 @@
       .trim();
   }
 
+  const SEARCH_MAX_RESULTS = 10;
+
+  function normalizeSearchString(value) {
+    if (value == null) return '';
+    const raw = String(value).toLowerCase();
+    const normalized = typeof raw.normalize === 'function'
+      ? raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      : raw;
+    return norm(normalized)
+      .replace(/[^a-z0-9\u0600-\u06FF]+/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function buildClassLookup(classes) {
+    const lookup = {};
+    ensureArray(classes).forEach((cls) => {
+      if (!cls || !cls.key || lookup[cls.key]) return;
+      lookup[cls.key] = cls;
+    });
+    return lookup;
+  }
+
+  function buildSearchIndex(pages, classes) {
+    const lookup = buildClassLookup(classes);
+    return ensureArray(pages).map((page) => {
+      if (!page || !page.key) return null;
+      const label = ensureDict(page.label);
+      const desc = ensureDict(page.desc);
+      const keywords = ensureArray(page.keywords);
+      const classInfo = lookup[page.classKey] || null;
+      const classLabel = classInfo ? ensureDict(classInfo.label) : {};
+      const labelText = normalizeSearchString(`${label.ar || ''} ${label.en || ''}`);
+      const descText = normalizeSearchString(`${desc.ar || ''} ${desc.en || ''}`);
+      const keywordsText = normalizeSearchString(keywords.join(' '));
+      const classText = normalizeSearchString(`${classLabel.ar || ''} ${classLabel.en || ''}`);
+      const combined = [labelText, descText, keywordsText, classText, normalizeSearchString(page.key || '')]
+        .filter(Boolean)
+        .join(' ');
+      return {
+        key: page.key,
+        icon: page.icon || '',
+        classKey: page.classKey || null,
+        label,
+        desc,
+        classLabel,
+        keywords,
+        searchTokens: {
+          label: labelText,
+          desc: descText,
+          keywords: keywordsText,
+          classText,
+          combined
+        }
+      };
+    }).filter(Boolean);
+  }
+
+  function runSearch(index, query) {
+    const normalized = normalizeSearchString(query);
+    if (!normalized) return [];
+    const terms = normalized.split(' ').filter(Boolean);
+    if (!terms.length) return [];
+    return ensureArray(index).map((entry) => {
+      if (!entry || !entry.key) return null;
+      const tokens = ensureDict(entry.searchTokens);
+      const combined = tokens.combined || '';
+      if (!terms.every((term) => combined.includes(term))) return null;
+      let score = 0;
+      terms.forEach((term) => {
+        if ((tokens.label || '').includes(term)) score += 6;
+        if ((tokens.keywords || '').includes(term)) score += 3;
+        if ((tokens.desc || '').includes(term)) score += 2;
+        if ((tokens.classText || '').includes(term)) score += 1;
+      });
+      return {
+        key: entry.key,
+        icon: entry.icon,
+        classKey: entry.classKey,
+        label: entry.label,
+        desc: entry.desc,
+        classLabel: entry.classLabel,
+        score
+      };
+    }).filter(Boolean)
+      .sort((a, b) => (b.score === a.score
+        ? (a.label?.ar || a.label?.en || '').localeCompare(b.label?.ar || b.label?.en || '')
+        : b.score - a.score))
+      .slice(0, SEARCH_MAX_RESULTS);
+  }
+
   function computeTimeLeft(game) {
     if (!game || !game.timerOn) return null;
     const settings = ensureGameSettings(game.settings);
@@ -1301,6 +1438,94 @@
       size: 'sm'
     }, ['🎛️']);
 
+    const templateState = ensureDict(db.ui && db.ui.templates);
+    const templateSource = ensureArray(templateState.available);
+    const templateFallback = M.Pages && typeof M.Pages.listTemplates === 'function' ? M.Pages.listTemplates() : [];
+    const templateDefs = (templateSource.length ? templateSource : templateFallback).map((entry) => (typeof entry === 'string' ? { id: entry } : entry)).filter((entry) => entry && (entry.id || entry.name));
+    const currentTemplate = db?.env?.template || (templateDefs[0] && (templateDefs[0].id || templateDefs[0].name)) || 'PagesShell';
+    const templateItems = templateDefs.map((tpl) => {
+      const id = tpl.id || tpl.name || 'PagesShell';
+      const labelEntry = ensureDict(tpl.label);
+      const label = localize(labelEntry, lang, fallbackLang) || tpl.title || id;
+      const icon = tpl.icon || '🧩';
+      return {
+        id,
+        label: `${icon ? `${icon} ` : ''}${label}`,
+        attrs: { 'data-template': id, gkey: 'ui:template:set' }
+      };
+    });
+    const templateSwitcher = templateItems.length > 1
+      ? UI.Segmented({ items: templateItems, activeId: currentTemplate, attrs: { class: tw`w-full` } })
+      : null;
+
+    const searchState = ensureDict(data.search);
+    const searchQuery = typeof searchState.query === 'string' ? searchState.query : '';
+    const searchResults = ensureArray(searchState.results);
+    const hasQuery = searchQuery.trim().length > 0;
+
+    const searchResultList = hasQuery
+      ? D.Containers.Div({
+          attrs: {
+            class: tw`absolute z-50 mt-3 w-full rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-3 shadow-[0_28px_64px_-28px_rgba(15,23,42,0.45)] backdrop-blur-xl`
+          }
+        }, [
+          D.Text.Span({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.search.results')]),
+          searchResults.length
+            ? D.Lists.Ul({ attrs: { class: tw`mt-2 space-y-2` } }, searchResults.map((result) => {
+                const label = localize(result.label || {}, lang, fallbackLang) || result.key;
+                const description = localize(result.desc || {}, lang, fallbackLang);
+                const classLabel = localize(result.classLabel || {}, lang, fallbackLang);
+                return D.Lists.Li({ attrs: { key: `search-${result.key}` } }, [
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      gkey: 'index:search:pick',
+                      'data-search-key': result.key,
+                      class: tw`w-full rounded-2xl border border-transparent px-3 py-2 text-start transition hover:bg-[color-mix(in_oklab,var(--surface-2)85%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`
+                    }
+                  }, [
+                    D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+                      result.icon ? D.Text.Span({ attrs: { class: tw`text-lg` } }, [result.icon]) : null,
+                      D.Containers.Div({ attrs: { class: tw`flex-1` } }, [
+                        D.Text.Span({ attrs: { class: tw`block text-sm font-semibold` } }, [label]),
+                        classLabel ? D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [classLabel]) : null,
+                        description ? D.Text.Span({ attrs: { class: tw`block text-xs text-[var(--muted-foreground)]` } }, [description]) : null
+                      ].filter(Boolean))
+                    ].filter(Boolean))
+                  ])
+                ]);
+              }))
+            : D.Text.P({ attrs: { class: tw`mt-2 text-sm text-[var(--muted-foreground)]` } }, [TL('header.search.noResults')])
+        ])
+      : null;
+
+    const searchInput = D.Inputs.Input({
+      attrs: {
+        type: 'search',
+        value: searchQuery,
+        placeholder: TL('header.search.placeholder'),
+        class: tw`w-full rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-5 py-3 text-sm shadow-[0_18px_38px_-32px_rgba(15,23,42,0.45)] outline-none transition focus:border-[color-mix(in_oklab,var(--primary)55%,transparent)] focus:shadow-[0_24px_48px_-32px_rgba(79,70,229,0.4)]`,
+        'data-search-field': 'query',
+        gkey: 'index:search:update',
+        dir: lang === 'ar' ? 'rtl' : 'ltr'
+      }
+    });
+
+    const clearButton = hasQuery
+      ? D.Forms.Button({
+          attrs: {
+            type: 'button',
+            gkey: 'index:search:clear',
+            class: cx(
+              tw`absolute top-1/2 -translate-y-1/2 h-8 w-8 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)90%,transparent)] text-sm text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)] transition hover:bg-[color-mix(in_oklab,var(--surface-2)96%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`,
+              lang === 'ar' ? tw`left-2` : tw`right-2`
+            )
+          }
+        }, ['✕'])
+      : null;
+
+    const searchBox = D.Containers.Div({ attrs: { class: tw`relative flex-1` } }, [searchInput, clearButton, searchResultList].filter(Boolean));
+
     const overlay = (langOpen || themeOpen)
       ? D.Containers.Div({
           attrs: {
@@ -1311,6 +1536,18 @@
         })
       : null;
 
+    const searchAndTemplatesRow = D.Containers.Div({
+      attrs: { class: tw`mt-4 flex w-full flex-col gap-3 lg:flex-row lg:items-start` }
+    }, [
+      D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2` } }, [searchBox]),
+      templateSwitcher
+        ? D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2 lg:w-auto lg:min-w-[220px]` } }, [
+            D.Text.Span({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.templates.label')]),
+            templateSwitcher
+          ])
+        : null
+    ].filter(Boolean));
+
     return D.Containers.Header({
       attrs: {
         class: cx(tw`relative border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`, (langOpen || themeOpen) ? tw`z-30` : ''),
@@ -1320,22 +1557,29 @@
       overlay,
       D.Containers.Div({
         attrs: {
-          class: tw`mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6`
+          class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6`
         }
       }, [
         D.Containers.Div({
           attrs: {
-            class: tw`flex min-w-[240px] flex-col gap-1`
+            class: tw`flex flex-wrap items-center justify-between gap-4`
           }
         }, [
-          D.Text.H1({ attrs: { class: tw`text-3xl font-bold leading-tight` } }, [TL('app.title')]),
-          D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
+          D.Containers.Div({
+            attrs: {
+              class: tw`flex min-w-[240px] flex-col gap-1`
+            }
+          }, [
+            D.Text.H1({ attrs: { class: tw`text-3xl font-bold leading-tight` } }, [TL('app.title')]),
+            D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
+          ]),
+          D.Containers.Div({
+            attrs: {
+              class: tw`flex flex-wrap items-center justify-end gap-2`
+            }
+          }, [langMenu, themeMenu, themeLabButton])
         ]),
-        D.Containers.Div({
-          attrs: {
-            class: tw`flex flex-wrap items-center justify-end gap-2`
-          }
-        }, [langMenu, themeMenu, themeLabButton])
+        searchAndTemplatesRow
       ])
     ].filter(Boolean));
   }
@@ -1349,6 +1593,185 @@
     }, [
       D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('footer.text')])
     ]);
+  }
+
+  function TeamComp(db) {
+    const { TL } = makeLangLookup(db);
+    const members = [
+      { key: 'architect', icon: '🧠', titleKey: 'about.team.architect.title', descKey: 'about.team.architect.desc' },
+      { key: 'strategist', icon: '🧭', titleKey: 'about.team.strategist.title', descKey: 'about.team.strategist.desc' },
+      { key: 'designer', icon: '🎨', titleKey: 'about.team.designer.title', descKey: 'about.team.designer.desc' },
+      { key: 'engineer', icon: '🛠️', titleKey: 'about.team.engineer.title', descKey: 'about.team.engineer.desc' }
+    ];
+    const grid = D.Containers.Div({
+      attrs: { class: tw`grid gap-4 md:grid-cols-2` }
+    }, members.map((member) => D.Containers.Div({
+      attrs: {
+        key: `team-${member.key}`,
+        class: tw`flex h-full flex-col gap-2 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-4 shadow-[0_18px_38px_-32px_rgba(15,23,42,0.45)]`
+      }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-2xl` } }, [member.icon]),
+      D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [TL(member.titleKey)]),
+      D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(member.descKey)])
+    ])));
+
+    return UI.Card({
+      title: TL('about.team.title'),
+      description: TL('about.team.subtitle'),
+      content: grid
+    });
+  }
+
+  function FrameworkGoalsComp(db) {
+    const { TL } = makeLangLookup(db);
+    const goals = [
+      { key: 'devJoy', icon: '💡' },
+      { key: 'playfulDocs', icon: '🎲' },
+      { key: 'holistic', icon: '🔄' },
+      { key: 'openCraft', icon: '🤝' }
+    ];
+    const list = D.Lists.Ul({
+      attrs: { class: tw`space-y-3` }
+    }, goals.map((goal) => D.Lists.Li({
+      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)94%,transparent)] p-4` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-xl` } }, [goal.icon]),
+      D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+        D.Text.Span({ attrs: { class: tw`text-sm font-semibold` } }, [TL(`about.goals.${goal.key}`)])
+      ])
+    ])));
+
+    return UI.Card({
+      title: TL('about.goals.title'),
+      description: TL('about.goals.subtitle'),
+      content: list
+    });
+  }
+
+  function UIShowcaseComp(db) {
+    const { TL } = makeLangLookup(db);
+    const buttonSamples = D.Containers.Div({
+      attrs: { class: tw`flex flex-wrap items-center gap-2` }
+    }, [
+      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'solid', size: 'sm' }, ['Solid']),
+      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'soft', size: 'sm' }, ['Soft']),
+      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'ghost', size: 'sm' }, ['Ghost'])
+    ]);
+
+    const badgeRow = D.Containers.Div({
+      attrs: { class: tw`flex flex-wrap items-center gap-2` }
+    }, [
+      UI.Badge({ text: 'Toolbar' }),
+      UI.Badge({ variant: 'badge', text: 'Tabs' }),
+      UI.Badge({ variant: 'badge', text: 'Shell' })
+    ]);
+
+    const storyCopy = D.Text.P({
+      attrs: { class: tw`text-sm text-[var(--muted-foreground)]` }
+    }, [TL('ui.components.story')]);
+
+    const sections = [
+      { key: 'core', title: TL('ui.components.core'), body: buttonSamples },
+      { key: 'patterns', title: TL('ui.components.patterns'), body: badgeRow },
+      { key: 'story', title: TL('ui.components.story'), body: storyCopy }
+    ];
+
+    const grid = D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } }, sections.map((section) => UI.Card({
+      title: section.title,
+      content: section.body,
+      attrs: { key: `ui-sec-${section.key}` }
+    })));
+
+    return UI.Card({
+      title: TL('ui.components.title'),
+      description: TL('ui.components.subtitle'),
+      content: grid
+    });
+  }
+
+  function UtilsShowcaseComp(db) {
+    const { TL } = makeLangLookup(db);
+    const points = [
+      { key: 'storage', icon: '🗄️' },
+      { key: 'time', icon: '⏱️' },
+      { key: 'network', icon: '🌐' }
+    ];
+    const list = D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, points.map((entry) => D.Lists.Li({
+      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)90%,transparent)] p-4` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-xl` } }, [entry.icon]),
+      D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(`utils.point.${entry.key}`)])
+    ])));
+
+    return UI.Card({
+      title: TL('utils.title'),
+      description: TL('utils.subtitle'),
+      content: list
+    });
+  }
+
+  function SDKShowcaseComp(db) {
+    const { TL } = makeLangLookup(db);
+    const steps = [
+      { key: 'bootstrap', icon: '1️⃣' },
+      { key: 'templates', icon: '2️⃣' },
+      { key: 'extensibility', icon: '3️⃣' }
+    ];
+    const list = D.Lists.Ol({ attrs: { class: tw`space-y-3` } }, steps.map((step) => D.Lists.Li({
+      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] p-4` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-lg` } }, [step.icon]),
+      D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(`sdk.point.${step.key}`)])
+    ])));
+
+    return UI.Card({
+      title: TL('sdk.title'),
+      description: TL('sdk.subtitle'),
+      content: list
+    });
+  }
+
+  function PosShowcaseComp(db) {
+    const { TL } = makeLangLookup(db);
+    const highlights = [
+      { key: 'orders', icon: '🧾' },
+      { key: 'tickets', icon: '🍽️' },
+      { key: 'analytics', icon: '📊' }
+    ];
+    const list = D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, highlights.map((item) => D.Lists.Li({
+      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-4` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-xl` } }, [item.icon]),
+      D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(`ui.pos.point.${item.key}`)])
+    ])));
+
+    return UI.Card({
+      title: TL('ui.pos.title'),
+      description: TL('ui.pos.subtitle'),
+      content: list
+    });
+  }
+
+  function KdsShowcaseComp(db) {
+    const { TL } = makeLangLookup(db);
+    const highlights = [
+      { key: 'timing', icon: '⏳' },
+      { key: 'sync', icon: '🔗' },
+      { key: 'modes', icon: '🌓' }
+    ];
+    const list = D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, highlights.map((item) => D.Lists.Li({
+      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)90%,transparent)] p-4` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-xl` } }, [item.icon]),
+      D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(`ui.kds.point.${item.key}`)])
+    ])));
+
+    return UI.Card({
+      title: TL('ui.kds.title'),
+      description: TL('ui.kds.subtitle'),
+      content: list
+    });
   }
 
   function CounterComp(db) {
@@ -1858,6 +2281,13 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
   IndexApp.registry = {
     HeaderComp,
     FooterComp,
+    TeamComp,
+    FrameworkGoalsComp,
+    UIShowcaseComp,
+    UtilsShowcaseComp,
+    SDKShowcaseComp,
+    PosShowcaseComp,
+    KdsShowcaseComp,
     CounterComp,
     SequenceGameComp,
     ProverbsGameComp,
@@ -1866,12 +2296,230 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
     ThemeLabPanel
   };
 
+  IndexApp.pageClasses = [
+    {
+      key: 'about',
+      parent: null,
+      sort: 1,
+      icon: '🌟',
+      label: { ar: 'عن مشكاة', en: 'About Mishkah' },
+      desc: { ar: 'رؤية الإطار وفريقه.', en: 'Framework vision and team.' }
+    },
+    {
+      key: 'about.docs',
+      parent: 'about',
+      sort: 1,
+      icon: '📚',
+      label: { ar: 'الوثائق', en: 'Documentation' },
+      desc: { ar: 'الوثيقة التقنية والوثيقة الأساسية.', en: 'Technical and foundational documentation.' }
+    },
+    {
+      key: 'about.team',
+      parent: 'about',
+      sort: 2,
+      icon: '🤝',
+      label: { ar: 'فريق العمل', en: 'Team' },
+      desc: { ar: 'تعرف على أدوار البنائين.', en: 'Meet the builders behind Mishkah.' }
+    },
+    {
+      key: 'about.goals',
+      parent: 'about',
+      sort: 3,
+      icon: '🎯',
+      label: { ar: 'الأهداف', en: 'Goals' },
+      desc: { ar: 'غايات الإطار وفلسفته.', en: 'Framework goals and philosophy.' }
+    },
+    {
+      key: 'sdk',
+      parent: null,
+      sort: 2,
+      icon: '🧰',
+      label: { ar: 'دليل SDK', en: 'SDK Guide' },
+      desc: { ar: 'طبقة Pages.create ومبدل القوالب.', en: 'Pages.create layer with template switcher.' }
+    },
+    {
+      key: 'ui',
+      parent: null,
+      sort: 3,
+      icon: '🎨',
+      label: { ar: 'الواجهة', en: 'UI' },
+      desc: { ar: 'مكتبة المكونات وأنماط التخصص.', en: 'Component library and specialised patterns.' }
+    },
+    {
+      key: 'ui.core',
+      parent: 'ui',
+      sort: 1,
+      icon: '🧩',
+      label: { ar: 'المكونات الأساسية', en: 'Core components' },
+      desc: { ar: 'الأزرار، البطاقات، والتبويبات.', en: 'Buttons, cards, tabs.' }
+    },
+    {
+      key: 'ui.special',
+      parent: 'ui',
+      sort: 2,
+      icon: '🏪',
+      label: { ar: 'واجهات متخصصة', en: 'Specialised UIs' },
+      desc: { ar: 'POS و KDS وغيرها.', en: 'POS, KDS, and beyond.' }
+    },
+    {
+      key: 'ui.special.pos',
+      parent: 'ui.special',
+      sort: 1,
+      icon: '🛒',
+      label: { ar: 'نقاط البيع POS', en: 'POS systems' },
+      desc: { ar: 'تجربة الطلب والدفع.', en: 'Ordering and checkout experience.' }
+    },
+    {
+      key: 'ui.special.kds',
+      parent: 'ui.special',
+      sort: 2,
+      icon: '🍳',
+      label: { ar: 'لوحات المطابخ KDS', en: 'Kitchen displays' },
+      desc: { ar: 'تدفق المطبخ اللحظي.', en: 'Real-time kitchen flow.' }
+    },
+    {
+      key: 'utils',
+      parent: null,
+      sort: 4,
+      icon: '🧮',
+      label: { ar: 'الأدوات', en: 'Utilities' },
+      desc: { ar: 'طبقات التخزين، الوقت، الشبكات.', en: 'Storage, time, and networking utilities.' }
+    },
+    {
+      key: 'games',
+      parent: null,
+      sort: 5,
+      icon: '🎮',
+      label: { ar: 'ألعاب مشكاة', en: 'Mishkah games' },
+      desc: { ar: 'تعلم عبر التحديات.', en: 'Learning through challenges.' }
+    },
+    {
+      key: 'games.words',
+      parent: 'games',
+      sort: 1,
+      icon: '🔤',
+      label: { ar: 'ألعاب الكلمات', en: 'Word games' },
+      desc: { ar: 'لعبة الأمثال.', en: 'Proverbs challenge.' }
+    },
+    {
+      key: 'games.math',
+      parent: 'games',
+      sort: 2,
+      icon: '🧮',
+      label: { ar: 'ألعاب الأرقام', en: 'Number games' },
+      desc: { ar: 'المتواليات الذكية.', en: 'Smart sequences.' }
+    }
+  ];
+
   IndexApp.pages = [
-    { key: 'readme:tec', order: 1, icon: '📘', label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' }, comp: 'ReadmeCompTec' },
-    { key: 'counter', order: 2, icon: '🔢', label: { ar: 'العداد', en: 'Counter' }, comp: 'CounterComp' },
-    { key: 'sequence', order: 3, icon: '🧮', label: { ar: 'لعبة المتواليات', en: 'Sequence Game' }, comp: 'SequenceGameComp' },
-    { key: 'proverbs', order: 4, icon: '🎮', label: { ar: 'لعبة الأمثال', en: 'Proverbs' }, comp: 'ProverbsGameComp' },
-    { key: 'readme:base', order: 5, icon: '📗', label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' }, comp: 'ReadmeCompBase' }
+    {
+      key: 'readme:tec',
+      order: 1,
+      icon: '📘',
+      label: { ar: 'الوثيقة التقنية', en: 'Technical Read Me' },
+      desc: { ar: 'شرح معمق لطبقات الإطار ومكوناته.', en: 'Deep dive into framework layers and components.' },
+      classKey: 'about.docs',
+      comp: 'ReadmeCompTec'
+    },
+    {
+      key: 'readme:base',
+      order: 2,
+      icon: '📗',
+      label: { ar: 'الوثيقة الأساسية', en: 'Base Read Me' },
+      desc: { ar: 'روح مشكاة وأسسها التصورية.', en: 'The spirit and foundational principles of Mishkah.' },
+      classKey: 'about.docs',
+      comp: 'ReadmeCompBase'
+    },
+    {
+      key: 'about:team',
+      order: 3,
+      icon: '🤝',
+      label: { ar: 'فريق مشكاة', en: 'Mishkah Team' },
+      desc: { ar: 'تعرف على المعماري، الاستراتيجي، المصمم، والمهندس.', en: 'Meet the architect, strategist, designer, and engineer.' },
+      classKey: 'about.team',
+      comp: 'TeamComp'
+    },
+    {
+      key: 'about:goals',
+      order: 4,
+      icon: '🎯',
+      label: { ar: 'أهداف الإطار', en: 'Framework Goals' },
+      desc: { ar: 'لماذا بُنيت مشكاة؟ وما الذي تعد به؟', en: 'Why Mishkah exists and what it promises.' },
+      classKey: 'about.goals',
+      comp: 'FrameworkGoalsComp'
+    },
+    {
+      key: 'sdk:guide',
+      order: 5,
+      icon: '🧰',
+      label: { ar: 'دليل Pages.create', en: 'Pages.create Guide' },
+      desc: { ar: 'خطوات تفعيل القوالب المتعددة من مصدر واحد.', en: 'Steps to activate multi-template experiences from one source.' },
+      classKey: 'sdk',
+      comp: 'SDKShowcaseComp'
+    },
+    {
+      key: 'ui:components',
+      order: 6,
+      icon: '🎨',
+      label: { ar: 'مكتبة الواجهة', en: 'UI Library' },
+      desc: { ar: 'بطاقات وأزرار وتبويبات مضيئة قابلة للتخصيص.', en: 'Luminous cards, buttons, and tabs ready to customise.' },
+      classKey: 'ui.core',
+      comp: 'UIShowcaseComp'
+    },
+    {
+      key: 'ui:pos',
+      order: 7,
+      icon: '🛒',
+      label: { ar: 'أنماط POS', en: 'POS Patterns' },
+      desc: { ar: 'واجهات نقاط البيع المتكاملة مع الطلبات.', en: 'Integrated POS experiences for rapid ordering.' },
+      classKey: 'ui.special.pos',
+      comp: 'PosShowcaseComp'
+    },
+    {
+      key: 'ui:kds',
+      order: 8,
+      icon: '🍳',
+      label: { ar: 'لوحات KDS', en: 'KDS Dashboards' },
+      desc: { ar: 'منظومة المطابخ المتزامنة مع POS.', en: 'Kitchen dashboards synchronised with POS.' },
+      classKey: 'ui.special.kds',
+      comp: 'KdsShowcaseComp'
+    },
+    {
+      key: 'utils:library',
+      order: 9,
+      icon: '🧮',
+      label: { ar: 'دليل الأدوات', en: 'Utilities Guide' },
+      desc: { ar: 'واجهات مشتركة للتخزين والوقت والشبكات.', en: 'Shared APIs for storage, time, and networking.' },
+      classKey: 'utils',
+      comp: 'UtilsShowcaseComp'
+    },
+    {
+      key: 'counter',
+      order: 10,
+      icon: '🔢',
+      label: { ar: 'العداد', en: 'Counter' },
+      desc: { ar: 'مثال بسيط على إدارة الحالة بالأوامر.', en: 'Simple example of state management with orders.' },
+      classKey: 'ui.core',
+      comp: 'CounterComp'
+    },
+    {
+      key: 'proverbs',
+      order: 11,
+      icon: '🎮',
+      label: { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
+      desc: { ar: 'تعلم اللغة عبر استكشاف الحكمة.', en: 'Learn language through wisdom discovery.' },
+      classKey: 'games.words',
+      comp: 'ProverbsGameComp'
+    },
+    {
+      key: 'sequence',
+      order: 12,
+      icon: '🧮',
+      label: { ar: 'لعبة المتواليات', en: 'Sequence Game' },
+      desc: { ar: 'تدريب على التحليل الرقمي والتنبؤ.', en: 'Practice numerical analysis and prediction.' },
+      classKey: 'games.math',
+      comp: 'SequenceGameComp'
+    }
   ];
 
   function loadDocs() {
@@ -1888,7 +2536,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
     };
   }
 
-  IndexApp.buildDatabase = function buildDatabase() {
+  IndexApp.buildConfig = function buildConfig() {
     const themePresets = resolveThemePresets(DEFAULT_THEME_PRESETS);
     const defaultPreset = themePresets[0] || null;
     const languageOptions = resolveLanguageOptions(DEFAULT_LANG_OPTIONS);
@@ -1899,44 +2547,103 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         baseOverrides[key] = defaultsForMode[key];
       }
     });
-    const initialTheme = defaultPreset && defaultPreset.mode === 'dark' ? 'dark' : 'light';
+
+    const pagesSorted = ensureArray(IndexApp.pages).slice().sort((a, b) => {
+      const orderA = Number.isFinite(a?.order) ? a.order : 0;
+      const orderB = Number.isFinite(b?.order) ? b.order : 0;
+      return orderA - orderB;
+    });
+    const classesSorted = ensureArray(IndexApp.pageClasses).slice().sort((a, b) => {
+      const orderA = Number.isFinite(a?.sort) ? a.sort : 0;
+      const orderB = Number.isFinite(b?.sort) ? b.sort : 0;
+      return orderA - orderB;
+    });
+
+    const classMap = {};
+    pagesSorted.forEach((page) => {
+      if (!page || !page.key || !page.classKey) return;
+      if (!classMap[page.classKey]) {
+        classMap[page.classKey] = [];
+      }
+      classMap[page.classKey].push(page.key);
+    });
+
+    const searchIndex = buildSearchIndex(pagesSorted, classesSorted);
+
+    const data = {
+      pages: pagesSorted,
+      active: 'readme:tec',
+      counter: 0,
+      game: { ...INITIAL_GAME_STATE },
+      sequenceGame: { ...INITIAL_SEQUENCE_STATE },
+      docs: loadDocs(),
+      themePresets,
+      activeThemePreset: defaultPreset ? defaultPreset.key : '',
+      themeOverrides: baseOverrides,
+      themeLab: { enabled: false },
+      languages: languageOptions,
+      pageClasses: classesSorted,
+      classMap,
+      searchIndex,
+      search: { query: '', results: [], activeIndex: -1 },
+      slots: {
+        header: 'HeaderComp',
+        footer: 'FooterComp',
+        themeLab: 'ThemeLabPanel'
+      }
+    };
+
+    Object.keys(classMap).forEach((classKey) => {
+      data[classKey] = classMap[classKey].slice();
+    });
+
     return {
-      head: { title: dict['app.title'].ar },
-      env: { theme: initialTheme, lang: 'ar', dir: 'rtl' },
-      i18n: { lang: 'ar', fallback: 'en', dict },
-      data: {
-        pages: IndexApp.pages,
-        active: 'readme:tec',
-        counter: 0,
-        game: { ...INITIAL_GAME_STATE },
-        sequenceGame: { ...INITIAL_SEQUENCE_STATE },
-        docs: loadDocs(),
-        themePresets,
-        activeThemePreset: defaultPreset ? defaultPreset.key : '',
-        themeOverrides: baseOverrides,
-        themeLab: { enabled: false },
-        languages: languageOptions,
-        slots: {
-          header: 'HeaderComp',
-          footer: 'FooterComp',
-          themeLab: 'ThemeLabPanel'
-        }
-      },
+      template: 'PagesShell',
+      title: dict['app.title'].ar,
+      env: { lang: 'ar', dir: 'rtl', theme: defaultPreset && defaultPreset.mode === 'dark' ? 'dark' : 'light' },
+      pages: pagesSorted,
       registry: IndexApp.registry,
+      slots: { header: 'HeaderComp', footer: 'FooterComp', themeLab: 'ThemeLabPanel' },
+      data,
+      orders: IndexApp.orders,
+      autoHeader: false,
+      mount: '#app'
+    };
+  };
+
+  IndexApp.buildDatabase = function buildDatabase() {
+    const cfg = IndexApp.buildConfig();
+    const MPages = (M && M.Pages) || {};
+    if (MPages && typeof MPages.buildDB === 'function') {
+      return MPages.buildDB(cfg);
+    }
+
+    const themeOverrides = ensureDict(cfg.data && cfg.data.themeOverrides);
+    const fallbackTheme = cfg.env && cfg.env.theme ? cfg.env.theme : 'light';
+    const lang = cfg.env && cfg.env.lang ? cfg.env.lang : 'ar';
+    const dir = cfg.env && cfg.env.dir ? cfg.env.dir : (lang === 'ar' ? 'rtl' : 'ltr');
+
+    const database = {
+      head: { title: cfg.title || dict['app.title'].ar },
+      env: Object.assign({ theme: fallbackTheme, lang, dir }, ensureDict(cfg.env)),
+      i18n: { lang, fallback: lang === 'ar' ? 'en' : 'ar', dict },
+      data: Object.assign({}, ensureDict(cfg.data), { pages: ensureArray(cfg.pages) }),
+      registry: cfg.registry,
+      slots: ensureDict(cfg.slots),
       ui: {
         pagesShell: {
-          headerMenus: {
-            langOpen: false,
-            themeOpen: false
-          },
+          headerMenus: { langOpen: false, themeOpen: false },
           themeLab: {
             showButton: false,
             open: false,
-            draft: cloneThemeOverrides(baseOverrides)
+            draft: cloneThemeOverrides(themeOverrides)
           }
         }
       }
     };
+
+    database.data.slots = Object.assign({}, ensureDict(cfg.data && cfg.data.slots), ensureDict(cfg.slots));
+    return database;
   };
 
   function withGame(state, updater) {
@@ -2645,6 +3352,94 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           };
         });
         if (changed) context.rebuild();
+      }
+    },
+    'index:search:update': {
+      on: ['input', 'change'],
+      gkeys: ['index:search:update'],
+      handler: (event, context) => {
+        const field = event.target.closest ? event.target.closest('[data-search-field]') : event.target;
+        if (!field) return;
+        const query = typeof field.value === 'string' ? field.value : '';
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const prevSearch = ensureDict(prevData.search);
+          const index = ensureArray(prevData.searchIndex);
+          const results = runSearch(index, query);
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, {
+              search: Object.assign({}, prevSearch, {
+                query,
+                results,
+                activeIndex: results.length ? 0 : -1
+              })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'index:search:clear': {
+      on: ['click'],
+      gkeys: ['index:search:clear'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const prevSearch = ensureDict(prevData.search);
+          if (!prevSearch.query && !ensureArray(prevSearch.results).length) return prev;
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, {
+              search: Object.assign({}, prevSearch, { query: '', results: [], activeIndex: -1 })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'index:search:pick': {
+      on: ['click'],
+      gkeys: ['index:search:pick'],
+      handler: (event, context) => {
+        const target = event.target.closest ? event.target.closest('[data-search-key]') : event.target;
+        if (!target) return;
+        const pageKey = target.getAttribute('data-search-key');
+        if (!pageKey) return;
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const prevSearch = ensureDict(prevData.search);
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, {
+              active: pageKey,
+              search: Object.assign({}, prevSearch, { query: '', results: [], activeIndex: -1 })
+            })
+          };
+        });
+        context.rebuild();
+      }
+    },
+    'index:class:activate': {
+      on: ['click'],
+      gkeys: ['index:class:activate'],
+      handler: (event, context) => {
+        const trigger = event.target.closest ? event.target.closest('[data-class-key]') : event.target;
+        if (!trigger) return;
+        const classKey = trigger.getAttribute('data-class-key');
+        const fallbackPage = trigger.getAttribute('data-class-first');
+        context.setState((prev) => {
+          const prevData = ensureDict(prev.data);
+          const map = ensureDict(prevData.classMap);
+          const list = ensureArray(map[classKey]);
+          const nextActive = fallbackPage || list[0] || prevData.active;
+          if (!nextActive || nextActive === prevData.active) return prev;
+          return {
+            ...prev,
+            data: Object.assign({}, prevData, { active: nextActive })
+          };
+        });
+        context.rebuild();
       }
     }
   };
