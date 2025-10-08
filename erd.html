@@ -157,6 +157,10 @@
       'toolbar.templates.group':{ ar:'القوالب', en:'Templates' },
       'toolbar.templates.hide':{ ar:'إخفاء القالب', en:'Hide template' },
       'toolbar.templates.show':{ ar:'عرض القالب', en:'Show template' },
+      'panel.library.hide':{ ar:'إخفاء المكتبة', en:'Hide library' },
+      'panel.library.show':{ ar:'إظهار المكتبة', en:'Show library' },
+      'panel.classification.hide':{ ar:'إخفاء التصنيف', en:'Hide classification' },
+      'panel.classification.show':{ ar:'إظهار التصنيف', en:'Show classification' },
       'toolbar.ui.group':{ ar:'الواجهة', en:'Interface' },
       'toolbar.history.group':{ ar:'التاريخ', en:'History' },
       'toolbar.history.undo.title':{ ar:'تراجع', en:'Undo' },
@@ -2279,18 +2283,56 @@
 
     function ensureCanvasPointerHandlers(host){
       if(!host || host.__mishkahPointerHandlersAttached) return;
-      const setGrabbing = event => {
-        if(event && typeof event.buttons === 'number' && event.buttons !== 1) return;
-        host.setAttribute('data-panning', 'true');
+      const startPan = event => {
+        if(!event || event.button !== 0 || (typeof event.buttons === 'number' && event.buttons !== 1)) return;
+        const state = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          scrollLeft: host.scrollLeft,
+          scrollTop: host.scrollTop,
+          moved:false
+        };
+        host.__mishkahPanState = state;
+        if(typeof host.setPointerCapture === 'function'){
+          try { host.setPointerCapture(event.pointerId); }
+          catch(error){ /* noop */ }
+        }
       };
-      const clearGrabbing = () => {
+      const movePan = event => {
+        const state = host.__mishkahPanState;
+        if(!state || (state.pointerId != null && event.pointerId != null && state.pointerId !== event.pointerId)) return;
+        if(typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
+        const dx = event.clientX - state.x;
+        const dy = event.clientY - state.y;
+        const threshold = 3;
+        if(!state.moved){
+          if(Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+          state.moved = true;
+          host.setAttribute('data-panning', 'true');
+        }
+        host.scrollLeft = state.scrollLeft - dx;
+        host.scrollTop = state.scrollTop - dy;
+        if(typeof event.preventDefault === 'function') event.preventDefault();
+      };
+      const endPan = event => {
+        const state = host.__mishkahPanState;
+        if(state && typeof host.releasePointerCapture === 'function'){
+          try { host.releasePointerCapture(state.pointerId); }
+          catch(error){ /* noop */ }
+        }
+        host.__mishkahPanState = null;
         host.removeAttribute('data-panning');
+        if(state && state.moved && event && typeof event.preventDefault === 'function'){
+          event.preventDefault();
+        }
       };
-      host.addEventListener('pointerdown', setGrabbing);
-      host.addEventListener('pointerup', clearGrabbing);
-      host.addEventListener('pointerleave', clearGrabbing);
-      host.addEventListener('pointercancel', clearGrabbing);
-      host.addEventListener('pointerout', clearGrabbing);
+      host.addEventListener('pointerdown', startPan);
+      host.addEventListener('pointermove', movePan);
+      host.addEventListener('pointerup', endPan);
+      host.addEventListener('pointerleave', endPan);
+      host.addEventListener('pointercancel', endPan);
+      host.addEventListener('pointerout', endPan);
       host.__mishkahPointerHandlersAttached = true;
     }
 
@@ -2806,6 +2848,7 @@
       ui:{
         modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false, columns:false, classification:false },
         template:{ open:true },
+        panels:{ libraryOpen:true, classificationOpen:true },
         form:{
           table:{ name:'', nameInput:'', label:'', comment:'', includeId:true, classCode:'' },
           field:{
@@ -3146,11 +3189,31 @@
       };
     }
 
+    function getPanelSide(db, panel){
+      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
+      if(panel === 'library'){
+        return dir === 'rtl' ? 'right' : 'left';
+      }
+      if(panel === 'classification'){
+        return dir === 'rtl' ? 'left' : 'right';
+      }
+      return 'left';
+    }
+
     function SchemaLibraryPanel(db){
       const t = createTranslator(db);
+      const panels = db.ui?.panels || {};
+      if(panels.libraryOpen === false) return null;
       const library = db.data.library || {};
       const items = library.items || [];
       const activeId = db.data.schemaId;
+      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
+      const panelSide = getPanelSide(db, 'library');
+      const hideArrow = panelSide === 'left' ? '⟵' : '⟶';
+      const hideLabel = t('panel.library.hide', 'إخفاء المكتبة');
+      const hideText = dir === 'rtl'
+        ? (panelSide === 'left' ? `${hideLabel} ${hideArrow}` : `${hideArrow} ${hideLabel}`)
+        : (panelSide === 'left' ? `${hideArrow} ${hideLabel}` : `${hideLabel} ${hideArrow}`);
       const listContent = items.length
         ? D.Lists.Ul({ attrs:{ class: tw`flex flex-col gap-2 list-none m-0 p-0` } },
             items.map(item=> D.Lists.Li({ attrs:{ class: tw`rounded-xl border border-[var(--border)]/60 bg-[var(--surface-1)]/70 px-3 py-2 transition ${item.id === activeId ? 'ring-2 ring-[var(--primary)]/60' : 'hover:border-[var(--primary)]/50'}`, gkey:'erd:library:select', 'data-schema-id': item.id } }, [
@@ -3167,9 +3230,12 @@
             ])))
         : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('library.empty', 'لم يتم حفظ أي مخططات بعد.')]);
       return D.Containers.Aside({ attrs:{ class: tw`hidden lg:flex h-full w-72 flex-shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('library.title', 'مكتبة المخططات')]),
-          D.Text.Span({ attrs:{ class: tw`text-[10px] uppercase tracking-wide text-[var(--muted)]` }}, [library.status === 'indexeddb' ? t('library.storage.indexeddb', 'IndexedDB') : t('library.storage.memory', 'ذاكرة مؤقتة')])
+        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)]` }}, [
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
+            D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('library.title', 'مكتبة المخططات')]),
+            D.Text.Span({ attrs:{ class: tw`text-[10px] uppercase tracking-wide text-[var(--muted)]` }}, [library.status === 'indexeddb' ? t('library.storage.indexeddb', 'IndexedDB') : t('library.storage.memory', 'ذاكرة مؤقتة')])
+          ]),
+          UI.Button({ attrs:{ gkey:'erd:panel:library:toggle', 'data-state':'open', title: hideLabel, class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, [hideText])
         ]),
         D.Containers.Div({ attrs:{ class: tw`px-4 py-3 flex flex-col gap-2` }}, [
           UI.Button({ attrs:{ gkey:'erd:library:new' }, variant:'solid', size:'sm' }, [`➕ ${t('library.new.button', 'مخطط جديد')}`]),
@@ -3181,8 +3247,17 @@
 
     function SchemaClassificationPanel(db){
       const t = createTranslator(db);
+      const panels = db.ui?.panels || {};
+      if(panels.classificationOpen === false) return null;
       const form = db.ui?.form?.classification || {};
       const rows = Array.isArray(form.rows) ? form.rows : [];
+      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
+      const panelSide = getPanelSide(db, 'classification');
+      const hideArrow = panelSide === 'left' ? '⟵' : '⟶';
+      const hideLabel = t('panel.classification.hide', 'إخفاء التصنيف');
+      const hideText = dir === 'rtl'
+        ? (panelSide === 'left' ? `${hideLabel} ${hideArrow}` : `${hideArrow} ${hideLabel}`)
+        : (panelSide === 'left' ? `${hideArrow} ${hideLabel}` : `${hideLabel} ${hideArrow}`);
       const emptyState = rows.length === 0
         ? D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('classification.empty', 'لم يتم تعريف أي فئات بعد.')])
         : null;
@@ -3205,11 +3280,36 @@
         UI.Button({ attrs:{ gkey:'erd:classes:open-bulk' }, variant:'ghost', size:'sm' }, [`📝 ${t('classification.bulk', 'ترميز الشجرة')}`])
       ]);
       return D.Containers.Aside({ attrs:{ class: tw`hidden xl:flex h-full w-80 flex-shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between px-4 py-3 border-b border-[var(--border)]` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('classification.title', 'sche_Tree')])
+        D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)]` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('classification.title', 'sche_Tree')]),
+          UI.Button({ attrs:{ gkey:'erd:panel:classification:toggle', 'data-state':'open', title: hideLabel, class: tw`!px-2 !py-1` }, variant:'ghost', size:'xs' }, [hideText])
         ]),
         D.Containers.Div({ attrs:{ class: tw`px-4 py-3 flex flex-col gap-3` }}, [actions]),
         D.Containers.Div({ attrs:{ class: tw`flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3` }}, content)
+      ]);
+    }
+
+    function CollapsedPanelReveal(db, panel){
+      const t = createTranslator(db);
+      const isLibrary = panel === 'library';
+      const labelKey = isLibrary ? 'panel.library.show' : 'panel.classification.show';
+      const fallback = isLibrary ? 'إظهار المكتبة' : 'إظهار التصنيف';
+      const label = t(labelKey, fallback);
+      const gkey = isLibrary ? 'erd:panel:library:toggle' : 'erd:panel:classification:toggle';
+      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
+      const side = getPanelSide(db, panel);
+      const icon = side === 'left' ? '⟶' : '⟵';
+      const buttonLabel = dir === 'rtl'
+        ? (side === 'left' ? `${label} ${icon}` : `${icon} ${label}`)
+        : (side === 'left' ? `${icon} ${label}` : `${label} ${icon}`);
+      const baseClass = tw`absolute top-4 z-[2147482000]`;
+      const containerClass = `${baseClass} ${side === 'left' ? 'left-4' : 'right-4'}`;
+      return D.Containers.Div({ attrs:{ class: tw`pointer-events-none` }}, [
+        D.Containers.Div({ attrs:{ class: containerClass }}, [
+          UI.Button({ attrs:{ gkey, 'data-state':'closed', class: tw`pointer-events-auto !px-3 !py-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-lg backdrop-blur`, title: label }, variant:'soft', size:'sm' }, [
+            buttonLabel
+          ])
+        ])
       ]);
     }
 
@@ -3289,9 +3389,6 @@
         D.Text.Span({ attrs:{ class: tw`text-xs opacity-70` }}, ['⯆'])
       ]);
       const button = D.Containers.Div({ attrs:{ class: tw`relative overflow-visible`, style:'z-index:2147482000;' }}, [toggle]);
-      if(!open){
-        return { button, overlay:null };
-      }
       const formats = [
         { id:'sql:postgres', label:'SQL — Postgres', format:'sql', dialect:'postgres' },
         { id:'sql:mysql', label:'SQL — MySQL', format:'sql', dialect:'mysql' },
@@ -3315,40 +3412,24 @@
           }, [item.label])
         ])
       ));
-      const anchor = db.ui?.toolbar?.exportAnchor || null;
-      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
-      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-      const estimatedWidth = 260;
-      const estimatedHeight = 320;
-      const margin = 12;
-      let left = margin;
-      let top = margin + 56;
-      if(anchor){
-        if(dir === 'rtl'){
-          left = anchor.right - estimatedWidth;
-          if(left < margin){
-            left = Math.max(margin, anchor.x - estimatedWidth + anchor.width);
-          }
-        } else {
-          left = anchor.x;
-        }
-        if(viewportWidth){
-          const maxLeft = Math.max(margin, viewportWidth - estimatedWidth - margin);
-          if(left > maxLeft) left = maxLeft;
-          if(left < margin) left = margin;
-        }
-        top = anchor.bottom + margin;
-        if(viewportHeight){
-          const maxTop = Math.max(margin, viewportHeight - estimatedHeight - margin);
-          if(top > maxTop) top = maxTop;
-          if(top < margin) top = margin;
-        }
+      if(!open){
+        return { button, overlay:null };
       }
-      const menuStyle = `left:${Math.round(left)}px;top:${Math.round(top)}px;`;
+      const dir = (db.env?.dir || db.env?.direction || 'rtl').toLowerCase();
+      const anchor = db.ui?.toolbar?.exportAnchor || null;
+      const topOffset = typeof anchor?.top === 'number' ? anchor.top : 56;
+      const offsetY = 12;
+      const topValue = Math.max(0, Math.round(topOffset + offsetY));
+      const fallbackSpacing = 16;
+      const horizontalValue = dir === 'rtl'
+        ? Math.max(fallbackSpacing, Math.round(typeof anchor?.right === 'number' ? anchor.right : fallbackSpacing))
+        : Math.max(fallbackSpacing, Math.round(typeof anchor?.left === 'number' ? anchor.left : fallbackSpacing));
+      const positionStyle = dir === 'rtl'
+        ? `top:${topValue}px;right:${horizontalValue}px;`
+        : `top:${topValue}px;left:${horizontalValue}px;`;
       const overlay = D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-none` }}, [
         D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-auto`, gkey:'erd:toolbar:export:close' }}, []),
-        D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style: menuStyle }}, [
+        D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style: positionStyle }}, [
           D.Containers.Div({ attrs:{ id:'erd-toolbar-export-menu', class: tw`min-w-[240px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 shadow-xl backdrop-blur-md pointer-events-auto` }}, [list])
         ])
       ]);
@@ -4042,6 +4123,14 @@
       const toolbarResult = Toolbar(db);
       const toolbarView = toolbarResult && toolbarResult.view ? toolbarResult.view : toolbarResult;
       const toolbarOverlays = (toolbarResult && Array.isArray(toolbarResult.overlays) ? toolbarResult.overlays : []).filter(Boolean);
+      const panels = db.ui?.panels || {};
+      const libraryOpen = panels.libraryOpen !== false;
+      const classificationOpen = panels.classificationOpen !== false;
+      const libraryPanel = libraryOpen ? SchemaLibraryPanel(db) : null;
+      const classificationPanel = classificationOpen ? SchemaClassificationPanel(db) : null;
+      const collapsedButtons = [];
+      if(!libraryOpen) collapsedButtons.push(CollapsedPanelReveal(db, 'library'));
+      if(!classificationOpen) collapsedButtons.push(CollapsedPanelReveal(db, 'classification'));
       const overlayNodes = [
         ...toolbarOverlays,
         ContextMenu(db),
@@ -4051,12 +4140,13 @@
       return D.Containers.Div({ attrs:{ class: tw`flex h-screen w-full flex-col bg-[var(--surface-0)] text-[var(--foreground)]` }}, [
         toolbarView,
         D.Containers.Div({ attrs:{ class: tw`flex flex-1 min-h-0 w-full` }}, [
-          SchemaLibraryPanel(db),
-          D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col min-h-0` }}, [
-            SchemaCanvas(db)
-          ]),
-          SchemaClassificationPanel(db)
-        ]),
+          libraryPanel,
+          D.Containers.Div({ attrs:{ class: tw`relative flex flex-1 flex-col min-h-0` }}, [
+            SchemaCanvas(db),
+            ...collapsedButtons
+          ].filter(Boolean)),
+          classificationPanel
+        ].filter(Boolean)),
         overlayRoot
       ].filter(Boolean));
     }
@@ -4202,30 +4292,36 @@
         on:['click'],
         gkeys:['erd:toolbar:export'],
         handler:(e,ctx)=>{
-          const target = e.currentTarget || e.target;
           let anchor = null;
-          if(target && typeof target.getBoundingClientRect === 'function'){
-            const rect = target.getBoundingClientRect();
+          const rawTarget = e ? (e.target || e.currentTarget) : null;
+          const button = rawTarget && typeof rawTarget.closest === 'function'
+            ? rawTarget.closest('button')
+            : (e && e.currentTarget && e.currentTarget.nodeType === 1 ? e.currentTarget : null);
+          if(button && typeof button.getBoundingClientRect === 'function'){
+            const rect = button.getBoundingClientRect();
+            const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : null;
             anchor = {
-              x: rect.left,
-              y: rect.top,
-              width: rect.width,
-              height: rect.height,
-              right: rect.right,
-              bottom: rect.bottom
+              top: rect.bottom,
+              left: rect.left,
+              right: viewportWidth != null ? Math.max(0, viewportWidth - rect.right) : null,
+              width: rect.width
             };
           }
-          ctx.setState(s=>({
-            ...s,
-            ui:{
-              ...(s.ui || {}),
-              toolbar:{
-                ...(s.ui?.toolbar || {}),
-                exportOpen: !(s.ui?.toolbar?.exportOpen),
-                exportAnchor: !(s.ui?.toolbar?.exportOpen) ? anchor : null
+          ctx.setState(s=>{
+            const currentOpen = s.ui?.toolbar?.exportOpen;
+            const nextOpen = !currentOpen;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                toolbar:{
+                  ...(s.ui?.toolbar || {}),
+                  exportOpen: nextOpen,
+                  exportAnchor: nextOpen ? anchor : null
+                }
               }
-            }
-          }));
+            };
+          });
           ctx.rebuild();
         }
       },
@@ -4255,7 +4351,7 @@
             ...s,
             ui:{
               ...(s.ui || {}),
-              toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false }
+              toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false, exportAnchor:null }
             }
           }));
           ctx.rebuild();
@@ -4413,29 +4509,65 @@
           ctx.rebuild();
         }
       },
-      'erd.template.toggle':{
-        on:['click'],
-        gkeys:['erd:template:toggle'],
-        handler:(e,ctx)=>{
-          ctx.setState(s=>{
-            const currentOpen = s.ui?.template?.open !== false;
-            const nextOpen = !currentOpen;
-            return {
-              ...s,
-              ui:{
-                ...(s.ui || {}),
-                template:{ ...(s.ui?.template || {}), open: nextOpen }
-              }
-            };
-          });
-          ctx.rebuild();
-        }
-      },
-      'erd.form.update':{
-        on:['input','change'],
-        gkeys:['erd:form:update'],
-        handler:(e,ctx)=>{
-          const input = e.target;
+        'erd.template.toggle':{
+          on:['click'],
+          gkeys:['erd:template:toggle'],
+          handler:(e,ctx)=>{
+            ctx.setState(s=>{
+              const currentOpen = s.ui?.template?.open !== false;
+              const nextOpen = !currentOpen;
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  template:{ ...(s.ui?.template || {}), open: nextOpen }
+                }
+              };
+            });
+            ctx.rebuild();
+          }
+        },
+        'erd.panel.library.toggle':{
+          on:['click'],
+          gkeys:['erd:panel:library:toggle'],
+          handler:(e,ctx)=>{
+            ctx.setState(s=>{
+              const currentOpen = s.ui?.panels?.libraryOpen !== false;
+              const nextOpen = !currentOpen;
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  panels:{ ...(s.ui?.panels || {}), libraryOpen: nextOpen }
+                }
+              };
+            });
+            ctx.rebuild();
+          }
+        },
+        'erd.panel.classification.toggle':{
+          on:['click'],
+          gkeys:['erd:panel:classification:toggle'],
+          handler:(e,ctx)=>{
+            ctx.setState(s=>{
+              const currentOpen = s.ui?.panels?.classificationOpen !== false;
+              const nextOpen = !currentOpen;
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  panels:{ ...(s.ui?.panels || {}), classificationOpen: nextOpen }
+                }
+              };
+            });
+            ctx.rebuild();
+          }
+        },
+        'erd.form.update':{
+          on:['input','change'],
+          gkeys:['erd:form:update'],
+          handler:(e,ctx)=>{
+            const input = e.target;
           const formKey = input.getAttribute('data-form');
           const fieldKey = input.getAttribute('data-field');
           const parent = input.getAttribute('data-parent');
