@@ -1299,6 +1299,7 @@
     const themeLabOpen = !!themeLabUi.open;
     const langOpen = !!headerMenusUi.langOpen;
     const themeOpen = !!headerMenusUi.themeOpen;
+    const templateOpen = !!headerMenusUi.templateOpen;
 
     const optionBaseClass = tw`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`;
     const optionActiveClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-22px_rgba(79,70,229,0.55)]`;
@@ -1322,7 +1323,10 @@
         }
       }, [
         D.Text.Span({ attrs: { class: triggerIconClass } }, [activeLang ? activeLang.emoji : '🌐']),
-        D.Text.Span({ attrs: { class: triggerMetaClass } }, [activeLang ? activeLang.short : 'LANG'])
+        D.Containers.Div({ attrs: { class: tw`flex flex-col text-start` } }, [
+          D.Text.Span({ attrs: { class: triggerLabelClass } }, [activeLang ? activeLang.label : TL('header.lang.label')]),
+          D.Text.Span({ attrs: { class: triggerMetaClass } }, [activeLang ? activeLang.short : lang.toUpperCase()])
+        ])
       ]),
       D.Containers.Div({
         attrs: {
@@ -1424,6 +1428,8 @@
       ])
     ]);
 
+    let templateMenu = null;
+
     const iconCircleClass = tw`flex h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
     const themeLabButton = UI.Button({
       attrs: {
@@ -1443,20 +1449,77 @@
     const templateFallback = M.Pages && typeof M.Pages.listTemplates === 'function' ? M.Pages.listTemplates() : [];
     const templateDefs = (templateSource.length ? templateSource : templateFallback).map((entry) => (typeof entry === 'string' ? { id: entry } : entry)).filter((entry) => entry && (entry.id || entry.name));
     const currentTemplate = db?.env?.template || (templateDefs[0] && (templateDefs[0].id || templateDefs[0].name)) || 'PagesShell';
-    const templateItems = templateDefs.map((tpl) => {
+    const templateOptions = templateDefs.map((tpl) => {
       const id = tpl.id || tpl.name || 'PagesShell';
       const labelEntry = ensureDict(tpl.label);
       const label = localize(labelEntry, lang, fallbackLang) || tpl.title || id;
-      const icon = tpl.icon || '🧩';
+      const emoji = tpl.icon || '🧩';
       return {
-        id,
-        label: `${icon ? `${icon} ` : ''}${label}`,
-        attrs: { 'data-template': id, gkey: 'ui:template:set' }
+        value: id,
+        label,
+        emoji
       };
     });
-    const templateSwitcher = templateItems.length > 1
-      ? UI.Segmented({ items: templateItems, activeId: currentTemplate, attrs: { class: tw`w-full` } })
-      : null;
+    const activeTemplate = templateOptions.find((option) => option.value === currentTemplate) || templateOptions[0] || null;
+    if (templateOptions.length > 1) {
+      templateMenu = D.Containers.Div({
+        attrs: {
+          class: tw`relative inline-flex`,
+          'data-menu-container': 'template'
+        }
+      }, [
+        D.Forms.Button({
+          attrs: {
+            type: 'button',
+            class: cx(triggerBaseClass, templateOpen ? triggerActiveClass : ''),
+            title: TL('header.templates.label'),
+            'aria-haspopup': 'listbox',
+            'aria-expanded': templateOpen ? 'true' : 'false',
+            'data-menu-toggle': 'template',
+            gkey: 'ui:header:menuToggle'
+          }
+        }, [
+          D.Text.Span({ attrs: { class: triggerIconClass } }, [activeTemplate ? activeTemplate.emoji : '🧩']),
+          D.Containers.Div({ attrs: { class: tw`flex flex-col text-start` } }, [
+            D.Text.Span({ attrs: { class: triggerLabelClass } }, [activeTemplate ? activeTemplate.label : TL('header.templates.label')]),
+            D.Text.Span({ attrs: { class: triggerMetaClass } }, [TL('header.templates.label')])
+          ])
+        ]),
+        D.Containers.Div({
+          attrs: {
+            class: cx(panelBaseClass, templateOpen ? panelOpenClass : panelClosedClass),
+            'data-menu-panel': 'template'
+          }
+        }, [
+          D.Containers.Div({ attrs: { class: tw`flex items-center justify-between gap-2 px-2` } }, [
+            D.Text.Span({ attrs: { class: tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.templates.label')]),
+            D.Forms.Button({
+              attrs: {
+                type: 'button',
+                class: closeButtonClass,
+                gkey: 'ui:header:menuClose',
+                'data-menu-close': 'template',
+                'aria-label': TL('header.menu.close')
+              }
+            }, ['✕'])
+          ]),
+          D.Containers.Div({ attrs: { class: tw`mt-3 grid gap-1.5` } }, templateOptions.map((option) => D.Forms.Button({
+            attrs: {
+              type: 'button',
+              gkey: 'ui:template:set',
+              'data-template': option.value,
+              value: option.value,
+              class: cx(optionBaseClass, option.value === currentTemplate ? optionActiveClass : optionInactiveClass)
+            }
+          }, [
+            D.Text.Span({ attrs: { class: tw`text-lg leading-none` } }, [option.emoji]),
+            D.Containers.Div({ attrs: { class: tw`flex flex-col text-start` } }, [
+              D.Text.Span({ attrs: { class: tw`font-semibold` } }, [option.label])
+            ])
+          ])))
+        ])
+      ]);
+    }
 
     const searchState = ensureDict(data.search);
     const searchQuery = typeof searchState.query === 'string' ? searchState.query : '';
@@ -1526,7 +1589,7 @@
 
     const searchBox = D.Containers.Div({ attrs: { class: tw`relative flex-1` } }, [searchInput, clearButton, searchResultList].filter(Boolean));
 
-    const overlay = (langOpen || themeOpen)
+    const overlay = (langOpen || themeOpen || templateOpen)
       ? D.Containers.Div({
           attrs: {
             class: tw`fixed inset-0 z-20 bg-black/10 backdrop-blur-[1px]`,
@@ -1540,17 +1603,17 @@
       attrs: { class: tw`mt-4 flex w-full flex-col gap-3 lg:flex-row lg:items-start` }
     }, [
       D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2` } }, [searchBox]),
-      templateSwitcher
-        ? D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2 lg:w-auto lg:min-w-[220px]` } }, [
+      templateMenu
+        ? D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2 lg:w-auto lg:min-w-[240px]` } }, [
             D.Text.Span({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.templates.label')]),
-            templateSwitcher
+            templateMenu
           ])
         : null
     ].filter(Boolean));
 
     return D.Containers.Header({
       attrs: {
-        class: cx(tw`relative border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`, (langOpen || themeOpen) ? tw`z-30` : ''),
+        class: cx(tw`relative border-b border-[color-mix(in_oklab,var(--border)50%,transparent)]`, (langOpen || themeOpen || templateOpen) ? tw`z-30` : ''),
         gkey: 'ui:header:menuMaybeClose'
       }
     }, [
@@ -2632,7 +2695,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       slots: ensureDict(cfg.slots),
       ui: {
         pagesShell: {
-          headerMenus: { langOpen: false, themeOpen: false },
+          headerMenus: { langOpen: false, themeOpen: false, templateOpen: false },
           themeLab: {
             showButton: false,
             open: false,
@@ -3198,7 +3261,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             },
             ui: Object.assign({}, prevUi, {
               pagesShell: Object.assign({}, prevShell, {
-                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false })
+                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false, templateOpen: false })
               })
             })
           };
@@ -3240,7 +3303,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             },
             ui: Object.assign({}, prevUi, {
               pagesShell: Object.assign({}, prevShell, {
-                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false }),
+                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false, templateOpen: false }),
                 themeLab: Object.assign({}, prevThemeLab, {
                   draft: Object.assign({}, overrides)
                 })
@@ -3266,13 +3329,20 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           const prevMenus = ensureDict(prevShell.headerMenus);
           const nextMenus = Object.assign({}, prevMenus, {
             langOpen: target === 'lang' ? !prevMenus.langOpen : false,
-            themeOpen: target === 'theme' ? !prevMenus.themeOpen : false
+            themeOpen: target === 'theme' ? !prevMenus.themeOpen : false,
+            templateOpen: target === 'template' ? !prevMenus.templateOpen : false
           });
           if (target === 'lang') {
             nextMenus.themeOpen = false;
+            nextMenus.templateOpen = false;
           }
           if (target === 'theme') {
             nextMenus.langOpen = false;
+            nextMenus.templateOpen = false;
+          }
+          if (target === 'template') {
+            nextMenus.langOpen = false;
+            nextMenus.themeOpen = false;
           }
           return {
             ...prev,
@@ -3307,6 +3377,10 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             if (nextMenus.themeOpen) changed = true;
             nextMenus.themeOpen = false;
           }
+          if (scope === 'template' || scope === 'all') {
+            if (nextMenus.templateOpen) changed = true;
+            nextMenus.templateOpen = false;
+          }
           if (!changed) return prev;
           return {
             ...prev,
@@ -3334,19 +3408,19 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         const prevUi = ensureDict(state.ui);
         const prevShell = ensureDict(prevUi.pagesShell);
         const prevMenus = ensureDict(prevShell.headerMenus);
-        if (!prevMenus.langOpen && !prevMenus.themeOpen) return;
+        if (!prevMenus.langOpen && !prevMenus.themeOpen && !prevMenus.templateOpen) return;
         let changed = false;
         context.setState((prev) => {
           const prevUiState = ensureDict(prev.ui);
           const prevShellState = ensureDict(prevUiState.pagesShell);
           const prevMenuState = ensureDict(prevShellState.headerMenus);
-          if (!prevMenuState.langOpen && !prevMenuState.themeOpen) return prev;
+          if (!prevMenuState.langOpen && !prevMenuState.themeOpen && !prevMenuState.templateOpen) return prev;
           changed = true;
           return {
             ...prev,
             ui: Object.assign({}, prevUiState, {
               pagesShell: Object.assign({}, prevShellState, {
-                headerMenus: Object.assign({}, prevMenuState, { langOpen: false, themeOpen: false })
+                headerMenus: Object.assign({}, prevMenuState, { langOpen: false, themeOpen: false, templateOpen: false })
               })
             })
           };
