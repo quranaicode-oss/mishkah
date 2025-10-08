@@ -3,6 +3,8 @@
 
   const M = window.Mishkah = window.Mishkah || {};
   const Templates = M.templates = M.templates || {};
+  const D = M.DSL;
+  const UI = M.UI || {};
   const U = M.utils = M.utils || {};
   const twApi = U.twcss || {};
   const tw = typeof twApi.tw === 'function' ? twApi.tw : (value) => value;
@@ -10,6 +12,80 @@
 
   const ensureDict = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
   const ensureArray = (value) => (Array.isArray(value) ? value : []);
+
+  function localizeEntry(entry, lang, fallback) {
+    if (!entry) return '';
+    if (typeof entry === 'string') return entry;
+    const dict = ensureDict(entry);
+    return dict[lang] || dict[fallback] || dict.en || dict.ar || Object.values(dict)[0] || '';
+  }
+
+  function listTemplateDefs(db) {
+    const available = ensureArray(db?.ui?.templates?.available);
+    const fallback = typeof M.Pages?.listTemplates === 'function' ? M.Pages.listTemplates() : [];
+    return (available.length ? available : fallback)
+      .map((entry) => (typeof entry === 'string' ? { id: entry } : entry))
+      .filter((entry) => entry && (entry.id || entry.name));
+  }
+
+  function renderGlobalSwitchers(db, options) {
+    const opts = ensureDict(options);
+    const align = opts.align || 'end';
+    const direction = opts.direction || 'row';
+
+    const lang = db?.env?.lang || db?.i18n?.lang || 'ar';
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const theme = db?.env?.theme || 'light';
+    const currentTemplate = db?.env?.template || 'PagesShell';
+
+    const templates = listTemplateDefs(db);
+    const templateButtons = templates.map((tpl, idx) => {
+      const id = tpl.id || tpl.name || `tpl-${idx}`;
+      const label = localizeEntry(tpl.label, lang, fallbackLang) || tpl.title || id;
+      const icon = tpl.icon || '🧩';
+      const isActive = id === currentTemplate;
+      return UI.Button({
+        attrs: {
+          gkey: 'ui:template:set',
+          'data-template': id,
+          title: label,
+          'aria-pressed': isActive ? 'true' : 'false',
+          class: tw`h-11 w-11 rounded-full`
+        },
+        variant: isActive ? 'solid' : 'ghost',
+        size: 'sm'
+      }, [icon]);
+    }).filter(Boolean);
+
+    const templateGroup = templateButtons.length > 1
+      ? D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, templateButtons)
+      : null;
+
+    const themeToggle = typeof UI.ThemeToggleIcon === 'function'
+      ? UI.ThemeToggleIcon({ theme, attrs: { class: tw`h-11 w-11` } })
+      : null;
+
+    const languageSwitch = typeof UI.LanguageSwitch === 'function'
+      ? UI.LanguageSwitch({ lang })
+      : null;
+
+    const justifyClass = align === 'start'
+      ? tw`justify-start`
+      : align === 'center'
+        ? tw`justify-center`
+        : tw`justify-end`;
+
+    const directionClass = direction === 'column' ? tw`flex-col` : tw`flex-row flex-wrap`;
+
+    const controls = [templateGroup, themeToggle, languageSwitch].filter(Boolean);
+    if (!controls.length) return null;
+
+    return D.Containers.Div({
+      attrs: {
+        class: cx(tw`flex items-center gap-2`, directionClass, justifyClass)
+      }
+    }, controls);
+  }
 
   function getPages(db) {
     return ensureArray(db?.data?.pages || db?.pages || []).slice().sort((a, b) => {
@@ -105,6 +181,8 @@
     getActivePage,
     callPageComponent,
     tw,
-    cx
+    cx,
+    localizeEntry,
+    renderGlobalSwitchers
   };
 }(typeof window !== 'undefined' ? window : this));
