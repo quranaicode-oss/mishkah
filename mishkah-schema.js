@@ -261,6 +261,7 @@
       this.comment = config.comment || '';
       this.sqlName = config.sqlName || toSnakeCase(this.name);
       this.layout = Object.assign({ x:0, y:0 }, config.layout || {});
+      this.classCode = config.classCode || config.class || '';
       const fields = ensureArray(config.fields).map(field => field instanceof FieldDefinition ? field : new FieldDefinition(field));
       this.fields = fields;
       this.indexes = ensureArray(config.indexes).map(idx => Object.assign({}, idx));
@@ -342,6 +343,7 @@
         comment: this.comment,
         sqlName: this.sqlName,
         layout: Object.assign({}, this.layout),
+        classCode: this.classCode || '',
         fields: this.fields.map(field => field.toJSON()),
         indexes: this.indexes.map(idx => Object.assign({}, idx))
       };
