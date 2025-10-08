@@ -61,8 +61,8 @@ def({
 
   // overlay
   'modal-root':     'fixed inset-0 z-50 grid place-items-center px-4 py-8 sm:py-12 overflow-y-auto',
-  'backdrop':       'absolute inset-0 bg-black/60 backdrop-blur-sm',
-  'modal-card':     'relative z-10 max-h-[92vh] flex flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[0_24px_48px_-16px_rgba(15,23,42,0.45)]',
+  'backdrop':       'absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto',
+  'modal-card':     'relative z-10 max-h-[92vh] flex flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[0_24px_48px_-16px_rgba(15,23,42,0.45)] pointer-events-auto',
   'modal/sm':       'w-[min(420px,92vw)]',
   'modal/md':       'w-[min(640px,94vw)]',
   'modal/lg':       'w-[min(820px,96vw)]',
