@@ -305,31 +305,886 @@
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-ui.js"></script>
+    <script src="./mishkah.pages.js"></script>
     <script src="./readme.js"></script>
     <script src="./template/pages-shell.js"></script>
     <script src="./ui/index-ui.js"></script>
     <script>
       (function () {
         const M = window.Mishkah;
-        const Index = M.apps.index;
-        const database = Index.buildDatabase();
-        const template = M.templates.PagesShell;
-        const { TL } = Index.makeLangLookup(database);
-        database.head = { title: TL('app.title') };
+        if (!M) return;
 
-        M.app.setBody(function (db) {
-          const lookup = Index.makeLangLookup(db);
-          db.head = { title: lookup.TL('app.title') };
-          return template.render(db);
+        const Templates = M.templates = M.templates || {};
+        const D = M.DSL;
+        const UI = M.UI;
+        const U = M.utils;
+        const { tw, cx } = U.twcss;
+
+        const ensureDict = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+        const toArr = (value) => (Array.isArray(value) ? value : (value == null ? [] : [value]));
+
+        const ShowcaseData = {
+          brand: {
+            name: { ar: 'استديو النور الرقمي', en: 'Luminous Studio' },
+            tagline: {
+              ar: 'منصة تصمّم نفس البيانات على أكثر من واجهة.',
+              en: 'A playground to reshape one dataset across many canvases.'
+            }
+          },
+          hero: {
+            kicker: { ar: 'أبرز القصص', en: 'Top story' },
+            title: { ar: 'مستقبل المحتوى الموحّد يبدأ هنا', en: 'Unified content futures begin here' },
+            summary: {
+              ar: 'جرّب تبديل القوالب والواجهات بلحظة واحدة، مع بيانات واحدة.',
+              en: 'Toggle entire experiences in a heartbeat while keeping a single source of data.'
+            },
+            cta: { ar: 'ابدأ الجولة السريعة', en: 'Start the quick tour' },
+            secondary: { ar: 'اكتشف القوالب المتاحة', en: 'Explore available templates' }
+          },
+          articles: [
+            {
+              id: 'ai-ethics',
+              icon: '🤖',
+              category: { ar: 'تقنية', en: 'Technology' },
+              title: { ar: 'الذكاء الاصطناعي يحوّل غرف الأخبار الذكية', en: 'AI is transforming the modern newsroom' },
+              summary: {
+                ar: 'نماذج التحرير المدعومة بالذكاء الاصطناعي تمنح المحررين رؤى آنية وتوصيات متكيفة.',
+                en: 'AI-assisted editing delivers instant insights and adaptive recommendations to editors.'
+              },
+              time: { ar: 'اليوم • ١٠:٣٠ ص', en: 'Today • 10:30 AM' },
+              reading: { ar: '٥ دقائق قراءة', en: '5 min read' }
+            },
+            {
+              id: 'community',
+              icon: '🌐',
+              category: { ar: 'مجتمع', en: 'Community' },
+              title: { ar: 'منصة الجمهور تعيد تعريف الولاء الرقمي', en: 'Audience hubs redefine digital loyalty' },
+              summary: {
+                ar: 'تجربة متكاملة تجمع النشرات، التحديثات، ولوحات البيانات في قناة واحدة للجمهور.',
+                en: 'An integrated journey that unifies newsletters, updates, and dashboards in one audience channel.'
+              },
+              time: { ar: 'أمس • ٧:٤٥ م', en: 'Yesterday • 7:45 PM' },
+              reading: { ar: '٤ دقائق قراءة', en: '4 min read' }
+            },
+            {
+              id: 'culture',
+              icon: '🎙️',
+              category: { ar: 'ثقافة', en: 'Culture' },
+              title: { ar: 'سرد القصص الصوتي يعود بقوة في العالم العربي', en: 'Audio storytelling returns with a new wave in MENA' },
+              summary: {
+                ar: 'برامج البودكاست تتكامل مع المقالات التفاعلية وتضاعف وقت التفاعل لكل زائر.',
+                en: 'Podcasts pair with interactive articles and double the dwell time per visitor.'
+              },
+              time: { ar: 'الثلاثاء • ٥:١٥ م', en: 'Tuesday • 5:15 PM' },
+              reading: { ar: '٨ دقائق قراءة', en: '8 min read' }
+            }
+          ],
+          briefs: [
+            {
+              icon: '🛰️',
+              title: { ar: 'تدفق بيانات مباشر', en: 'Live data feed' },
+              detail: {
+                ar: 'تكامل آلي مع مصادر الأقمار الصناعية والتحديث في أقل من دقيقة.',
+                en: 'Automatic sync with satellite sources refreshed in under a minute.'
+              }
+            },
+            {
+              icon: '📡',
+              title: { ar: 'غرفة تحكم تحريرية', en: 'Editorial control room' },
+              detail: {
+                ar: 'راقب أداء القصص وقم بتوجيه الموارد حسب الزخم اللحظي.',
+                en: 'Monitor story performance and steer resources with momentum insights.'
+              }
+            },
+            {
+              icon: '📬',
+              title: { ar: 'نشرات ذكية', en: 'Intelligent briefings' },
+              detail: {
+                ar: 'يبني النظام نشرات مختلفة لكل شريحة جمهور من نفس البيانات.',
+                en: 'Generate personalised newsletters for each audience slice from the same dataset.'
+              }
+            }
+          ],
+          features: [
+            {
+              icon: '🧭',
+              title: { ar: 'رحلات محتوى مرنة', en: 'Flexible content journeys' },
+              text: {
+                ar: 'أنشئ رحلة واحدة ثم اعرضها كمدوّنة، لوحة بيانات، أو تجربة جوّال.',
+                en: 'Author once and serve it as a blog, dashboard, or mobile flow.'
+              }
+            },
+            {
+              icon: '🪄',
+              title: { ar: 'تحكم بصري فوري', en: 'Instant visual control' },
+              text: {
+                ar: 'بدّل الألوان، الخطوط، والتقسيمات دون مغادرة المتصفح.',
+                en: 'Swap palettes, typography, and layouts without leaving the browser.'
+              }
+            },
+            {
+              icon: '🤝',
+              title: { ar: 'تعاون حيّ', en: 'Live collaboration' },
+              text: {
+                ar: 'قسّم فرقك لتمتلك كل واجهة نسخة منطقية من نفس المحتوى.',
+                en: 'Let every team own a tailored surface of the same story.'
+              }
+            }
+          ],
+          services: [
+            {
+              icon: '📋',
+              title: { ar: 'إستراتيجية سرد', en: 'Narrative strategy' },
+              text: {
+                ar: 'حوّل بياناتك الخام إلى قصة متسقة عبر جميع القوالب.',
+                en: 'Translate raw data into a coherent story across templates.'
+              }
+            },
+            {
+              icon: '⚙️',
+              title: { ar: 'تكامل البيانات', en: 'Data integration' },
+              text: {
+                ar: 'وصل لوحات التحكم، التحديثات، والواجهات الخارجية عبر واجهات موحدة.',
+                en: 'Connect dashboards, updates, and external surfaces through unified APIs.'
+              }
+            },
+            {
+              icon: '🎯',
+              title: { ar: 'قياس الأثر', en: 'Impact measurement' },
+              text: {
+                ar: 'تابع الأثر التحريري والاقتصادي لكل تجربة من نقطة واحدة.',
+                en: 'Track editorial and business impact for every experience from one place.'
+              }
+            }
+          ],
+          timeline: [
+            {
+              year: '2021',
+              title: { ar: 'الانطلاقة', en: 'Launch moment' },
+              detail: {
+                ar: 'بدأنا بنموذج واحد لتجربة محتوى موحّد لثلاث منصات.',
+                en: 'We launched with a single model that served three platforms from one corpus.'
+              }
+            },
+            {
+              year: '2022',
+              title: { ar: 'لوحات البيانات الحيّة', en: 'Live dashboards' },
+              detail: {
+                ar: 'تم تقديم أول لوحة بيانات تفاعلية تعمل على نفس بيانات الموقع.',
+                en: 'Shipped the first live dashboard powered by the same site content.'
+              }
+            },
+            {
+              year: '2023',
+              title: { ar: 'منصة الأجهزة المحمولة', en: 'Mobile-first surfaces' },
+              detail: {
+                ar: 'أطلقنا تجربة جوّال يمكن تحويلها إلى تطبيق تدريبي في دقائق.',
+                en: 'Rolled out a mobile experience that morphs into a training app within minutes.'
+              }
+            }
+          ],
+          metrics: [
+            {
+              label: { ar: 'قراء نشطون', en: 'Active readers' },
+              value: '18K',
+              change: { ar: '+12% عن الشهر الماضي', en: '+12% vs last month' }
+            },
+            {
+              label: { ar: 'مدة التفاعل', en: 'Engagement time' },
+              value: '7.5m',
+              change: { ar: '+2.1 دقيقة لكل جلسة', en: '+2.1 minutes per session' }
+            },
+            {
+              label: { ar: 'نقاط اللمس', en: 'Touchpoints' },
+              value: '5',
+              change: { ar: 'قوالب جاهزة للعرض الفوري', en: 'Templates ready to swap instantly' }
+            }
+          ],
+          mobile: {
+            highlights: [
+              {
+                icon: '⚡️',
+                title: { ar: 'إشعارات سياقية', en: 'Contextual alerts' },
+                text: {
+                  ar: 'يتم تحديث شاشة الجوّال كلما تغيّرت البيانات أو الثيم.',
+                  en: 'Mobile panels refresh the moment data or theme updates.'
+                }
+              },
+              {
+                icon: '🧩',
+                title: { ar: 'وحدات قابلة لإعادة التركيب', en: 'Composable modules' },
+                text: {
+                  ar: 'مزج البطاقات، الجداول، والملفات الصوتية في شاشة واحدة.',
+                  en: 'Blend cards, tables, and audio into a single screen.'
+                }
+              },
+              {
+                icon: '🎯',
+                title: { ar: 'إجراءات سريعة', en: 'Quick actions' },
+                text: {
+                  ar: 'حوّل أي محتوى إلى CTA موجه لفرق المبيعات أو الدعم.',
+                  en: 'Turn any piece into a CTA aimed at sales or support teams.'
+                }
+              }
+            ],
+            updates: [
+              {
+                time: { ar: 'قبل ٣ دقائق', en: '3 min ago' },
+                text: {
+                  ar: 'تم نشر تغطية عاجلة حول مؤتمر التقنية.',
+                  en: 'Breaking coverage for the tech summit is now live.'
+                }
+              },
+              {
+                time: { ar: 'قبل ١٥ دقيقة', en: '15 min ago' },
+                text: {
+                  ar: 'تم تحديث لوحة المؤشرات لتعرض نمو الاشتراكات.',
+                  en: 'Metrics dashboard refreshed with subscription growth numbers.'
+                }
+              },
+              {
+                time: { ar: 'قبل ٤٥ دقيقة', en: '45 min ago' },
+                text: {
+                  ar: 'تمت جدولة نشرة المساء بثلاث لغات.',
+                  en: 'Evening briefing scheduled in three languages.'
+                }
+              }
+            ]
+          },
+          dashboard: {
+            kpis: [
+              {
+                icon: '📈',
+                label: { ar: 'معدل التحويل', en: 'Conversion rate' },
+                value: '4.8%',
+                delta: { ar: '+0.6% هذا الأسبوع', en: '+0.6% this week' }
+              },
+              {
+                icon: '👥',
+                label: { ar: 'جمهور النشرة', en: 'Newsletter audience' },
+                value: '42K',
+                delta: { ar: '+1.4K مشترك جديد', en: '+1.4K new subscribers' }
+              },
+              {
+                icon: '💡',
+                label: { ar: 'أفكار مفعّلة', en: 'Activated insights' },
+                value: '68',
+                delta: { ar: '+9 حملات قيد التنفيذ', en: '+9 campaigns running' }
+              }
+            ],
+            channels: [
+              { label: { ar: 'الويب', en: 'Web' }, share: '38%' },
+              { label: { ar: 'التطبيق', en: 'App' }, share: '34%' },
+              { label: { ar: 'النشرة', en: 'Newsletter' }, share: '28%' }
+            ],
+            tasks: [
+              {
+                title: { ar: 'مراجعة لوحة القيادة التنفيذية', en: 'Review executive dashboard' },
+                owner: { ar: 'منى', en: 'Mona' },
+                status: { ar: 'قيد المتابعة', en: 'In review' }
+              },
+              {
+                title: { ar: 'تحضير موجز البودكاست', en: 'Prepare podcast brief' },
+                owner: { ar: 'سامي', en: 'Sami' },
+                status: { ar: 'مكتمل', en: 'Done' }
+              },
+              {
+                title: { ar: 'مزامنة المحتوى مع الموقع', en: 'Sync content with site' },
+                owner: { ar: 'هند', en: 'Hind' },
+                status: { ar: 'اليوم', en: 'Due today' }
+              }
+            ],
+            timeline: [
+              { label: { ar: 'جلسات اليوم', en: 'Sessions today' }, amount: '13.4k' },
+              { label: { ar: 'مشاهدات الفيديو', en: 'Video views' }, amount: '9.2k' },
+              { label: { ar: 'تفاعلات اجتماعية', en: 'Social interactions' }, amount: '4.7k' }
+            ]
+          }
+        };
+
+        function resolveLang(db) {
+          const lang = (db && db.env && db.env.lang) || (db && db.i18n && db.i18n.lang) || 'ar';
+          const fallback = (db && db.i18n && db.i18n.fallback) || (lang === 'ar' ? 'en' : 'ar');
+          return { lang, fallback };
+        }
+
+        function localize(entry, lang, fallback) {
+          if (!entry) return '';
+          if (typeof entry === 'string') return entry;
+          if (entry[lang]) return entry[lang];
+          if (fallback && entry[fallback]) return entry[fallback];
+          if (entry.ar) return entry.ar;
+          if (entry.en) return entry.en;
+          const keys = Object.keys(entry);
+          return keys.length ? entry[keys[0]] : '';
+        }
+
+        function renderEmpty(message, icon) {
+          return D.Containers.Section({
+            attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-6 text-center space-y-3` }
+          }, [
+            D.Text.Span({ attrs: { class: tw`text-3xl` } }, [icon || '📄']),
+            D.Text.P({ attrs: { class: tw`text-[var(--muted-foreground)]` } }, [message || 'لا يوجد محتوى.'])
+          ]);
+        }
+
+        function callRegistry(db, name, helpers) {
+          if (!name) return null;
+          const registry = Object.assign({}, ensureDict(db.registry), ensureDict(db.data && db.data.registry));
+          const comp = registry[name];
+          if (typeof comp === 'function') {
+            return comp(db, helpers || { tw, cx, localize, resolveLang }) || null;
+          }
+          return null;
+        }
+
+        function renderNav(db, options) {
+          const pages = toArr(db && db.data && db.data.pages).filter(Boolean);
+          if (!pages.length) return null;
+          const { lang, fallback } = resolveLang(db);
+          const active = (db && db.data && db.data.active) || (pages[0] && pages[0].key) || null;
+          const variant = ensureDict(options);
+          const wrapperClass = variant.className ? tw`${variant.className}` : '';
+          return D.Containers.Nav({ attrs: { class: cx(tw`flex flex-wrap items-center gap-2`, wrapperClass) } }, [
+            D.Lists.Ul({ attrs: { class: tw`flex flex-wrap items-center gap-2` } }, pages.map((page) => {
+              const label = localize(page.label, lang, fallback) || page.key;
+              const icon = page.icon ? `${page.icon} ` : '';
+              const isActive = page.key === active;
+              return D.Lists.Li({ attrs: { key: `nav-${page.key}` } }, [
+                UI.Button({
+                  attrs: {
+                    gkey: `pages:go:${page.key}`,
+                    class: tw`${isActive ? 'shadow-[var(--shadow)]' : ''}`
+                  },
+                  variant: isActive ? 'solid' : 'ghost',
+                  size: 'sm'
+                }, [`${icon}${label}`])
+              ]);
+            }))
+          ]);
+        }
+
+        function renderActivePage(db, options) {
+          const pages = toArr(db && db.data && db.data.pages).filter(Boolean);
+          if (!pages.length) {
+            const { lang } = resolveLang(db);
+            return renderEmpty(lang === 'ar' ? 'لا توجد صفحات معرّفة بعد.' : 'No pages defined yet.');
+          }
+          const activeKey = (db && db.data && db.data.active) || (pages[0] && pages[0].key) || null;
+          const activePage = pages.find((page) => page.key === activeKey) || pages[0];
+          const helpers = { tw, cx, localize, resolveLang };
+          let body = null;
+          if (activePage && typeof activePage.dsl === 'function') {
+            body = activePage.dsl(db, helpers);
+          } else if (activePage && activePage.comp) {
+            body = callRegistry(db, activePage.comp, helpers);
+          }
+          if (!body) {
+            const { lang } = resolveLang(db);
+            body = D.Text.P({ attrs: { class: tw`text-[var(--muted-foreground)]` } }, [
+              lang === 'ar' ? 'لم يتم إعداد هذه الصفحة بعد.' : 'This page is not configured yet.'
+            ]);
+          }
+          const className = options && options.className ? tw`${options.className}` : '';
+          return D.Containers.Section({
+            attrs: { class: cx(tw`flex-1 space-y-6`, className), 'data-pagekey': activePage.key || '' }
+          }, [body]);
+        }
+
+        function createPageOrdersFrom(db) {
+          const pages = toArr(db && db.data && db.data.pages).filter(Boolean);
+          if (Templates.PagesShell && typeof Templates.PagesShell.createNavOrders === 'function') {
+            return Templates.PagesShell.createNavOrders(pages);
+          }
+          return pages.reduce((acc, page) => {
+            if (!page || !page.key) return acc;
+            const key = page.key;
+            acc[`pages.go.${key}`] = {
+              on: ['click'],
+              gkeys: [`pages:go:${key}`],
+              handler: (_event, context) => {
+                context.setState((prev) => {
+                  const prevData = ensureDict(prev.data);
+                  return Object.assign({}, prev, {
+                    data: Object.assign({}, prevData, { active: key })
+                  });
+                });
+                context.rebuild();
+              }
+            };
+            return acc;
+          }, {});
+        }
+
+        function renderMetrics(list, lang, fallback) {
+          if (!Array.isArray(list) || !list.length) return null;
+          return D.Containers.Div({ attrs: { class: tw`grid gap-3` } }, list.map((metric, index) => UI.Card({
+            attrs: { key: `metric-${index}`, class: tw`bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)]` },
+            title: metric.value != null ? String(metric.value) : '',
+            description: localize(metric.label, lang, fallback),
+            content: metric.change
+              ? D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(metric.change, lang, fallback)])
+              : null
+          })));
+        }
+
+        function newsFrontPage(state) {
+          const { lang, fallback } = resolveLang(state);
+          const hero = ShowcaseData.hero;
+          const articles = ShowcaseData.articles;
+          const briefs = ShowcaseData.briefs;
+          const heroSection = D.Containers.Section({
+            attrs: { class: tw`rounded-3xl bg-[color-mix(in_oklab,var(--primary)12%,transparent)] p-6 border border-[color-mix(in_oklab,var(--primary)45%,transparent)] space-y-4` }
+          }, [
+            hero.kicker
+              ? D.Text.Span({ attrs: { class: tw`text-sm font-semibold tracking-[0.18em] uppercase text-[color-mix(in_oklab,var(--primary)70%,transparent)]` } }, [localize(hero.kicker, lang, fallback)])
+              : null,
+            D.Text.H1({ attrs: { class: tw`text-3xl font-semibold` } }, [localize(hero.title, lang, fallback)]),
+            D.Text.P({ attrs: { class: tw`text-lg text-[var(--muted-foreground)]` } }, [localize(hero.summary, lang, fallback)]),
+            D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center gap-3` } }, [
+              UI.Button({ variant: 'solid', size: 'md', attrs: { class: tw`font-semibold` } }, [localize(hero.cta, lang, fallback)]),
+              UI.Button({ variant: 'ghost', size: 'md', attrs: { class: tw`text-sm` } }, [localize(hero.secondary, lang, fallback)])
+            ])
+          ].filter(Boolean));
+
+          const articleCards = D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-3` } }, articles.map((article, index) => UI.Card({
+            attrs: { key: `headline-${article.id || index}` },
+            title: `${article.icon ? `${article.icon} ` : ''}${localize(article.title, lang, fallback)}`,
+            description: localize(article.summary, lang, fallback),
+            content: D.Containers.Div({ attrs: { class: tw`flex items-center justify-between text-xs text-[var(--muted-foreground)]` } }, [
+              D.Text.Span({}, [localize(article.category, lang, fallback)]),
+              D.Text.Span({}, [localize(article.time, lang, fallback)]),
+              D.Text.Span({}, [localize(article.reading, lang, fallback)])
+            ])
+          })));
+
+          const briefsList = D.Containers.Section({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'نبض سريع' : 'Quick pulse']),
+            D.Lists.Ul({ attrs: { class: tw`grid gap-3` } }, briefs.map((item, idx) => D.Lists.Li({ attrs: { key: `brief-${idx}`, class: tw`rounded-2xl bg-[var(--surface-2)] border border-[color-mix(in_oklab,var(--border)60%,transparent)] p-4 flex gap-3` } }, [
+              D.Text.Span({ attrs: { class: tw`text-2xl` } }, [item.icon || '•']),
+              D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+                D.Text.Strong({ attrs: { class: tw`text-base` } }, [localize(item.title, lang, fallback)]),
+                D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.detail, lang, fallback)])
+              ])
+            ])))
+          ]);
+
+          return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [heroSection, articleCards, briefsList]);
+        }
+
+        function newsDeepPage(state) {
+          const { lang, fallback } = resolveLang(state);
+          const articles = ShowcaseData.articles;
+          return D.Containers.Section({ attrs: { class: tw`space-y-5` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [lang === 'ar' ? 'تحليلات معمّقة' : 'Deep analyses']),
+            D.Lists.Ul({ attrs: { class: tw`space-y-4` } }, articles.map((article, index) => D.Lists.Li({ attrs: { key: `analysis-${article.id || index}` } }, [
+              D.Containers.Article({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 space-y-3` } }, [
+                D.Text.Span({ attrs: { class: tw`text-sm uppercase tracking-[0.16em] text-[var(--muted-foreground)]` } }, [localize(article.category, lang, fallback)]),
+                D.Text.H3({ attrs: { class: tw`text-xl font-semibold flex items-center gap-2` } }, [
+                  D.Text.Span({}, [article.icon || '📌']),
+                  D.Text.Span({}, [localize(article.title, lang, fallback)])
+                ]),
+                D.Text.P({ attrs: { class: tw`text-[var(--muted-foreground)]` } }, [localize(article.summary, lang, fallback)]),
+                D.Containers.Div({ attrs: { class: tw`flex items-center justify-between text-xs text-[var(--muted-foreground)]` } }, [
+                  D.Text.Span({}, [localize(article.time, lang, fallback)]),
+                  D.Text.Span({}, [localize(article.reading, lang, fallback)])
+                ])
+              ])
+            ])))
+          ]);
+        }
+
+        function newsBriefPage(state) {
+          const { lang, fallback } = resolveLang(state);
+          const updates = ShowcaseData.mobile.updates;
+          return D.Containers.Section({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-2xl font-semibold` } }, [lang === 'ar' ? 'النشرة السريعة' : 'Instant briefing']),
+            D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, updates.map((update, index) => D.Lists.Li({ attrs: { key: `update-${index}` } }, [
+              D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] p-4 border border-[color-mix(in_oklab,var(--border)55%,transparent)] flex flex-col gap-2` } }, [
+                D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(update.time, lang, fallback)]),
+                D.Text.P({ attrs: { class: tw`text-sm leading-6` } }, [localize(update.text, lang, fallback)])
+              ])
+            ])))
+          ]);
+        }
+
+        function corporateLanding(state) {
+          const { lang, fallback } = resolveLang(state);
+          const hero = ShowcaseData.hero;
+          const features = ShowcaseData.features;
+          return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+            D.Containers.Section({ attrs: { class: tw`rounded-3xl bg-[var(--card)] border border-[var(--border)] p-6 space-y-4 shadow-[var(--shadow)]` } }, [
+              D.Text.H1({ attrs: { class: tw`text-3xl font-semibold` } }, [localize(hero.title, lang, fallback)]),
+              D.Text.P({ attrs: { class: tw`text-lg text-[var(--muted-foreground)]` } }, [localize(hero.summary, lang, fallback)]),
+              D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center gap-3` } }, [
+                UI.Button({ variant: 'solid', size: 'md' }, [localize(hero.cta, lang, fallback)]),
+                UI.Button({ variant: 'ghost', size: 'md' }, [localize(hero.secondary, lang, fallback)])
+              ])
+            ]),
+            D.Containers.Section({ attrs: { class: tw`space-y-4` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'لماذا المنصة؟' : 'Why this platform?']),
+              D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-3` } }, features.map((feature, index) => UI.Card({
+                attrs: { key: `feature-${index}`, class: tw`h-full` },
+                title: `${feature.icon || '✨'} ${localize(feature.title, lang, fallback)}`,
+                description: localize(feature.text, lang, fallback)
+              })))
+            ])
+          ]);
+        }
+
+        function corporateStory(state) {
+          const { lang, fallback } = resolveLang(state);
+          const timeline = ShowcaseData.timeline;
+          const metrics = ShowcaseData.metrics;
+          return D.Containers.Div({ attrs: { class: tw`grid gap-6 md:grid-cols-3` } }, [
+            D.Containers.Section({ attrs: { class: tw`md:col-span-2 space-y-4` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'رحلة النمو' : 'Growth journey']),
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, timeline.map((item, index) => D.Lists.Li({ attrs: { key: `timeline-${index}` } }, [
+                D.Containers.Article({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 flex flex-col gap-2` } }, [
+                  D.Text.Span({ attrs: { class: tw`text-sm font-semibold text-[var(--muted-foreground)]` } }, [item.year]),
+                  D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [localize(item.title, lang, fallback)]),
+                  D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.detail, lang, fallback)])
+                ])
+              ])))
+            ]),
+            D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'مؤشرات الأثر' : 'Impact metrics']),
+              renderMetrics(metrics, lang, fallback)
+            ])
+          ]);
+        }
+
+        function corporateServices(state) {
+          const { lang, fallback } = resolveLang(state);
+          const services = ShowcaseData.services;
+          const briefs = ShowcaseData.briefs;
+          return D.Containers.Div({ attrs: { class: tw`grid gap-6 md:grid-cols-[2fr_1fr]` } }, [
+            D.Containers.Section({ attrs: { class: tw`space-y-4` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'الخدمات المتاحة' : 'Available services']),
+              D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } }, services.map((item, index) => UI.Card({
+                attrs: { key: `service-${index}` },
+                title: `${item.icon || '🛠️'} ${localize(item.title, lang, fallback)}`,
+                description: localize(item.text, lang, fallback)
+              })))
+            ]),
+            D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'باقة القيمة' : 'Value highlights']),
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, briefs.map((item, index) => D.Lists.Li({ attrs: { key: `value-${index}` } }, [
+                D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] border border-[color-mix(in_oklab,var(--border)55%,transparent)] p-4 space-y-2` } }, [
+                  D.Text.Strong({}, [`${item.icon || '•'} ${localize(item.title, lang, fallback)}`]),
+                  D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.detail, lang, fallback)])
+                ])
+              ])))
+            ])
+          ]);
+        }
+
+        function mobileOverview(state) {
+          const { lang, fallback } = resolveLang(state);
+          const highlights = ShowcaseData.mobile.highlights;
+          const metrics = ShowcaseData.metrics;
+          return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'شاشة التطبيق' : 'App screen preview']),
+            D.Containers.Div({ attrs: { class: tw`rounded-[32px] border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 shadow-[var(--shadow)]` } }, [
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, highlights.map((item, index) => D.Lists.Li({ attrs: { key: `highlight-${index}` } }, [
+                D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] p-4 flex gap-3 items-start` } }, [
+                  D.Text.Span({ attrs: { class: tw`text-2xl` } }, [item.icon || '✨']),
+                  D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+                    D.Text.Strong({}, [localize(item.title, lang, fallback)]),
+                    D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.text, lang, fallback)])
+                  ])
+                ])
+              ])))
+            ]),
+            D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [lang === 'ar' ? 'مؤشرات سريعة' : 'Quick metrics']),
+            renderMetrics(metrics, lang, fallback)
+          ]);
+        }
+
+        function mobileUpdates(state) {
+          const { lang, fallback } = resolveLang(state);
+          const updates = ShowcaseData.mobile.updates;
+          return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'آخر التحديثات' : 'Latest updates']),
+            D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, updates.map((update, index) => D.Lists.Li({ attrs: { key: `mobile-update-${index}` } }, [
+              D.Containers.Div({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-4 space-y-2` } }, [
+                D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(update.time, lang, fallback)]),
+                D.Text.P({ attrs: { class: tw`text-sm leading-6` } }, [localize(update.text, lang, fallback)])
+              ])
+            ])))
+          ]);
+        }
+
+        function mobileJourney(state) {
+          const { lang, fallback } = resolveLang(state);
+          const features = ShowcaseData.features;
+          return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'رحلة المستخدم' : 'User journey']),
+            D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, features.map((feature, index) => D.Lists.Li({ attrs: { key: `journey-${index}` } }, [
+              D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] border border-[color-mix(in_oklab,var(--border)55%,transparent)] p-4 space-y-2` } }, [
+                D.Text.Strong({}, [`${feature.icon || '•'} ${localize(feature.title, lang, fallback)}`]),
+                D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(feature.text, lang, fallback)])
+              ])
+            ])))
+          ]);
+        }
+
+        function dashboardSummary(state) {
+          const { lang, fallback } = resolveLang(state);
+          const kpis = ShowcaseData.dashboard.kpis;
+          const timeline = ShowcaseData.dashboard.timeline;
+          return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'ملخص الأداء' : 'Performance summary']),
+            D.Containers.Div({ attrs: { class: tw`grid gap-3 md:grid-cols-3` } }, kpis.map((kpi, index) => UI.Card({
+              attrs: { key: `kpi-${index}` },
+              title: `${kpi.icon || ''} ${localize(kpi.label, lang, fallback)}`,
+              description: localize(kpi.delta, lang, fallback),
+              content: D.Text.H3({ attrs: { class: tw`text-3xl font-semibold` } }, [kpi.value])
+            }))),
+            D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [lang === 'ar' ? 'الخط الزمني' : 'Timeline']),
+            D.Lists.Ul({ attrs: { class: tw`grid gap-3 md:grid-cols-3` } }, timeline.map((item, index) => D.Lists.Li({ attrs: { key: `timeline-card-${index}` } }, [
+              D.Containers.Div({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-4 space-y-1` } }, [
+                D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.label, lang, fallback)]),
+                D.Text.Strong({ attrs: { class: tw`text-2xl` } }, [item.amount])
+              ])
+            ])))
+          ]);
+        }
+
+        function dashboardChannels(state) {
+          const { lang, fallback } = resolveLang(state);
+          const channels = ShowcaseData.dashboard.channels;
+          const metrics = ShowcaseData.metrics;
+          return D.Containers.Div({ attrs: { class: tw`grid gap-6 md:grid-cols-[2fr_1fr]` } }, [
+            D.Containers.Section({ attrs: { class: tw`space-y-4` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'قنوات النشر' : 'Distribution channels']),
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, channels.map((channel, index) => D.Lists.Li({ attrs: { key: `channel-${index}` } }, [
+                D.Containers.Div({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-4 flex items-center justify-between` } }, [
+                  D.Text.Strong({}, [localize(channel.label, lang, fallback)]),
+                  D.Text.Span({ attrs: { class: tw`text-lg font-semibold` } }, [channel.share])
+                ])
+              ])))
+            ]),
+            D.Containers.Section({ attrs: { class: tw`space-y-3` } }, [
+              D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'مؤشرات داعمة' : 'Supporting metrics']),
+              renderMetrics(metrics, lang, fallback)
+            ])
+          ]);
+        }
+
+        function dashboardTasks(state) {
+          const { lang, fallback } = resolveLang(state);
+          const tasks = ShowcaseData.dashboard.tasks;
+          return D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+            D.Text.H2({ attrs: { class: tw`text-xl font-semibold` } }, [lang === 'ar' ? 'مهام الفريق' : 'Team tasks']),
+            D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, tasks.map((task, index) => D.Lists.Li({ attrs: { key: `task-${index}` } }, [
+              D.Containers.Div({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-4 flex flex-col gap-1` } }, [
+                D.Text.Strong({}, [localize(task.title, lang, fallback)]),
+                D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [
+                  (lang === 'ar' ? 'بواسطة ' : 'Owner: ') + localize(task.owner, lang, fallback)
+                ]),
+                D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(task.status, lang, fallback)])
+              ])
+            ])))
+          ]);
+        }
+
+        Templates.Newsroom = {
+          meta: {
+            icon: '📰',
+            label: { ar: 'موقع إخباري', en: 'Newsroom' },
+            title: 'Newsroom shell'
+          },
+          defaultPages() {
+            return [
+              { key: 'news.front', icon: '🗞️', label: { ar: 'الرئيسية', en: 'Front page' }, dsl: newsFrontPage },
+              { key: 'news.deep', icon: '🧠', label: { ar: 'تحليلات', en: 'Deep dives' }, dsl: newsDeepPage },
+              { key: 'news.brief', icon: '⏱️', label: { ar: 'نشرة عاجلة', en: 'Daily brief' }, dsl: newsBriefPage }
+            ];
+          },
+          createOrders(db) {
+            return createPageOrdersFrom(db);
+          },
+          render(db) {
+            const { lang, fallback } = resolveLang(db);
+            const brand = ShowcaseData.brand;
+            const metrics = ShowcaseData.metrics;
+            const nav = renderNav(db, { className: 'justify-start' });
+            const content = renderActivePage(db, { className: 'space-y-6' });
+            const updatesCard = D.Containers.Section({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 space-y-3` } }, [
+              D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [lang === 'ar' ? 'تحديثات عاجلة' : 'Breaking updates']),
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, ShowcaseData.mobile.updates.slice(0, 2).map((update, index) => D.Lists.Li({ attrs: { key: `aside-update-${index}` } }, [
+                D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] p-4 space-y-1` } }, [
+                  D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(update.time, lang, fallback)]),
+                  D.Text.P({ attrs: { class: tw`text-sm leading-6` } }, [localize(update.text, lang, fallback)])
+                ])
+              ])))
+            ]);
+
+            const metricsCard = D.Containers.Section({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 space-y-3` } }, [
+              D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [lang === 'ar' ? 'مؤشرات حية' : 'Live metrics']),
+              renderMetrics(metrics, lang, fallback)
+            ]);
+
+            const header = D.Containers.Header({ attrs: { class: tw`flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-3xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)]/80 px-6 py-5 shadow-sm backdrop-blur` } }, [
+              D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+                D.Text.H1({ attrs: { class: tw`text-2xl font-semibold` } }, [localize(brand.name, lang, fallback)]),
+                D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(brand.tagline, lang, fallback)])
+              ]),
+              D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+                UI.Button({ attrs: { gkey: 'ui:template:prev' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'القالب السابق' : 'Prev template']),
+                UI.Button({ attrs: { gkey: 'ui:template:next' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'القالب التالي' : 'Next template'])
+              ])
+            ]);
+
+            return D.Containers.Div({ attrs: { class: tw`min-h-screen bg-[color-mix(in_oklab,var(--background)96%,transparent)] text-[var(--foreground)] px-4 pb-12` } }, [
+              D.Containers.Div({ attrs: { class: tw`mx-auto flex w-full max-w-6xl flex-col gap-6` } }, [
+                header,
+                nav,
+                D.Containers.Div({ attrs: { class: tw`flex flex-col gap-6 md:flex-row` } }, [
+                  D.Containers.Main({ attrs: { class: tw`flex-1` } }, [content]),
+                  D.Containers.Aside({ attrs: { class: tw`md:w-[280px] space-y-4` } }, [metricsCard, updatesCard])
+                ])
+              ])
+            ]);
+          }
+        };
+
+        Templates.CorporateSite = {
+          meta: {
+            icon: '🏢',
+            label: { ar: 'موقع شركة', en: 'Corporate site' },
+            title: 'Corporate surface'
+          },
+          defaultPages() {
+            return [
+              { key: 'site.landing', icon: '🌅', label: { ar: 'الصفحة الرئيسية', en: 'Landing' }, dsl: corporateLanding },
+              { key: 'site.story', icon: '📈', label: { ar: 'قصة النمو', en: 'Story' }, dsl: corporateStory },
+              { key: 'site.services', icon: '🛠️', label: { ar: 'الخدمات', en: 'Services' }, dsl: corporateServices }
+            ];
+          },
+          createOrders(db) {
+            return createPageOrdersFrom(db);
+          },
+          render(db) {
+            const { lang, fallback } = resolveLang(db);
+            const brand = ShowcaseData.brand;
+            const nav = renderNav(db, { className: 'justify-center' });
+            const content = renderActivePage(db, { className: 'rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-6' });
+            const header = D.Containers.Header({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 shadow-[var(--shadow)] flex flex-col gap-2 text-center` } }, [
+              D.Text.H1({ attrs: { class: tw`text-3xl font-semibold` } }, [localize(brand.name, lang, fallback)]),
+              D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(brand.tagline, lang, fallback)])
+            ]);
+
+            return D.Containers.Div({ attrs: { class: tw`min-h-screen bg-[linear-gradient(165deg,color-mix(in_oklab,var(--background)96%,transparent)0%,color-mix(in_oklab,var(--surface-1)85%,transparent)100%)] text-[var(--foreground)] px-4 pb-12` } }, [
+              D.Containers.Div({ attrs: { class: tw`mx-auto flex w-full max-w-5xl flex-col gap-6` } }, [
+                header,
+                nav,
+                D.Containers.Main({ attrs: { class: tw`flex-1` } }, [content])
+              ])
+            ]);
+          }
+        };
+
+        Templates.MobileShowcase = {
+          meta: {
+            icon: '📱',
+            label: { ar: 'تجربة جوّال', en: 'Mobile app' },
+            title: 'Mobile showcase'
+          },
+          defaultPages() {
+            return [
+              { key: 'mobile.overview', icon: '📲', label: { ar: 'نظرة عامة', en: 'Overview' }, dsl: mobileOverview },
+              { key: 'mobile.updates', icon: '🔔', label: { ar: 'التحديثات', en: 'Updates' }, dsl: mobileUpdates },
+              { key: 'mobile.journey', icon: '🗺️', label: { ar: 'رحلة المستخدم', en: 'Journey' }, dsl: mobileJourney }
+            ];
+          },
+          createOrders(db) {
+            return createPageOrdersFrom(db);
+          },
+          render(db) {
+            const { lang, fallback } = resolveLang(db);
+            const nav = renderNav(db, { className: 'justify-center' });
+            const content = renderActivePage(db, { className: 'rounded-[32px] border border-[var(--border)] bg-[var(--card)] p-6 max-w-md mx-auto shadow-[var(--shadow)]' });
+            return D.Containers.Div({ attrs: { class: tw`min-h-screen bg-[color-mix(in_oklab,var(--background)94%,transparent)] flex flex-col items-center gap-6 px-4 py-10 text-[var(--foreground)]` } }, [
+              D.Containers.Div({ attrs: { class: tw`text-center space-y-2` } }, [
+                D.Text.H1({ attrs: { class: tw`text-2xl font-semibold` } }, [lang === 'ar' ? 'تجربة الجوال الحيّة' : 'Live mobile view']),
+                D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [lang === 'ar' ? 'بطاقات تفاعلية تعمل على نفس البيانات.' : 'Interactive cards powered by the same data.'])
+              ]),
+              nav,
+              content
+            ]);
+          }
+        };
+
+        Templates.DataDashboard = {
+          meta: {
+            icon: '📊',
+            label: { ar: 'لوحة تحليلات', en: 'Data dashboard' },
+            title: 'Analytics workspace'
+          },
+          defaultPages() {
+            return [
+              { key: 'dash.summary', icon: '🧮', label: { ar: 'الملخص', en: 'Summary' }, dsl: dashboardSummary },
+              { key: 'dash.channels', icon: '🌐', label: { ar: 'القنوات', en: 'Channels' }, dsl: dashboardChannels },
+              { key: 'dash.tasks', icon: '✅', label: { ar: 'مهام الفريق', en: 'Team tasks' }, dsl: dashboardTasks }
+            ];
+          },
+          createOrders(db) {
+            return createPageOrdersFrom(db);
+          },
+          render(db) {
+            const { lang, fallback } = resolveLang(db);
+            const brand = ShowcaseData.brand;
+            const nav = renderNav(db, { className: 'justify-start' });
+            const content = renderActivePage(db, { className: 'space-y-6 rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-6' });
+            const channelsCard = D.Containers.Section({ attrs: { class: tw`rounded-3xl border border-[var(--border)] bg-[var(--surface-1)] p-5 space-y-3` } }, [
+              D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [lang === 'ar' ? 'مهام قادمة' : 'Upcoming tasks']),
+              D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, ShowcaseData.dashboard.tasks.map((task, index) => D.Lists.Li({ attrs: { key: `side-task-${index}` } }, [
+                D.Containers.Div({ attrs: { class: tw`rounded-2xl bg-[var(--surface-2)] border border-[color-mix(in_oklab,var(--border)55%,transparent)] p-4 space-y-1` } }, [
+                  D.Text.Strong({}, [localize(task.title, lang, fallback)]),
+                  D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(task.status, lang, fallback)])
+                ])
+              ])))
+            ]);
+
+            const header = D.Containers.Header({ attrs: { class: tw`flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-3xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] px-6 py-5 shadow-sm` } }, [
+              D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+                D.Text.H1({ attrs: { class: tw`text-2xl font-semibold` } }, [localize(brand.name, lang, fallback)]),
+                D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [lang === 'ar' ? 'لوحة تحليلات تعتمد نفس القصة.' : 'An analytics view on top of the same story.'])
+              ]),
+              D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+                UI.Button({ attrs: { gkey: 'ui:template:prev' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'السابق' : 'Prev']),
+                UI.Button({ attrs: { gkey: 'ui:template:next' }, variant: 'solid', size: 'sm' }, [lang === 'ar' ? 'التالي' : 'Next']),
+                UI.Button({ attrs: { gkey: 'ui:theme-toggle' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'تبديل الثيم' : 'Toggle theme'])
+              ])
+            ]);
+
+            return D.Containers.Div({ attrs: { class: tw`min-h-screen bg-[color-mix(in_oklab,var(--background)95%,transparent)] text-[var(--foreground)] px-4 pb-12` } }, [
+              D.Containers.Div({ attrs: { class: tw`mx-auto flex w-full max-w-6xl flex-col gap-6` } }, [
+                header,
+                nav,
+                D.Containers.Div({ attrs: { class: tw`flex flex-col gap-6 md:flex-row` } }, [
+                  D.Containers.Main({ attrs: { class: tw`flex-1` } }, [content]),
+                  D.Containers.Aside({ attrs: { class: tw`md:w-[260px] space-y-4` } }, [channelsCard])
+                ])
+              ])
+            ]);
+          }
+        };
+
+        const app = M.Pages.create({
+          template: 'Newsroom',
+          theme: 'dark',
+          useDefaultPages: true,
+          themeLab: { enabled: true },
+          data: { content: ShowcaseData },
+          mount: '#app'
         });
 
-        const app = M.app.createApp(database, {});
-        const templateOrders = template.createOrders(database);
-        const orders = Object.assign({}, Index.orders, templateOrders);
-        const twx = M.utils.twcss.auto(database, app);
-        app.setOrders(Object.assign({}, orders, M.UI.orders, twx.orders));
-        app.mount('#app');
+        window.MishkahIndexApp = app;
       })();
+
     </script>
   </body>
 </html>
