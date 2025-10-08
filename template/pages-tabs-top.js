@@ -37,6 +37,59 @@
     });
   }
 
+  function dedupePages(list, fallbackList) {
+    const seen = new Set();
+    const deduped = [];
+    ensureArray(list).forEach((page) => {
+      if (!page) return;
+      const key = page.key;
+      if (key && seen.has(key)) return;
+      if (key) {
+        seen.add(key);
+      }
+      deduped.push(page);
+    });
+    if (deduped.length) {
+      return deduped;
+    }
+    return ensureArray(fallbackList);
+  }
+
+  function shouldScopeTabsToClass(db, variantKey) {
+    const scopeConfig = db?.data?.tabsScope;
+    const normalize = (value) => {
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value !== 'string') {
+        return false;
+      }
+      const lowered = value.trim().toLowerCase();
+      return lowered === 'class' || lowered === 'section';
+    };
+
+    if (scopeConfig == null) {
+      return false;
+    }
+
+    if (typeof scopeConfig === 'boolean' || typeof scopeConfig === 'string') {
+      return normalize(scopeConfig);
+    }
+
+    const scopeDict = ensureDict(scopeConfig);
+    const specific = scopeDict[variantKey];
+    if (specific != null) {
+      return normalize(specific);
+    }
+    if (scopeDict.all != null) {
+      return normalize(scopeDict.all);
+    }
+    if (scopeDict.default != null) {
+      return normalize(scopeDict.default);
+    }
+    return false;
+  }
+
   function PagesTabsTopRender(db) {
     const lang = db?.env?.lang || db?.i18n?.lang || 'ar';
     const fallback = lang === 'ar' ? 'en' : 'ar';
@@ -53,8 +106,10 @@
     const activeDesc = localizeText(activePage?.desc, lang, fallback);
 
     const classNode = activePage?.classKey ? classTree.map?.[activePage.classKey] : null;
-    const tabSource = classNode ? collectPages(classNode, true) : pages;
-    const tabItems = buildTabItems((tabSource.length ? tabSource : pages), lang, fallback, activeKey);
+    const useClassScope = shouldScopeTabsToClass(db, 'top');
+    const classPages = useClassScope && classNode ? collectPages(classNode, true) : [];
+    const tabSource = dedupePages(useClassScope ? classPages : pages, pages);
+    const tabItems = buildTabItems(tabSource, lang, fallback, activeKey);
 
     const navButtons = tabItems.map((item) => UI.Button({
       attrs: {
