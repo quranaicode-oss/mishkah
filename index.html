@@ -305,17 +305,39 @@
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-ui.js"></script>
+    <script src="./mishkah.pages.js"></script>
     <script src="./readme.js"></script>
+    <script src="./template/pages-helpers.js"></script>
     <script src="./template/pages-shell.js"></script>
+    <script src="./template/pages-topnav.js"></script>
+    <script src="./template/pages-blog.js"></script>
+    <script src="./template/pages-sdk.js"></script>
+    <script src="./template/pages-tabs-top.js"></script>
+    <script src="./template/pages-tabs-bottom.js"></script>
     <script src="./ui/index-ui.js"></script>
     <script>
       (function () {
         const M = window.Mishkah;
         const Index = M.apps.index;
-        const database = Index.buildDatabase();
+        const cfg = Index.buildConfig();
+        const MPages = M.Pages || {};
+
+        if (MPages && typeof MPages.create === 'function') {
+          MPages.create(cfg);
+          return;
+        }
+
+        const database = typeof Index.buildDatabase === 'function'
+          ? Index.buildDatabase()
+          : null;
         const template = M.templates.PagesShell;
-        const { TL } = Index.makeLangLookup(database);
-        database.head = { title: TL('app.title') };
+
+        if (!database || !template || typeof template.render !== 'function') {
+          throw new Error('Mishkah PagesShell template is required.');
+        }
+
+        const lookupInit = Index.makeLangLookup(database);
+        database.head = { title: lookupInit.TL('app.title') };
 
         M.app.setBody(function (db) {
           const lookup = Index.makeLangLookup(db);
