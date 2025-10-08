@@ -3,6 +3,7 @@
 
   const M = window.Mishkah = window.Mishkah || {};
   const Templates = M.templates = M.templates || {};
+  const D = M.DSL;
   const UI = M.UI || {};
   const helpers = Templates.__pagesHelpers || {};
 
@@ -16,7 +17,7 @@
   const getActivePage = helpers.getActivePage || ((pages, key) => (ensureArray(pages).find((page) => page && page.key === key) || ensureArray(pages)[0] || null));
   const callPageComponent = helpers.callPageComponent || (() => null);
   const tw = helpers.tw || ((value) => value);
-  const cx = helpers.cx || ((...args) => args.filter(Boolean).join(' '));
+  const renderGlobalSwitchers = helpers.renderGlobalSwitchers || (() => null);
 
   function localizeText(entry, lang, fallback) {
     if (!entry) return '';
@@ -100,7 +101,7 @@
 
     const contentCard = D.Containers.Section({
       attrs: {
-        class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-6 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.45)]`
+        class: tw`w-full rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-6 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.45)]`
       }
     }, [
       D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
@@ -110,12 +111,23 @@
       D.Containers.Div({ attrs: { class: tw`mt-4` } }, [contentBody])
     ]);
 
-    return D.Containers.Main({
-      attrs: { class: tw`mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]` }
+    const globalControls = renderGlobalSwitchers(db, { align: 'end' });
+
+    const layout = D.Containers.Div({
+      attrs: { class: tw`w-full space-y-6` }
     }, [
-      D.Containers.Div({ attrs: { class: tw`space-y-4` } }, categoryCards),
-      contentCard
-    ]);
+      globalControls ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [globalControls]) : null,
+      D.Containers.Div({
+        attrs: { class: tw`grid w-full gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]` }
+      }, [
+        D.Containers.Aside({ attrs: { class: tw`space-y-4` } }, categoryCards),
+        contentCard
+      ])
+    ].filter(Boolean));
+
+    return D.Containers.Main({
+      attrs: { class: tw`w-full px-4 py-6` }
+    }, [layout]);
   }
 
   const BaseShell = Templates.PagesShell;

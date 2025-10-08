@@ -17,6 +17,7 @@
   const getActivePage = helpers.getActivePage || ((pages, key) => (ensureArray(pages).find((page) => page && page.key === key) || ensureArray(pages)[0] || null));
   const callPageComponent = helpers.callPageComponent || (() => null);
   const tw = helpers.tw || ((value) => value);
+  const renderGlobalSwitchers = helpers.renderGlobalSwitchers || (() => null);
 
   function localizeText(entry, lang, fallback) {
     if (!entry) return '';
@@ -144,13 +145,24 @@
       ? D.Containers.Div({ attrs: { class: tw`space-y-4` } }, metaSections)
       : null;
 
-    return D.Containers.Main({
-      attrs: { class: tw`mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,280px)]` }
+    const globalControls = renderGlobalSwitchers(db, { align: 'end' });
+
+    const layout = D.Containers.Div({
+      attrs: { class: tw`w-full space-y-6` }
     }, [
-      D.Containers.Aside({ attrs: { class: tw`space-y-4` } }, navSections),
-      contentCard,
-      metaColumn
+      globalControls ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [globalControls]) : null,
+      D.Containers.Div({
+        attrs: { class: tw`grid w-full gap-6 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,280px)]` }
+      }, [
+        D.Containers.Aside({ attrs: { class: tw`space-y-4` } }, navSections),
+        contentCard,
+        metaColumn
+      ].filter(Boolean))
     ].filter(Boolean));
+
+    return D.Containers.Main({
+      attrs: { class: tw`w-full px-4 py-6` }
+    }, [layout]);
   }
 
   const BaseShell = Templates.PagesShell;
