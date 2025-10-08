@@ -2377,6 +2377,13 @@
       const startPan = event => {
         if(!event) return;
         if(host.__mishkahPanState) return;
+        const appState = (erdAppInstance && typeof erdAppInstance.getState === 'function')
+          ? erdAppInstance.getState()
+          : null;
+        if(appState){
+          const modalsState = appState.ui && typeof appState.ui === 'object' ? appState.ui.modals : null;
+          if(modalsState && Object.values(modalsState).some(Boolean)) return;
+        }
         const pointerType = detectPointerType(event);
         if(pointerType === 'mouse'){
           if(event.button !== 0) return;
@@ -2394,8 +2401,7 @@
           event.preventDefault();
         }
         let switchedToManual = false;
-        if(erdAppInstance && typeof erdAppInstance.getState === 'function'){
-          const appState = erdAppInstance.getState();
+        if(appState){
           const canvasState = appState?.data?.canvas || {};
           if(canvasState.mode !== 'manual'){
             const currentZoom = typeof canvasState.zoom === 'number' ? canvasState.zoom : 1;
