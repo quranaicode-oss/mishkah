@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello — Mishkah</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- Core libs (utils first for twcss + i18n helpers, then core) -->
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+
+    <script>
+  
+        const M = window.Mishkah;
+
+        // 1) DNA — database: env + i18n + data
+        const database = {
+          head: { title: 'Hello — Mishkah' },
+          env: { theme: 'light', lang: 'ar', dir: 'rtl' },
+          i18n: {
+            lang: 'ar',
+            fallback: 'en',
+            dict: {
+              hello: { ar: 'مرحبًا يا مشكاة ✨', en: 'Hello, Mishkah ✨' },
+              countLabel: { ar: 'العداد', en: 'Count' },
+              inc: { ar: 'زيّد العداد', en: 'Increment' },
+                            dec: { ar: 'قلل العداد', en: 'decrased' }
+
+            }
+          },
+          data: { counter: 0 }
+        };
+
+        // 2) تصوير وتسوية — بناء الـ VDOM عبر DSL الذرّية
+        M.app.setBody(function (db, D) {
+          return D.Containers.Main({ attrs: { class: 'min-h-screen grid place-items-center p-6' } }, [
+            D.Containers.Section({ attrs: { class: 'rounded-3xl border p-6 w-full max-w-md text-center space-y-4 bg-[var(--card)] text-[var(--card-foreground)] shadow-sm' } }, [
+              // نص بدون أبناء + t ⇒ يُترجم آليًا حسب db.i18n
+              D.Text.H1({ attrs: { t: 'hello', class: 'text-2xl font-bold' } }),
+
+              // عرض العداد
+              D.Text.P({ attrs: { class: 'text-sm opacity-80' } }, [
+                D.Text.Span({ attrs: { t: 'countLabel' } }),
+                D.Text.Span({}, [': ']),
+                D.Text.Strong({}, [String(db.data?.counter || 0)])
+              ]),
+
+              // أزرار الأفعال (gkey يربط العناصر بالأوامر)
+              D.Containers.Div({ attrs: { class: 'flex flex-wrap items-center justify-center gap-2 pt-1' } }, [
+                D.Forms.Button({
+                  attrs: {
+                    type: 'button',
+                    gkey: 'counter:inc',
+                    class: 'px-4 py-2 rounded-xl border bg-[var(--primary)] text-[var(--primary-foreground)]'
+                  }
+                }, [D.Text.Span({ attrs: { t: 'inc' } })]),
+                
+                                D.Forms.Button({
+                  attrs: {
+                    type: 'button',
+                    gkey: 'counter:dec',
+                    class: 'px-4 py-2 rounded-xl border bg-[var(--primary)] text-[var(--primary-foreground)]'
+                  }
+                }, [D.Text.Span({ attrs: { t: 'dec' } })]),
+
+                // أوامر لغة/ثيم جاهزة من auto()
+                D.Forms.Button({ attrs: { type: 'button', gkey: 'ui:lang-ar', class: 'px-3 py-2 rounded-xl border' } }, ['AR']),
+                D.Forms.Button({ attrs: { type: 'button', gkey: 'ui:lang-en', class: 'px-3 py-2 rounded-xl border' } }, ['EN']),
+                D.Forms.Button({ attrs: { type: 'button', gkey: 'ui:theme-toggle', class: 'px-3 py-2 rounded-xl border' } }, ['🌓'])
+              ])
+            ])
+          ]);
+        });
+
+        // 3) الأوامر — منطق التطبيق الحي
+        const orders = {
+          'counter.inc': {
+            on: ['click'],
+            gkeys: ['counter:inc'],
+            handler: (event, context) => {
+              const current = context.getState();
+              context.setState((s) => ({
+                ...s,
+                data: { ...(s.data || {}), counter: (s.data?.counter || 0) + 1 }
+              }));
+              context.rebuild();
+            }
+          },
+          'counter.dec': {
+            on: ['click'],
+            gkeys: ['counter:dec'],
+            handler: (event, context) => {
+              const current = context.getState();
+              context.setState((s) => ({
+                ...s,
+                data: { ...(s.data || {}), counter: (s.data?.counter || 0)- 1 }
+              }));
+              context.rebuild();
+            }
+          }
+        };
+
+        // 4) الجمع والبعث — createApp + auto + mount
+        const app = M.app.createApp(database, orders);
+        const twx = M.utils.twcss.auto(database, app); // ثيم/لغة + Tailwind CDN + أوامر بيئية
+        app.setOrders(Object.assign({}, orders, twx.orders));
+        app.mount('#app');
+     
+    </script>
+  </body>
+</html>
