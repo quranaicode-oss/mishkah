@@ -63,6 +63,18 @@
     const lang = db?.env?.lang || db?.i18n?.lang || 'ar';
     const fallbackLang = lang === 'ar' ? 'en' : 'ar';
 
+    const setTheme = typeof twApi.setTheme === 'function' ? twApi.setTheme : null;
+    if (setTheme) {
+      const nextThemeMode = db?.env?.theme === 'dark' ? 'dark' : 'light';
+      setTheme(nextThemeMode);
+    }
+
+    const shell = Templates && Templates.PagesShell;
+    if (shell && typeof shell.applyThemeOverrides === 'function') {
+      const overrides = ensureDict(db?.data?.themeOverrides);
+      shell.applyThemeOverrides(overrides);
+    }
+
     const templateDefs = listTemplateDefs(db);
     const templateOptions = templateDefs.map((tpl, idx) => {
       const id = tpl.id || tpl.name || `tpl-${idx}`;

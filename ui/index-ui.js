@@ -1521,6 +1521,8 @@
       ]);
     }
 
+    const headerControls = [langMenu, themeMenu, templateMenu, themeLabButton].filter(Boolean);
+
     const searchState = ensureDict(data.search);
     const searchQuery = typeof searchState.query === 'string' ? searchState.query : '';
     const searchResults = ensureArray(searchState.results);
@@ -1599,17 +1601,11 @@
         })
       : null;
 
-    const searchAndTemplatesRow = D.Containers.Div({
+    const searchRow = D.Containers.Div({
       attrs: { class: tw`mt-4 flex w-full flex-col gap-3 lg:flex-row lg:items-start` }
     }, [
-      D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2` } }, [searchBox]),
-      templateMenu
-        ? D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2 lg:w-auto lg:min-w-[240px]` } }, [
-            D.Text.Span({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.35em] text-[var(--muted-foreground)]` } }, [TL('header.templates.label')]),
-            templateMenu
-          ])
-        : null
-    ].filter(Boolean));
+      D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2` } }, [searchBox])
+    ]);
 
     return D.Containers.Header({
       attrs: {
@@ -1636,13 +1632,15 @@
             D.Text.H1({ attrs: { class: tw`text-3xl font-bold leading-tight` } }, [TL('app.title')]),
             D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
           ]),
-          D.Containers.Div({
-            attrs: {
-              class: tw`flex flex-wrap items-center justify-end gap-2`
-            }
-          }, [langMenu, themeMenu, themeLabButton])
-        ]),
-        searchAndTemplatesRow
+          headerControls.length
+            ? D.Containers.Div({
+                attrs: {
+                  class: tw`flex flex-wrap items-center justify-end gap-2`
+                }
+              }, headerControls)
+            : null
+        ].filter(Boolean)),
+        searchRow
       ])
     ].filter(Boolean));
   }
