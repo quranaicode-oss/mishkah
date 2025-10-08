@@ -117,6 +117,15 @@
     const Text = U.Text || {};
     const LangUtils = U.lang || {};
 
+    function hasOpenModal(state){
+      if(!state || typeof state !== 'object') return false;
+      const uiState = state.ui;
+      if(!uiState || typeof uiState !== 'object') return false;
+      const modalsState = uiState.modals;
+      if(!modalsState || typeof modalsState !== 'object') return false;
+      return Object.values(modalsState).some(Boolean);
+    }
+
     function createTranslator(db){
       const lookup = typeof LangUtils.makeLangLookup === 'function'
         ? LangUtils.makeLangLookup(db)
@@ -1146,6 +1155,10 @@
         group.style.cursor = 'move';
         group.style.touchAction = 'none';
         const handlePointerDown = event => {
+          const appState = (erdAppInstance && typeof erdAppInstance.getState === 'function')
+            ? erdAppInstance.getState()
+            : null;
+          if(appState && hasOpenModal(appState)) return;
           if(event.button && event.button !== 0) return;
           event.preventDefault();
           event.stopPropagation();
@@ -2377,6 +2390,10 @@
       const startPan = event => {
         if(!event) return;
         if(host.__mishkahPanState) return;
+        const appState = (erdAppInstance && typeof erdAppInstance.getState === 'function')
+          ? erdAppInstance.getState()
+          : null;
+        if(appState && hasOpenModal(appState)) return;
         const pointerType = detectPointerType(event);
         if(pointerType === 'mouse'){
           if(event.button !== 0) return;
@@ -2394,8 +2411,7 @@
           event.preventDefault();
         }
         let switchedToManual = false;
-        if(erdAppInstance && typeof erdAppInstance.getState === 'function'){
-          const appState = erdAppInstance.getState();
+        if(appState){
           const canvasState = appState?.data?.canvas || {};
           if(canvasState.mode !== 'manual'){
             const currentZoom = typeof canvasState.zoom === 'number' ? canvasState.zoom : 1;
