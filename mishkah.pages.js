@@ -53,6 +53,63 @@
     return { ar: ar || fallback, en: en || fallback };
   }
 
+  function normalizeMediaUrl(value) {
+    if (value == null) return null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed || null;
+    }
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i += 1) {
+        const attempt = normalizeMediaUrl(value[i]);
+        if (attempt) return attempt;
+      }
+      return null;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    if (isObj(value)) {
+      const keys = ['url', 'src', 'href', 'link', 'value', 'image', 'video'];
+      for (let i = 0; i < keys.length; i += 1) {
+        const attempt = normalizeMediaUrl(value[keys[i]]);
+        if (attempt) return attempt;
+      }
+    }
+    return null;
+  }
+
+  function normalizeMediaArray(value) {
+    const queue = [];
+    if (value == null) {
+      // no-op
+    } else if (Array.isArray(value)) {
+      queue.push(...value);
+    } else if (isObj(value)) {
+      const collections = ['items', 'images', 'gallery', 'list'];
+      collections.forEach((key) => {
+        if (Array.isArray(value[key])) {
+          queue.push(...value[key]);
+        }
+      });
+      if ('value' in value) queue.push(value.value);
+      const direct = normalizeMediaUrl(value);
+      if (direct) queue.push(direct);
+    } else {
+      queue.push(value);
+    }
+
+    const out = [];
+    const seen = new Set();
+    for (let i = 0; i < queue.length; i += 1) {
+      const url = normalizeMediaUrl(queue[i]);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      out.push(url);
+    }
+    return out;
+  }
+
   function normalizePages(list) {
     return toArr(list).map((page, index) => {
       const obj = ensureDict(page);
@@ -64,6 +121,39 @@
         ? obj.keywords.filter((kw) => typeof kw === 'string' && kw.trim()).map((kw) => kw.trim())
         : [];
       const meta = ensureDict(obj.meta);
+      const media = ensureDict(obj.media);
+      const hero = ensureDict(obj.hero);
+      const mainImage = normalizeMediaUrl([
+        obj.mainImage,
+        obj.main_image,
+        obj.image,
+        obj.cover,
+        hero.image,
+        hero.cover,
+        media.mainImage,
+        media.main_image,
+        media.image,
+        media.cover
+      ]);
+      const images = normalizeMediaArray([
+        obj.images,
+        obj.gallery,
+        obj.mediaGallery,
+        hero.images,
+        media.images,
+        media.gallery,
+        media.items
+      ]);
+      const mainVideo = normalizeMediaUrl([
+        obj.mainVideo,
+        obj.main_video,
+        obj.video,
+        hero.video,
+        hero.mainVideo,
+        media.mainVideo,
+        media.main_video,
+        media.video
+      ]);
       return {
         key: typeof obj.key === 'string' ? obj.key : (typeof obj.id === 'string' ? obj.id : `page-${index + 1}`),
         order: Number.isFinite(obj.order) ? obj.order : index,
@@ -75,7 +165,10 @@
         meta,
         dsl: typeof obj.dsl === 'function' ? obj.dsl : null,
         comp: typeof obj.comp === 'string' ? obj.comp : null,
-        orders: ensureDict(obj.orders)
+        orders: ensureDict(obj.orders),
+        mainImage: mainImage || null,
+        images,
+        mainVideo: mainVideo || null
       };
     });
   }
@@ -92,6 +185,39 @@
         : (typeof obj.parentKey === 'string'
           ? obj.parentKey
           : (typeof obj.parent_id === 'string' ? obj.parent_id : null));
+      const media = ensureDict(obj.media);
+      const hero = ensureDict(obj.hero);
+      const mainImage = normalizeMediaUrl([
+        obj.mainImage,
+        obj.main_image,
+        obj.image,
+        obj.cover,
+        hero.image,
+        hero.cover,
+        media.mainImage,
+        media.main_image,
+        media.image,
+        media.cover
+      ]);
+      const images = normalizeMediaArray([
+        obj.images,
+        obj.gallery,
+        obj.mediaGallery,
+        hero.images,
+        media.images,
+        media.gallery,
+        media.items
+      ]);
+      const mainVideo = normalizeMediaUrl([
+        obj.mainVideo,
+        obj.main_video,
+        obj.video,
+        hero.video,
+        hero.mainVideo,
+        media.mainVideo,
+        media.main_video,
+        media.video
+      ]);
       return {
         key,
         parent,
@@ -99,7 +225,10 @@
         label: normalizeLabel(obj),
         desc: obj.desc != null ? normalizeCopy(obj.desc) : { ar: '', en: '' },
         sort: Number.isFinite(obj.sort) ? obj.sort : index,
-        meta: ensureDict(obj.meta)
+        meta: ensureDict(obj.meta),
+        mainImage: mainImage || null,
+        images,
+        mainVideo: mainVideo || null
       };
     }).filter(Boolean);
   }
