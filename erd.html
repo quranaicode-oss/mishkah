@@ -350,6 +350,7 @@
     }
 
     const x6Available = await ensureX6Library();
+    const initialGraphDriver = x6Available ? 'x6' : 'fake';
     if(!x6Available){
       console.warn('[Mishkah][ERD] AntV X6 library is not available, diagram will use fallback driver.');
     }
@@ -2283,20 +2284,55 @@
 
     function ensureCanvasPointerHandlers(host){
       if(!host || host.__mishkahPointerHandlersAttached) return;
-      const startPan = event => {
-        if(!event || event.button !== 0 || (typeof event.buttons === 'number' && event.buttons !== 1)) return;
+      const assignPanState = (pointer) => {
         const state = {
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
+          pointerId: pointer.pointerId,
+          x: pointer.x,
+          y: pointer.y,
           scrollLeft: host.scrollLeft,
           scrollTop: host.scrollTop,
           moved:false
         };
         host.__mishkahPanState = state;
-        if(typeof host.setPointerCapture === 'function'){
-          try { host.setPointerCapture(event.pointerId); }
+        host.__mishkahPanPendingToken = null;
+        if(typeof host.setPointerCapture === 'function' && pointer.pointerId != null){
+          try { host.setPointerCapture(pointer.pointerId); }
           catch(error){ /* noop */ }
+        }
+      };
+      const startPan = event => {
+        if(!event || event.button !== 0 || (typeof event.buttons === 'number' && event.buttons !== 1)) return;
+        const pointer = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY
+        };
+        let switchedToManual = false;
+        if(erdAppInstance && typeof erdAppInstance.getState === 'function'){
+          const appState = erdAppInstance.getState();
+          const canvasState = appState?.data?.canvas || {};
+          if(canvasState.mode !== 'manual'){
+            const currentZoom = typeof canvasState.zoom === 'number' ? canvasState.zoom : 1;
+            switchedToManual = true;
+            erdAppInstance.setState(s => ({
+              ...s,
+              data:{
+                ...s.data,
+                canvas:{ ...(s.data.canvas || {}), mode:'manual', zoom: currentZoom },
+              },
+            }));
+            erdAppInstance.rebuild();
+          }
+        }
+        if(switchedToManual){
+          const token = Symbol('pan');
+          host.__mishkahPanPendingToken = token;
+          requestAnimationFrame(() => {
+            if(host.__mishkahPanPendingToken !== token) return;
+            assignPanState(pointer);
+          });
+        } else {
+          assignPanState(pointer);
         }
       };
       const movePan = event => {
@@ -2316,6 +2352,7 @@
         if(typeof event.preventDefault === 'function') event.preventDefault();
       };
       const endPan = event => {
+        host.__mishkahPanPendingToken = null;
         const state = host.__mishkahPanState;
         if(state && typeof host.releasePointerCapture === 'function'){
           try { host.releasePointerCapture(state.pointerId); }
@@ -2342,7 +2379,8 @@
       if(!host) return null;
       ensureContextMenuHandlers(host);
       ensureCanvasPointerHandlers(host);
-      const driverKey = (state?.env?.graph?.driver || 'fake').toLowerCase();
+      const requestedDriver = (state?.env?.graph?.driver || 'fake').toLowerCase();
+      const driverKey = requestedDriver === 'x6' && !(window?.X6?.Graph) ? 'fake' : requestedDriver;
       if(erdDriver && activeDriverName === driverKey){
         return erdDriver;
       }
@@ -2826,7 +2864,7 @@
     const erdState = {
       head:{ title: activeRecord.title || 'مخطط قاعدة بيانات مشكاة' },
       i18n:{ lang:'ar', fallback:'en', dict: I18N_DICT },
-      env:{ theme:'dark', lang:'ar', dir:'rtl', graph:{ driver:'x6' } },
+      env:{ theme:'dark', lang:'ar', dir:'rtl', graph:{ driver: initialGraphDriver } },
       data:{
         schemaId: activeRecord.id,
         schemaMeta:{
