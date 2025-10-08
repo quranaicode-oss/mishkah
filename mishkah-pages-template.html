@@ -252,7 +252,7 @@
         const M = window.Mishkah;
         const config = window.MishkahPagesTemplate || {};
 
-        const app = M.Pages.createV2({
+        const app = M.Pages.create({
           template: typeof config.template === 'string' ? config.template : 'PagesShell',
           pages: Array.isArray(config.pages) ? config.pages.slice() : [],
           active: config.active,

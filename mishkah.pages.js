@@ -16,6 +16,11 @@
   const toArr = (value) => (value == null ? [] : Array.isArray(value) ? value : [value]);
   const ensureDict = (value) => (isObj(value) ? value : {});
 
+  const FALLBACK_THEMES = [
+    { id: 'light', icon: '🌞', label: { ar: 'ثيم فاتح', en: 'Light theme' }, mode: 'light' },
+    { id: 'dark', icon: '🌙', label: { ar: 'ثيم داكن', en: 'Dark theme' }, mode: 'dark' }
+  ];
+
   function normalizeLabel(entry) {
     const src = ensureDict(entry && (entry.label || entry.name || entry.title));
     if (typeof (entry && entry.label) === 'string') {
@@ -45,6 +50,45 @@
         comp: typeof obj.comp === 'string' ? obj.comp : null,
         orders: ensureDict(obj.orders)
       };
+    });
+  }
+
+  function normalizeThemeEntry(entry, index) {
+    if (entry == null) return null;
+    if (typeof entry === 'string') {
+      const id = entry.trim();
+      if (!id) return null;
+      const fallback = FALLBACK_THEMES.find((item) => item.id === id.toLowerCase());
+      const mode = fallback ? fallback.mode : (id.toLowerCase().includes('dark') ? 'dark' : 'light');
+      const icon = fallback ? fallback.icon : '';
+      const label = fallback ? fallback.label : { ar: id, en: id };
+      return { id, icon, label, mode };
+    }
+    if (Array.isArray(entry)) {
+      return normalizeThemeEntry(entry[0], index);
+    }
+    const obj = ensureDict(entry);
+    const id = typeof obj.id === 'string'
+      ? obj.id
+      : (typeof obj.key === 'string' ? obj.key : (typeof obj.name === 'string' ? obj.name : (typeof obj.value === 'string' ? obj.value : `theme-${index + 1}`)));
+    if (!id) return null;
+    const label = normalizeLabel(obj);
+    const icon = typeof obj.icon === 'string' ? obj.icon : (typeof obj.emoji === 'string' ? obj.emoji : '');
+    const hintMode = typeof obj.mode === 'string' ? obj.mode : (typeof obj.theme === 'string' ? obj.theme : '');
+    const mode = hintMode === 'dark' ? 'dark' : (hintMode === 'light' ? 'light' : (id.toLowerCase().includes('dark') ? 'dark' : 'light'));
+    return { id, icon, label, mode };
+  }
+
+  function normalizeThemes(list) {
+    const src = Array.isArray(list) ? list : (list ? [list] : []);
+    const mapped = src.map((item, index) => normalizeThemeEntry(item, index)).filter(Boolean);
+    if (!mapped.length) return [];
+    const seen = new Set();
+    return mapped.filter((item) => {
+      const key = item.id;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }
 
@@ -112,6 +156,7 @@
     const cfg = Object.assign({
       title: null,
       theme: null,
+      themes: null,
       lang: null,
       dir: null,
       pages: [],
@@ -119,19 +164,45 @@
       themeLab: { enabled: true },
       registry: {},
       slots: {},
-      env: {}
+      env: {},
+      data: {}
     }, config || {});
 
     const pagesNorm = normalizePages(cfg.pages);
     const langInfo = detectLang(pagesNorm);
     const lang = typeof cfg.lang === 'string' ? cfg.lang : (typeof cfg.env?.lang === 'string' ? cfg.env.lang : langInfo.lang);
     const dir = typeof cfg.dir === 'string' ? cfg.dir : (typeof cfg.env?.dir === 'string' ? cfg.env.dir : langInfo.dir);
-    const theme = cfg.theme === 'dark' || cfg.env?.theme === 'dark' ? 'dark' : 'light';
+    const requestedThemes = normalizeThemes(cfg.themes);
+    const autoThemes = normalizeThemes(
+      typeof twApi.listThemes === 'function'
+        ? twApi.listThemes()
+        : (Array.isArray(twApi.themes)
+          ? twApi.themes
+          : (twApi.themes && typeof twApi.themes === 'object' ? Object.keys(twApi.themes) : null))
+    );
+    const paletteThemes = normalizeThemes(Object.keys(ensureDict(twApi.PALETTE || {})));
+    const availableThemes = requestedThemes.length
+      ? requestedThemes
+      : (autoThemes.length ? autoThemes : paletteThemes);
+    const finalThemes = availableThemes.length ? availableThemes : FALLBACK_THEMES.slice();
+    const themeId = (typeof cfg.theme === 'string' && finalThemes.some((item) => item.id === cfg.theme))
+      ? cfg.theme
+      : (typeof cfg.env?.themeId === 'string' && finalThemes.some((item) => item.id === cfg.env.themeId)
+        ? cfg.env.themeId
+        : finalThemes[0].id);
+    const themeEntry = finalThemes.find((item) => item.id === themeId) || finalThemes[0];
+    const themeMode = themeEntry && themeEntry.mode === 'dark' ? 'dark' : 'light';
     const title = cfg.title || cfg.env?.title || pagesNorm[0]?.label?.[lang] || 'Mishkah App';
+    const extraData = ensureDict(cfg.data);
+    const initialActive = typeof cfg.active === 'string'
+      ? cfg.active
+      : (typeof extraData.active === 'string' ? extraData.active : (pagesNorm[0]?.key || null));
+    const themeLabConfig = Object.assign({ enabled: true }, ensureDict(cfg.themeLab), ensureDict(extraData.themeLab));
+    const themeOverrides = ensureDict(extraData.themeOverrides);
 
     const database = {
       head: { title },
-      env: Object.assign({}, cfg.env || {}, { theme, lang, dir }),
+      env: Object.assign({}, cfg.env || {}, { theme: themeMode, themeId, lang, dir }),
       i18n: {
         lang,
         fallback: langInfo.fallback,
@@ -139,15 +210,19 @@
       },
       data: {
         pages: pagesNorm,
-        active: cfg.active || pagesNorm[0]?.key || null,
-        themeOverrides: {},
-        themeLab: Object.assign({ enabled: true }, ensureDict(cfg.themeLab)),
+        active: initialActive,
+        themeOverrides,
+        themeLab: themeLabConfig,
         registry: ensureDict(cfg.registry),
-        slots: ensureDict(cfg.slots)
+        slots: ensureDict(cfg.slots),
+        themes: finalThemes,
+        activeTheme: themeId
       },
       registry: ensureDict(cfg.registry),
       slots: ensureDict(cfg.slots)
     };
+
+    database.data = Object.assign({}, extraData, database.data);
 
     return database;
   }
@@ -155,7 +230,7 @@
   /* ------------------------------------------------------------------ */
   /* Public API — V1                                                    */
   /* ------------------------------------------------------------------ */
-  function create(options) {
+  function createLegacy(options) {
     const cfg = Object.assign({
       template: 'pageshell',
       theme: 'light',
@@ -216,6 +291,22 @@
       out.push({ id: 'PagesShell', icon: '🧩', label: { ar: 'PagesShell', en: 'PagesShell' } });
     }
     return out;
+  }
+
+  function listThemes() {
+    const direct = typeof twApi.listThemes === 'function' ? normalizeThemes(twApi.listThemes()) : [];
+    if (direct.length) return direct;
+
+    const fromArray = normalizeThemes(Array.isArray(twApi.themes) ? twApi.themes : null);
+    if (fromArray.length) return fromArray;
+
+    const fromObject = normalizeThemes(twApi.themes && typeof twApi.themes === 'object' ? Object.keys(twApi.themes) : null);
+    if (fromObject.length) return fromObject;
+
+    const fromPalette = normalizeThemes(Object.keys(ensureDict(twApi.PALETTE || {})));
+    if (fromPalette.length) return fromPalette;
+
+    return FALLBACK_THEMES.slice();
   }
 
   function templateLabel(metaLabel, lang, fallbackId) {
@@ -477,7 +568,7 @@
   /* ------------------------------------------------------------------ */
   /* Public API — V2                                                     */
   /* ------------------------------------------------------------------ */
-  function createV2(options) {
+  function createModern(options) {
     const cfg = Object.assign({
       template: 'PagesShell',
       themes: undefined,
@@ -489,6 +580,19 @@
 
     const database = buildDB(cfg);
     const available = listTemplates();
+
+    if (cfg.useDefaultPages && (!Array.isArray(database.data?.pages) || !database.data.pages.length)) {
+      const initialModule = Templates[cfg.template] || Templates[cfg.template?.toLowerCase?.()];
+      if (initialModule && typeof initialModule.defaultPages === 'function') {
+        const defaults = normalizePages(initialModule.defaultPages(database) || []);
+        if (defaults.length) {
+          database.data = Object.assign({}, database.data, {
+            pages: defaults,
+            active: database.data.active || defaults[0]?.key || null
+          });
+        }
+      }
+    }
 
     database.env = Object.assign({}, database.env || {}, { template: cfg.template || 'PagesShell' });
     database.ui = Object.assign({}, database.ui || {}, {
@@ -512,7 +616,19 @@
       const id = tpl.id || tpl;
       const mod = Templates[id];
       if (mod && typeof mod.createOrders === 'function') {
-        Object.assign(acc, mod.createOrders(database) || {});
+        let basis = database;
+        if (cfg.useDefaultPages && typeof mod.defaultPages === 'function') {
+          const defaults = normalizePages(mod.defaultPages(database) || []);
+          if (defaults.length) {
+            basis = Object.assign({}, database, {
+              data: Object.assign({}, database.data, {
+                pages: defaults,
+                active: defaults[0]?.key || database.data.active || null
+              })
+            });
+          }
+        }
+        Object.assign(acc, mod.createOrders(basis) || {});
       }
       return acc;
     }, {});
@@ -527,5 +643,13 @@
     return app;
   }
 
-  M.Pages = Object.assign(M.Pages || {}, { create, createV2, buildDB });
+  M.Pages = Object.assign(M.Pages || {}, {
+    create: createModern,
+    createModern,
+    createV2: createModern,
+    createLegacy,
+    buildDB,
+    listTemplates,
+    listThemes
+  });
 }(typeof window !== 'undefined' ? window : this));
