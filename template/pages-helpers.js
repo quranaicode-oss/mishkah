@@ -13,6 +13,27 @@
   const ensureDict = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
   const ensureArray = (value) => (Array.isArray(value) ? value : []);
 
+  function ensureMediaList(list) {
+    const seen = new Set();
+    const out = [];
+    ensureArray(list).forEach((value) => {
+      if (typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      out.push(trimmed);
+    });
+    return out;
+  }
+
+  function getPrimaryImage(entry) {
+    if (!entry) return null;
+    const main = typeof entry.mainImage === 'string' ? entry.mainImage.trim() : '';
+    if (main) return main;
+    const gallery = ensureMediaList(entry.images);
+    return gallery.length ? gallery[0] : null;
+  }
+
   const DEFAULT_LANG_OPTIONS = [
     { code: 'ar', label: { ar: 'العربية', en: 'Arabic' } },
     { code: 'en', label: { ar: 'الإنجليزية', en: 'English' } }
@@ -435,6 +456,8 @@
   Templates.__pagesHelpers = {
     ensureArray,
     ensureDict,
+    ensureMediaList,
+    getPrimaryImage,
     getPages,
     getClasses,
     buildClassTree,

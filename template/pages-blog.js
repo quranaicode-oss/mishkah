@@ -18,12 +18,87 @@
   const callPageComponent = helpers.callPageComponent || (() => null);
   const tw = helpers.tw || ((value) => value);
   const renderGlobalSwitchers = helpers.renderGlobalSwitchers || (() => null);
+  const ensureMediaList = helpers.ensureMediaList || ((list) => {
+    const seen = new Set();
+    const src = Array.isArray(list) ? list : (typeof list === 'string' ? [list] : []);
+    const out = [];
+    src.forEach((value) => {
+      if (typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      out.push(trimmed);
+    });
+    return out;
+  });
+  const toMediaValue = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed || null;
+  };
 
   function localizeText(entry, lang, fallback) {
     if (!entry) return '';
     if (typeof entry === 'string') return entry;
     const dict = ensureDict(entry);
     return dict[lang] || dict[fallback] || dict.en || dict.ar || Object.values(dict)[0] || '';
+  }
+
+  function renderMediaGallery(entry, altText, variant) {
+    if (!entry) return null;
+    const mainImage = typeof entry.mainImage === 'string' ? entry.mainImage.trim() : '';
+    const mainVideo = typeof entry.mainVideo === 'string' ? entry.mainVideo.trim() : '';
+    const gallery = ensureMediaList(entry.images).filter((url) => url !== mainImage);
+    if (!mainImage && !mainVideo && !gallery.length) return null;
+
+    const mode = variant === 'compact' ? 'compact' : 'default';
+    const wrapperClass = mode === 'compact'
+      ? tw`mt-3 space-y-3`
+      : tw`mt-6 space-y-4`;
+    const heroClass = mode === 'compact'
+      ? tw`h-40 w-full overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] object-cover shadow-[0_16px_36px_-24px_rgba(15,23,42,0.4)]`
+      : tw`h-64 w-full overflow-hidden rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] object-cover shadow-[0_24px_52px_-30px_rgba(15,23,42,0.5)]`;
+    const videoClass = mode === 'compact'
+      ? tw`h-40 w-full overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-black object-cover shadow-[0_16px_36px_-24px_rgba(15,23,42,0.4)]`
+      : tw`h-64 w-full overflow-hidden rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-black object-cover shadow-[0_24px_52px_-30px_rgba(15,23,42,0.5)]`;
+    const gridClass = mode === 'compact'
+      ? tw`grid gap-2 sm:grid-cols-2`
+      : tw`grid gap-3 sm:grid-cols-2 lg:grid-cols-3`;
+    const imageClass = mode === 'compact'
+      ? tw`h-28 w-full overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] object-cover`
+      : tw`h-36 w-full overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] object-cover`;
+
+    const blocks = [];
+    if (mainImage) {
+      blocks.push(D.Media.Img({
+        attrs: {
+          src: mainImage,
+          alt: altText || '',
+          class: heroClass
+        }
+      }));
+    }
+    if (mainVideo) {
+      blocks.push(D.Media.Video({
+        attrs: {
+          src: mainVideo,
+          controls: true,
+          playsinline: true,
+          class: videoClass
+        }
+      }));
+    }
+    if (gallery.length) {
+      blocks.push(D.Containers.Div({ attrs: { class: gridClass } }, gallery.map((url, idx) => D.Media.Img({
+        attrs: {
+          src: url,
+          alt: altText ? `${altText} ${idx + 1}` : `Gallery item ${idx + 1}`,
+          class: imageClass
+        }
+      }))));
+    }
+
+    return blocks.length ? D.Containers.Div({ attrs: { class: wrapperClass } }, blocks) : null;
   }
 
   function buildCategoryList(tree, lang, fallback, activeKey) {
@@ -40,7 +115,10 @@
         key: root.key,
         label: `${root.icon ? `${root.icon} ` : ''}${localizeText(root.label, lang, fallback)}`,
         desc: localizeText(root.desc, lang, fallback),
-        pages: items
+        pages: items,
+        mainImage: toMediaValue(root.mainImage),
+        images: ensureMediaList(root.images),
+        mainVideo: toMediaValue(root.mainVideo)
       });
       ensureArray(root.children).forEach((child) => {
         const childPages = collectPages(child, true);
@@ -53,7 +131,10 @@
             key: page.key,
             label: `${page.icon ? `${page.icon} ` : ''}${localizeText(page.label, lang, fallback)}`,
             active: page.key === activeKey
-          }))
+          })),
+          mainImage: toMediaValue(child.mainImage),
+          images: ensureMediaList(child.images),
+          mainVideo: toMediaValue(child.mainVideo)
         });
       });
     });
@@ -79,6 +160,7 @@
     const categories = buildCategoryList(classTree, lang, fallback, activeKey);
 
     const categoryCards = categories.map((section) => {
+      const mediaPreview = renderMediaGallery(section, section.label, 'compact');
       return D.Containers.Section({
         attrs: {
           key: `cat-${section.key}`,
@@ -87,6 +169,7 @@
       }, [
         D.Text.H3({ attrs: { class: tw`text-lg font-semibold` } }, [section.label]),
         section.desc ? D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [section.desc]) : null,
+        mediaPreview,
         D.Containers.Div({ attrs: { class: tw`mt-3 space-y-2` } }, section.pages.map((page) => UI.Button({
           attrs: {
             gkey: `pages:go:${page.key}`,
@@ -99,6 +182,8 @@
       ].filter(Boolean));
     });
 
+    const mediaContent = renderMediaGallery(activePage, activeTitle);
+
     const contentCard = D.Containers.Section({
       attrs: {
         class: tw`w-full rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-6 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.45)]`
@@ -108,6 +193,7 @@
         D.Text.H1({ attrs: { class: tw`text-3xl font-bold` } }, [activeTitle]),
         activeDesc ? D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [activeDesc]) : null
       ].filter(Boolean)),
+      mediaContent,
       D.Containers.Div({ attrs: { class: tw`mt-4` } }, [contentBody])
     ]);
 
