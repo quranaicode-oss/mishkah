@@ -617,14 +617,200 @@
 
   function parseFunctions(source) {
     var map = Object.create(null);
-    var fnRegex = /function\s+([a-zA-Z_$][\w$]*)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g;
-    var match;
-    while ((match = fnRegex.exec(source))) {
-      var name = match[1];
-      var args = match[2];
-      var body = match[3];
-      map[name] = { args: args, body: body };
+    if (!source) return map;
+
+    var length = source.length;
+    var index = 0;
+
+    function isIdentifierPart(ch) {
+      return /[\w$]/.test(ch);
     }
+
+    function skipWhitespace(pos) {
+      while (pos < length && /\s/.test(source.charAt(pos))) pos += 1;
+      return pos;
+    }
+
+    function skipLineComment(pos) {
+      while (pos < length && source.charAt(pos) !== '\n') pos += 1;
+      return pos;
+    }
+
+    function skipBlockComment(pos) {
+      var next = pos;
+      while (next < length - 1) {
+        if (source.charAt(next) === '*' && source.charAt(next + 1) === '/') {
+          return next + 2;
+        }
+        next += 1;
+      }
+      return length;
+    }
+
+    function skipString(pos) {
+      var quote = source.charAt(pos);
+      pos += 1;
+      while (pos < length) {
+        var ch = source.charAt(pos);
+        if (ch === '\\') {
+          pos += 2;
+          continue;
+        }
+        if (ch === quote) {
+          return pos + 1;
+        }
+        pos += 1;
+      }
+      return length;
+    }
+
+    function skipTemplateExpression(pos) {
+      var depth = 1;
+      while (pos < length && depth > 0) {
+        var ch = source.charAt(pos);
+        if (ch === '\\') {
+          pos += 2;
+          continue;
+        }
+        if (ch === '\'' || ch === '"') {
+          pos = skipString(pos);
+          continue;
+        }
+        if (ch === '`') {
+          pos = skipTemplate(pos);
+          continue;
+        }
+        if (ch === '/' && source.charAt(pos + 1) === '/') {
+          pos = skipLineComment(pos + 2);
+          continue;
+        }
+        if (ch === '/' && source.charAt(pos + 1) === '*') {
+          pos = skipBlockComment(pos + 2);
+          continue;
+        }
+        if (ch === '{') depth += 1;
+        if (ch === '}') depth -= 1;
+        pos += 1;
+      }
+      return pos;
+    }
+
+    function skipTemplate(pos) {
+      pos += 1;
+      while (pos < length) {
+        var ch = source.charAt(pos);
+        if (ch === '\\') {
+          pos += 2;
+          continue;
+        }
+        if (ch === '`') {
+          return pos + 1;
+        }
+        if (ch === '$' && source.charAt(pos + 1) === '{') {
+          pos = skipTemplateExpression(pos + 2);
+          continue;
+        }
+        pos += 1;
+      }
+      return length;
+    }
+
+    function skipStringsAndComments(pos) {
+      var ch = source.charAt(pos);
+      if (ch === '\'' || ch === '"') return skipString(pos);
+      if (ch === '`') return skipTemplate(pos);
+      if (ch === '/' && source.charAt(pos + 1) === '/') return skipLineComment(pos + 2);
+      if (ch === '/' && source.charAt(pos + 1) === '*') return skipBlockComment(pos + 2);
+      return pos;
+    }
+
+    while (index < length) {
+      var ch = source.charAt(index);
+
+      if (ch === '\'' || ch === '"' || ch === '`' || (ch === '/' && (source.charAt(index + 1) === '/' || source.charAt(index + 1) === '*'))
+      ) {
+        index = skipStringsAndComments(index);
+        continue;
+      }
+
+      if (ch === 'f' && source.slice(index, index + 8) === 'function') {
+        var before = source.charAt(index - 1);
+        var after = source.charAt(index + 8);
+        if ((index === 0 || !isIdentifierPart(before)) && (!after || !isIdentifierPart(after))) {
+          var cursor = skipWhitespace(index + 8);
+          var nameStart = cursor;
+          while (cursor < length && isIdentifierPart(source.charAt(cursor))) cursor += 1;
+          if (cursor === nameStart) {
+            index += 8;
+            continue;
+          }
+          var name = source.slice(nameStart, cursor);
+          cursor = skipWhitespace(cursor);
+          if (source.charAt(cursor) !== '(') {
+            index = cursor;
+            continue;
+          }
+
+          var parenStart = cursor;
+          var parenDepth = 0;
+          while (cursor < length) {
+            var pch = source.charAt(cursor);
+            if (pch === '\'' || pch === '"' || pch === '`' || (pch === '/' && (source.charAt(cursor + 1) === '/' || source.charAt(cursor + 1) === '*'))
+            ) {
+              cursor = skipStringsAndComments(cursor);
+              continue;
+            }
+            if (pch === '(') parenDepth += 1;
+            if (pch === ')') {
+              parenDepth -= 1;
+              if (parenDepth === 0) {
+                cursor += 1;
+                break;
+              }
+            }
+            cursor += 1;
+          }
+
+          var args = source.slice(parenStart + 1, cursor - 1);
+          cursor = skipWhitespace(cursor);
+          if (source.charAt(cursor) !== '{') {
+            index = cursor;
+            continue;
+          }
+
+          var bodyStart = cursor + 1;
+          cursor = bodyStart;
+          var braceDepth = 1;
+          while (cursor < length && braceDepth > 0) {
+            var bch = source.charAt(cursor);
+            if (bch === '\'' || bch === '"' || bch === '`' || (bch === '/' && (source.charAt(cursor + 1) === '/' || source.charAt(cursor + 1) === '*'))
+            ) {
+              cursor = skipStringsAndComments(cursor);
+              continue;
+            }
+            if (bch === '{') {
+              braceDepth += 1;
+            } else if (bch === '}') {
+              braceDepth -= 1;
+              if (braceDepth === 0) {
+                break;
+              }
+            }
+            cursor += 1;
+          }
+
+          var bodyEnd = cursor;
+          var body = source.slice(bodyStart, bodyEnd);
+          map[name] = { args: args, body: body };
+
+          index = cursor + 1;
+          continue;
+        }
+      }
+
+      index += 1;
+    }
+
     return map;
   }
 
