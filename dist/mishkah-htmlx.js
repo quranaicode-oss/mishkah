@@ -1174,7 +1174,7 @@
     return dsl.Containers.Div({ attrs: { 'data-mount': target } }, children);
   }
 
-  function createApp(db, options) {
+  async function createApp(db, options) {
     if (!db || typeof db !== 'object') {
       throw new Error('Mishkah.app.make يتطلب كائن قاعدة بيانات صالح.');
     }
@@ -1190,12 +1190,16 @@
     db.head = db.head || {};
     db.head.styles = mergeStyles(db.head.styles, compiled);
 
-    var envOrders = { orders: {} };
+    var envResult = null;
     var shouldInitEnv = !(db && db.env && db.env.twcss === false);
     if (shouldInitEnv && Mishkah.utils && Mishkah.utils.twcss && typeof Mishkah.utils.twcss.auto === 'function') {
-      var envResult = Mishkah.utils.twcss.auto(db, app, { pageScaffold: true }) || {};
-      if (envResult.orders) envOrders.orders = envResult.orders;
-      if (envResult.databasePatch && envResult.databasePatch.head && Array.isArray(envResult.databasePatch.head.styles)) {
+      try {
+        envResult = await Promise.resolve(Mishkah.utils.twcss.auto(db, app, { pageScaffold: true }));
+      } catch (error) {
+        console.warn('twcss.auto فشل:', error);
+        envResult = null;
+      }
+      if (envResult && envResult.databasePatch && envResult.databasePatch.head && Array.isArray(envResult.databasePatch.head.styles)) {
         db.head.styles = mergeStyles(db.head.styles, [{ databasePatch: envResult.databasePatch }]);
       }
     }
@@ -1208,7 +1212,7 @@
     var generatedOrders = mergeOrders(compiled.map(function (entry) { return entry.orders; }));
     var mergedOrders = mergeOrders([
       generatedOrders,
-      envOrders.orders,
+      (envResult && envResult.orders) || {},
       (Mishkah.UI && Mishkah.UI.orders) || {}
     ]);
     app.setOrders(mergedOrders);
@@ -1219,19 +1223,27 @@
     return { app: app, compiled: compiled, renderers: rendererList };
   }
 
-  var api = {
+  var agent = {
+    version: '1.0.0',
     compileTemplate: compileTemplate,
     createApp: createApp,
     ContextAdapter: ContextAdapter,
-    make: function (db, options) {
-      return createApp(db, options).app;
+    make: async function (db, options) {
+      var result = await createApp(db, options);
+      return result.app;
     }
   };
 
+  agent.boot = function (db, options) {
+    console.warn('M.HTMLxAgent.boot متوقفة، استخدم make بدلاً منها.');
+    return agent.make(db, options);
+  };
+
   Mishkah.HTMLx = Mishkah.HTMLx || {};
-  Mishkah.HTMLx.Agent = api;
+  Mishkah.HTMLx.Agent = agent;
+  Mishkah.HTMLxAgent = agent;
 
-  Mishkah.app.make = api.make;
+  Mishkah.app.make = agent.make;
 
-  return api;
+  return agent;
 });

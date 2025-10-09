@@ -385,16 +385,12 @@
           }
         };
 
-        var boot = M.app.make(db);
-        if (boot && typeof boot.catch === 'function') {
-          boot.catch(function (error) {
+        var start = M.HTMLxAgent.make(db);
+        if (start && typeof start.catch === 'function') {
+          start.catch(function (error) {
             console.error('Mishkah HTMLx bootstrap failed:', error);
           });
         }
-
-        M.HTMLxAgent.boot(db).catch(function (error) {
-          console.error('Mishkah HTMLx bootstrap failed:', error);
-        });
       })();
     </script>
   </body>
