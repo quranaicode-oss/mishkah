@@ -192,7 +192,11 @@
       'template.overlay.add-column.title':{ ar:'إضافة عمود جديد لهذا الجدول', en:'Add a new column to this table' },
       'canvas.empty':{ ar:'أضف جدولًا جديدًا لبدء بناء المخطط.', en:'Add a new table to start building the diagram.' },
       'toolbar.export':{ ar:'تصدير', en:'Export' },
+      'toolbar.stats.tables':{ ar:'جداول', en:'Tables' },
+      'toolbar.stats.fields':{ ar:'حقول', en:'Fields' },
+      'toolbar.stats.relations':{ ar:'علاقات', en:'Relations' },
       'toolbar.schema.group':{ ar:'المخطط', en:'Diagram' },
+      'toolbar.schema.driver':{ ar:'المحرك', en:'Driver' },
       'toolbar.schema.edit':{ ar:'خصائص المخطط', en:'Schema properties' },
       'toolbar.structure.group':{ ar:'العناصر', en:'Elements' },
       'toolbar.structure.addTable':{ ar:'جدول', en:'Table' },
@@ -202,11 +206,14 @@
       'toolbar.templates.group':{ ar:'القوالب', en:'Templates' },
       'toolbar.templates.hide':{ ar:'إخفاء القالب', en:'Hide template' },
       'toolbar.templates.show':{ ar:'عرض القالب', en:'Show template' },
+      'toolbar.quickActions':{ ar:'أوامر سريعة', en:'Quick actions' },
       'panel.library.hide':{ ar:'إخفاء المكتبة', en:'Hide library' },
       'panel.library.show':{ ar:'إظهار المكتبة', en:'Show library' },
       'panel.classification.hide':{ ar:'إخفاء التصنيف', en:'Hide classification' },
       'panel.classification.show':{ ar:'إظهار التصنيف', en:'Show classification' },
       'toolbar.ui.group':{ ar:'الواجهة', en:'Interface' },
+      'toolbar.ui.theme.light':{ ar:'تفعيل الوضع النهاري', en:'Switch to light mode' },
+      'toolbar.ui.theme.dark':{ ar:'تفعيل الوضع الليلي', en:'Switch to dark mode' },
       'toolbar.history.group':{ ar:'التاريخ', en:'History' },
       'toolbar.history.undo.title':{ ar:'تراجع', en:'Undo' },
       'toolbar.history.redo.title':{ ar:'إعادة', en:'Redo' },
@@ -286,6 +293,7 @@
       'modal.columns.precision.placeholder':{ ar:'الدقة', en:'Precision' },
       'modal.columns.scale.placeholder':{ ar:'المقياس', en:'Scale' },
       'modal.columns.focus':{ ar:'عرض في المخطط', en:'Locate' },
+      'modal.columns.delete':{ ar:'حذف العمود', en:'Delete column' },
       'modal.columns.name.placeholder':{ ar:'اسم العمود (snake_case)', en:'Column name (snake_case)' },
       'modal.columns.default.placeholder':{ ar:'القيمة الافتراضية', en:'Default value' },
       'modal.columns.refTable.placeholder':{ ar:'جدول المرجع (FK)', en:'Reference table (FK)' },
@@ -1199,7 +1207,7 @@
         const refreshedTable = registry.get(tableName);
         const refreshedRows = buildColumnsFormRows(refreshedTable);
         const nextForm = Object.assign({}, s.ui?.form || {});
-        nextForm.columns = { table: tableName, rows: refreshedRows };
+        nextForm.columns = { table: tableName, rows: refreshedRows, deleted: [] };
         Object.assign(nextForm, formOverrides || {});
         const draft = {
           ...s,
@@ -2451,7 +2459,9 @@
     }
 
     function ensureContextMenuHandlers(host){
-      if(!host || host.__mishkahContextMenuAttached) return;
+      if(!host) return;
+      const root = host.parentElement || host;
+      if(root.__mishkahContextMenuAttached) return;
       const openFromEvent = event => {
         if(!erdAppInstance) return;
         if(event){
@@ -2459,13 +2469,13 @@
           if(typeof event.stopPropagation === 'function') event.stopPropagation();
         }
         const target = event?.target;
-        if(target && typeof host.contains === 'function' && !host.contains(target)) return;
+        if(target && typeof root.contains === 'function' && !root.contains(target)) return;
         const hostRect = typeof host.getBoundingClientRect === 'function' ? host.getBoundingClientRect() : null;
         const fallbackX = hostRect ? hostRect.left + hostRect.width / 2 : (typeof window !== 'undefined' ? window.innerWidth / 2 : 0);
         const fallbackY = hostRect ? hostRect.top + hostRect.height / 2 : (typeof window !== 'undefined' ? window.innerHeight / 2 : 0);
         const pointX = typeof event?.clientX === 'number' ? event.clientX : fallbackX;
         const pointY = typeof event?.clientY === 'number' ? event.clientY : fallbackY;
-        host.__mishkahLastContextOpen = Date.now();
+        root.__mishkahLastContextOpen = Date.now();
         if(!target || typeof target.closest !== 'function'){
           openContextMenu({
             clientX: pointX,
@@ -2509,7 +2519,7 @@
       };
       const handleContextMenu = event => {
         const now = Date.now();
-        const lastOpen = host.__mishkahLastContextOpen || 0;
+        const lastOpen = root.__mishkahLastContextOpen || 0;
         if(now - lastOpen < 150){
           if(event && typeof event.preventDefault === 'function') event.preventDefault();
           return;
@@ -2517,9 +2527,9 @@
         openFromEvent(event);
       };
       const options = { capture:true };
-      host.addEventListener('pointerdown', handlePointerDown, options);
-      host.addEventListener('contextmenu', handleContextMenu, options);
-      const ownerDocument = host.ownerDocument || document;
+      root.addEventListener('pointerdown', handlePointerDown, options);
+      root.addEventListener('contextmenu', handleContextMenu, options);
+      const ownerDocument = root.ownerDocument || host.ownerDocument || document;
       if(ownerDocument && !ownerDocument.__mishkahContextMenuKeybound){
         const handleKeyDown = event => {
           if(event.key === 'Escape' || event.key === 'Esc'){
@@ -2529,7 +2539,7 @@
         ownerDocument.addEventListener('keydown', handleKeyDown);
         ownerDocument.__mishkahContextMenuKeybound = true;
       }
-      host.__mishkahContextMenuAttached = true;
+      root.__mishkahContextMenuAttached = true;
     }
 
     function ensureCanvasPointerHandlers(host){
@@ -3856,7 +3866,7 @@
           'aria-expanded': open ? 'true' : 'false',
           'aria-controls':'erd-toolbar-export-menu',
           type:'button',
-          class: tw`!gap-2 !px-4 min-w-max`
+          class: tw`!gap-2 !h-9 !rounded-full !px-4 !font-semibold min-w-max`
         },
         variant: open ? 'soft' : 'ghost',
         size:'sm'
@@ -3912,53 +3922,151 @@
       return { button, overlay };
     }
 
+    function ToolbarStatChip(icon, label, value){
+      const displayValue = value != null && value !== '' ? String(value) : '0';
+      return D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-3 py-1 shadow-sm` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-base` }}, [icon]),
+        D.Containers.Div({ attrs:{ class: tw`flex items-baseline gap-1` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [displayValue]),
+          D.Text.Span({ attrs:{ class: tw`text-[11px] text-[var(--muted)]` }}, [label])
+        ])
+      ]);
+    }
+
+    function EnvironmentControls(db){
+      const t = createTranslator(db);
+      const theme = (db.env?.theme || 'dark').toLowerCase();
+      const lang = (db.env?.lang || db.i18n?.lang || 'ar').toLowerCase();
+      const isDark = theme === 'dark';
+      const langButtons = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 rounded-full bg-[var(--surface-0)]/90 px-1 py-0.5 shadow-inner` }}, [
+        UI.Button({
+          attrs:{
+            gkey:'ui:lang-ar',
+            title:'العربية',
+            'aria-pressed': lang === 'ar' ? 'true' : 'false',
+            class: tw`${lang === 'ar' ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : '!text-[var(--muted-foreground)] hover:!text-[var(--foreground)]'} !h-7 !min-w-[2.75rem] !rounded-full !px-3 text-[11px] font-semibold uppercase tracking-[0.14em]`
+          },
+          variant:'ghost',
+          size:'sm'
+        }, ['AR']),
+        UI.Button({
+          attrs:{
+            gkey:'ui:lang-en',
+            title:'English',
+            'aria-pressed': lang === 'en' ? 'true' : 'false',
+            class: tw`${lang === 'en' ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : '!text-[var(--muted-foreground)] hover:!text-[var(--foreground)]'} !h-7 !min-w-[2.75rem] !rounded-full !px-3 text-[11px] font-semibold uppercase tracking-[0.14em]`
+          },
+          variant:'ghost',
+          size:'sm'
+        }, ['EN'])
+      ]);
+      const themeTitle = isDark
+        ? t('toolbar.ui.theme.light', 'تفعيل الوضع النهاري')
+        : t('toolbar.ui.theme.dark', 'تفعيل الوضع الليلي');
+      const themeToggle = UI.Button({
+        attrs:{
+          gkey:'ui:theme-toggle',
+          title: themeTitle,
+          'aria-pressed': isDark ? 'true' : 'false',
+          class: tw`!relative !h-8 !w-16 !rounded-full !border !border-[var(--border)]/60 !bg-[var(--surface-0)]/90 !p-1 transition-all duration-200 ease-out`
+        },
+        variant:'ghost',
+        size:'sm'
+      }, [
+        D.Containers.Div({ attrs:{ class: tw`absolute inset-0 flex items-center justify-between px-2 text-base` }}, [
+          D.Text.Span({ attrs:{ class: tw`${isDark ? 'opacity-50' : 'opacity-100'} leading-none` }}, ['🌞']),
+          D.Text.Span({ attrs:{ class: tw`${isDark ? 'opacity-100' : 'opacity-50'} leading-none` }}, ['🌙'])
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[var(--primary)] shadow-md transition-all duration-200 ease-out`, style: isDark ? 'left: calc(100% - 28px);' : 'left:4px;' }}, [])
+      ]);
+      return D.Containers.Div({ attrs:{ class: tw`shrink-0 flex items-center gap-2 rounded-full border border-[var(--border)]/70 bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-2 py-1 shadow-sm` }}, [
+        langButtons,
+        themeToggle
+      ]);
+    }
+
     function Toolbar(db){
       const t = createTranslator(db);
       const zoom = db.data.canvas?.zoom || 1;
-      const metaTitle = db.data.schemaMeta?.title || t('schema.untitled', 'مخطط بدون اسم');
-      const schemaIdentifier = db.data.schemaMeta?.name ? formatIdentifier(db.data.schemaMeta.name) : '';
-      const lang = db.env?.lang || db.i18n?.lang || 'ar';
-      const theme = db.env?.theme || 'dark';
       const templateOpen = db.ui?.template?.open !== false;
       const exportMenu = ToolbarExportMenu(db);
-      const metaGroup = UI.ToolbarGroup({ attrs:{ class: tw`items-start gap-3` }, label:t('toolbar.schema.group', 'المخطط') }, [
-        D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
-          D.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [metaTitle]),
-          schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--accent-foreground)]/80` }}, [schemaIdentifier]) : null
+      const registry = getRegistry(db);
+      const tables = registry.list();
+      const tableCount = tables.length;
+      const fieldCount = tables.reduce((total, table)=> total + (Array.isArray(table.fields) ? table.fields.length : 0), 0);
+      const relationCount = tables.reduce((total, table)=> total + (Array.isArray(table.fields) ? table.fields.filter(field => field && field.references).length : 0), 0);
+      const metaTitle = db.data.schemaMeta?.title || t('schema.untitled', 'مخطط بدون اسم');
+      const schemaIdentifier = db.data.schemaMeta?.name ? formatIdentifier(db.data.schemaMeta.name) : '';
+      const driverName = (db.env?.graph?.driver || 'fake').toUpperCase();
+
+      const schemaSection = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-3 min-w-0` }}, [
+        D.Containers.Div({ attrs:{ class: tw`hidden sm:flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--primary)]/15 text-xl text-[var(--primary)]` }}, ['🗂️']),
+        D.Containers.Div({ attrs:{ class: tw`flex min-w-0 flex-col` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]` }}, [t('toolbar.schema.group', 'المخطط')]),
+          D.Text.Span({ attrs:{ class: tw`truncate text-lg font-bold leading-tight` }}, [metaTitle]),
+          schemaIdentifier ? D.Text.Span({ attrs:{ class: tw`truncate text-[11px] text-[var(--muted)]` }}, [`#${schemaIdentifier}`]) : null
         ].filter(Boolean)),
-        UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`!px-3` }, variant:'ghost', size:'sm' }, [`✏️ ${t('toolbar.schema.edit', 'خصائص المخطط')}`])
-      ]);
-      const structureGroup = UI.ToolbarGroup({ label:t('toolbar.structure.group', 'العناصر') }, [
-        UI.Button({ attrs:{ gkey:'erd:table:add' }, variant:'soft', size:'sm' }, [`➕ ${t('toolbar.structure.addTable', 'جدول')}`]),
-        UI.Button({ attrs:{ gkey:'erd:field:add' }, variant:'ghost', size:'sm' }, [`➕ ${t('toolbar.structure.addField', 'حقل')}`]),
-        UI.Button({ attrs:{ gkey:'erd:relation:add' }, variant:'ghost', size:'sm' }, [`🔗 ${t('toolbar.structure.addRelation', 'علاقة')}`]),
-        UI.Button({ attrs:{ gkey:'erd:columns:open' }, variant:'ghost', size:'sm' }, [`🗂️ ${t('toolbar.structure.columns', 'الأعمدة')}`])
-      ]);
-      const templateGroup = UI.ToolbarGroup({ label:t('toolbar.templates.group', 'القوالب') }, [
-        UI.Button({ attrs:{ gkey:'erd:template:toggle' }, variant: templateOpen ? 'soft' : 'ghost', size:'sm' }, [templateOpen ? `🧩 ${t('toolbar.templates.hide', 'إخفاء القالب')}` : `🧩 ${t('toolbar.templates.show', 'عرض القالب')}`])
+        UI.Button({ attrs:{ gkey:'erd:schema:meta:open', class: tw`!h-9 !rounded-full !px-3 !text-sm !font-semibold` }, variant:'ghost', size:'sm' }, [`✏️ ${t('toolbar.schema.edit', 'خصائص المخطط')}`])
       ]);
 
-      const uiGroup = UI.ToolbarGroup({ label:t('toolbar.ui.group', 'الواجهة') }, [
-        UI.LanguageSwitch({ lang }),
-        UI.ThemeToggleIcon({ theme })
-      ]);
-      const historyGroup = UI.ToolbarGroup({ label:t('toolbar.history.group', 'التاريخ') }, [
-        UI.Button({ attrs:{ gkey:'erd:undo', title:t('toolbar.history.undo.title', 'تراجع') }, variant:'ghost', size:'sm' }, ['↺']),
-        UI.Button({ attrs:{ gkey:'erd:redo', title:t('toolbar.history.redo.title', 'إعادة') }, variant:'ghost', size:'sm' }, ['↻']),
-        UI.Button({ attrs:{ gkey:'erd:fit', title:t('toolbar.history.fit.title', 'ملاءمة المخطط للشاشة') }, variant:'ghost', size:'sm' }, ['🗺️'])
-      ]);
-      const exportGroup = UI.ToolbarGroup({ label:t('toolbar.export.group', 'التصدير') }, [exportMenu.button]);
-      const zoomGroup = UI.ToolbarGroup({ label:t('toolbar.zoom.group', 'الحجم') }, [
-        UI.Button({ attrs:{ gkey:'erd:zoom:out', title:t('toolbar.zoom.out.title', 'تصغير') }, variant:'ghost', size:'sm' }, ['➖']),
-        D.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [`${Math.round(zoom * 100)}%`]),
-        UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:t('toolbar.zoom.reset.title', 'إعادة الحجم') }, variant:'ghost', size:'sm' }, ['⟳']),
-        UI.Button({ attrs:{ gkey:'erd:zoom:in', title:t('toolbar.zoom.in.title', 'تكبير') }, variant:'ghost', size:'sm' }, ['➕'])
+      const statsRow = D.Containers.Div({ attrs:{ class: tw`hidden xl:flex flex-wrap items-center gap-2` }}, [
+        ToolbarStatChip('🧱', t('toolbar.stats.tables', 'جداول'), tableCount),
+        ToolbarStatChip('🧮', t('toolbar.stats.fields', 'حقول'), fieldCount),
+        ToolbarStatChip('🔗', t('toolbar.stats.relations', 'علاقات'), relationCount),
+        ToolbarStatChip('⚙️', t('toolbar.schema.driver', 'المحرك'), driverName)
       ]);
 
-      const view = UI.Toolbar({
-        left:[metaGroup, structureGroup, templateGroup],
-        right:[uiGroup, historyGroup, exportGroup, zoomGroup]
-      });
+      const startSection = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-4 min-w-0` }}, [schemaSection, statsRow]);
+
+      const quickButtons = [
+        UI.Button({ attrs:{ gkey:'erd:table:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold shadow-sm` }, variant:'soft', size:'sm' }, [`➕ ${t('toolbar.structure.addTable', 'جدول')}`]),
+        UI.Button({ attrs:{ gkey:'erd:field:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`➕ ${t('toolbar.structure.addField', 'حقل')}`]),
+        UI.Button({ attrs:{ gkey:'erd:relation:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`🔗 ${t('toolbar.structure.addRelation', 'علاقة')}`]),
+        UI.Button({ attrs:{ gkey:'erd:columns:open', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`🗂️ ${t('toolbar.structure.columns', 'الأعمدة')}`]),
+        UI.Button({
+          attrs:{
+            gkey:'erd:template:toggle',
+            class: tw`${templateOpen ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : ''} !h-10 !rounded-full !px-4 !font-semibold`
+          },
+          variant: templateOpen ? 'soft' : 'ghost',
+          size:'sm'
+        }, [templateOpen ? `🧩 ${t('toolbar.templates.hide', 'إخفاء القالب')}` : `🧩 ${t('toolbar.templates.show', 'عرض القالب')}`])
+      ];
+
+      const quickActions = D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col items-center gap-1` }}, [
+        D.Text.Span({ attrs:{ class: tw`hidden xl:block text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]` }}, [t('toolbar.quickActions', 'أوامر سريعة')]),
+        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2` }}, quickButtons)
+      ]);
+
+      const historyControls = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-1.5 py-1 shadow-sm` }}, [
+        UI.Button({ attrs:{ gkey:'erd:undo', title:t('toolbar.history.undo.title', 'تراجع'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['↺']),
+        UI.Button({ attrs:{ gkey:'erd:redo', title:t('toolbar.history.redo.title', 'إعادة'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['↻']),
+        UI.Button({ attrs:{ gkey:'erd:fit', title:t('toolbar.history.fit.title', 'ملاءمة المخطط للشاشة'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['🗺️'])
+      ]);
+
+      const exportControl = D.Containers.Div({ attrs:{ class: tw`flex items-center rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-1.5 py-1 shadow-sm` }}, [exportMenu.button]);
+
+      const zoomControls = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-2.5 py-1 shadow-sm` }}, [
+        UI.Button({ attrs:{ gkey:'erd:zoom:out', title:t('toolbar.zoom.out.title', 'تصغير'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['➖']),
+        UI.Button({ attrs:{ gkey:'erd:zoom:reset', title:t('toolbar.zoom.reset.title', 'إعادة الحجم'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['⟳']),
+        UI.Button({ attrs:{ gkey:'erd:zoom:in', title:t('toolbar.zoom.in.title', 'تكبير'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['➕']),
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold min-w-[3ch] text-center` }}, [`${Math.round(zoom * 100)}%`])
+      ]);
+
+      const utilities = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-end gap-2 ms-auto` }}, [
+        historyControls,
+        exportControl,
+        zoomControls,
+        EnvironmentControls(db)
+      ]);
+
+      const view = D.Containers.Header({ attrs:{ class: tw`sticky top-0 z-[520] flex w-full border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 88%, transparent)]/90 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 84%, transparent)]/70` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex w-full flex-wrap items-center gap-3` }}, [
+          startSection,
+          quickActions,
+          utilities
+        ])
+      ]);
       const overlays = exportMenu.overlay ? [exportMenu.overlay] : [];
       return { view, overlays };
     }
@@ -4381,7 +4489,8 @@
                 ];
             const quickActions = D.Containers.Div({ attrs:{ class: tw`flex items-center justify-end gap-2` }}, [
               UI.Button({ attrs:{ gkey:'erd:columns:open-relation', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['FK']),
-                UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, [t('modal.columns.focus', 'عرض في المخطط')])
+              UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, [t('modal.columns.focus', 'عرض في المخطط')]),
+              UI.Button({ attrs:{ gkey:'erd:columns:delete-row', 'data-row': key, 'data-table': currentTableName, title: t('modal.columns.delete', 'حذف العمود'), class: tw`!px-2 !py-1 text-xs text-[var(--destructive)]` }, variant:'ghost', size:'xs' }, ['🗑️'])
             ]);
             return D.Tables.Tr({ attrs:{ key, class: tw`bg-[var(--surface-1)]` }}, [
               D.Tables.Td({ attrs:{ class: tw`px-3 py-3 align-top` }}, [
@@ -4763,7 +4872,7 @@
       return D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-none` }}, [
         D.Containers.Div({ attrs:{ class: tw`absolute inset-0 pointer-events-auto`, gkey:'erd:context:close' }}, []),
         D.Containers.Div({ attrs:{ class: tw`absolute pointer-events-auto`, style:`left:${Math.round(safeLeft)}px;top:${Math.round(safeTop)}px;` }}, [
-          D.Containers.Div({ attrs:{ class: tw`min-w-[220px] max-w-[280px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/95 p-2 shadow-2xl flex flex-col gap-2` }}, sectionNodes)
+          D.Containers.Div({ attrs:{ class: tw`min-w-[220px] max-w-[280px] rounded-2xl border border-[var(--border)] bg-[var(--surface-1)]/[0.98] p-2 shadow-2xl backdrop-blur-md flex flex-col gap-2` }}, sectionNodes)
         ])
       ]);
     }
@@ -5204,6 +5313,10 @@
           on:['click'],
           gkeys:['erd:panel:library:toggle'],
           handler:(e,ctx)=>{
+            if(e){
+              if(typeof e.preventDefault === 'function') e.preventDefault();
+              if(typeof e.stopPropagation === 'function') e.stopPropagation();
+            }
             let nextOpen = false;
             ctx.setState(s=>{
               const currentOpen = s.ui?.panels?.libraryOpen !== false;
@@ -5218,8 +5331,12 @@
             });
             ctx.rebuild();
             persistPanelPreference('libraryOpen', nextOpen);
-            const snapshot = ctx.getState();
-            scheduleDiagramRender(snapshot);
+            const rerender = ()=> scheduleDiagramRender(ctx.getState());
+            if(typeof requestAnimationFrame === 'function'){
+              requestAnimationFrame(rerender);
+            } else {
+              setTimeout(rerender, 16);
+            }
           }
         },
         'erd.panel.classification.toggle':{
@@ -5708,7 +5825,7 @@
               ui:{
                 ...(s.ui || {}),
                 modals:{ ...(s.ui?.modals || {}), columns:true },
-                form:{ ...(s.ui?.form || {}), columns:{ table: defaultTable, rows } }
+                form:{ ...(s.ui?.form || {}), columns:{ table: defaultTable, rows, deleted: [] } }
               }
             };
             return defaultTable ? withTableSelection(nextState, defaultTable) : nextState;
@@ -5731,6 +5848,7 @@
           ctx.setState(s=>{
             const currentForm = s.ui?.form?.columns || {};
             const rows = Array.isArray(currentForm.rows) ? currentForm.rows.slice() : [];
+            const deleted = Array.isArray(currentForm.deleted) ? currentForm.deleted.slice() : [];
             rows.push(nextRow);
             return {
               ...s,
@@ -5738,7 +5856,7 @@
                 ...(s.ui || {}),
                 form:{
                   ...(s.ui?.form || {}),
-                  columns:{ table: activeTableName, rows }
+                  columns:{ table: activeTableName, rows, deleted }
                 }
               }
             };
@@ -5763,7 +5881,7 @@
               ui:{
                 ...(s.ui || {}),
                 modals:{ ...(s.ui?.modals || {}), columns:true },
-                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows } }
+                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows, deleted: [] } }
               }
             };
             return withTableSelection(draft, tableName);
@@ -5891,9 +6009,37 @@
             ...s,
             ui:{
               ...(s.ui || {}),
-              form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows } }
+              form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows, deleted: Array.isArray(columnsForm.deleted) ? columnsForm.deleted.slice() : [] } }
             }
           }));
+          ctx.rebuild();
+        }
+      },
+      'erd.columns.delete-row':{
+        on:['click'],
+        gkeys:['erd:columns:delete-row'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-row]');
+          if(!button) return;
+          const rowKey = button.getAttribute('data-row');
+          if(!rowKey) return;
+          ctx.setState(s=>{
+            const columnsForm = s.ui?.form?.columns || {};
+            const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows.slice() : [];
+            const index = rows.findIndex(row => (row.key || row.originalName || row.name) === rowKey);
+            if(index === -1) return s;
+            const removed = rows.splice(index, 1)[0] || {};
+            const deleted = Array.isArray(columnsForm.deleted) ? columnsForm.deleted.slice() : [];
+            const originalName = removed.originalName || '';
+            if(originalName && !deleted.includes(originalName)) deleted.push(originalName);
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows, deleted } }
+              }
+            };
+          });
           ctx.rebuild();
         }
       },
@@ -5915,7 +6061,7 @@
             ...s,
             ui:{
               ...(s.ui || {}),
-              modals:{ ...(s.ui?.modals || {}), columns:false, relation:true },
+              modals:{ ...(s.ui?.modals || {}), columns:true, relation:true },
               form:{
                 ...(s.ui?.form || {}),
                 relation:{
@@ -5996,17 +6142,22 @@
             UI.pushToast(ctx, { title:'لا توجد أعمدة لتحديثها', icon:'⚠️' });
             return;
           }
+          const deleted = Array.isArray(form.deleted) ? form.deleted.filter(Boolean) : [];
           const renameMap = new Map();
           try {
+            const preserved = new Set(rows.map(row => row.originalName).filter(Boolean));
+            const removalList = Array.from(new Set(deleted)).filter(name => name && !preserved.has(name));
+            removalList.forEach(name => {
+              if(typeof table.removeField === 'function'){
+                try { table.removeField(name); }
+                catch(error){ console.warn('[Mishkah][ERD] failed to remove column', name, error); }
+              }
+            });
             rows.forEach((row, index)=>{
-              const original = row.originalName || row.key || row.name;
-              if(!original) return;
+              const original = row.originalName || '';
               let nextName = sanitizeSqlIdentifier(row.name || original || `column_${index+1}`);
               if(!nextName){
                 nextName = ensureUniqueFieldName(table, original || 'column');
-              }
-              if(original !== nextName && typeof table.getField === 'function' && table.getField(nextName)){
-                nextName = ensureUniqueFieldName(table, nextName);
               }
               const patch = {
                 name: nextName,
@@ -6051,8 +6202,29 @@
               } else {
                 patch.references = null;
               }
-              table.updateField(original, patch);
-              if(original !== nextName) renameMap.set(original, nextName);
+              const existingField = original && typeof table.getField === 'function' ? table.getField(original) : null;
+              if(existingField){
+                if(original !== nextName && typeof table.getField === 'function' && table.getField(nextName)){
+                  nextName = ensureUniqueFieldName(table, nextName);
+                  patch.name = nextName;
+                  patch.columnName = nextName;
+                }
+                table.updateField(original, patch);
+                if(original !== nextName) renameMap.set(original, nextName);
+              } else {
+                if(typeof table.getField === 'function' && table.getField(nextName)){
+                  nextName = ensureUniqueFieldName(table, nextName);
+                  patch.name = nextName;
+                  patch.columnName = nextName;
+                }
+                const newFieldConfig = Object.assign({}, patch);
+                if(newFieldConfig.defaultValue === undefined) delete newFieldConfig.defaultValue;
+                if(newFieldConfig.maxLength === undefined) delete newFieldConfig.maxLength;
+                if(newFieldConfig.precision === undefined) delete newFieldConfig.precision;
+                if(newFieldConfig.scale === undefined) delete newFieldConfig.scale;
+                if(newFieldConfig.references == null) delete newFieldConfig.references;
+                table.addField(newFieldConfig);
+              }
             });
           } catch(error){
             console.warn('[Mishkah][ERD] failed to save columns', error);
@@ -6090,7 +6262,7 @@
               ui:{
                 ...(s.ui || {}),
                 modals:{ ...(s.ui?.modals || {}), columns:true, columnsUnique:false, columnsIndex:false },
-                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows: refreshedRows } }
+                form:{ ...(s.ui?.form || {}), columns:{ table: tableName, rows: refreshedRows, deleted: [] } }
               }
             };
             if(renameMap.size){

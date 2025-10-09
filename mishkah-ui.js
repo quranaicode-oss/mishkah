@@ -677,25 +677,24 @@ UI.ThemeToggleIcon = ({ theme='light', attrs={} })=>{
 UI.LanguageSwitch = ({ lang='ar', attrs={} })=>{
   const isAr = lang === 'ar';
   const isEn = lang === 'en';
-  const rootAttrs = Object.assign({}, attrs, { class: tw`${token('hstack')} gap-1` });
-  const arAttrs = {
-    gkey:'ui:lang-ar',
-    title:'العربية',
-    'aria-pressed': isAr ? 'true' : 'false',
-    class: cx(token('btn/icon'), 'text-base', isAr && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'),
-    type:'button'
-  };
-  const enAttrs = {
-    gkey:'ui:lang-en',
-    title:'English',
-    'aria-pressed': isEn ? 'true' : 'false',
-    class: cx(token('btn/icon'), 'text-base', isEn && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'),
-    type:'button'
-  };
-  return h.Containers.Div({ attrs: rootAttrs }, [
-    UI.Button({ attrs: arAttrs, variant:'ghost', size:'sm' }, ['ع']),
-    UI.Button({ attrs: enAttrs, variant:'ghost', size:'sm' }, ['A'])
-  ]);
+  const rootAttrs = Object.assign({}, attrs);
+  const baseClass = 'inline-flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 p-1 shadow-inner';
+  rootAttrs.class = rootAttrs.class ? tw(cx(baseClass, rootAttrs.class)) : tw(baseClass);
+  const makeAttrs = (active, value)=>({
+    type:'button',
+    gkey: value === 'ar' ? 'ui:lang-ar' : 'ui:lang-en',
+    title: value === 'ar' ? 'العربية' : 'English',
+    'aria-pressed': active ? 'true' : 'false',
+    class: tw(cx(
+      'inline-flex h-7 min-w-[2.75rem] items-center justify-center rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors',
+      active
+        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm'
+        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+    ))
+  });
+  const arButton = h.Forms.Button({ attrs: makeAttrs(isAr, 'ar') }, ['AR']);
+  const enButton = h.Forms.Button({ attrs: makeAttrs(isEn, 'en') }, ['EN']);
+  return h.Containers.Div({ attrs: rootAttrs }, [arButton, enButton]);
 };
 
 UI.SegmentedSwitch = ({ attrs={}, value, options=[] })=>{
