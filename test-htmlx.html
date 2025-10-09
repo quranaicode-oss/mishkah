@@ -364,10 +364,6 @@
           console.error('Mishkah core is not available.');
           return;
         }
-        if (!M.HTMLx || typeof M.HTMLx.compileAllTemplates !== 'function') {
-          console.error('Mishkah HTMLx runtime is missing. تأكد من تحميل dist/htmlx.umd.js.');
-          return;
-        }
 
         var db = {
           head: { title: 'Mishkah HTMLx — تجربة عملية' },
@@ -391,9 +387,11 @@
           }
         };
 
-        if (!M.HTMLxAgent || typeof M.HTMLxAgent.boot !== 'function') {
-          console.error('Mishkah HTMLx agent is not available.');
-          return;
+        var boot = M.app.make(db);
+        if (boot && typeof boot.catch === 'function') {
+          boot.catch(function (error) {
+            console.error('Mishkah HTMLx bootstrap failed:', error);
+          });
         }
 
         M.HTMLxAgent.boot(db).catch(function (error) {
