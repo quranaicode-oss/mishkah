@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mishkah HTMLx — تجربة عملية</title>
+    <meta name="description" content="نموذج شامل يستعرض قدرات محرك HTMLx الجديد في مشكاة" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- القالب الأول: عدّاد تفاعلي مع سجل وتحكم بالحالات -->
+    <template id="counter-demo">
+      <style>
+        :host {
+          display: grid;
+          gap: 1.25rem;
+          padding: 2.5rem 1.75rem;
+          background: radial-gradient(circle at top, rgba(79, 70, 229, 0.08), transparent 65%),
+            linear-gradient(180deg, rgba(15, 23, 42, 0.035), transparent 55%);
+          border-radius: 2rem;
+          box-shadow: 0 35px 120px -60px rgba(15, 23, 42, 0.55);
+        }
+
+        header {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.35rem;
+        }
+
+        h1 {
+          font-size: clamp(1.75rem, 2.1vw, 2.4rem);
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.25rem 0.75rem;
+          border-radius: 999px;
+          font-size: 0.85rem;
+          background: rgba(99, 102, 241, 0.12);
+          color: #312e81;
+        }
+
+        .actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        button.primary {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white;
+          padding: 0.65rem 1.5rem;
+          border-radius: 999px;
+          border: none;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        button.secondary {
+          background: white;
+          color: #312e81;
+          padding: 0.65rem 1.5rem;
+          border-radius: 999px;
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        ul.history {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          gap: 0.75rem;
+        }
+
+        ul.history li {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.6rem 0.9rem;
+          border-radius: 1rem;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: rgba(248, 250, 252, 0.8);
+        }
+
+        ul.history li span.meta {
+          font-size: 0.8rem;
+          opacity: 0.75;
+        }
+
+        @keyframes pulse {
+          from {
+            transform: scale(1);
+          }
+
+          50% {
+            transform: scale(1.04);
+          }
+
+          to {
+            transform: scale(1);
+          }
+        }
+
+        .is-hot {
+          animation: pulse 1.6s ease-in-out infinite;
+          border-color: rgba(220, 38, 38, 0.35);
+          background: rgba(254, 226, 226, 0.8);
+        }
+      </style>
+
+      <comp-card class="space-y-6">
+        <header>
+          <span class="badge">
+            <strong>HTMLx</strong>
+            <span>المثال الأول</span>
+          </span>
+          <h1>{state.data.counter.value} مرة</h1>
+          <p>{state.data.counter.subtitle}</p>
+        </header>
+
+        <div class="actions">
+          <button class="primary" onclick="increment(event, ctx)">
+            ⬆️ زد العداد
+          </button>
+          <button class="secondary" onclick="decrement(event, ctx)">
+            ⬇️ أنقص العداد
+          </button>
+          <button class="secondary" onclick="reset(event, ctx)" data-m-once>
+            🔄 إعادة الضبط
+          </button>
+        </div>
+
+        <section>
+          <h2 class="text-lg font-semibold mb-2">سجل العمليات</h2>
+          <p x-if="!state.data.counter.history.length" class="opacity-70">
+            لم تُسجل عمليات بعد.
+          </p>
+          <ul class="history">
+            <li x-for="entry, idx in state.data.counter.history" key="entry.id" class="{ entry.hot ? 'is-hot' : '' }">
+              <span>
+                <strong>{entry.label}</strong>
+                <span class="meta">{entry.time}</span>
+              </span>
+              <span>{entry.delta > 0 ? '+' + entry.delta : entry.delta}</span>
+            </li>
+          </ul>
+        </section>
+      </comp-card>
+
+      <script>
+        function pushHistory(ctx, delta) {
+          var now = new Date();
+          var entry = {
+            id: 'h-' + now.getTime(),
+            label: delta > 0 ? 'زيادة' : 'نقصان',
+            delta: delta,
+            time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+            hot: Math.abs(delta) >= 5
+          };
+          var current = ctx.get('data.counter.history');
+          ctx.set('data.counter.history', [entry].concat(current).slice(0, 6));
+        }
+
+        function increment(event, ctx) {
+          var current = ctx.get('data.counter.value');
+          ctx.set('data.counter.value', current + 1);
+          pushHistory(ctx, +1);
+        }
+
+        function decrement(event, ctx) {
+          var current = ctx.get('data.counter.value');
+          ctx.set('data.counter.value', current - 1);
+          pushHistory(ctx, -1);
+        }
+
+        function reset(event, ctx) {
+          ctx.set('data.counter.value', 0);
+          ctx.set('data.counter.history', []);
+        }
+      </script>
+    </template>
+
+    <!-- القالب الثاني: قائمة مهام متقدمة تستعرض x-if/x-else-if/x-for -->
+    <template data-namespace="todos" data-mount="#todos-root">
+      <style>
+        :host {
+          display: block;
+          padding: 2rem;
+          border-radius: 1.5rem;
+          background: white;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          box-shadow: 0 25px 70px -45px rgba(15, 23, 42, 0.4);
+        }
+
+        form {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        input[type="text"] {
+          flex: 1 1 240px;
+          padding: 0.6rem 1rem;
+          border-radius: 0.85rem;
+          border: 1px solid rgba(148, 163, 184, 0.45);
+          font-size: 1rem;
+        }
+
+        .filters {
+          display: flex;
+          gap: 0.5rem;
+          padding-top: 0.75rem;
+        }
+
+        .filters button {
+          border-radius: 999px;
+          padding: 0.4rem 1.1rem;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .filters button.active {
+          background: rgba(59, 130, 246, 0.18);
+          border-color: rgba(59, 130, 246, 0.35);
+          color: #1d4ed8;
+          font-weight: 600;
+        }
+
+        ul.todo-list {
+          list-style: none;
+          margin: 1.5rem 0 0;
+          padding: 0;
+          display: grid;
+          gap: 0.65rem;
+        }
+
+        ul.todo-list li {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 0.65rem;
+          padding: 0.9rem 1rem;
+          border-radius: 1rem;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          align-items: center;
+        }
+
+        ul.todo-list li.done {
+          background: rgba(187, 247, 208, 0.55);
+          border-color: rgba(22, 163, 74, 0.45);
+        }
+      </style>
+
+      <section>
+        <header class="space-y-1">
+          <h2 class="text-xl font-semibold">قائمة المهام</h2>
+          <p x-if="state.data.todos.items.length === 0" class="opacity-70">
+            أضف مهمة جديدة لبدء التجربة ✨
+          </p>
+          <p x-else-if="state.data.todos.items.length < 3" class="opacity-70">
+            ما زال لديك مساحة لإضافة المزيد.
+          </p>
+          <p x-else class="opacity-70">
+            رائع! لديك مجموعة مهام نشطة.
+          </p>
+        </header>
+
+        <form onsubmit="addTodo(event, ctx)">
+          <input type="text" name="title" placeholder="أضف مهمة جديدة" />
+          <button type="submit">حفظ</button>
+        </form>
+
+        <div class="filters">
+          <button class="{ state.data.todos.filter === 'all' ? 'active' : '' }" onclick="setFilter('all', ctx)">
+            الجميع
+          </button>
+          <button class="{ state.data.todos.filter === 'open' ? 'active' : '' }" onclick="setFilter('open', ctx)">
+            المفتوحة
+          </button>
+          <button class="{ state.data.todos.filter === 'done' ? 'active' : '' }" onclick="setFilter('done', ctx)">
+            المكتملة
+          </button>
+        </div>
+
+        <ul class="todo-list">
+          <li x-for="todo, idx in state.data.todos.items" key="todo.id" class="{ todo.done ? 'done' : '' }">
+            <div>
+              <strong>{todo.title}</strong>
+              <p class="opacity-70 text-sm">أضيفت في {todo.createdAt}</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="toggleTodo({ todo.id }, ctx)">
+                {todo.done ? '↩️ رجوع' : '✅ تم'}
+              </button>
+              <button onclick="removeTodo({ todo.id }, ctx)">
+                🗑️ حذف
+              </button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <script>
+        function nextId() {
+          return 't-' + Math.random().toString(36).slice(2, 9);
+        }
+
+        function addTodo(event, ctx) {
+          event.preventDefault();
+          var form = event.target;
+          var title = form.title.value.trim();
+          if (!title) return;
+          var now = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+          var entry = { id: nextId(), title: title, done: false, createdAt: now };
+          var items = ctx.get('data.todos.items');
+          ctx.set('data.todos.items', [entry].concat(items));
+          form.reset();
+        }
+
+        function toggleTodo(id, ctx) {
+          var items = ctx.get('data.todos.items');
+          var updated = items.map(function (todo) {
+            if (todo.id === id) {
+              return Object.assign({}, todo, { done: !todo.done });
+            }
+            return todo;
+          });
+          ctx.set('data.todos.items', updated);
+        }
+
+        function removeTodo(id, ctx) {
+          var items = ctx.get('data.todos.items');
+          ctx.set('data.todos.items', items.filter(function (todo) { return todo.id !== id; }));
+        }
+
+        function setFilter(name, ctx) {
+          ctx.set('data.todos.filter', name);
+        }
+      </script>
+    </template>
+
+    <div id="todos-root"></div>
+
+    <!-- المكتبة الأساسية + نواة مشكاة -->
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-ui.js"></script>
+    <!-- ملاحظة: يجب أن يتم تجميع dist/htmlx.bundle.js من وحدة TypeScript الجديدة وإتاحته عالميًا باسم Mishkah.HTMLx -->
+    <script src="./dist/htmlx.bundle.js"></script>
+
+    <script>
+      (function () {
+        var db = {
+          head: { title: 'Mishkah HTMLx — تجربة عملية' },
+          env: { lang: 'ar', dir: 'rtl', theme: 'light' },
+          data: {
+            counter: {
+              value: 3,
+              subtitle: 'نستعرض أوامر الأحداث والتحديث التلقائي للحالة.',
+              history: [
+                { id: 'h-1', label: 'زيادة', delta: +2, time: '09:15', hot: true },
+                { id: 'h-0', label: 'إطلاق', delta: +1, time: '09:10', hot: false }
+              ]
+            },
+            todos: {
+              filter: 'all',
+              items: [
+                { id: 't-1', title: 'مراجعة خطة الإطلاق', done: false, createdAt: '08:30' },
+                { id: 't-2', title: 'ضبط تظليل Tailwind', done: true, createdAt: '08:10' }
+              ]
+            }
+          }
+        };
+
+        Mishkah.app.make(db);
+      })();
+    </script>
+  </body>
+</html>
