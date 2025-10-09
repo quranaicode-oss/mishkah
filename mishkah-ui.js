@@ -20,7 +20,7 @@ def({
   // buttons
   'btn':            'inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius)] text-sm font-medium transition-colors ring-base disabled:opacity-50 disabled:pointer-events-none',
   'btn/sm': 'h-9  px-3',
-  'btn/md': 'h-10 px-3',   
+  'btn/md': 'h-10 px-3',
   'btn/lg': 'h-11 px-5',
   'btn/solid':      'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[color-mix(in oklab,var(--primary) 90%, black)]',
   'btn/soft':       'bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[color-mix(in oklab,var(--secondary) 85%, black)]',
@@ -1106,12 +1106,11 @@ UI.pushToast = (ctx,{ title, message, icon, ttl=2800 })=>{
     const list=(s.ui?.toasts||[]).concat([{ id:_toId++, title, message, icon }]);
     return { ...s, ui:{ ...(s.ui||{}), toasts:list } };
   });
-  ctx.rebuild();
   const id=_toId-1;
   setTimeout(()=>{
     const st=ctx.getState();
     const list=(st.ui?.toasts||[]).filter(t=> t.id!==id);
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), toasts:list } })); ctx.rebuild();
+    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), toasts:list } }));
   }, ttl);
 };
 
@@ -1139,17 +1138,17 @@ const ORDERS = {
   'ui.tabs.select': { on:['click'], gkeys:['ui:tabs:select'], handler:(e,ctx)=>{
     const btn = e.target && (e.target.closest && e.target.closest('[data-tab-id]'));
     if(!btn) return; const id=btn.getAttribute('data-tab-id');
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), activeTab:id } })); ctx.rebuild();
+    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), activeTab:id } }));
   }},
-  'ui.modal.open':  { on:['click'], gkeys:['ui:modal:open'],  handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:true } })); ctx.rebuild(); } },
-  'ui.modal.close': { on:['click'], gkeys:['ui:modal:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:false } })); ctx.rebuild(); } },
-  'ui.drawer.toggle':{on:['click'], gkeys:['ui:drawer:toggle'],handler:(e,ctx)=>{ const cur=!!ctx.getState().ui?.drawerOpen; ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:!cur } })); ctx.rebuild(); } },
-  'ui.drawer.close': {on:['click'], gkeys:['ui:drawer:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:false } })); ctx.rebuild(); } },
+  'ui.modal.open':  { on:['click'], gkeys:['ui:modal:open'],  handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:true } })); } },
+  'ui.modal.close': { on:['click'], gkeys:['ui:modal:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:false } })); } },
+  'ui.drawer.toggle':{on:['click'], gkeys:['ui:drawer:toggle'],handler:(e,ctx)=>{ const cur=!!ctx.getState().ui?.drawerOpen; ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:!cur } })); } },
+  'ui.drawer.close': {on:['click'], gkeys:['ui:drawer:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:false } })); } },
 
   // Routing (Dashboard / Inventory / Sales)
-  'route.dashboard': { on:['click'], gkeys:['route:dashboard'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'dashboard' } })); ctx.rebuild(); } },
-  'route.inventory': { on:['click'], gkeys:['route:inventory'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'inventory' } })); ctx.rebuild(); } },
-  'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); ctx.rebuild(); } }
+  'route.dashboard': { on:['click'], gkeys:['route:dashboard'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'dashboard' } })); } },
+  'route.inventory': { on:['click'], gkeys:['route:inventory'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'inventory' } })); } },
+  'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); } }
 };
 
 const NOOP = ()=>{};
@@ -1315,7 +1314,7 @@ M.UI.posOrders = POS_ORDERS;
       const key = `${keyPrefix}-${idx}`;
       switch (token.type){
         case 'text':
-          if (typeof token.text === 'string'){ 
+          if (typeof token.text === 'string'){
             const trimmed = token.text.trim();
             const imagePattern = /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|svg|webp))(\?[^\s]*)?$/i;
             if (trimmed && imagePattern.test(trimmed)){

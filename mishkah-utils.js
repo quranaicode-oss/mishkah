@@ -281,7 +281,7 @@
 
 
 
-  
+
   function createEmitter() {
     const listeners = new Map();
     return {
@@ -664,9 +664,9 @@ function makeLangLookup(db) {
   return { TL, langs, current, fallback };
 }
  U.lang ={buildLangTables,makeLangLookup}
- 
- 
- 
+
+
+
   // ---------------------------------------------------------------------------
   // التسجيل تحت Mishkah.utils (دمج دون استبدال)
   // ---------------------------------------------------------------------------
@@ -1478,8 +1478,8 @@ const groups = {
 }
 
 
-function tw(strings,...vals){ 
-const raw = Array.isArray(strings)? String.raw({raw:strings},...vals): strings; 
+function tw(strings,...vals){
+const raw = Array.isArray(strings)? String.raw({raw:strings},...vals): strings;
 
 let result =String(raw).trim().replace(/\s+/g,' ');
 
@@ -1489,8 +1489,8 @@ return normalizeClass(result);
 
 
  }
- 
- 
+
+
 
 // ========== Modern Palette (light blues / dark deep-blues + layered surfaces) ==========
 const DEFAULT_PALETTE = {
@@ -1960,16 +1960,15 @@ function auto(db, app, opt={}){
         const next = cur.env?.theme==='dark'?'light':'dark';
         setTheme(next);
         ctx.setState(s=> ({ ...s, env:{ ...(s.env||{}), theme: next } }));
-        ctx.rebuild();
       }
     },
     'ui.lang.ar': {
       on:['click'], gkeys:['ui:lang-ar'],
-      handler:(e,ctx)=>{ setDir('rtl'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'ar', dir:'rtl'}, i18n:{...(s.i18n||{}), lang:'ar'} })); ctx.rebuild(); }
+      handler:(e,ctx)=>{ setDir('rtl'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'ar', dir:'rtl'}, i18n:{...(s.i18n||{}), lang:'ar'} })); }
     },
     'ui.lang.en': {
       on:['click'], gkeys:['ui:lang-en'],
-      handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); ctx.rebuild(); }
+      handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); }
     }
   };
   return { orders };

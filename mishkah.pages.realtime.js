@@ -50,10 +50,8 @@
   function updateState(updater) {
     if (runtime.app) {
       runtime.app.setState(updater);
-      runtime.app.rebuild();
     } else if (runtime.lastCtx) {
       runtime.lastCtx.setState(updater);
-      runtime.lastCtx.rebuild();
     }
   }
 
@@ -662,7 +660,6 @@
             },
           },
         }));
-        ctx.rebuild();
       },
     },
     'chat:ws:connect': {
@@ -718,7 +715,6 @@
             },
           },
         }));
-        ctx.rebuild();
       },
     },
     'call:start': {
@@ -758,7 +754,6 @@
             },
           };
         });
-        ctx.rebuild();
       },
     },
     'call:toggle-cam': {
@@ -783,7 +778,6 @@
             },
           };
         });
-        ctx.rebuild();
       },
     },
     'vn:record-toggle': {
@@ -813,7 +807,6 @@
               },
             },
           }));
-          ctx.rebuild();
         }
       },
     },
