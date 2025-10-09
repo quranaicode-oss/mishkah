@@ -203,13 +203,21 @@
     'about.goals.playfulDocs': { ar: 'دمج الوثائق مع الألعاب التفاعلية كي يتحول التعلم إلى تجربة مرحة.', en: 'Blend documentation with interactive games so learning becomes playful.' },
     'about.goals.holistic': { ar: 'توحيد الثيمات، القوالب، والـ DSL في مصدر واحد يمكن تطويره واستعراضه فورًا.', en: 'Unify themes, templates, and DSL in a single source that can be evolved and previewed instantly.' },
     'about.goals.openCraft': { ar: 'صياغة إطار يخدم الفرق الصغيرة والمستقلين قبل المؤسسات الضخمة.', en: 'Craft a framework that empowers small teams and independents before large corporations.' },
-    'ui.components.title': { ar: 'دليل مكونات الواجهة', en: 'UI component guide' },
-    'ui.components.subtitle': { ar: 'عرض حي لأهم مكونات Mishkah UI مع وصف ثنائي اللغة ومعاينات تطبيقية.', en: 'Live tour of Mishkah UI essentials with bilingual explanations and hands-on previews.' },
-    'ui.components.core': { ar: 'المكونات الجوهرية', en: 'Core components' },
-    'ui.components.patterns': { ar: 'أنماط الواجهات', en: 'Interface patterns' },
-    'ui.components.story': { ar: 'كل عنصر يأتي مع قصة استخدام في الدليل التطبيقي.', en: 'Each element ships with usage stories in the application guide.' },
+    'ui.components.title': { ar: 'مخبر ReportPro ومكونات البيانات', en: 'ReportPro & data components lab' },
+    'ui.components.subtitle': { ar: 'صفحة متخصصة تستعرض ReportPro، DatePicker، وDataTable مع ممارسات جاهزة للتطبيق.', en: 'A dedicated page that spotlights ReportPro, the DatePicker, and the DataTable with ready-to-use practices.' },
     'ui.components.previewLabel': { ar: 'المعاينة الحية', en: 'Live preview' },
     'ui.components.exampleLabel': { ar: 'مثال تطبيقي', en: 'Practical example' },
+    'ui.components.reportPro.summary': { ar: 'لوح تقارير تفاعلي يجمع البطاقات والتحليلات في مشهد واحد.', en: 'An interactive reporting board that blends stat cards and analytics in one canvas.' },
+    'ui.components.datePicker.summary': { ar: 'منتقي تاريخ ذكي يدعم اللغات واتجاهي الكتابة.', en: 'A smart date picker with multilingual and bi-directional support.' },
+    'ui.components.dataTable.summary': { ar: 'جدول بيانات متقدّم يوازن بين الأداء والتصفية اللحظية.', en: 'An advanced data table that balances performance with instant filtering.' },
+    'utils.indexeddb.title': { ar: 'IndexedDB — مخزن الحالة الغني', en: 'IndexedDB — Rich client datastore' },
+    'utils.indexeddb.subtitle': { ar: 'تعرف على طبقة التخزين طويلة الأمد في Mishkah وكيفية تصميم المخططات والترقية بأمان.', en: 'Discover Mishkah’s long-lived storage layer, how to design schemas, and upgrade safely.' },
+    'utils.indexeddb.schema': { ar: 'مخطط القنوات', en: 'Channel schema' },
+    'utils.websockets.title': { ar: 'WebSockets — القناة اللحظية', en: 'WebSockets — The real-time channel' },
+    'utils.websockets.subtitle': { ar: 'إدارة الاتصال، إعادة المحاولة، والبث المشترك داخل أوامر Mishkah.', en: 'Manage connectivity, retries, and shared broadcasts inside Mishkah orders.' },
+    'utils.ajax.title': { ar: 'Ajax — تغذية البيانات الخارجية', en: 'Ajax — External data feeds' },
+    'utils.ajax.subtitle': { ar: 'نماذج عملية لجلب الطقس، العملات، والذهب مع تحديث الحالة بسلاسة.', en: 'Practical recipes for fetching weather, currencies, and gold prices while keeping state in sync.' },
+    'utils.ajax.catalog': { ar: 'واجهات Ajax مجانية للتجربة', en: 'Free Ajax APIs to explore' },
     'utils.title': { ar: 'مكتبة الأدوات', en: 'Utilities library' },
     'utils.subtitle': { ar: 'تعرف على طبقات Mishkah.utils الفعلية مع شرح ثنائي اللغة وأمثلة جاهزة.', en: 'Explore Mishkah.utils groups with bilingual explanations and ready-to-run snippets.' },
     'utils.functionLabel': { ar: 'الدوال الأساسية', en: 'Key helpers' },
@@ -1714,262 +1722,288 @@
   function UIShowcaseComp(db) {
     const { TL, lang } = makeLangLookup(db);
     const fallbackLang = lang === 'ar' ? 'en' : 'ar';
-    const languageLabel = (code) => (code === 'ar' ? 'العربية' : 'English');
     const labelForLocale = (key, locale) => localize(dict[key] || {}, locale, locale === 'ar' ? 'en' : 'ar');
 
-    const buttonPreview = D.Containers.Div({
-      attrs: { class: tw`flex flex-wrap items-center gap-2` }
+    const metrics = [
+      { icon: '💰', label: { ar: 'إيراد اليوم', en: 'Today revenue' }, value: { ar: '٣٤٬٥٠٠ ر.س', en: 'SAR 34,500' }, delta: '+18%' },
+      { icon: '👥', label: { ar: 'العملاء الفاعلون', en: 'Active customers' }, value: { ar: '٢٣٠', en: '230' }, delta: '+8%' },
+      { icon: '⏱️', label: { ar: 'متوسط التحضير', en: 'Prep time' }, value: { ar: '١٢ دقيقة', en: '12 min' }, delta: '-2m' }
+    ];
+
+    const reportPreview = D.Containers.Div({
+      attrs: { class: tw`space-y-4` }
     }, [
-      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'solid', size: 'md' }, [lang === 'ar' ? 'نفّذ' : 'Execute']),
-      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'soft', size: 'md' }, [lang === 'ar' ? 'خيار ثانوي' : 'Secondary']),
-      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'ghost', size: 'md' }, [lang === 'ar' ? 'رابط' : 'Link'])
+      D.Containers.Div({
+        attrs: { class: tw`grid gap-3 md:grid-cols-3` }
+      }, metrics.map((item) => UI.StatCard({
+        attrs: { key: `metric-${item.icon}` },
+        title: localize(item.label, lang, fallbackLang),
+        value: localize(item.value, lang, fallbackLang),
+        meta: lang === 'ar' ? `↕ ${item.delta} خلال ٢٤ ساعة` : `↕ ${item.delta} last 24h`
+      }))),
+      D.Containers.Div({
+        attrs: { class: tw`grid gap-3 md:grid-cols-[280px_minmax(0,1fr)]` }
+      }, [
+        UI.Card({
+          variant: 'card/soft-1',
+          title: lang === 'ar' ? 'قنوات الطلب' : 'Order channels',
+          content: D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, [
+            { icon: '🛎️', label: { ar: 'الاستقبال', en: 'Front desk' }, value: { ar: '١٢٤ طلبًا', en: '124 orders' } },
+            { icon: '📱', label: { ar: 'التطبيق', en: 'Mobile app' }, value: { ar: '٨٧ طلبًا', en: '87 orders' } },
+            { icon: '🌐', label: { ar: 'الويب', en: 'Web' }, value: { ar: '٤٥ طلبًا', en: '45 orders' } }
+          ].map((row) => D.Lists.Li({
+            attrs: { key: row.icon, class: tw`flex items-center justify-between rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)94%,transparent)] px-3 py-2` }
+          }, [
+            D.Containers.Div({ attrs: { class: tw`flex items-center gap-2 text-sm` } }, [
+              D.Text.Span({ attrs: { class: tw`text-lg` } }, [row.icon]),
+              D.Text.Span({}, [localize(row.label, lang, fallbackLang)])
+            ]),
+            D.Text.Strong({ attrs: { class: tw`text-sm text-[color-mix(in_oklab,var(--foreground)92%,transparent)]` } }, [localize(row.value, lang, fallbackLang)])
+          ])))
+        }),
+        UI.Card({
+          variant: 'card/soft-1',
+          title: lang === 'ar' ? 'أداء الفروع' : 'Branch performance',
+          content: D.Tables.Table({ attrs: { class: tw`w-full border-separate border-spacing-y-2` } }, [
+            D.Tables.Thead({}, [
+              D.Tables.Tr({}, [
+                D.Tables.Th({ attrs: { class: tw`rounded-l-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-right text-xs font-medium` } }, [lang === 'ar' ? 'الفرع' : 'Branch']),
+                D.Tables.Th({ attrs: { class: tw`bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-medium` } }, [lang === 'ar' ? 'الطلبات' : 'Orders']),
+                D.Tables.Th({ attrs: { class: tw`rounded-r-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-medium` } }, [lang === 'ar' ? 'التقييم' : 'Rating'])
+              ])
+            ]),
+            D.Tables.Tbody({}, [
+              { name: { ar: 'الرياض', en: 'Riyadh' }, orders: '98', rating: '4.8★' },
+              { name: { ar: 'جدة', en: 'Jeddah' }, orders: '76', rating: '4.6★' },
+              { name: { ar: 'الخبر', en: 'Khobar' }, orders: '52', rating: '4.4★' }
+            ].map((row) => D.Tables.Tr({
+              attrs: { key: localize(row.name, lang, fallbackLang), class: tw`bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] text-sm` }
+            }, [
+              D.Tables.Td({ attrs: { class: tw`rounded-l-2xl px-3 py-2 font-medium` } }, [localize(row.name, lang, fallbackLang)]),
+              D.Tables.Td({ attrs: { class: tw`px-3 py-2 text-[var(--muted-foreground)]` } }, [row.orders]),
+              D.Tables.Td({ attrs: { class: tw`rounded-r-2xl px-3 py-2 text-[color-mix(in_oklab,var(--primary)82%,transparent)]` } }, [row.rating])
+            ]))
+            ])
+          ])
+        })
+      ])
     ]);
 
-    const cardPreview = UI.Card({
-      variant: 'card/soft-1',
-      title: lang === 'ar' ? 'بطاقة حالة الطلب' : 'Order status card',
-      description: lang === 'ar' ? 'تعرض ملخصاً سريعاً مع شارة حالة.' : 'Shows a quick ticket summary with a status badge.',
-      content: D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
-        D.Text.P({ attrs: { class: tw`text-sm` } }, [lang === 'ar' ? 'آخر تحديث قبل دقيقة واحدة.' : 'Updated one minute ago.']),
-        UI.Badge({ text: lang === 'ar' ? 'جاهز للتسليم' : 'Ready to serve' })
-      ])
-    });
+    const calendarWeekdays = lang === 'ar'
+      ? ['س', 'أ', 'ث', 'ر', 'خ', 'ج', 'س']
+      : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-    const toolbarPreview = UI.Toolbar({
-      left: [
-        UI.ToolbarGroup({ label: lang === 'ar' ? 'التنقل' : 'Navigation' }, [
-          UI.Button({ attrs: { class: tw`!h-9`, gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'الرئيسية' : 'Home']),
-          UI.Button({ attrs: { class: tw`!h-9`, gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'التقارير' : 'Reports'])
+    const dates = [
+      { day: '8', state: 'muted' },
+      { day: '9', state: 'muted' },
+      { day: '10', state: 'muted' },
+      { day: '11', state: 'muted' },
+      { day: '12', state: 'muted' },
+      { day: '13', state: 'muted' },
+      { day: '14', state: 'muted' },
+      ...Array.from({ length: 31 }, (_, idx) => ({ day: String(idx + 15), state: idx + 15 === 21 ? 'active' : '' }))
+    ];
+
+    const datePickerPreview = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+      D.Containers.Div({ attrs: { class: tw`flex items-center justify-between` } }, [
+        D.Text.Strong({ attrs: { class: tw`text-base` } }, [lang === 'ar' ? 'أكتوبر ٢٠٢٤' : 'October 2024']),
+        D.Containers.Div({ attrs: { class: tw`flex items-center gap-2` } }, [
+          UI.Button({ attrs: { class: tw`!h-8 !w-8` }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? '‹' : '‹']),
+          UI.Button({ attrs: { class: tw`!h-8 !w-8 bg-[color-mix(in_oklab,var(--primary)88%,transparent)] text-[color-mix(in_oklab,var(--primary-foreground,white)98%,transparent)]` }, variant: 'solid', size: 'sm' }, [lang === 'ar' ? 'اليوم' : 'Today'])
         ])
-      ],
-      right: [
-        UI.ThemeToggleIcon({ theme: 'light', attrs: { class: tw`!w-9 !h-9` } }),
-        UI.LanguageSwitch({ lang })
-      ]
-    });
+      ]),
+      D.Tables.Table({ attrs: { class: tw`w-full border-collapse text-center text-xs` } }, [
+        D.Tables.Thead({}, [
+          D.Tables.Tr({}, calendarWeekdays.map((wd) => D.Tables.Th({ attrs: { class: tw`py-1 font-semibold text-[var(--muted-foreground)]` } }, [wd])))
+        ]),
+        D.Tables.Tbody({}, Array.from({ length: Math.ceil(dates.length / 7) }, (_, idx) => dates.slice(idx * 7, idx * 7 + 7)).map((week, wIdx) => D.Tables.Tr({
+          attrs: { key: `week-${wIdx}` }
+        }, week.map((day, dIdx) => D.Tables.Td({
+          attrs: {
+            key: `day-${wIdx}-${dIdx}`,
+            class: cx(
+              tw`py-2`,
+              day.state === 'active'
+                ? tw`rounded-full bg-[color-mix(in_oklab,var(--primary)88%,transparent)] font-semibold text-[color-mix(in_oklab,var(--primary-foreground,white)95%,transparent)]`
+                : day.state === 'muted'
+                  ? tw`text-[color-mix(in_oklab,var(--muted-foreground)75%,transparent)]`
+                  : tw`rounded-full hover:bg-[color-mix(in_oklab,var(--surface-2)88%,transparent)]`
+            )
+          }
+        }, [day.day]))))
+      ])
+    ]);
 
-    const emptyStatePreview = UI.EmptyState({
-      icon: '📂',
-      title: lang === 'ar' ? 'لا توجد بيانات بعد' : 'No data yet',
-      description: lang === 'ar' ? 'ابدأ بإضافة عنصر جديد ليظهر هنا.' : 'Add your first record to populate the view.',
-      actions: [
-        UI.Button({ attrs: { class: tw`mt-1` }, variant: 'solid', size: 'sm' }, [lang === 'ar' ? 'إنشاء عنصر' : 'Create item'])
-      ]
-    });
-
-    const statCardPreview = UI.StatCard({
-      title: lang === 'ar' ? 'صافي المبيعات' : 'Net sales',
-      value: lang === 'ar' ? '٢٤٬٣٠٠ ر.س' : 'SAR 24,300',
-      meta: lang === 'ar' ? '↑ 12% عن الأمس' : '↑ 12% vs yesterday',
-      footer: [
-        UI.Badge({ variant: 'badge', text: lang === 'ar' ? 'مزامنة تلقائية' : 'Auto-sync' })
-      ]
-    });
-
-    const buttonCode = {
-      ar: `const { UI } = Mishkah;
-// زر موحد يطلق أمر gkey
-UI.Button({
-  attrs: { gkey: 'orders:create' },
-  variant: 'solid',
-  size: 'md'
-}, ['إرسال الطلب']);`,
-      en: `const { UI } = Mishkah;
-// Command-driven button wired with a gkey
-UI.Button({
-  attrs: { gkey: 'orders:create' },
-  variant: 'solid',
-  size: 'md'
-}, ['Submit order']);`
-    };
-
-    const cardCode = {
-      ar: `const { UI, DSL: D } = Mishkah;
-UI.Card({
-  title: 'ملخص الطلب',
-  description: 'عرض سريع للحالة الحالية.',
-  content: D.Text.P({}, ['طاولة ٧ جاهزة للتقديم خلال ٥ دقائق'])
-});`,
-      en: `const { UI, DSL: D } = Mishkah;
-UI.Card({
-  title: 'Order summary',
-  description: 'Compact view for the current ticket.',
-  content: D.Text.P({}, ['Serve table 7 within 5 minutes'])
-});`
-    };
-
-    const toolbarCode = {
-      ar: `const { UI } = Mishkah;
-UI.Toolbar({
-  left: [
-    UI.ToolbarGroup({ label: 'التنقل' }, [
-      UI.Button({ attrs: { gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, ['الرئيسية']),
-      UI.Button({ attrs: { gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, ['التقارير'])
-    ])
-  ],
-  right: [UI.ThemeToggleIcon({ theme: 'light' }), UI.LanguageSwitch({ lang: 'ar' })]
-});`,
-      en: `const { UI } = Mishkah;
-UI.Toolbar({
-  left: [
-    UI.ToolbarGroup({ label: 'Navigation' }, [
-      UI.Button({ attrs: { gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, ['Home']),
-      UI.Button({ attrs: { gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, ['Reports'])
-    ])
-  ],
-  right: [UI.ThemeToggleIcon({ theme: 'light' }), UI.LanguageSwitch({ lang: 'en' })]
-});`
-    };
-
-    const emptyStateCode = {
-      ar: `const { UI } = Mishkah;
-UI.EmptyState({
-  icon: '📂',
-  title: 'لا توجد عناصر',
-  description: 'أضف أول عنصر لتبدأ الرحلة.',
-  actions: [UI.Button({ variant: 'solid', size: 'sm' }, ['إنشاء عنصر'])]
-});`,
-      en: `const { UI } = Mishkah;
-UI.EmptyState({
-  icon: '📂',
-  title: 'Nothing here yet',
-  description: 'Create the first record to start the flow.',
-  actions: [UI.Button({ variant: 'solid', size: 'sm' }, ['Create item'])]
-});`
-    };
-
-    const statCardCode = {
-      ar: `const { UI } = Mishkah;
-UI.StatCard({
-  title: 'صافي المبيعات',
-  value: '٢٤٬٣٠٠ ر.س',
-  meta: '↑ 12% عن الأمس',
-  footer: [UI.Badge({ variant: 'badge', text: 'مزامنة تلقائية' })]
-});`,
-      en: `const { UI } = Mishkah;
-UI.StatCard({
-  title: 'Net sales',
-  value: 'SAR 24,300',
-  meta: '↑ 12% vs yesterday',
-  footer: [UI.Badge({ variant: 'badge', text: 'Auto-sync' })]
-});`
-    };
+    const dataTablePreview = D.Tables.Table({ attrs: { class: tw`w-full border-separate border-spacing-y-2 text-sm` } }, [
+      D.Tables.Thead({}, [
+        D.Tables.Tr({}, [
+          D.Tables.Th({ attrs: { class: tw`rounded-l-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-right text-xs font-semibold` } }, [lang === 'ar' ? 'الصنف' : 'Item']),
+          D.Tables.Th({ attrs: { class: tw`bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-semibold` } }, [lang === 'ar' ? 'الكمية' : 'Qty']),
+          D.Tables.Th({ attrs: { class: tw`bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-semibold` } }, [lang === 'ar' ? 'السعر' : 'Price']),
+          D.Tables.Th({ attrs: { class: tw`rounded-r-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-semibold` } }, [lang === 'ar' ? 'الحالة' : 'Status'])
+        ])
+      ]),
+      D.Tables.Tbody({}, [
+        { item: { ar: 'قهوة مختصة', en: 'Specialty coffee' }, qty: '32', price: '18.00', status: { ar: 'متاحة', en: 'Available' } },
+        { item: { ar: 'تشيز كيك توت', en: 'Berry cheesecake' }, qty: '14', price: '26.00', status: { ar: 'قيد التحضير', en: 'Preparing' } },
+        { item: { ar: 'شاي ماسالا', en: 'Masala tea' }, qty: '20', price: '16.00', status: { ar: 'متاحة', en: 'Available' } }
+      ].map((row, idx) => D.Tables.Tr({
+        attrs: { key: `dt-row-${idx}`, class: tw`bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)]` }
+      }, [
+        D.Tables.Td({ attrs: { class: tw`rounded-l-2xl px-3 py-2 font-medium` } }, [localize(row.item, lang, fallbackLang)]),
+        D.Tables.Td({ attrs: { class: tw`px-3 py-2 text-[var(--muted-foreground)]` } }, [row.qty]),
+        D.Tables.Td({ attrs: { class: tw`px-3 py-2 text-[var(--muted-foreground)]` } }, [lang === 'ar' ? `${row.price} ر.س` : `SAR ${row.price}`]),
+        D.Tables.Td({ attrs: { class: tw`rounded-r-2xl px-3 py-2` } }, [
+          UI.Badge({
+            text: localize(row.status, lang, fallbackLang),
+            variant: row.status.en === 'Available' ? 'badge' : 'badge/soft'
+          })
+        ])
+      ])))
+    ]);
 
     const componentCatalog = [
       {
-        key: 'button',
-        icon: '🔘',
-        title: { ar: 'UI.Button — زر الأوامر', en: 'UI.Button — Command button' },
-        desc: {
-          ar: 'زر موحد يعتمد على gkey لربط الواجهة بالأوامر مع إعدادات الحجم والثيم المضمنة.',
-          en: 'Unified button that wires UI to orders via gkeys while respecting Mishkah token sizing and themes.'
-        },
-        preview: buttonPreview,
-        code: buttonCode
-      },
-      {
-        key: 'card',
-        icon: '🪪',
-        title: { ar: 'UI.Card — بطاقات المحتوى', en: 'UI.Card — Content card' },
-        desc: {
-          ar: 'غلاف جاهز للعناوين والوصف والمحتوى يبني بطاقات منسجمة مع نظام التصميم دون تكرار الأنماط.',
-          en: 'Ready-made wrapper for titles, descriptions, and body content that keeps cards aligned with the design system.'
-        },
-        preview: cardPreview,
-        code: cardCode
-      },
-      {
-        key: 'toolbar',
-        icon: '🧭',
-        title: { ar: 'UI.Toolbar — الشريط العلوي', en: 'UI.Toolbar — Top bar' },
-        desc: {
-          ar: 'شريط Sticky يجمع مجموعات الأزرار وعناصر التحكم العالمية مثل تبديل الثيم واللغة.',
-          en: 'Sticky top bar that organises grouped controls and global actions such as theme or language toggles.'
-        },
-        preview: toolbarPreview,
-        code: toolbarCode
-      },
-      {
-        key: 'empty',
-        icon: '📭',
-        title: { ar: 'UI.EmptyState — حالة الفراغ', en: 'UI.EmptyState — Empty state' },
-        desc: {
-          ar: 'مكون جاهز لحالات عدم وجود بيانات مع رمز ورسالة وزر دعوة للفعل متسق مع اللغة.',
-          en: 'Drop-in empty state with icon, message, and call-to-action that adapts to the active locale.'
-        },
-        preview: emptyStatePreview,
-        code: emptyStateCode
-      },
-      {
-        key: 'stat',
+        key: 'reportPro',
         icon: '📊',
-        title: { ar: 'UI.StatCard — بطاقة إحصائية', en: 'UI.StatCard — Metric card' },
-        desc: {
-          ar: 'بطاقة مضيئة لإبراز الأرقام الحية مع مساحة للهوامش والشارات في التذييل.',
-          en: 'Luminous metric card to highlight live numbers with room for contextual badges in the footer.'
-        },
-        preview: statCardPreview,
-        code: statCardCode
+        title: { ar: 'ReportPro — لوحة أداء موحدة', en: 'ReportPro — Unified performance board' },
+        summaryKey: 'ui.components.reportPro.summary',
+        preview: reportPreview,
+        features: [
+          { ar: 'دمج بين بطاقات الإحصائيات والجداول في عنصر واحد مع دعم تحديث الحالة عبر IndexedDB.', en: 'Combines stat cards and tables in a single element while staying in sync with IndexedDB state.' },
+          { ar: 'دعم فوري للتصفية حسب القناة أو الفرع مع أوامر خفيفة.', en: 'Instant filtering by channel or branch handled via lightweight orders.' },
+          { ar: 'يتكامل مع Report DSL لإخراج JSON قابل للتصدير.', en: 'Integrates with the report DSL to emit exportable JSON snapshots.' }
+        ],
+        code: {
+          ar: `const { UI, DSL: D, utils: { Data } } = Mishkah;
+const report = UI.Card({
+  title: 'ReportPro.daily',
+  content: D.Containers.Div({}, [
+    UI.StatCard({ title: 'إيراد اليوم', value: state.metrics.revenue }),
+    D.Tables.Table({}, buildChannelRows(state.channels))
+  ])
+});
+context.setState((s) => ({ ...s, data: { ...s.data, report } }));`,
+          en: `const { UI, DSL: D, utils: { Data } } = Mishkah;
+const report = UI.Card({
+  title: 'ReportPro.daily',
+  content: D.Containers.Div({}, [
+    UI.StatCard({ title: 'Today revenue', value: state.metrics.revenue }),
+    D.Tables.Table({}, buildChannelRows(state.channels))
+  ])
+});
+context.setState((s) => ({ ...s, data: { ...s.data, report } }));`
+        }
+      },
+      {
+        key: 'datePicker',
+        icon: '📅',
+        title: { ar: 'DatePicker — منتقي التواريخ المتعدد اللغات', en: 'DatePicker — Multilingual date picker' },
+        summaryKey: 'ui.components.datePicker.summary',
+        preview: datePickerPreview,
+        features: [
+          { ar: 'يدعم RTL و LTR مع توليد أوتوماتيكي لأسماء الأشهر والأيام عبر utils.Time.', en: 'Supports RTL and LTR with auto-generated month/day labels via utils.Time.' },
+          { ar: 'يوفّر أوامر gkey لتفعيل النطاقات (اليوم، الأسبوع، الشهر) فورًا.', en: 'Provides gkey orders to activate ranges (today, week, month) instantly.' },
+          { ar: 'يتكامل مع DataTable لتصفية السجلات في الزمن الفعلي.', en: 'Pairs with the DataTable to filter records in real time.' }
+        ],
+        code: {
+          ar: `const { utils: { Time }, DSL: D } = Mishkah;
+const days = Time.calendar({ lang: 'ar', month: state.month });
+const picker = D.Tables.Table({}, renderDays(days, state.activeDay));
+context.setState((s) => ({ ...s, data: { ...s.data, picker } }));`,
+          en: `const { utils: { Time }, DSL: D } = Mishkah;
+const days = Time.calendar({ lang: 'en', month: state.month });
+const picker = D.Tables.Table({}, renderDays(days, state.activeDay));
+context.setState((s) => ({ ...s, data: { ...s.data, picker } }));`
+        }
+      },
+      {
+        key: 'dataTable',
+        icon: '📋',
+        title: { ar: 'DataTable — جدول ذكي عالي الأداء', en: 'DataTable — High performance grid' },
+        summaryKey: 'ui.components.dataTable.summary',
+        preview: dataTablePreview,
+        features: [
+          { ar: 'عمود تصفية مباشر مع دعم البحث النصي ودمج النتائج عبر utils.Data.query.', en: 'Inline filtering with text search that merges results through utils.Data.query.' },
+          { ar: 'يدعم الترقيم الكسول lazy pagination واسترجاع دفعات من IndexedDB.', en: 'Supports lazy pagination pulling batches from IndexedDB.' },
+          { ar: 'يمكن تغليفه داخل ReportPro ليعرض التفاصيل تحت البطاقة المختارة.', en: 'Can be wrapped inside ReportPro to reveal drill-down details beneath a selected card.' }
+        ],
+        code: {
+          ar: `const { utils: { Data }, DSL: D } = Mishkah;
+const rows = Data.query(state.inventory)
+  .filter((row) => row.qty > 0)
+  .select((row) => D.Tables.Tr({}, [
+    D.Tables.Td({}, [row.name]),
+    D.Tables.Td({}, [row.qty]),
+    D.Tables.Td({}, [row.price])
+  ]))
+  .toArray();
+return D.Tables.Table({}, rows);`,
+          en: `const { utils: { Data }, DSL: D } = Mishkah;
+const rows = Data.query(state.inventory)
+  .filter((row) => row.qty > 0)
+  .select((row) => D.Tables.Tr({}, [
+    D.Tables.Td({}, [row.name]),
+    D.Tables.Td({}, [row.qty]),
+    D.Tables.Td({}, [row.price])
+  ]))
+  .toArray();
+return D.Tables.Table({}, rows);`
+        }
       }
     ];
 
     const cards = componentCatalog.map((item) => {
-      const primaryTitle = localize(item.title, lang, fallbackLang);
-      const secondaryTitle = localize(item.title, fallbackLang, lang);
-      const primaryDesc = localize(item.desc, lang, fallbackLang);
-      const secondaryDesc = localize(item.desc, fallbackLang, lang);
+      const title = localize(item.title, lang, fallbackLang);
+      const summary = TL(item.summaryKey);
 
-      const descriptionBlock = D.Containers.Div({
-        attrs: { class: cx('sdk-card-copy', tw`space-y-2`) }
+      const summaryBlock = D.Text.P({
+        attrs: { class: tw`text-sm text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)]` }
+      }, [summary]);
+
+      const featureList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, item.features.map((feature, idx) => D.Lists.Li({
+        attrs: { key: `${item.key}-f-${idx}`, class: tw`flex items-start gap-2 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2 text-sm` }
       }, [
-        primaryDesc ? D.Text.P({ attrs: { class: tw`text-sm leading-relaxed` } }, [primaryDesc]) : null,
-        secondaryDesc && secondaryDesc !== primaryDesc
-          ? D.Text.P({ attrs: { class: tw`text-xs leading-relaxed text-[var(--muted-foreground)]` } }, [secondaryDesc])
-          : null
-      ].filter(Boolean));
+        D.Text.Span({ attrs: { class: tw`text-base` } }, ['✨']),
+        D.Text.Span({}, [localize(feature, lang, fallbackLang)])
+      ])));
 
-      const previewNodes = item.preview
-        ? D.Containers.Div({
-            attrs: { class: cx('sdk-preview', tw`space-y-3`) }
-          }, [
-            D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
-              `${labelForLocale('ui.components.previewLabel', lang)} · ${languageLabel(lang)}`
-            ]),
-            ...(Array.isArray(item.preview) ? item.preview : [item.preview])
-          ])
-        : null;
+      const previewBlock = D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+        D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+          `${labelForLocale('ui.components.previewLabel', lang)} · ${lang === 'ar' ? 'العربية' : 'English'}`
+        ]),
+        item.preview
+      ]);
 
-      const snippetPrimary = localize(item.code, lang, fallbackLang);
-      const snippetSecondary = localize(item.code, fallbackLang, lang);
-
-      const makeSnippet = (text, locale) => {
-        if (!text) return null;
-        return D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+      const codePrimary = localize(item.code, lang, fallbackLang);
+      const codeSecondary = localize(item.code, fallbackLang, lang);
+      const snippetNodes = [];
+      if (codePrimary) {
+        snippetNodes.push(D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
           D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
-            `${labelForLocale('ui.components.exampleLabel', locale)} · ${languageLabel(locale)}`
+            `${labelForLocale('ui.components.exampleLabel', lang)} · ${lang === 'ar' ? 'العربية' : 'English'}`
           ]),
-          D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [
-            D.Text.Code({ attrs: { class: tw`block` } }, [text])
-          ])
-        ]);
-      };
-
-      const snippetBlockNodes = [];
-      if (snippetPrimary) snippetBlockNodes.push(makeSnippet(snippetPrimary, lang));
-      if (snippetSecondary && snippetSecondary !== snippetPrimary) {
-        snippetBlockNodes.push(makeSnippet(snippetSecondary, fallbackLang));
+          D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [D.Text.Code({ attrs: { class: tw`block` } }, [codePrimary])])
+        ]));
       }
-      const snippetBlock = snippetBlockNodes.length
-        ? D.Containers.Div({ attrs: { class: tw`space-y-3` } }, snippetBlockNodes)
-        : null;
-
-      const contentChildren = [descriptionBlock, previewNodes, snippetBlock].filter(Boolean);
+      if (codeSecondary && codeSecondary !== codePrimary) {
+        snippetNodes.push(D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+          D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+            `${labelForLocale('ui.components.exampleLabel', fallbackLang)} · ${fallbackLang === 'ar' ? 'العربية' : 'English'}`
+          ]),
+          D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [D.Text.Code({ attrs: { class: tw`block` } }, [codeSecondary])])
+        ]));
+      }
 
       return UI.Card({
         attrs: { key: `ui-sec-${item.key}` },
-        title: `${item.icon} ${primaryTitle}`,
-        description: secondaryTitle && secondaryTitle !== primaryTitle ? secondaryTitle : null,
-        content: D.Containers.Div({ attrs: { class: cx('sdk-card-body', tw`space-y-4`) } }, contentChildren)
+        title: `${item.icon} ${title}`,
+        description: summaryBlock,
+        content: D.Containers.Div({ attrs: { class: cx('sdk-card-body', tw`space-y-4`) } }, [
+          featureList,
+          previewBlock,
+          snippetNodes.length ? D.Containers.Div({ attrs: { class: tw`space-y-3` } }, snippetNodes) : null
+        ].filter(Boolean))
       });
     });
 
@@ -2262,6 +2296,267 @@ const tickets = await api.get('tickets', { query: { status: 'open' } });`
       title: TL('utils.title'),
       description: TL('utils.subtitle'),
       content: grid
+    });
+  }
+  function IndexedDBGuideComp(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+
+    const stores = [
+      { icon: '🧾', name: { ar: 'orders', en: 'orders' }, keyPath: 'id', indices: lang === 'ar' ? 'status, channel' : 'status, channel' },
+      { icon: '👥', name: { ar: 'sessions', en: 'sessions' }, keyPath: 'sessionId', indices: lang === 'ar' ? 'device, expiresAt' : 'device, expiresAt' },
+      { icon: '📡', name: { ar: 'syncQueue', en: 'syncQueue' }, keyPath: 'uid', indices: lang === 'ar' ? 'state, createdAt' : 'state, createdAt' }
+    ];
+
+    const schemaTable = D.Tables.Table({ attrs: { class: tw`w-full border-separate border-spacing-y-2 text-sm` } }, [
+      D.Tables.Thead({}, [
+        D.Tables.Tr({}, [
+          D.Tables.Th({ attrs: { class: tw`rounded-l-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-right text-xs font-semibold` } }, [TL('utils.indexeddb.schema')]),
+          D.Tables.Th({ attrs: { class: tw`bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-semibold` } }, [lang === 'ar' ? 'KeyPath' : 'KeyPath']),
+          D.Tables.Th({ attrs: { class: tw`rounded-r-2xl bg-[color-mix(in_oklab,var(--surface-2)92%,transparent)] px-3 py-2 text-xs font-semibold` } }, [lang === 'ar' ? 'المؤشرات' : 'Indices'])
+        ])
+      ]),
+      D.Tables.Tbody({}, stores.map((store, idx) => D.Tables.Tr({
+        attrs: { key: `idb-${idx}`, class: tw`bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)]` }
+      }, [
+        D.Tables.Td({ attrs: { class: tw`rounded-l-2xl px-3 py-2 font-medium flex items-center gap-2` } }, [
+          D.Text.Span({ attrs: { class: tw`text-lg` } }, [store.icon]),
+          D.Text.Span({}, [localize(store.name, lang, fallbackLang)])
+        ]),
+        D.Tables.Td({ attrs: { class: tw`px-3 py-2 text-[var(--muted-foreground)]` } }, [store.keyPath]),
+        D.Tables.Td({ attrs: { class: tw`rounded-r-2xl px-3 py-2 text-[var(--muted-foreground)]` } }, [store.indices])
+      ])))
+    ]);
+
+    const features = [
+      { icon: '🛡️', text: { ar: 'طبقة أخطاء موحدة DBError تساعد على كشف الأسباب (Quota، VersionError).', en: 'Unified DBError layer exposes causes such as Quota or Version errors.' } },
+      { icon: '🔁', text: { ar: 'آلية autoBump ترفع رقم النسخة عند التعارض مع الأجهزة الأخرى دون فقد البيانات.', en: 'autoBump versioning resolves conflicts with other devices without losing data.' } },
+      { icon: '📣', text: { ar: 'قناة بث BroadcastChannel لمزامنة التغييرات بين التبويبات اللحظية.', en: 'BroadcastChannel support keeps multiple tabs in sync instantly.' } }
+    ];
+
+    const steps = [
+      { step: '1', title: { ar: 'تعريف المخطط', en: 'Define schema' }, desc: { ar: 'حدد المتاجر والفهارس داخل IndexedDBX قبل الفتح.', en: 'Describe stores and indices on the IndexedDBX instance before opening.' } },
+      { step: '2', title: { ar: 'ترقية سلسة', en: 'Smooth upgrade' }, desc: { ar: 'استخدم ensureSchema أو migrations لتعديل الجداول بأمان.', en: 'Use ensureSchema or migrations to evolve stores safely.' } },
+      { step: '3', title: { ar: 'مراقبة التغييرات', en: 'Watch changes' }, desc: { ar: 'فعّل watch(store) لإرسال إشعارات لأي تبويب حول العمليات.', en: 'Activate watch(store) to notify every tab about write operations.' } }
+    ];
+
+    const snippet = {
+      ar: `const { utils: { IndexedDBX } } = Mishkah;
+const db = new IndexedDBX({
+  name: 'pos-cache',
+  schema: {
+    stores: {
+      orders: { keyPath: 'id', indices: [{ name: 'byStatus', keyPath: 'status' }] },
+      sessions: { keyPath: 'sessionId', indices: [{ name: 'byDevice', keyPath: 'device' }] }
+    }
+  }
+});
+await db.ensureSchema();
+await db.putEmit('orders', order);
+db.watch('orders', ({ type, key }) => console.info('order change', type, key));`,
+      en: `const { utils: { IndexedDBX } } = Mishkah;
+const db = new IndexedDBX({
+  name: 'pos-cache',
+  schema: {
+    stores: {
+      orders: { keyPath: 'id', indices: [{ name: 'byStatus', keyPath: 'status' }] },
+      sessions: { keyPath: 'sessionId', indices: [{ name: 'byDevice', keyPath: 'device' }] }
+    }
+  }
+});
+await db.ensureSchema();
+await db.putEmit('orders', order);
+db.watch('orders', ({ type, key }) => console.info('order change', type, key));`
+    };
+
+    const featureList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, features.map((item, idx) => D.Lists.Li({
+      attrs: { key: `idb-feature-${idx}`, class: tw`flex items-start gap-2 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2 text-sm` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-base` } }, [item.icon]),
+      D.Text.Span({}, [localize(item.text, lang, fallbackLang)])
+    ])));
+
+    const stepsGrid = D.Containers.Div({ attrs: { class: tw`grid gap-3 md:grid-cols-3` } }, steps.map((item) => UI.Card({
+      attrs: { key: `idb-step-${item.step}`, class: tw`h-full` },
+      variant: 'card/soft-1',
+      title: `${item.step} — ${localize(item.title, lang, fallbackLang)}`,
+      content: D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [localize(item.desc, lang, fallbackLang)])
+    })));
+
+    const snippetBlock = D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+      D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [lang === 'ar' ? 'مثال تطبيقي · العربية' : 'Practical example · English']),
+      D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [D.Text.Code({ attrs: { class: tw`block` } }, [localize(snippet, lang, fallbackLang)])])
+    ]);
+
+    return UI.Card({
+      title: TL('utils.indexeddb.title'),
+      description: TL('utils.indexeddb.subtitle'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+        featureList,
+        schemaTable,
+        stepsGrid,
+        snippetBlock
+      ])
+    });
+  }
+
+  function WebSocketGuideComp(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+
+    const states = [
+      { icon: '🟢', label: { ar: 'متصل', en: 'Connected' }, desc: { ar: 'القناة تعمل وتستقبل بث الأحداث.', en: 'Channel is live and receiving broadcasts.' } },
+      { icon: '🟡', label: { ar: 'إعادة المحاولة', en: 'Retrying' }, desc: { ar: 'Backoff تدريجي حتى العودة بثوانٍ محددة.', en: 'Gradual backoff attempts to restore the link.' } },
+      { icon: '🔴', label: { ar: 'مغلق', en: 'Closed' }, desc: { ar: 'انتهت المحاولات أو أُغلق يدويًا.', en: 'Attempts exhausted or manually closed.' } }
+    ];
+
+    const stateList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, states.map((item, idx) => D.Lists.Li({
+      attrs: { key: `ws-state-${idx}`, class: tw`flex items-start gap-2 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2 text-sm` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-lg` } }, [item.icon]),
+      D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+        D.Text.Strong({ attrs: { class: tw`text-sm` } }, [localize(item.label, lang, fallbackLang)]),
+        D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(item.desc, lang, fallbackLang)])
+      ])
+    ])));
+
+    const features = [
+      { icon: '⚙️', text: { ar: 'AutoReconnect مع backoff وجيتر للتحكم في ضغط الشبكة.', en: 'AutoReconnect with configurable backoff and jitter for network pressure control.' } },
+      { icon: '🔐', text: { ar: 'توكن مصادق يتم تمريره عبر getToken أو param.', en: 'Authenticated tokens supplied via getToken or URL param.' } },
+      { icon: '🛰️', text: { ar: 'BroadcastChannel تشارك الرسائل بين التبويبات بدون إعادة فتح سوكيت.', en: 'BroadcastChannel shares payloads across tabs without re-opening sockets.' } }
+    ];
+
+    const featureList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, features.map((item, idx) => D.Lists.Li({
+      attrs: { key: `ws-feature-${idx}`, class: tw`flex items-start gap-2 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2 text-sm` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-base` } }, [item.icon]),
+      D.Text.Span({}, [localize(item.text, lang, fallbackLang)])
+    ])));
+
+    const snippet = {
+      ar: `const { utils: { WebSocketX } } = Mishkah;
+const ws = new WebSocketX('wss://api.mishkah.dev/stream', {
+  autoReconnect: true,
+  ping: { interval: 10000 },
+  auth: { getToken: () => context.getState().data.token }
+});
+ws.on('message', (event) => context.setState((s) => ({
+  ...s,
+  data: { ...s.data, lastEvent: event }
+})));
+ws.request('orders.sync', { since: state.cursor });`,
+      en: `const { utils: { WebSocketX } } = Mishkah;
+const ws = new WebSocketX('wss://api.mishkah.dev/stream', {
+  autoReconnect: true,
+  ping: { interval: 10000 },
+  auth: { getToken: () => context.getState().data.token }
+});
+ws.on('message', (event) => context.setState((s) => ({
+  ...s,
+  data: { ...s.data, lastEvent: event }
+})));
+ws.request('orders.sync', { since: state.cursor });`
+    };
+
+    const snippetBlock = D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+      D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [lang === 'ar' ? 'مثال تطبيقي · العربية' : 'Practical example · English']),
+      D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [D.Text.Code({ attrs: { class: tw`block` } }, [localize(snippet, lang, fallbackLang)])])
+    ]);
+
+    return UI.Card({
+      title: TL('utils.websockets.title'),
+      description: TL('utils.websockets.subtitle'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+        featureList,
+        stateList,
+        snippetBlock
+      ])
+    });
+  }
+
+  function AjaxGuideComp(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+
+    const previewCards = [
+      { icon: '🌤️', label: { ar: 'طقس الرياض', en: 'Riyadh weather' }, value: { ar: '°٣١ مشمس', en: '31°C Sunny' }, source: 'Open-Meteo' },
+      { icon: '💱', label: { ar: 'سعر الدولار', en: 'USD rate' }, value: { ar: '٣٫٧٥ SAR', en: '3.75 SAR' }, source: 'ExchangeRate.host' },
+      { icon: '🥇', label: { ar: 'ذهب ٢٤K', en: 'Gold 24K' }, value: { ar: '٢٣٣٫٥٠ SAR/غرام', en: '233.50 SAR/g' }, source: 'Metals.dev' }
+    ];
+
+    const previewGrid = D.Containers.Div({ attrs: { class: tw`grid gap-3 md:grid-cols-3` } }, previewCards.map((item, idx) => UI.Card({
+      attrs: { key: `ajax-card-${idx}`, class: tw`h-full` },
+      variant: 'card/soft-1',
+      title: `${item.icon} ${localize(item.label, lang, fallbackLang)}`,
+      description: lang === 'ar' ? `المصدر: ${item.source}` : `Source: ${item.source}`,
+      content: D.Text.Strong({ attrs: { class: tw`text-lg` } }, [localize(item.value, lang, fallbackLang)])
+    })));
+
+    const features = [
+      { icon: '⏱️', text: { ar: 'Net.ajax يعيد Promise يدعم timeout واختزال البيانات قبل التخزين.', en: 'Net.ajax returns Promises with timeout support and payload shaping before storage.' } },
+      { icon: '🧊', text: { ar: 'استخدم IndexedDB أو Storage.local لتخزين الاستجابات المؤقتة.', en: 'Pair with IndexedDB or Storage.local to cache transient responses.' } },
+      { icon: '🔄', text: { ar: 'دمج النتائج مع أوامر setState لإعادة البناء الجزئي للواجهة.', en: 'Merge results with setState orders to trigger partial rebuilds.' } }
+    ];
+
+    const featureList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, features.map((item, idx) => D.Lists.Li({
+      attrs: { key: `ajax-feature-${idx}`, class: tw`flex items-start gap-2 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2 text-sm` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-base` } }, [item.icon]),
+      D.Text.Span({}, [localize(item.text, lang, fallbackLang)])
+    ])));
+
+    const snippet = {
+      ar: `const { utils: { Net, Storage } } = Mishkah;
+const cache = Storage.local('dash');
+const weather = await Net.ajax('https://api.open-meteo.com/v1/forecast', {
+  query: { latitude: 24.7, longitude: 46.6, current_weather: true }
+});
+cache.set('weather', weather);
+context.setState((s) => ({ ...s, data: { ...s.data, weather } }));`,
+      en: `const { utils: { Net, Storage } } = Mishkah;
+const cache = Storage.local('dash');
+const weather = await Net.ajax('https://api.open-meteo.com/v1/forecast', {
+  query: { latitude: 24.7, longitude: 46.6, current_weather: true }
+});
+cache.set('weather', weather);
+context.setState((s) => ({ ...s, data: { ...s.data, weather } }));`
+    };
+
+    const apiCatalog = [
+      { icon: '🌦️', name: 'Open-Meteo', url: 'https://open-meteo.com', desc: { ar: 'طقس مجاني بدون مفتاح API.', en: 'Free weather data without an API key.' } },
+      { icon: '💹', name: 'ExchangeRate.host', url: 'https://exchangerate.host', desc: { ar: 'أسعار صرف محدثة يوميًا.', en: 'Daily refreshed FX rates.' } },
+      { icon: '📰', name: 'Newsdata.io', url: 'https://newsdata.io', desc: { ar: 'أخبار عامة مع خطة مجانية سخية.', en: 'General news feed with a generous free tier.' } },
+      { icon: '🥇', name: 'Metals.dev', url: 'https://metals.dev', desc: { ar: 'أسعار معادن فورية مع حدود مجانية.', en: 'Live metals pricing with free quotas.' } }
+    ];
+
+    const apiList = D.Lists.Ul({ attrs: { class: tw`space-y-2` } }, apiCatalog.map((item, idx) => D.Lists.Li({
+      attrs: { key: `ajax-api-${idx}`, class: tw`flex items-start gap-3 rounded-2xl bg-[color-mix(in_oklab,var(--surface-1)95%,transparent)] px-3 py-2` }
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-lg` } }, [item.icon]),
+      D.Containers.Div({ attrs: { class: tw`space-y-1` } }, [
+        D.Text.A({ attrs: { href: item.url, target: '_blank', class: tw`text-sm font-semibold text-[color-mix(in_oklab,var(--primary)82%,transparent)]` } }, [item.name]),
+        D.Text.Span({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [localize(item.desc, lang, fallbackLang)])
+      ])
+    ])));
+
+    const snippetBlock = D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+      D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [lang === 'ar' ? 'مثال تطبيقي · العربية' : 'Practical example · English']),
+      D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [D.Text.Code({ attrs: { class: tw`block` } }, [localize(snippet, lang, fallbackLang)])])
+    ]);
+
+    return UI.Card({
+      title: TL('utils.ajax.title'),
+      description: TL('utils.ajax.subtitle'),
+      content: D.Containers.Div({ attrs: { class: tw`space-y-4` } }, [
+        previewGrid,
+        featureList,
+        snippetBlock,
+        UI.Card({
+          variant: 'card/soft-1',
+          title: TL('utils.ajax.catalog'),
+          content: apiList
+        })
+      ])
     });
   }
 
@@ -2839,6 +3134,9 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
     FrameworkGoalsComp,
     UIShowcaseComp,
     UtilsShowcaseComp,
+    IndexedDBGuideComp,
+    WebSocketGuideComp,
+    AjaxGuideComp,
     SDKShowcaseComp,
     PosShowcaseComp,
     KdsShowcaseComp,
@@ -2904,8 +3202,8 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       parent: 'ui',
       sort: 1,
       icon: '🧩',
-      label: { ar: 'المكونات الأساسية', en: 'Core components' },
-      desc: { ar: 'الأزرار، البطاقات، والتبويبات.', en: 'Buttons, cards, tabs.' }
+      label: { ar: 'مكونات البيانات الذكية', en: 'Data-intelligent components' },
+      desc: { ar: 'ReportPro، DatePicker، وDataTable تحت عدسة واحدة.', en: 'ReportPro, DatePicker, and DataTable in one lens.' }
     },
     {
       key: 'ui.special',
@@ -2937,31 +3235,55 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       sort: 4,
       icon: '🧮',
       label: { ar: 'الأدوات', en: 'Utilities' },
-      desc: { ar: 'طبقات التخزين، الوقت، الشبكات.', en: 'Storage, time, and networking utilities.' }
+      desc: { ar: 'طبقات التخزين، الزمن الحقيقي، والشبكات.', en: 'Storage, real-time, and networking utilities.' }
     },
     {
-      key: 'games',
+      key: 'utils.storage',
+      parent: 'utils',
+      sort: 1,
+      icon: '💾',
+      label: { ar: 'تخزين متقدم', en: 'Advanced storage' },
+      desc: { ar: 'IndexedDB ومراقبة التغييرات.', en: 'IndexedDB and change monitoring.' }
+    },
+    {
+      key: 'utils.realtime',
+      parent: 'utils',
+      sort: 2,
+      icon: '📡',
+      label: { ar: 'الزمن الحقيقي', en: 'Real-time layer' },
+      desc: { ar: 'قنوات WebSocket وإعادة المحاولة.', en: 'WebSocket channels and retry logic.' }
+    },
+    {
+      key: 'utils.network',
+      parent: 'utils',
+      sort: 3,
+      icon: '🌐',
+      label: { ar: 'واجهات الشبكات', en: 'Networking APIs' },
+      desc: { ar: 'Ajax ومصادر البيانات الخارجية.', en: 'Ajax and external data feeds.' }
+    },
+    {
+      key: 'examples',
       parent: null,
       sort: 5,
-      icon: '🎮',
-      label: { ar: 'ألعاب مشكاة', en: 'Mishkah games' },
-      desc: { ar: 'تعلم عبر التحديات.', en: 'Learning through challenges.' }
+      icon: '🚀',
+      label: { ar: 'الأمثلة العملية', en: 'Practical demos' },
+      desc: { ar: 'نماذج حيّة توضح الأوامر وإدارة الحالة.', en: 'Live demos that explain orders and state.' }
     },
     {
-      key: 'games.words',
-      parent: 'games',
+      key: 'examples.state',
+      parent: 'examples',
       sort: 1,
-      icon: '🔤',
-      label: { ar: 'ألعاب الكلمات', en: 'Word games' },
-      desc: { ar: 'لعبة الأمثال.', en: 'Proverbs challenge.' }
+      icon: '🔢',
+      label: { ar: 'إدارة الحالة', en: 'State management' },
+      desc: { ar: 'العداد وتكتيكات التحديث اللحظي.', en: 'Counter and instant update tactics.' }
     },
     {
-      key: 'games.math',
-      parent: 'games',
+      key: 'examples.games',
+      parent: 'examples',
       sort: 2,
-      icon: '🧮',
-      label: { ar: 'ألعاب الأرقام', en: 'Number games' },
-      desc: { ar: 'المتواليات الذكية.', en: 'Smart sequences.' }
+      icon: '🎯',
+      label: { ar: 'تجارب تعليمية', en: 'Learning challenges' },
+      desc: { ar: 'لعبة الأمثال والمتواليات.', en: 'Proverbs and sequence challenges.' }
     }
   ];
 
@@ -3015,8 +3337,8 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       key: 'ui:components',
       order: 6,
       icon: '🎨',
-      label: { ar: 'مكتبة الواجهة', en: 'UI Library' },
-      desc: { ar: 'بطاقات وأزرار وتبويبات مضيئة قابلة للتخصيص.', en: 'Luminous cards, buttons, and tabs ready to customise.' },
+      label: { ar: 'مخبر ReportPro', en: 'ReportPro Lab' },
+      desc: { ar: 'استكشاف ReportPro وDatePicker وDataTable مع وصف معماري مفصل.', en: 'Exploring ReportPro, DatePicker, and the DataTable with detailed architectural notes.' },
       classKey: 'ui.core',
       comp: 'UIShowcaseComp'
     },
@@ -3042,36 +3364,63 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       key: 'utils:library',
       order: 9,
       icon: '🧮',
-      label: { ar: 'دليل الأدوات', en: 'Utilities Guide' },
-      desc: { ar: 'واجهات مشتركة للتخزين والوقت والشبكات.', en: 'Shared APIs for storage, time, and networking.' },
+      label: { ar: 'بانوراما الأدوات', en: 'Utilities overview' },
+      desc: { ar: 'جولة في Type وNum وTime وغيرها قبل التعمق في الأدلة المتخصصة.', en: 'Tour of Type, Num, Time, and more before diving into specialised guides.' },
       classKey: 'utils',
       comp: 'UtilsShowcaseComp'
     },
     {
-      key: 'counter',
+      key: 'utils:indexeddb',
       order: 10,
+      icon: '💾',
+      label: { ar: 'IndexedDB المتقدم', en: 'IndexedDB Deep Dive' },
+      desc: { ar: 'تصميم المخطط، الترقية، والبث بين التبويبات.', en: 'Schema design, upgrades, and broadcasting across tabs.' },
+      classKey: 'utils.storage',
+      comp: 'IndexedDBGuideComp'
+    },
+    {
+      key: 'utils:websockets',
+      order: 11,
+      icon: '📡',
+      label: { ar: 'قنوات WebSocket', en: 'WebSocket Channels' },
+      desc: { ar: 'إدارة الاتصال، إعادة المحاولة، والتكامل مع الأوامر.', en: 'Connection management, retries, and order integration.' },
+      classKey: 'utils.realtime',
+      comp: 'WebSocketGuideComp'
+    },
+    {
+      key: 'utils:ajax',
+      order: 12,
+      icon: '🌐',
+      label: { ar: 'دليل Ajax العملي', en: 'Ajax in action' },
+      desc: { ar: 'جلب الطقس والعملات والذهب مع مصادر مجانية موصى بها.', en: 'Fetch weather, currency, and gold with recommended free APIs.' },
+      classKey: 'utils.network',
+      comp: 'AjaxGuideComp'
+    },
+    {
+      key: 'counter',
+      order: 13,
       icon: '🔢',
       label: { ar: 'العداد', en: 'Counter' },
       desc: { ar: 'مثال بسيط على إدارة الحالة بالأوامر.', en: 'Simple example of state management with orders.' },
-      classKey: 'ui.core',
+      classKey: 'examples.state',
       comp: 'CounterComp'
     },
     {
       key: 'proverbs',
-      order: 11,
+      order: 14,
       icon: '🎮',
       label: { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
       desc: { ar: 'تعلم اللغة عبر استكشاف الحكمة.', en: 'Learn language through wisdom discovery.' },
-      classKey: 'games.words',
+      classKey: 'examples.games',
       comp: 'ProverbsGameComp'
     },
     {
       key: 'sequence',
-      order: 12,
+      order: 15,
       icon: '🧮',
       label: { ar: 'لعبة المتواليات', en: 'Sequence Game' },
       desc: { ar: 'تدريب على التحليل الرقمي والتنبؤ.', en: 'Practice numerical analysis and prediction.' },
-      classKey: 'games.math',
+      classKey: 'examples.games',
       comp: 'SequenceGameComp'
     }
   ];
