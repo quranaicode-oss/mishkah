@@ -1548,6 +1548,309 @@ const DEFAULT_PALETTE = {
 
 // ========== Theme injector ==========
 function ensureStyle(id){ let el=document.getElementById(id); if(!el){ el=document.createElement('style'); el.id=id; document.head.appendChild(el) } return el }
+const MARKDOWN_STYLES = `
+:root {
+  --md-prose-font-family: "Inter", "Cairo", "Noto Sans Arabic", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --md-prose-code-font: "Fira Code", "IBM Plex Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --md-prose-font-size: var(--font-size-body, 1rem);
+  --md-prose-leading: 1.75;
+  --md-prose-flow-space: clamp(1rem, 0.9rem + 0.75vw, 1.65rem);
+  --md-prose-max-width: 72ch;
+  --md-prose-radius: calc(var(--radius, 1rem) * 1.05);
+  --md-prose-elevation: 0 24px 48px -28px rgba(15, 23, 42, 0.28);
+  --md-prose-fg: color-mix(in oklab, var(--foreground) 92%, var(--muted-foreground) 8%);
+  --md-prose-muted: color-mix(in oklab, var(--foreground) 65%, var(--muted-foreground) 35%);
+  --md-prose-heading: color-mix(in oklab, var(--foreground) 96%, var(--primary) 6%);
+  --md-prose-link: color-mix(in oklab, var(--primary) 88%, var(--foreground) 12%);
+  --md-prose-link-hover: color-mix(in oklab, var(--primary) 75%, black 8%);
+  --md-prose-quote-bg: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  --md-prose-quote-border: color-mix(in oklab, var(--primary) 70%, transparent);
+  --md-prose-code-bg: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  --md-prose-code-fg: color-mix(in oklab, var(--foreground) 90%, var(--muted-foreground) 10%);
+  --md-prose-pre-bg: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  --md-prose-pre-border: color-mix(in oklab, var(--border) 70%, transparent);
+  --md-prose-table-border: color-mix(in oklab, var(--border) 75%, transparent);
+  --md-prose-table-header-bg: color-mix(in oklab, var(--surface-2) 55%, var(--primary) 35%);
+  --md-prose-table-header-fg: color-mix(in oklab, var(--primary-foreground) 70%, var(--foreground) 30%);
+  --md-prose-table-row-even: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  --md-prose-hr: color-mix(in oklab, var(--border) 80%, transparent);
+  --md-prose-kbd-bg: color-mix(in oklab, var(--surface-2) 92%, transparent);
+  --md-prose-kbd-border: color-mix(in oklab, var(--border) 65%, transparent);
+}
+.dark {
+  --md-prose-heading: color-mix(in oklab, var(--foreground) 94%, var(--primary) 10%);
+  --md-prose-link-hover: color-mix(in oklab, var(--primary) 72%, white 10%);
+  --md-prose-quote-bg: color-mix(in oklab, var(--surface-1) 70%, transparent);
+  --md-prose-code-bg: color-mix(in oklab, var(--surface-2) 70%, black 14%);
+  --md-prose-pre-bg: color-mix(in oklab, var(--surface-3) 68%, black 18%);
+  --md-prose-pre-border: color-mix(in oklab, var(--border) 60%, transparent);
+  --md-prose-table-header-bg: color-mix(in oklab, var(--surface-2) 45%, var(--primary) 45%);
+  --md-prose-table-row-even: color-mix(in oklab, var(--surface-1) 60%, transparent);
+  --md-prose-kbd-bg: color-mix(in oklab, var(--surface-2) 62%, black 12%);
+}
+.md-prose {
+  position: relative;
+  color: var(--md-prose-fg);
+  font-family: var(--md-prose-font-family);
+  font-size: calc(var(--md-prose-font-size) * var(--user-font-scale, 100) / 100);
+  line-height: var(--md-prose-leading);
+  max-width: var(--md-prose-max-width);
+  width: min(100%, var(--md-prose-max-width));
+  text-wrap: pretty;
+}
+.md-prose > * {
+  margin: 0;
+}
+.md-prose > * + * {
+  margin-top: var(--md-prose-flow-space);
+}
+.md-prose h1,
+.md-prose h2,
+.md-prose h3,
+.md-prose h4,
+.md-prose h5,
+.md-prose h6 {
+  color: var(--md-prose-heading);
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.md-prose h1 {
+  font-size: calc(var(--font-size-heading-1, 2.6rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h2 {
+  font-size: calc(var(--font-size-heading-2, 2.25rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h3 {
+  font-size: calc(var(--font-size-heading-3, 1.75rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h4 {
+  font-size: calc(var(--font-size-scale-xl, 1.35rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h5 {
+  font-size: calc(var(--font-size-scale-lg, 1.1rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h6 {
+  font-size: calc(var(--font-size-scale-sm, 0.95rem) * var(--user-font-scale, 100) / 100);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+.md-prose p {
+  color: var(--md-prose-fg);
+  font-size: calc(var(--font-size-scale-md, 1rem) * var(--user-font-scale, 100) / 100);
+  line-height: var(--md-prose-leading);
+}
+.md-prose p:has(+ ul),
+.md-prose p:has(+ ol) {
+  margin-bottom: calc(var(--md-prose-flow-space) * 0.5);
+}
+.md-prose ul,
+.md-prose ol {
+  display: grid;
+  gap: calc(var(--md-prose-flow-space) * 0.35);
+  padding-inline-start: 1.35em;
+  margin: 0;
+}
+.md-prose ul ul,
+.md-prose ul ol,
+.md-prose ol ul,
+.md-prose ol ol {
+  margin-top: calc(var(--md-prose-flow-space) * 0.35);
+}
+.md-prose li {
+  color: var(--md-prose-fg);
+  font-size: calc(var(--font-size-scale-md, 1rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose li::marker {
+  color: color-mix(in oklab, var(--primary) 70%, var(--foreground) 30%);
+  font-weight: 600;
+}
+.md-prose blockquote {
+  margin: 0;
+  padding: calc(var(--md-prose-flow-space) * 0.85) calc(var(--md-prose-flow-space));
+  border-radius: var(--md-prose-radius);
+  background: var(--md-prose-quote-bg);
+  border-inline-start: 4px solid var(--md-prose-quote-border);
+  box-shadow: var(--md-prose-elevation);
+  color: var(--md-prose-muted);
+}
+.md-prose blockquote > :first-child {
+  margin-top: 0;
+}
+.md-prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+.md-prose a {
+  color: var(--md-prose-link);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--md-prose-link) 35%, transparent);
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+.md-prose a:hover,
+.md-prose a:focus-visible {
+  color: var(--md-prose-link-hover);
+  border-color: color-mix(in oklab, var(--md-prose-link-hover) 60%, transparent);
+  background: color-mix(in oklab, var(--md-prose-link-hover) 12%, transparent);
+}
+.md-prose code {
+  font-family: var(--md-prose-code-font);
+  background: var(--md-prose-code-bg);
+  color: var(--md-prose-code-fg);
+  padding: 0.15em 0.45em;
+  border-radius: calc(var(--md-prose-radius) * 0.4);
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose pre {
+  margin: 0;
+  display: block;
+  background: var(--md-prose-pre-bg);
+  border: 1px solid var(--md-prose-pre-border);
+  border-radius: calc(var(--md-prose-radius) * 0.9);
+  box-shadow: 0 26px 54px -28px rgba(15, 23, 42, 0.35);
+  padding: 1.1rem 1.35rem;
+  overflow: auto;
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+  line-height: 1.65;
+  direction: ltr;
+  text-align: left;
+}
+.md-prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
+}
+.md-prose hr {
+  height: 1px;
+  border: none;
+  background: var(--md-prose-hr);
+  margin: calc(var(--md-prose-flow-space) * 1.2) 0;
+}
+.md-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: calc(var(--md-prose-flow-space) * 1.1) 0;
+  border: 1px solid var(--md-prose-table-border);
+  border-radius: calc(var(--md-prose-radius) * 0.9);
+  overflow: hidden;
+  box-shadow: 0 20px 48px -30px rgba(15, 23, 42, 0.3);
+}
+.md-prose thead {
+  background: var(--md-prose-table-header-bg);
+  color: var(--md-prose-table-header-fg);
+}
+.md-prose th,
+.md-prose td {
+  padding: 0.85em 1.1em;
+  border-bottom: 1px solid var(--md-prose-table-border);
+  text-align: start;
+  font-size: calc(var(--font-size-scale-sm, 0.95rem) * var(--user-font-scale, 100) / 100);
+  vertical-align: top;
+}
+.md-prose tbody tr:nth-child(even) {
+  background: var(--md-prose-table-row-even);
+}
+.md-prose tbody tr:hover {
+  background: color-mix(in oklab, var(--primary) 8%, var(--md-prose-table-row-even) 92%);
+}
+.md-prose strong {
+  font-weight: 700;
+  color: color-mix(in oklab, var(--foreground) 94%, var(--primary) 6%);
+}
+.md-prose em {
+  font-style: italic;
+}
+.md-prose del {
+  opacity: 0.75;
+  text-decoration: line-through;
+}
+.md-prose mark {
+  background: color-mix(in oklab, var(--primary) 25%, var(--surface-1) 75%);
+  padding: 0 0.25em;
+  border-radius: 0.35em;
+}
+.md-prose img,
+.md-prose video,
+.md-prose iframe {
+  max-width: 100%;
+  border-radius: calc(var(--md-prose-radius) * 0.75);
+  box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.25);
+}
+.md-prose figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.md-prose figcaption {
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+  color: var(--md-prose-muted);
+  text-align: center;
+}
+.md-prose kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25em 0.55em;
+  border-radius: 0.55em;
+  background: var(--md-prose-kbd-bg);
+  border: 1px solid var(--md-prose-kbd-border);
+  box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.12);
+  font-size: calc(var(--font-size-scale-sm, 0.85rem) * var(--user-font-scale, 100) / 100);
+  font-family: var(--md-prose-code-font);
+  text-transform: uppercase;
+}
+.md-prose details {
+  border: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
+  border-radius: calc(var(--md-prose-radius) * 0.8);
+  background: color-mix(in oklab, var(--surface-1) 90%, transparent);
+  padding: 1rem 1.25rem;
+}
+.md-prose details + details {
+  margin-top: calc(var(--md-prose-flow-space) * 0.5);
+}
+.md-prose summary {
+  cursor: pointer;
+  font-weight: 600;
+  outline: none;
+}
+.md-prose summary::-webkit-details-marker {
+  display: none;
+}
+.md-prose summary::marker {
+  display: none;
+}
+.md-prose summary:focus-visible {
+  outline: 2px solid var(--md-prose-link);
+  outline-offset: 4px;
+}
+.md-prose small {
+  font-size: calc(var(--font-size-scale-xs, 0.8rem) * var(--user-font-scale, 100) / 100);
+  color: var(--md-prose-muted);
+}
+.md-prose sup,
+.md-prose sub {
+  font-size: 0.75em;
+}
+.md-prose sup {
+  vertical-align: super;
+}
+.md-prose sub {
+  vertical-align: sub;
+}
+.md-prose > :first-child {
+  margin-top: 0;
+}
+.md-prose > :last-child {
+  margin-bottom: 0;
+}
+`;
+function ensureMarkdownStyles(){ const el = ensureStyle('twcss-markdown'); if(el.textContent!==MARKDOWN_STYLES) el.textContent = MARKDOWN_STYLES }
 function varBlock(selector, vars){ return selector+'{'+Object.entries(vars).map(([k,v])=>`--${k}:${v};`).join('')+'}' }
 function injectTheme(light, dark){ ensureStyle('twcss-theme').textContent = varBlock(':root', light)+'\n'+varBlock(':root.dark', dark) }
 function setTheme(mode){ document.documentElement.classList.toggle('dark', mode==='dark') }
@@ -1629,6 +1932,7 @@ function auto(db, app, opt={}){
   const light = Object.assign({}, DEFAULT_PALETTE.light, user.light||{});
   const dark  = Object.assign({}, DEFAULT_PALETTE.dark , user.dark ||{});
   injectTheme(light, dark);
+  ensureMarkdownStyles();
   setTheme(env.theme==='dark'?'dark':'light');
   setDir(env.dir || (env.lang==='ar'?'rtl':'ltr'));
 
