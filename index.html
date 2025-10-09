@@ -328,6 +328,80 @@
               justify-self: stretch;
             }
           }
+
+          .sdk-showcase-grid {
+            display: grid;
+            gap: 1.25rem;
+          }
+
+          @media (min-width: 960px) {
+            .sdk-showcase-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          .sdk-card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .sdk-card-copy p {
+            margin: 0;
+          }
+
+          .sdk-preview {
+            padding: 1rem;
+            border-radius: 1rem;
+            border: 1px dashed color-mix(in oklab, var(--border) 55%, transparent);
+            background: color-mix(in oklab, var(--surface-1) 96%, transparent);
+            box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 38%, transparent);
+          }
+
+          .sdk-preview > *:not(:first-child) {
+            margin-top: 0.75rem;
+          }
+
+          .sdk-snippet-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .sdk-snippet {
+            background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+            border-radius: 0.9rem;
+            padding: 0.85rem 1rem;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Source Code Pro', 'Courier New', monospace;
+            font-size: calc(var(--font-size-scale-xs) * 0.95 * var(--user-font-scale) / 100);
+            line-height: 1.6;
+            direction: ltr;
+            text-align: left;
+            color: color-mix(in oklab, var(--foreground) 92%, transparent);
+            box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 45%, transparent);
+          }
+
+          .sdk-snippet code {
+            background: transparent;
+            padding: 0;
+            font-size: inherit;
+            color: inherit;
+          }
+
+          .sdk-function-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+
+          .sdk-function-item {
+            border-radius: 0.9rem;
+            border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+            background: color-mix(in oklab, var(--surface-1) 97%, transparent);
+            padding: 0.75rem 1rem;
+            box-shadow: 0 18px 32px -26px rgba(15, 23, 42, 0.28);
+          }
         `;
 
         const baseHeadStyles = [{ id: 'index-base-styles', content: baseStyleContent }];
