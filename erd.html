@@ -10,7 +10,7 @@
       --background: #f8fafc;
       --surface-0: #f8fafc;
       --surface-1: #ffffff;
-      --surface-2: #eef2ff;
+      --surface-2: #f1f5f9;
       --card: #ffffff;
       --card-foreground: #0f172a;
       --foreground: #0f172a;
@@ -2518,10 +2518,15 @@
         openFromEvent(event);
       };
       const handleContextMenu = event => {
+        if(event){
+          if(typeof event.preventDefault === 'function') event.preventDefault();
+          if(typeof event.stopPropagation === 'function') event.stopPropagation();
+          try { event.returnValue = false; }
+          catch(error) { /* ignore */ }
+        }
         const now = Date.now();
         const lastOpen = root.__mishkahLastContextOpen || 0;
         if(now - lastOpen < 150){
-          if(event && typeof event.preventDefault === 'function') event.preventDefault();
           return;
         }
         openFromEvent(event);
@@ -3989,6 +3994,8 @@
       const t = createTranslator(db);
       const zoom = db.data.canvas?.zoom || 1;
       const templateOpen = db.ui?.template?.open !== false;
+      const panels = db.ui?.panels || {};
+      const libraryOpen = panels.libraryOpen !== false;
       const exportMenu = ToolbarExportMenu(db);
       const registry = getRegistry(db);
       const tables = registry.list();
@@ -4016,27 +4023,58 @@
         ToolbarStatChip('⚙️', t('toolbar.schema.driver', 'المحرك'), driverName)
       ]);
 
-      const startSection = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-4 min-w-0` }}, [schemaSection, statsRow]);
+      const templateToggle = UI.Button({
+        attrs:{
+          gkey:'erd:template:toggle',
+          'data-next-state': templateOpen ? 'closed' : 'open',
+          class: tw`${templateOpen ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : '!text-[var(--muted-foreground)] hover:!text-[var(--foreground)]'} !h-9 !rounded-full !px-3 !text-sm !font-semibold`
+        },
+        variant: templateOpen ? 'soft' : 'ghost',
+        size:'sm'
+      }, [templateOpen ? `🧩 ${t('toolbar.templates.hide', 'إخفاء القالب')}` : `🧩 ${t('toolbar.templates.show', 'عرض القالب')}`]);
 
+      const startSection = D.Containers.Div({ attrs:{ class: tw`flex flex-shrink-0 items-center gap-4 min-w-0` }}, [
+        schemaSection,
+        templateToggle,
+        statsRow
+      ]);
+
+      const newDiagramButton = UI.Button({ attrs:{ gkey:'erd:library:new', class: tw`!h-10 !rounded-full !px-4 !font-semibold shadow-sm` }, variant:'soft', size:'sm' }, [`➕ ${t('library.new.button', 'مخطط جديد')}`]);
       const quickButtons = [
-        UI.Button({ attrs:{ gkey:'erd:table:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold shadow-sm` }, variant:'soft', size:'sm' }, [`➕ ${t('toolbar.structure.addTable', 'جدول')}`]),
+        UI.Button({ attrs:{ gkey:'erd:table:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`➕ ${t('toolbar.structure.addTable', 'جدول')}`]),
         UI.Button({ attrs:{ gkey:'erd:field:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`➕ ${t('toolbar.structure.addField', 'حقل')}`]),
         UI.Button({ attrs:{ gkey:'erd:relation:add', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`🔗 ${t('toolbar.structure.addRelation', 'علاقة')}`]),
-        UI.Button({ attrs:{ gkey:'erd:columns:open', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`🗂️ ${t('toolbar.structure.columns', 'الأعمدة')}`]),
-        UI.Button({
-          attrs:{
-            gkey:'erd:template:toggle',
-            class: tw`${templateOpen ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : ''} !h-10 !rounded-full !px-4 !font-semibold`
-          },
-          variant: templateOpen ? 'soft' : 'ghost',
-          size:'sm'
-        }, [templateOpen ? `🧩 ${t('toolbar.templates.hide', 'إخفاء القالب')}` : `🧩 ${t('toolbar.templates.show', 'عرض القالب')}`])
+        UI.Button({ attrs:{ gkey:'erd:columns:open', class: tw`!h-10 !rounded-full !px-4 !font-semibold` }, variant:'ghost', size:'sm' }, [`🗂️ ${t('toolbar.structure.columns', 'الأعمدة')}`])
       ];
 
-      const quickActions = D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-col items-center gap-1` }}, [
-        D.Text.Span({ attrs:{ class: tw`hidden xl:block text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]` }}, [t('toolbar.quickActions', 'أوامر سريعة')]),
-        D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2` }}, quickButtons)
+      const libraryToggle = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-1.5 py-1 shadow-sm` }}, [
+        UI.Button({
+          attrs:{
+            gkey:'erd:panel:library:toggle',
+            'data-next-state':'open',
+            class: tw`${libraryOpen ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : '!text-[var(--muted-foreground)] hover:!text-[var(--foreground)]'} !h-8 !rounded-full !px-3 text-xs font-semibold`
+          },
+          variant:'ghost',
+          size:'sm'
+        }, [t('panel.library.show', 'إظهار المكتبة')]),
+        UI.Button({
+          attrs:{
+            gkey:'erd:panel:library:toggle',
+            'data-next-state':'closed',
+            class: tw`${!libraryOpen ? '!bg-[var(--primary)] !text-[var(--primary-foreground)] shadow-sm' : '!text-[var(--muted-foreground)] hover:!text-[var(--foreground)]'} !h-8 !rounded-full !px-3 text-xs font-semibold`
+          },
+          variant:'ghost',
+          size:'sm'
+        }, [t('panel.library.hide', 'إخفاء المكتبة')])
       ]);
+
+      const quickActionsRow = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-center gap-2` }}, [
+        newDiagramButton,
+        ...quickButtons,
+        libraryToggle
+      ]);
+
+      const quickActions = D.Containers.Div({ attrs:{ class: tw`flex flex-1 items-center justify-center gap-2 min-w-0` }}, [quickActionsRow]);
 
       const historyControls = D.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 px-1.5 py-1 shadow-sm` }}, [
         UI.Button({ attrs:{ gkey:'erd:undo', title:t('toolbar.history.undo.title', 'تراجع'), class: tw`!h-8 !w-8 !rounded-full` }, variant:'ghost', size:'sm' }, ['↺']),
@@ -4053,7 +4091,7 @@
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold min-w-[3ch] text-center` }}, [`${Math.round(zoom * 100)}%`])
       ]);
 
-      const utilities = D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-end gap-2 ms-auto` }}, [
+      const utilities = D.Containers.Div({ attrs:{ class: tw`flex flex-shrink-0 items-center gap-2 ms-auto` }}, [
         historyControls,
         exportControl,
         zoomControls,
@@ -4061,7 +4099,7 @@
       ]);
 
       const view = D.Containers.Header({ attrs:{ class: tw`sticky top-0 z-[520] flex w-full border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 88%, transparent)]/90 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 84%, transparent)]/70` }}, [
-        D.Containers.Div({ attrs:{ class: tw`flex w-full flex-wrap items-center gap-3` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex w-full items-center gap-3 overflow-x-auto` }}, [
           startSection,
           quickActions,
           utilities
@@ -4909,7 +4947,6 @@
       const libraryPanel = libraryOpen ? SchemaLibraryPanel(db) : null;
       const classificationPanel = classificationOpen ? SchemaClassificationPanel(db) : null;
       const collapsedButtons = [];
-      if(!libraryOpen) collapsedButtons.push(CollapsedPanelReveal(db, 'library'));
       if(!classificationOpen) collapsedButtons.push(CollapsedPanelReveal(db, 'classification'));
       const overlayNodes = [
         ...toolbarOverlays,
@@ -5293,20 +5330,31 @@
           on:['click'],
           gkeys:['erd:template:toggle'],
           handler:(e,ctx)=>{
-            let nextOpen = false;
+            const target = e?.target ? e.target.closest('[data-next-state]') : null;
+            const desired = target ? target.getAttribute('data-next-state') : null;
+            let changed = false;
+            let nextOpen = null;
             ctx.setState(s=>{
               const currentOpen = s.ui?.template?.open !== false;
-              nextOpen = !currentOpen;
+              const requested = desired === 'open' ? true : desired === 'closed' ? false : !currentOpen;
+              if(requested === currentOpen){
+                nextOpen = currentOpen;
+                return s;
+              }
+              changed = true;
+              nextOpen = requested;
               return {
                 ...s,
                 ui:{
                   ...(s.ui || {}),
-                  template:{ ...(s.ui?.template || {}), open: nextOpen }
+                  template:{ ...(s.ui?.template || {}), open: requested }
                 }
               };
             });
-            
-            persistTemplatePreference(nextOpen);
+
+            if(changed){
+              persistTemplatePreference(nextOpen);
+            }
           }
         },
         'erd.panel.library.toggle':{
@@ -5317,19 +5365,30 @@
               if(typeof e.preventDefault === 'function') e.preventDefault();
               if(typeof e.stopPropagation === 'function') e.stopPropagation();
             }
-            let nextOpen = false;
+            const target = e?.target ? e.target.closest('[data-next-state]') : null;
+            const desired = target ? target.getAttribute('data-next-state') : null;
+            let changed = false;
+            let nextOpen = null;
             ctx.setState(s=>{
               const currentOpen = s.ui?.panels?.libraryOpen !== false;
-              nextOpen = !currentOpen;
+              const requested = desired === 'open' ? true : desired === 'closed' ? false : !currentOpen;
+              if(requested === currentOpen){
+                nextOpen = currentOpen;
+                return s;
+              }
+              changed = true;
+              nextOpen = requested;
               return {
                 ...s,
                 ui:{
                   ...(s.ui || {}),
-                  panels:{ ...(s.ui?.panels || {}), libraryOpen: nextOpen }
+                  panels:{ ...(s.ui?.panels || {}), libraryOpen: requested }
                 }
               };
             });
-            
+
+            if(!changed) return;
+
             persistPanelPreference('libraryOpen', nextOpen);
             const rerender = ()=> scheduleDiagramRender(ctx.getState());
             if(typeof requestAnimationFrame === 'function'){
