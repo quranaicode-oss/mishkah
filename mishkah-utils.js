@@ -1903,6 +1903,7 @@ function ensureScript(src, id){
   });
 }
 function scaffold(opts={}){
+  const w = window;
   const {
     title, rootId='app',
     tailwind=true, tailwindSrc='https://cdn.tailwindcss.com',

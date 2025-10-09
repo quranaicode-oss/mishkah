@@ -389,11 +389,22 @@
           }
         };
 
+        function decodeEntities(input) {
+          if (typeof input !== 'string' || !input) return input;
+          return input
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+        }
+
         function createExpressionEvaluator() {
           var cache = {};
           return function evaluate(code, scope) {
-            if (!cache[code]) {
-              cache[code] = new Function(
+            var source = decodeEntities(String(code));
+            if (!cache[source]) {
+              cache[source] = new Function(
                 'state',
                 'ctx',
                 'db',
@@ -406,7 +417,7 @@
               );
             }
             try {
-              return cache[code](
+              return cache[source](
                 scope.state,
                 scope.ctx,
                 scope.db,
@@ -414,10 +425,10 @@
                 scope.UI,
                 scope.D,
                 scope.locals,
-                String(code)
+                source
               );
             } catch (error) {
-              console.error('HTMLx expression failed:', code, error);
+              console.error('HTMLx expression failed:', source, error);
               return undefined;
             }
           };
@@ -707,6 +718,9 @@
         db.head = db.head || {};
         db.head.styles = styleAccumulator;
 
+        var app = M.app.createApp(db, aggregatedOrders);
+        var twx = M.utils && M.utils.twcss ? M.utils.twcss.auto(db, app) : { orders: {} };
+
         M.app.setBody(function (state, D) {
           var scope = { state: state, db: state, ctx: null, M: M, UI: M.UI || {}, D: D, locals: {} };
           var fragments = [];
@@ -724,9 +738,6 @@
           if (fragments.length === 1) return fragments[0];
           return D.Containers.Div({ attrs: { class: 'grid gap-10' } }, fragments);
         });
-
-        var app = M.app.createApp(db, aggregatedOrders);
-        var twx = M.utils && M.utils.twcss ? M.utils.twcss.auto(db, app) : { orders: {} };
         app.setOrders(Object.assign({}, aggregatedOrders, twx.orders || {}));
         app.mount('#app');
       })();
