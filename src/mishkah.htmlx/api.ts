@@ -1,10 +1,10 @@
-import { createHash } from 'crypto';
 import { scopeCss } from './css-scope';
 import { HtmlxError } from './errors';
 import { generateCode } from './codegen';
 import { normalizeAst } from './normalizer';
 import { parseHtmlxTemplate } from './parser';
 import { CompileHTMLxOptions, CompileResult, ScriptModule } from './types';
+import { stableHash } from './hash';
 
 export function compileHTMLx(options: CompileHTMLxOptions): CompileResult {
   const hashFn = options.hash ?? defaultHash;
@@ -46,7 +46,7 @@ export function compileHTMLx(options: CompileHTMLxOptions): CompileResult {
 }
 
 function defaultHash(input: string): string {
-  return createHash('sha1').update(input).digest('hex').slice(0, 8);
+  return stableHash(input);
 }
 
 function evaluateScript(script?: ScriptModule): Record<string, Function> {
