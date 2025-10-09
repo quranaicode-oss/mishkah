@@ -1897,9 +1897,27 @@ function ensureLink(href, rel='stylesheet', id){
 function ensureScript(src, id){
   return new Promise((resolve)=>{
     const byId = id && document.getElementById(id);
-    if(byId && byId.dataset.ready==='1') return resolve(true);
-    if(byId){ byId.addEventListener('load', ()=>{ byId.dataset.ready='1'; resolve(true) }, { once:true }); return; }
-    const el=document.createElement('script'); if(id) el.id=id; el.src=src; el.onload=()=>{ el.dataset.ready='1'; resolve(true) }; document.head.appendChild(el);
+    const finalize = ok => { try { resolve(ok); } catch(_){} };
+    const attach = node => {
+      node.addEventListener('load', ()=>{ node.dataset.ready='1'; finalize(true); }, { once:true });
+      node.addEventListener('error', evt=>{
+        node.dataset.ready='0';
+        const auditor = window && window.Mishkah && window.Mishkah.Auditor;
+        if (auditor && typeof auditor.warn === 'function') {
+          auditor.warn('W-TWCSS', 'failed to load Tailwind CDN', { src, error: evt && (evt.error || evt.message || evt.type) });
+        } else if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[Mishkah.twcss] Tailwind CDN failed to load:', src, evt && (evt.error || evt.message || evt.type));
+        }
+        finalize(false);
+      }, { once:true });
+    };
+    if(byId && byId.dataset.ready==='1') return finalize(true);
+    if(byId){ attach(byId); return; }
+    const el=document.createElement('script');
+    if(id) el.id=id;
+    el.src=src;
+    attach(el);
+    document.head.appendChild(el);
   });
 }
 function scaffold(opts={}){
