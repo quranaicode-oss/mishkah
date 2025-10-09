@@ -359,7 +359,7 @@
   function ensureHtmlx() {
     var mishkah = ensureMishkah();
     if (!mishkah.HTMLx || typeof mishkah.HTMLx.compileAllTemplates !== 'function') {
-      throw new Error('Mishkah HTMLx runtime is missing. تأكد من تحميل dist/htmlx.bundle.js.');
+      throw new Error('Mishkah HTMLx runtime is missing. تأكد من تحميل dist/htmlx.umd.js.');
     }
     return mishkah.HTMLx;
   }

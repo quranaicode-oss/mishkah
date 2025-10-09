@@ -4,19 +4,6 @@
   "description": "Build tooling metadata for Mishkah.js project.",
   "license": "MIT",
   "private": true,
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
-  },
-  "devDependencies": {
-    "@types/node": "^20.12.7",
-    "acorn": "^8.11.3",
-    "esbuild": "^0.20.2",
-    "parse5": "^7.1.2",
-    "node-html-parser": "^6.1.5",
-    "postcss": "^8.4.38",
-    "postcss-selector-parser": "^6.0.15",
-    "typescript": "^5.4.5",
-    "vitest": "^1.5.0"
-  }
+  "scripts": {},
+  "devDependencies": {}
 }

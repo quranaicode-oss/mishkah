@@ -352,8 +352,8 @@
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-ui.js"></script>
-    <!-- ملاحظة: يجب أن يتم تجميع dist/htmlx.bundle.js من وحدة TypeScript الجديدة وإتاحته عالميًا باسم Mishkah.HTMLx -->
-    <script src="./dist/htmlx.bundle.js"></script>
+    <!-- النسخة الجديدة تعتمد على ملف UMD جاهز مباشرة بدون TypeScript -->
+    <script src="./dist/htmlx.umd.js"></script>
     <script src="./dist/htmlx.runtime.js"></script>
 
     <script>
@@ -364,7 +364,7 @@
           return;
         }
         if (!M.HTMLx || typeof M.HTMLx.compileAllTemplates !== 'function') {
-          console.error('Mishkah HTMLx runtime is missing. تأكد من تحميل dist/htmlx.bundle.js.');
+          console.error('Mishkah HTMLx runtime is missing. تأكد من تحميل dist/htmlx.umd.js.');
           return;
         }
 
