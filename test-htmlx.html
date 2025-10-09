@@ -298,10 +298,10 @@
               <p class="opacity-70 text-sm">أضيفت في {todo.createdAt}</p>
             </div>
             <div class="flex gap-2">
-              <button onclick="toggleTodo({ todo.id }, ctx)">
+              <button onclick="toggleTodo(todo.id, ctx)">
                 {todo.done ? '↩️ رجوع' : '✅ تم'}
               </button>
-              <button onclick="removeTodo({ todo.id }, ctx)">
+              <button onclick="removeTodo(todo.id, ctx)">
                 🗑️ حذف
               </button>
             </div>
