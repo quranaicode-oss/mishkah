@@ -2527,6 +2527,7 @@
         if(event){
           if(typeof event.preventDefault === 'function') event.preventDefault();
           if(typeof event.stopPropagation === 'function') event.stopPropagation();
+          if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
           try { event.returnValue = false; }
           catch(error) { /* ignore */ }
         }
@@ -2541,14 +2542,47 @@
       root.addEventListener('pointerdown', handlePointerDown, options);
       root.addEventListener('contextmenu', handleContextMenu, options);
       const ownerDocument = root.ownerDocument || host.ownerDocument || document;
-      if(ownerDocument && !ownerDocument.__mishkahContextMenuKeybound){
-        const handleKeyDown = event => {
-          if(event.key === 'Escape' || event.key === 'Esc'){
-            closeContextMenu();
-          }
-        };
-        ownerDocument.addEventListener('keydown', handleKeyDown);
-        ownerDocument.__mishkahContextMenuKeybound = true;
+      if(ownerDocument){
+        if(!root.__mishkahContextMenuDocGuard){
+          const guard = event => {
+            if(!event) return;
+            const target = event.target;
+            if(target && typeof root.contains === 'function' && !root.contains(target) && target !== root){
+              return;
+            }
+            if(typeof root.isConnected === 'boolean' && !root.isConnected){
+              if(root.__mishkahContextMenuDocGuard?.document){
+                try {
+                  root.__mishkahContextMenuDocGuard.document.removeEventListener('contextmenu', guard, true);
+                } catch(error){ /* ignore */ }
+              }
+              root.__mishkahContextMenuDocGuard = null;
+              return;
+            }
+            if(typeof event.preventDefault === 'function') event.preventDefault();
+            if(typeof event.stopPropagation === 'function') event.stopPropagation();
+            if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+            try { event.returnValue = false; }
+            catch(error) { /* ignore */ }
+            const now = Date.now();
+            const lastOpen = root.__mishkahLastContextOpen || 0;
+            if(now - lastOpen < 120){
+              return;
+            }
+            openFromEvent(event);
+          };
+          ownerDocument.addEventListener('contextmenu', guard, true);
+          root.__mishkahContextMenuDocGuard = { handler: guard, document: ownerDocument };
+        }
+        if(!ownerDocument.__mishkahContextMenuKeybound){
+          const handleKeyDown = event => {
+            if(event.key === 'Escape' || event.key === 'Esc'){
+              closeContextMenu();
+            }
+          };
+          ownerDocument.addEventListener('keydown', handleKeyDown);
+          ownerDocument.__mishkahContextMenuKeybound = true;
+        }
       }
       root.__mishkahContextMenuAttached = true;
     }
@@ -3736,7 +3770,7 @@
               ])
             ])))
         : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('library.empty', 'لم يتم حفظ أي مخططات بعد.')]);
-      return D.Containers.Aside({ attrs:{ class: tw`hidden lg:flex h-full w-72 flex-shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
+      return D.Containers.Aside({ attrs:{ class: tw`flex h-full w-72 flex-shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface-2)]/70 backdrop-blur` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)]` }}, [
           D.Containers.Div({ attrs:{ class: tw`flex flex-col` }}, [
             D.Text.Span({ attrs:{ class: tw`text-base font-semibold` }}, [t('library.title', 'مكتبة المخططات')]),
