@@ -103,6 +103,12 @@
     return [value];
   }
 
+  function createNodeKey(namespace, path, hint) {
+    var ns = namespace ? String(namespace) : 'ns';
+    var basis = ns + '|' + String(path || '') + (hint ? '|' + String(hint) : '');
+    return createHash(basis);
+  }
+
   function cloneTemplateContent(template) {
     var fragment = template.content ? template.content.cloneNode(true) : null;
     if (!fragment && template.innerHTML) {
@@ -371,6 +377,22 @@
       childNode = childNode.nextSibling;
     }
 
+    if (descriptor.xFor) {
+      if (!descriptor.attrs['data-m-key']) {
+        if (descriptor.key) {
+          descriptor.attrs['data-m-key'] = [{ type: 'expr', code: descriptor.key }];
+        } else if (descriptor.xFor.index) {
+          descriptor.attrs['data-m-key'] = [{ type: 'expr', code: descriptor.xFor.index }];
+        } else {
+          var itemName = descriptor.xFor.item || 'item';
+          var fallbackExpr = '(' + itemName + ' && (' + itemName + '.id || ' + itemName + '.key || ' + itemName + ')) || __index';
+          descriptor.attrs['data-m-key'] = [{ type: 'expr', code: fallbackExpr }];
+        }
+      }
+    } else if (!descriptor.attrs['data-m-key']) {
+      descriptor.attrs['data-m-key'] = createNodeKey(namespace, descriptor.path, descriptor.key);
+    }
+
     return descriptor;
   }
 
@@ -558,6 +580,7 @@
           var local = {};
           local[loop.item] = value;
           if (loop.index) local[loop.index] = i;
+          local.__index = i;
           var scoped = createLocalScope(scope, local);
           fragments.push(bodyFn(scoped));
         }
@@ -661,10 +684,11 @@
 
   function createOrderKey(namespace, expr) {
     var eventExpr = parseEventExpression(expr);
-    if (!eventExpr) return namespace + ':' + createHash(expr);
-    if (!eventExpr.handler || eventExpr.inline) {
-      return namespace + ':auto-' + createHash(expr);
+    if (!eventExpr || !eventExpr.handler || eventExpr.inline) {
+      var basis = (namespace ? namespace + '|' : '') + String(expr || '');
+      return 'auto:' + createHash(basis);
     }
+    if (!namespace) return 'auto:' + eventExpr.handler;
     return namespace + ':' + eventExpr.handler;
   }
 
