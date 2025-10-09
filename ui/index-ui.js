@@ -203,16 +203,17 @@
     'about.goals.playfulDocs': { ar: 'دمج الوثائق مع الألعاب التفاعلية كي يتحول التعلم إلى تجربة مرحة.', en: 'Blend documentation with interactive games so learning becomes playful.' },
     'about.goals.holistic': { ar: 'توحيد الثيمات، القوالب، والـ DSL في مصدر واحد يمكن تطويره واستعراضه فورًا.', en: 'Unify themes, templates, and DSL in a single source that can be evolved and previewed instantly.' },
     'about.goals.openCraft': { ar: 'صياغة إطار يخدم الفرق الصغيرة والمستقلين قبل المؤسسات الضخمة.', en: 'Craft a framework that empowers small teams and independents before large corporations.' },
-    'ui.components.title': { ar: 'عرض مكونات الواجهة', en: 'UI component showcase' },
-    'ui.components.subtitle': { ar: 'مكتبة مضيئة من الأزرار والبطاقات والتنبيهات مبنية لخدمة المنصات التفاعلية.', en: 'A luminous library of buttons, cards, and toasts tailored for interactive platforms.' },
+    'ui.components.title': { ar: 'دليل مكونات الواجهة', en: 'UI component guide' },
+    'ui.components.subtitle': { ar: 'عرض حي لأهم مكونات Mishkah UI مع وصف ثنائي اللغة ومعاينات تطبيقية.', en: 'Live tour of Mishkah UI essentials with bilingual explanations and hands-on previews.' },
     'ui.components.core': { ar: 'المكونات الجوهرية', en: 'Core components' },
     'ui.components.patterns': { ar: 'أنماط الواجهات', en: 'Interface patterns' },
     'ui.components.story': { ar: 'كل عنصر يأتي مع قصة استخدام في الدليل التطبيقي.', en: 'Each element ships with usage stories in the application guide.' },
+    'ui.components.previewLabel': { ar: 'المعاينة الحية', en: 'Live preview' },
+    'ui.components.exampleLabel': { ar: 'مثال تطبيقي', en: 'Practical example' },
     'utils.title': { ar: 'مكتبة الأدوات', en: 'Utilities library' },
-    'utils.subtitle': { ar: 'واجهات موحدة للتخزين، الوقت، الشبكات، والرسوم تجعل التطبيق ثابتًا.', en: 'Unified APIs for storage, time, networking, and formatting keep applications consistent.' },
-    'utils.point.storage': { ar: 'طبقة تخزين موحدة (IndexedDB / LocalStorage) مع مسارات واضحة للنسخ الاحتياطي.', en: 'Unified storage layer (IndexedDB / LocalStorage) with clear backup strategies.' },
-    'utils.point.time': { ar: 'مساعدات الزمن والتنسيق تجعل التحويل بين المناطق أمرًا بسيطًا.', en: 'Time and formatting helpers make time-zone conversion effortless.' },
-    'utils.point.network': { ar: 'قنوات اتصال موحدة WebSocket/REST مع معالجة أخطاء متسقة.', en: 'Unified REST/WebSocket helpers with consistent error handling.' },
+    'utils.subtitle': { ar: 'تعرف على طبقات Mishkah.utils الفعلية مع شرح ثنائي اللغة وأمثلة جاهزة.', en: 'Explore Mishkah.utils groups with bilingual explanations and ready-to-run snippets.' },
+    'utils.functionLabel': { ar: 'الدوال الأساسية', en: 'Key helpers' },
+    'utils.exampleLabel': { ar: 'لقطة كود', en: 'Code snippet' },
     'sdk.title': { ar: 'دليل الـ SDK', en: 'SDK guide' },
     'sdk.subtitle': { ar: 'كيف تستخدم Pages.create لتوليد تطبيقات متعددة القوالب من مصدر واحد.', en: 'Use Pages.create to generate multi-template apps from a single source of truth.' },
     'sdk.point.bootstrap': { ar: 'تهيئة واحدة تجمع البيانات، الأوامر، والـ slots ثم تترك القوالب تتكفل بالباقي.', en: 'Single bootstrap that wires data, orders, and slots, letting templates handle the rest.' },
@@ -1711,38 +1712,268 @@
   }
 
   function UIShowcaseComp(db) {
-    const { TL } = makeLangLookup(db);
-    const buttonSamples = D.Containers.Div({
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const languageLabel = (code) => (code === 'ar' ? 'العربية' : 'English');
+    const labelForLocale = (key, locale) => localize(dict[key] || {}, locale, locale === 'ar' ? 'en' : 'ar');
+
+    const buttonPreview = D.Containers.Div({
       attrs: { class: tw`flex flex-wrap items-center gap-2` }
     }, [
-      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'solid', size: 'sm' }, ['Solid']),
-      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'soft', size: 'sm' }, ['Soft']),
-      UI.Button({ attrs: { class: tw`min-w-[88px]` }, variant: 'ghost', size: 'sm' }, ['Ghost'])
+      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'solid', size: 'md' }, [lang === 'ar' ? 'نفّذ' : 'Execute']),
+      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'soft', size: 'md' }, [lang === 'ar' ? 'خيار ثانوي' : 'Secondary']),
+      UI.Button({ attrs: { class: tw`min-w-[110px] font-semibold` }, variant: 'ghost', size: 'md' }, [lang === 'ar' ? 'رابط' : 'Link'])
     ]);
 
-    const badgeRow = D.Containers.Div({
-      attrs: { class: tw`flex flex-wrap items-center gap-2` }
-    }, [
-      UI.Badge({ text: 'Toolbar' }),
-      UI.Badge({ variant: 'badge', text: 'Tabs' }),
-      UI.Badge({ variant: 'badge', text: 'Shell' })
-    ]);
+    const cardPreview = UI.Card({
+      variant: 'card/soft-1',
+      title: lang === 'ar' ? 'بطاقة حالة الطلب' : 'Order status card',
+      description: lang === 'ar' ? 'تعرض ملخصاً سريعاً مع شارة حالة.' : 'Shows a quick ticket summary with a status badge.',
+      content: D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+        D.Text.P({ attrs: { class: tw`text-sm` } }, [lang === 'ar' ? 'آخر تحديث قبل دقيقة واحدة.' : 'Updated one minute ago.']),
+        UI.Badge({ text: lang === 'ar' ? 'جاهز للتسليم' : 'Ready to serve' })
+      ])
+    });
 
-    const storyCopy = D.Text.P({
-      attrs: { class: tw`text-sm text-[var(--muted-foreground)]` }
-    }, [TL('ui.components.story')]);
+    const toolbarPreview = UI.Toolbar({
+      left: [
+        UI.ToolbarGroup({ label: lang === 'ar' ? 'التنقل' : 'Navigation' }, [
+          UI.Button({ attrs: { class: tw`!h-9`, gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'الرئيسية' : 'Home']),
+          UI.Button({ attrs: { class: tw`!h-9`, gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, [lang === 'ar' ? 'التقارير' : 'Reports'])
+        ])
+      ],
+      right: [
+        UI.ThemeToggleIcon({ theme: 'light', attrs: { class: tw`!w-9 !h-9` } }),
+        UI.LanguageSwitch({ lang })
+      ]
+    });
 
-    const sections = [
-      { key: 'core', title: TL('ui.components.core'), body: buttonSamples },
-      { key: 'patterns', title: TL('ui.components.patterns'), body: badgeRow },
-      { key: 'story', title: TL('ui.components.story'), body: storyCopy }
+    const emptyStatePreview = UI.EmptyState({
+      icon: '📂',
+      title: lang === 'ar' ? 'لا توجد بيانات بعد' : 'No data yet',
+      description: lang === 'ar' ? 'ابدأ بإضافة عنصر جديد ليظهر هنا.' : 'Add your first record to populate the view.',
+      actions: [
+        UI.Button({ attrs: { class: tw`mt-1` }, variant: 'solid', size: 'sm' }, [lang === 'ar' ? 'إنشاء عنصر' : 'Create item'])
+      ]
+    });
+
+    const statCardPreview = UI.StatCard({
+      title: lang === 'ar' ? 'صافي المبيعات' : 'Net sales',
+      value: lang === 'ar' ? '٢٤٬٣٠٠ ر.س' : 'SAR 24,300',
+      meta: lang === 'ar' ? '↑ 12% عن الأمس' : '↑ 12% vs yesterday',
+      footer: [
+        UI.Badge({ variant: 'badge', text: lang === 'ar' ? 'مزامنة تلقائية' : 'Auto-sync' })
+      ]
+    });
+
+    const buttonCode = {
+      ar: `const { UI } = Mishkah;
+// زر موحد يطلق أمر gkey
+UI.Button({
+  attrs: { gkey: 'orders:create' },
+  variant: 'solid',
+  size: 'md'
+}, ['إرسال الطلب']);`,
+      en: `const { UI } = Mishkah;
+// Command-driven button wired with a gkey
+UI.Button({
+  attrs: { gkey: 'orders:create' },
+  variant: 'solid',
+  size: 'md'
+}, ['Submit order']);`
+    };
+
+    const cardCode = {
+      ar: `const { UI, DSL: D } = Mishkah;
+UI.Card({
+  title: 'ملخص الطلب',
+  description: 'عرض سريع للحالة الحالية.',
+  content: D.Text.P({}, ['طاولة ٧ جاهزة للتقديم خلال ٥ دقائق'])
+});`,
+      en: `const { UI, DSL: D } = Mishkah;
+UI.Card({
+  title: 'Order summary',
+  description: 'Compact view for the current ticket.',
+  content: D.Text.P({}, ['Serve table 7 within 5 minutes'])
+});`
+    };
+
+    const toolbarCode = {
+      ar: `const { UI } = Mishkah;
+UI.Toolbar({
+  left: [
+    UI.ToolbarGroup({ label: 'التنقل' }, [
+      UI.Button({ attrs: { gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, ['الرئيسية']),
+      UI.Button({ attrs: { gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, ['التقارير'])
+    ])
+  ],
+  right: [UI.ThemeToggleIcon({ theme: 'light' }), UI.LanguageSwitch({ lang: 'ar' })]
+});`,
+      en: `const { UI } = Mishkah;
+UI.Toolbar({
+  left: [
+    UI.ToolbarGroup({ label: 'Navigation' }, [
+      UI.Button({ attrs: { gkey: 'nav:home' }, variant: 'ghost', size: 'sm' }, ['Home']),
+      UI.Button({ attrs: { gkey: 'nav:reports' }, variant: 'ghost', size: 'sm' }, ['Reports'])
+    ])
+  ],
+  right: [UI.ThemeToggleIcon({ theme: 'light' }), UI.LanguageSwitch({ lang: 'en' })]
+});`
+    };
+
+    const emptyStateCode = {
+      ar: `const { UI } = Mishkah;
+UI.EmptyState({
+  icon: '📂',
+  title: 'لا توجد عناصر',
+  description: 'أضف أول عنصر لتبدأ الرحلة.',
+  actions: [UI.Button({ variant: 'solid', size: 'sm' }, ['إنشاء عنصر'])]
+});`,
+      en: `const { UI } = Mishkah;
+UI.EmptyState({
+  icon: '📂',
+  title: 'Nothing here yet',
+  description: 'Create the first record to start the flow.',
+  actions: [UI.Button({ variant: 'solid', size: 'sm' }, ['Create item'])]
+});`
+    };
+
+    const statCardCode = {
+      ar: `const { UI } = Mishkah;
+UI.StatCard({
+  title: 'صافي المبيعات',
+  value: '٢٤٬٣٠٠ ر.س',
+  meta: '↑ 12% عن الأمس',
+  footer: [UI.Badge({ variant: 'badge', text: 'مزامنة تلقائية' })]
+});`,
+      en: `const { UI } = Mishkah;
+UI.StatCard({
+  title: 'Net sales',
+  value: 'SAR 24,300',
+  meta: '↑ 12% vs yesterday',
+  footer: [UI.Badge({ variant: 'badge', text: 'Auto-sync' })]
+});`
+    };
+
+    const componentCatalog = [
+      {
+        key: 'button',
+        icon: '🔘',
+        title: { ar: 'UI.Button — زر الأوامر', en: 'UI.Button — Command button' },
+        desc: {
+          ar: 'زر موحد يعتمد على gkey لربط الواجهة بالأوامر مع إعدادات الحجم والثيم المضمنة.',
+          en: 'Unified button that wires UI to orders via gkeys while respecting Mishkah token sizing and themes.'
+        },
+        preview: buttonPreview,
+        code: buttonCode
+      },
+      {
+        key: 'card',
+        icon: '🪪',
+        title: { ar: 'UI.Card — بطاقات المحتوى', en: 'UI.Card — Content card' },
+        desc: {
+          ar: 'غلاف جاهز للعناوين والوصف والمحتوى يبني بطاقات منسجمة مع نظام التصميم دون تكرار الأنماط.',
+          en: 'Ready-made wrapper for titles, descriptions, and body content that keeps cards aligned with the design system.'
+        },
+        preview: cardPreview,
+        code: cardCode
+      },
+      {
+        key: 'toolbar',
+        icon: '🧭',
+        title: { ar: 'UI.Toolbar — الشريط العلوي', en: 'UI.Toolbar — Top bar' },
+        desc: {
+          ar: 'شريط Sticky يجمع مجموعات الأزرار وعناصر التحكم العالمية مثل تبديل الثيم واللغة.',
+          en: 'Sticky top bar that organises grouped controls and global actions such as theme or language toggles.'
+        },
+        preview: toolbarPreview,
+        code: toolbarCode
+      },
+      {
+        key: 'empty',
+        icon: '📭',
+        title: { ar: 'UI.EmptyState — حالة الفراغ', en: 'UI.EmptyState — Empty state' },
+        desc: {
+          ar: 'مكون جاهز لحالات عدم وجود بيانات مع رمز ورسالة وزر دعوة للفعل متسق مع اللغة.',
+          en: 'Drop-in empty state with icon, message, and call-to-action that adapts to the active locale.'
+        },
+        preview: emptyStatePreview,
+        code: emptyStateCode
+      },
+      {
+        key: 'stat',
+        icon: '📊',
+        title: { ar: 'UI.StatCard — بطاقة إحصائية', en: 'UI.StatCard — Metric card' },
+        desc: {
+          ar: 'بطاقة مضيئة لإبراز الأرقام الحية مع مساحة للهوامش والشارات في التذييل.',
+          en: 'Luminous metric card to highlight live numbers with room for contextual badges in the footer.'
+        },
+        preview: statCardPreview,
+        code: statCardCode
+      }
     ];
 
-    const grid = D.Containers.Div({ attrs: { class: tw`grid gap-4 md:grid-cols-2` } }, sections.map((section) => UI.Card({
-      title: section.title,
-      content: section.body,
-      attrs: { key: `ui-sec-${section.key}` }
-    })));
+    const cards = componentCatalog.map((item) => {
+      const primaryTitle = localize(item.title, lang, fallbackLang);
+      const secondaryTitle = localize(item.title, fallbackLang, lang);
+      const primaryDesc = localize(item.desc, lang, fallbackLang);
+      const secondaryDesc = localize(item.desc, fallbackLang, lang);
+
+      const descriptionBlock = D.Containers.Div({
+        attrs: { class: cx('sdk-card-copy', tw`space-y-2`) }
+      }, [
+        primaryDesc ? D.Text.P({ attrs: { class: tw`text-sm leading-relaxed` } }, [primaryDesc]) : null,
+        secondaryDesc && secondaryDesc !== primaryDesc
+          ? D.Text.P({ attrs: { class: tw`text-xs leading-relaxed text-[var(--muted-foreground)]` } }, [secondaryDesc])
+          : null
+      ].filter(Boolean));
+
+      const previewNodes = item.preview
+        ? D.Containers.Div({
+            attrs: { class: cx('sdk-preview', tw`space-y-3`) }
+          }, [
+            D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+              `${labelForLocale('ui.components.previewLabel', lang)} · ${languageLabel(lang)}`
+            ]),
+            ...(Array.isArray(item.preview) ? item.preview : [item.preview])
+          ])
+        : null;
+
+      const snippetPrimary = localize(item.code, lang, fallbackLang);
+      const snippetSecondary = localize(item.code, fallbackLang, lang);
+
+      const makeSnippet = (text, locale) => {
+        if (!text) return null;
+        return D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+          D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+            `${labelForLocale('ui.components.exampleLabel', locale)} · ${languageLabel(locale)}`
+          ]),
+          D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [
+            D.Text.Code({ attrs: { class: tw`block` } }, [text])
+          ])
+        ]);
+      };
+
+      const snippetBlockNodes = [];
+      if (snippetPrimary) snippetBlockNodes.push(makeSnippet(snippetPrimary, lang));
+      if (snippetSecondary && snippetSecondary !== snippetPrimary) {
+        snippetBlockNodes.push(makeSnippet(snippetSecondary, fallbackLang));
+      }
+      const snippetBlock = snippetBlockNodes.length
+        ? D.Containers.Div({ attrs: { class: tw`space-y-3` } }, snippetBlockNodes)
+        : null;
+
+      const contentChildren = [descriptionBlock, previewNodes, snippetBlock].filter(Boolean);
+
+      return UI.Card({
+        attrs: { key: `ui-sec-${item.key}` },
+        title: `${item.icon} ${primaryTitle}`,
+        description: secondaryTitle && secondaryTitle !== primaryTitle ? secondaryTitle : null,
+        content: D.Containers.Div({ attrs: { class: cx('sdk-card-body', tw`space-y-4`) } }, contentChildren)
+      });
+    });
+
+    const grid = D.Containers.Div({ attrs: { class: cx('sdk-showcase-grid', tw`mt-2`) } }, cards);
 
     return UI.Card({
       title: TL('ui.components.title'),
@@ -1752,23 +1983,285 @@
   }
 
   function UtilsShowcaseComp(db) {
-    const { TL } = makeLangLookup(db);
-    const points = [
-      { key: 'storage', icon: '🗄️' },
-      { key: 'time', icon: '⏱️' },
-      { key: 'network', icon: '🌐' }
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const languageLabel = (code) => (code === 'ar' ? 'العربية' : 'English');
+    const labelForLocale = (key, locale) => localize(dict[key] || {}, locale, locale === 'ar' ? 'en' : 'ar');
+
+    const typeCode = {
+      ar: `const { Type } = Mishkah.utils;
+// تحقق من الحمولة قبل دمجها في الحالة
+if (Type.isObj(payload) && Type.isStr(payload.id)) {
+  context.setState((state) => ({
+    ...state,
+    data: { ...state.data, activeTicket: payload }
+  }));
+}`,
+      en: `const { Type } = Mishkah.utils;
+// Validate the payload before committing it
+if (Type.isObj(payload) && Type.isStr(payload.id)) {
+  context.setState((state) => ({
+    ...state,
+    data: { ...state.data, activeTicket: payload }
+  }));
+}`
+    };
+
+    const numCode = {
+      ar: `const { Num } = Mishkah.utils;
+// اضبط عداد الضيوف ضمن الحدود المنطقية
+const guests = Num.clamp(state.guests + step, 1, 12);
+context.setState((s) => ({ ...s, data: { ...s.data, guests } }));`,
+      en: `const { Num } = Mishkah.utils;
+// Keep the guest counter within a sane range
+const guests = Num.clamp(state.guests + step, 1, 12);
+context.setState((s) => ({ ...s, data: { ...s.data, guests } }));`
+    };
+
+    const timeCode = {
+      ar: `const { Time } = Mishkah.utils;
+await Time.sleep(500);
+const stamp = Time.fmt(Time.now(), { hour: '2-digit', minute: '2-digit' });
+console.log('آخر تحديث', stamp);`,
+      en: `const { Time } = Mishkah.utils;
+await Time.sleep(500);
+const stamp = Time.fmt(Time.now(), { hour: '2-digit', minute: '2-digit' });
+console.log('Last update', stamp);`
+    };
+
+    const controlCode = {
+      ar: `const { Control } = Mishkah.utils;
+const saveDraft = Control.debounce((draft) => persistDraft(draft), 400);
+saveDraft(context.getState().data.form);`,
+      en: `const { Control } = Mishkah.utils;
+const saveDraft = Control.debounce((draft) => persistDraft(draft), 400);
+saveDraft(context.getState().data.form);`
+    };
+
+    const dataCode = {
+      ar: `const { Data } = Mishkah.utils;
+const lines = Data.getPath(state, 'order.lines', []);
+const merged = Data.deepMerge(defaultOrder, incoming);
+context.setState((s) => ({ ...s, data: { ...s.data, order: merged, lines } }));`,
+      en: `const { Data } = Mishkah.utils;
+const lines = Data.getPath(state, 'order.lines', []);
+const merged = Data.deepMerge(defaultOrder, incoming);
+context.setState((s) => ({ ...s, data: { ...s.data, order: merged, lines } }));`
+    };
+
+    const storageCode = {
+      ar: `const { Storage, JSON: JsonUtils } = Mishkah.utils;
+const cache = Storage.local('pos');
+cache.set('draft', JsonUtils.stableStringify(order));
+cache.on('change', ({ key }) => console.info('تغير المفتاح', key));`,
+      en: `const { Storage, JSON: JsonUtils } = Mishkah.utils;
+const cache = Storage.local('pos');
+cache.set('draft', JsonUtils.stableStringify(order));
+cache.on('change', ({ key }) => console.info('Key changed', key));`
+    };
+
+    const netCode = {
+      ar: `const { Net } = Mishkah.utils;
+const api = Net.client('/api', { 'X-App': 'mishkah' });
+const tickets = await api.get('tickets', { query: { status: 'open' } });`,
+      en: `const { Net } = Mishkah.utils;
+const api = Net.client('/api', { 'X-App': 'mishkah' });
+const tickets = await api.get('tickets', { query: { status: 'open' } });`
+    };
+
+    const utilsCatalog = [
+      {
+        key: 'type',
+        icon: '🧪',
+        title: { ar: 'Type — حراس الأنواع', en: 'Type — Type guards' },
+        desc: {
+          ar: 'واجهات تحقق خفيفة تبقي أوامر Mishkah محمية من البيانات المكسورة قبل الدمج.',
+          en: 'Lightweight guards that keep Mishkah orders safe from malformed payloads before merging.'
+        },
+        functions: [
+          { name: 'Type.isObj(value)', desc: { ar: 'يتأكد أن القيمة كائن بسيط قبل التعامل مع المسارات المتداخلة.', en: 'Verifies the value is a plain object before reading nested paths.' } },
+          { name: 'Type.isArr(value)', desc: { ar: 'يضمن أن البيانات مصفوفة قبل التكرار أو التجزئة.', en: 'Ensures data is an array before iterating or chunking.' } },
+          { name: 'Type.isStr(value)', desc: { ar: 'يحرس السلاسل النصية لتفادي أخطاء gkey أو العرض.', en: 'Guards string values to avoid gkey and rendering issues.' } }
+        ],
+        code: typeCode
+      },
+      {
+        key: 'num',
+        icon: '🧮',
+        title: { ar: 'Num — أدوات الأعداد', en: 'Num — Number helpers' },
+        desc: {
+          ar: 'تجهيزات رياضية سريعة لضبط الحدود وتوليد القيم العشوائية وعرض النتائج.',
+          en: 'Quick math helpers for bounding values, generating integers, and formatting outputs.'
+        },
+        functions: [
+          { name: 'Num.clamp(value, min, max)', desc: { ar: 'يحصر القيمة داخل نطاق محدد لضمان الثبات.', en: 'Clamps a value inside an inclusive range to keep state stable.' } },
+          { name: 'Num.randomInt(min, max)', desc: { ar: 'ينتج رقمًا صحيحًا عشوائيًا لتجارب الواجهة أو البيانات الوهمية.', en: 'Generates a random integer for demos and seeded defaults.' } },
+          { name: 'Num.round(value, precision)', desc: { ar: 'يقرب القيم لعرض مالي أو إحصائي نظيف.', en: 'Rounds figures for neat financial or analytics displays.' } }
+        ],
+        code: numCode
+      },
+      {
+        key: 'time',
+        icon: '⏱️',
+        title: { ar: 'Time — الزمن والتنسيق', en: 'Time — Timing & formatting' },
+        desc: {
+          ar: 'مجموعة تعطي طوابع زمنية وتنسيقات جاهزة وتأخيرًا قائمًا على Promise.',
+          en: 'Collection that provides timestamps, friendly formatting, and Promise-based delays.'
+        },
+        functions: [
+          { name: 'Time.now()', desc: { ar: 'يمنح طابعًا زمنيًا سريعًا للأحداث والأوامر.', en: 'Delivers an instant timestamp for events and orders.' } },
+          { name: 'Time.fmt(date, options)', desc: { ar: 'يغلف Intl.DateTimeFormat لإخراج أنيق بلغات متعددة.', en: 'Wraps Intl.DateTimeFormat for multilingual, polished output.' } },
+          { name: 'Time.sleep(ms)', desc: { ar: 'يقدم Promise لتأخير التنفيذ أو بناء المؤقتات.', en: 'Offers a Promise to delay execution or stage timers.' } }
+        ],
+        code: timeCode
+      },
+      {
+        key: 'control',
+        icon: '🎛️',
+        title: { ar: 'Control — التحكم في التدفق', en: 'Control — Flow control' },
+        desc: {
+          ar: 'أدوات تنظيم التنفيذ مثل debounce و throttle و retry للحفاظ على الأداء.',
+          en: 'Execution organisers such as debounce, throttle, and retry to keep interactions responsive.'
+        },
+        functions: [
+          { name: 'Control.debounce(fn, wait)', desc: { ar: 'يؤخر التنفيذ حتى يهدأ الإدخال المتكرر.', en: 'Delays execution until rapid input settles.' } },
+          { name: 'Control.throttle(fn, wait)', desc: { ar: 'يضمن تشغيل الدالة مرة واحدة خلال فترة محددة.', en: 'Ensures a handler runs at most once during a window.' } },
+          { name: 'Control.retry(fn, options)', desc: { ar: 'يعيد المحاولة تلقائيًا مع تزايد زمني وجيتّر اختياري.', en: 'Retries async logic with exponential backoff and optional jitter.' } }
+        ],
+        code: controlCode
+      },
+      {
+        key: 'data',
+        icon: '🗂️',
+        title: { ar: 'Data — بنى البيانات', en: 'Data — Data structures' },
+        desc: {
+          ar: 'وظائف للتعامل مع المسارات العميقة والدمج اللطيف وتحويل القيم إلى مصفوفات.',
+          en: 'Helpers for deep paths, gentle merging, and normalising values into arrays.'
+        },
+        functions: [
+          { name: 'Data.getPath(obj, path, fallback)', desc: { ar: 'قراءة المسارات المتداخلة بأمان مع قيمة افتراضية.', en: 'Safely reads nested paths with a fallback value.' } },
+          { name: 'Data.deepMerge(target, source)', desc: { ar: 'يدمج الكائنات دون خسارة الفروع الموجودة.', en: 'Merges objects without dropping existing branches.' } },
+          { name: 'Data.ensureArray(value)', desc: { ar: 'يوحد المدخلات إلى مصفوفة لعمليات التكرار.', en: 'Normalises input to an array for consistent iteration.' } }
+        ],
+        code: dataCode
+      },
+      {
+        key: 'storage',
+        icon: '💾',
+        title: { ar: 'Storage — التخزين الموحّد', en: 'Storage — Namespaced storage' },
+        desc: {
+          ar: 'طبقة وصول إلى LocalStorage و SessionStorage مع أحداث change ومساحات أسماء.',
+          en: 'Unified access to LocalStorage and SessionStorage with namespaces and change events.'
+        },
+        functions: [
+          { name: 'Storage.local(namespace)', desc: { ar: 'يبني مساحة أسماء في LocalStorage مع واجهة كائنية.', en: 'Builds a namespaced LocalStorage client with a clean API.' } },
+          { name: 'Storage.session(namespace)', desc: { ar: 'نفس الواجهة لكن للجلسة الحالية.', en: 'SessionStorage variant for per-session state.' } },
+          { name: "Storage.on('change', handler)", desc: { ar: 'يتيح الاستماع لأي تغيير يحدث داخل جميع المساحات.', en: 'Allows subscribing to every storage change across namespaces.' } }
+        ],
+        code: storageCode
+      },
+      {
+        key: 'net',
+        icon: '🌐',
+        title: { ar: 'Net — الشبكات والواجهات', en: 'Net — Networking toolkit' },
+        desc: {
+          ar: 'مغلفات Fetch مع مهلات وإعادة محاولات وبناء عملاء REST جاهزين.',
+          en: 'Fetch wrappers with timeouts, retries, and ready-made REST clients.'
+        },
+        functions: [
+          { name: 'Net.ajax(url, options)', desc: { ar: 'استدعاء مرن يدعم JSON والمهلات ومعالجة الأخطاء.', en: 'Flexible request helper with JSON, timeout, and error handling support.' } },
+          { name: 'Net.client(base, headers)', desc: { ar: 'ينشئ عميلاً يقدم دوال get/post/... تلقائياً.', en: 'Creates a client exposing get/post/... methods automatically.' } },
+          { name: 'Net.form(data)', desc: { ar: 'يحّول الكائنات إلى FormData مع دعم الملفات والمصفوفات.', en: 'Turns objects into FormData with array and file support.' } }
+        ],
+        code: netCode
+      }
     ];
-    const list = D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, points.map((entry) => D.Lists.Li({
-      attrs: { class: tw`flex items-start gap-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-2)90%,transparent)] p-4` }
-    }, [
-      D.Text.Span({ attrs: { class: tw`text-xl` } }, [entry.icon]),
-      D.Text.Span({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL(`utils.point.${entry.key}`)])
-    ])));
+
+    const cards = utilsCatalog.map((item) => {
+      const primaryTitle = localize(item.title, lang, fallbackLang);
+      const secondaryTitle = localize(item.title, fallbackLang, lang);
+      const primaryDesc = localize(item.desc, lang, fallbackLang);
+      const secondaryDesc = localize(item.desc, fallbackLang, lang);
+
+      const descriptionBlock = D.Containers.Div({
+        attrs: { class: cx('sdk-card-copy', tw`space-y-2`) }
+      }, [
+        primaryDesc ? D.Text.P({ attrs: { class: tw`text-sm leading-relaxed` } }, [primaryDesc]) : null,
+        secondaryDesc && secondaryDesc !== primaryDesc
+          ? D.Text.P({ attrs: { class: tw`text-xs leading-relaxed text-[var(--muted-foreground)]` } }, [secondaryDesc])
+          : null
+      ].filter(Boolean));
+
+      const functionItems = (item.functions || []).map((fn) => {
+        const primaryFnDesc = localize(fn.desc, lang, fallbackLang);
+        const secondaryFnDesc = localize(fn.desc, fallbackLang, lang);
+        return D.Lists.Li({
+          attrs: { key: `fn-${item.key}-${fn.name}`, class: cx('sdk-function-item', tw`space-y-2`) }
+        }, [
+          D.Text.Span({ attrs: { class: tw`text-sm font-semibold` } }, [fn.name]),
+          primaryFnDesc ? D.Text.P({ attrs: { class: tw`text-sm leading-relaxed` } }, [primaryFnDesc]) : null,
+          secondaryFnDesc && secondaryFnDesc !== primaryFnDesc
+            ? D.Text.P({ attrs: { class: tw`text-xs leading-relaxed text-[var(--muted-foreground)]` } }, [secondaryFnDesc])
+            : null
+        ].filter(Boolean));
+      });
+
+      const functionList = functionItems.length
+        ? D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+            D.Containers.Div({ attrs: { class: tw`flex flex-col gap-1` } }, [
+              D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+                labelForLocale('utils.functionLabel', lang)
+              ]),
+              labelForLocale('utils.functionLabel', fallbackLang) !== labelForLocale('utils.functionLabel', lang)
+                ? D.Text.Span({ attrs: { class: tw`text-[10px] uppercase tracking-[0.28em] text-[var(--muted-foreground)]/70` } }, [
+                    labelForLocale('utils.functionLabel', fallbackLang)
+                  ])
+                : null
+            ].filter(Boolean)),
+            D.Lists.Ul({ attrs: { class: cx('sdk-function-list', tw`space-y-2`) } }, functionItems)
+          ])
+        : null;
+
+      const snippetPrimary = localize(item.code, lang, fallbackLang);
+      const snippetSecondary = localize(item.code, fallbackLang, lang);
+
+      const makeSnippet = (text, locale) => {
+        if (!text) return null;
+        return D.Containers.Div({ attrs: { class: cx('sdk-snippet-wrapper', tw`space-y-2`) } }, [
+          D.Text.Strong({ attrs: { class: tw`text-xs uppercase tracking-[0.28em] text-[var(--muted-foreground)]` } }, [
+            `${labelForLocale('utils.exampleLabel', locale)} · ${languageLabel(locale)}`
+          ]),
+          D.Text.Pre({ attrs: { class: cx('sdk-snippet', tw`whitespace-pre-wrap`) } }, [
+            D.Text.Code({ attrs: { class: tw`block` } }, [text])
+          ])
+        ]);
+      };
+
+      const snippetBlockNodes = [];
+      if (snippetPrimary) snippetBlockNodes.push(makeSnippet(snippetPrimary, lang));
+      if (snippetSecondary && snippetSecondary !== snippetPrimary) {
+        snippetBlockNodes.push(makeSnippet(snippetSecondary, fallbackLang));
+      }
+      const snippetBlock = snippetBlockNodes.length
+        ? D.Containers.Div({ attrs: { class: tw`space-y-3` } }, snippetBlockNodes)
+        : null;
+
+      const contentChildren = [descriptionBlock, functionList, snippetBlock].filter(Boolean);
+
+      return UI.Card({
+        attrs: { key: `utils-${item.key}` },
+        title: `${item.icon} ${primaryTitle}`,
+        description: secondaryTitle && secondaryTitle !== primaryTitle ? secondaryTitle : null,
+        content: D.Containers.Div({ attrs: { class: cx('sdk-card-body', tw`space-y-4`) } }, contentChildren)
+      });
+    });
+
+    const grid = D.Containers.Div({ attrs: { class: cx('sdk-showcase-grid', tw`mt-2`) } }, cards);
 
     return UI.Card({
       title: TL('utils.title'),
       description: TL('utils.subtitle'),
-      content: list
+      content: grid
     });
   }
 
