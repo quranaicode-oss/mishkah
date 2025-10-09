@@ -74,6 +74,8 @@
     }
     #app { flex: 1 1 auto; display: flex; }
     textarea[readonly] { user-select: all; }
+    .hidden { display: none !important; }
+
     #erd-diagram {
       cursor: grab;
       overflow: auto;
@@ -453,6 +455,7 @@
     let erdAppInstance = null;
     let erdDriver = null;
     let activeDriverName = null;
+    let activeDriverHost = null;
     let pendingDiagramFrame = false;
     let lastDiagramState = null;
     let applyingAutoZoom = false;
@@ -1958,10 +1961,12 @@
         this.graph = null;
         this.hooks = null;
         this.initialized = false;
+        this.container = null;
       }
 
       init(container, hooks){
         this.hooks = hooks || {};
+        this.container = container;
         const Graph = window?.X6?.Graph;
         if(!Graph){
           console.warn('[Mishkah][ERD] AntV X6 Graph not available, falling back to FakeDriver');
@@ -2228,6 +2233,7 @@
           this.graph.dispose();
           this.graph = null;
         }
+        this.container = null;
       }
     }
 
@@ -2531,7 +2537,7 @@
         }
         openFromEvent(event);
       };
-      const options = { capture:true };
+      const options = { capture:true, passive:false };
       root.addEventListener('pointerdown', handlePointerDown, options);
       root.addEventListener('contextmenu', handleContextMenu, options);
       const ownerDocument = root.ownerDocument || host.ownerDocument || document;
@@ -2789,12 +2795,20 @@
       const requestedDriver = (state?.env?.graph?.driver || 'fake').toLowerCase();
       const driverKey = requestedDriver === 'x6' && !(window?.X6?.Graph) ? 'fake' : requestedDriver;
       if(erdDriver && activeDriverName === driverKey){
-        return erdDriver;
+        if(activeDriverHost && activeDriverHost !== host){
+          try { erdDriver.destroy(); }
+          catch(error){ console.warn('[Mishkah][ERD] driver destroy failed', error); }
+          erdDriver = null;
+          activeDriverHost = null;
+        } else {
+          return erdDriver;
+        }
       }
       if(erdDriver){
         try { erdDriver.destroy(); }
         catch(error){ console.warn('[Mishkah][ERD] driver destroy failed', error); }
         erdDriver = null;
+        activeDriverHost = null;
       }
       const DriverCtor = DiagramDrivers[driverKey] || DiagramDrivers.fake;
       try {
@@ -2806,6 +2820,7 @@
         });
         erdDriver = instance;
         activeDriverName = driverKey;
+        activeDriverHost = host;
         host.setAttribute('data-driver', driverKey);
         return erdDriver;
       } catch(error){
@@ -2820,6 +2835,7 @@
             });
             erdDriver = fallback;
             activeDriverName = 'fake';
+            activeDriverHost = host;
             host.setAttribute('data-driver', 'fake');
             return erdDriver;
           } catch(fallbackError){
