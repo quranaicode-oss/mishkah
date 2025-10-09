@@ -18,6 +18,12 @@
     host.Mishkah.utils = host.Mishkah.utils || {};
     host.Mishkah.DSL = host.Mishkah.DSL || {};
     host.Mishkah.UI = host.Mishkah.UI || {};
+    if (!host.M || host.M !== host.Mishkah) {
+      host.M = host.Mishkah;
+    }
+    if (typeof globalThis === 'object' && globalThis && (!globalThis.M || globalThis.M !== host.Mishkah)) {
+      globalThis.M = host.Mishkah;
+    }
     return host.Mishkah;
   }
 
