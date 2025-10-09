@@ -617,14 +617,124 @@
 
   function parseFunctions(source) {
     var map = Object.create(null);
-    var fnRegex = /function\s+([a-zA-Z_$][\w$]*)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g;
+    if (!source) return map;
+
+    var pattern = /function\s+([a-zA-Z_$][\w$]*)\s*\(([^)]*)\)\s*\{/g;
     var match;
-    while ((match = fnRegex.exec(source))) {
+
+    while ((match = pattern.exec(source))) {
       var name = match[1];
       var args = match[2];
-      var body = match[3];
+      var bodyStart = pattern.lastIndex;
+      var index = bodyStart;
+      var depth = 1;
+      var inSingle = false;
+      var inDouble = false;
+      var inTemplate = false;
+      var escaped = false;
+      var inLineComment = false;
+      var inBlockComment = false;
+
+      while (index < source.length && depth > 0) {
+        var ch = source[index];
+        var next = source[index + 1];
+
+        if (inLineComment) {
+          if (ch === '\n' || ch === '\r') inLineComment = false;
+          index += 1;
+          continue;
+        }
+
+        if (inBlockComment) {
+          if (ch === '*' && next === '/') {
+            inBlockComment = false;
+            index += 2;
+          } else {
+            index += 1;
+          }
+          continue;
+        }
+
+        if (!inSingle && !inDouble && !inTemplate) {
+          if (ch === '/' && next === '/') {
+            inLineComment = true;
+            index += 2;
+            continue;
+          }
+          if (ch === '/' && next === '*') {
+            inBlockComment = true;
+            index += 2;
+            continue;
+          }
+        }
+
+        if (inSingle || inDouble || inTemplate) {
+          if (escaped) {
+            escaped = false;
+            index += 1;
+            continue;
+          }
+          if (ch === '\\') {
+            escaped = true;
+            index += 1;
+            continue;
+          }
+          if (inSingle && ch === "'") {
+            inSingle = false;
+            index += 1;
+            continue;
+          }
+          if (inDouble && ch === '"') {
+            inDouble = false;
+            index += 1;
+            continue;
+          }
+          if (inTemplate && ch === '`') {
+            inTemplate = false;
+            index += 1;
+            continue;
+          }
+          index += 1;
+          continue;
+        }
+
+        if (ch === "'") {
+          inSingle = true;
+          index += 1;
+          continue;
+        }
+        if (ch === '"') {
+          inDouble = true;
+          index += 1;
+          continue;
+        }
+        if (ch === '`') {
+          inTemplate = true;
+          index += 1;
+          continue;
+        }
+
+        if (ch === '{') {
+          depth += 1;
+          index += 1;
+          continue;
+        }
+        if (ch === '}') {
+          depth -= 1;
+          index += 1;
+          if (depth === 0) break;
+          continue;
+        }
+
+        index += 1;
+      }
+
+      var bodyEnd = depth === 0 ? index - 1 : source.length;
+      var body = source.slice(bodyStart, bodyEnd);
       map[name] = { args: args, body: body };
+      pattern.lastIndex = depth === 0 ? index : source.length;
     }
+
     return map;
   }
 
@@ -695,32 +805,61 @@
   function synthesizeOrders(namespace, events, scriptFns) {
     var orders = {};
     events.forEach(function (event) {
-      var key = createOrderKey(namespace, event.value);
+      var baseKey = createOrderKey(namespace, event.value);
+      var key = baseKey;
+      if (orders[key] && orders[key].__expr && orders[key].__expr !== event.value) {
+        var collisionHash = createHash((namespace ? namespace + '|' : '') + event.value);
+        key = namespace ? namespace + ':' + collisionHash : 'auto:' + collisionHash;
+      }
       var parsed = parseEventExpression(event.value);
       var handlerDef = parsed && parsed.handler ? scriptFns[parsed.handler] : null;
       var gkey = key;
       if (!orders[key]) {
-        orders[key] = { on: [event.name], gkeys: [gkey], handler: null };
+        orders[key] = { on: [event.name], gkeys: [gkey], handler: null, __expr: event.value, __primary: event.name };
       } else {
         if (orders[key].on.indexOf(event.name) === -1) orders[key].on.push(event.name);
         if (orders[key].gkeys.indexOf(gkey) === -1) orders[key].gkeys.push(gkey);
       }
-      orders[key].handler = createOrderHandler(parsed, handlerDef);
+      if (event.name === 'submit' && orders[key].on.indexOf('click') === -1) {
+        orders[key].on.push('click');
+      }
+      orders[key].handler = createOrderHandler(parsed, handlerDef, orders[key].__primary || event.name);
       if (event.owner && !event.owner.attrs['data-m-gkey']) {
         event.owner.attrs['data-m-gkey'] = gkey;
       }
     });
+    for (var orderKey in orders) {
+      if (!Object.prototype.hasOwnProperty.call(orders, orderKey)) continue;
+      delete orders[orderKey].__expr;
+      delete orders[orderKey].__primary;
+    }
     return orders;
   }
 
-  function createOrderHandler(parsed, handlerDef) {
+  function createOrderHandler(parsed, handlerDef, primaryEvent) {
     var compiledFn = null;
     if (handlerDef && handlerDef.body != null) {
-      compiledFn = new Function(handlerDef.args || '', handlerDef.body);
+      try {
+        compiledFn = new Function(handlerDef.args || '', handlerDef.body);
+      } catch (error) {
+        console.error('E_FN_COMPILE: فشل تجميع الدالة', parsed && parsed.handler, error);
+      }
     }
+    var treatSubmitClicks = primaryEvent === 'submit';
     return function (event, context) {
-      if (event && typeof event.preventDefault === 'function' && event.type === 'submit') {
-        event.preventDefault();
+      var effectiveEvent = event;
+      if (treatSubmitClicks && event && event.type === 'click') {
+        if (typeof event.preventDefault === 'function') event.preventDefault();
+        var form = event.target && event.target.form;
+        if (form) {
+          effectiveEvent = Object.create(event);
+          effectiveEvent.type = 'submit';
+          effectiveEvent.target = form;
+          effectiveEvent.currentTarget = form;
+        }
+      }
+      if (effectiveEvent && effectiveEvent.type === 'submit' && typeof effectiveEvent.preventDefault === 'function') {
+        effectiveEvent.preventDefault();
       }
       var ctx = ContextAdapter(context);
       if (parsed && parsed.inline && parsed.args && parsed.args.length) {
@@ -731,7 +870,7 @@
           M: Mishkah,
           UI: Mishkah.UI,
           D: Mishkah.DSL,
-          locals: { event: event, ctx: ctx }
+          locals: { event: effectiveEvent, ctx: ctx }
         });
       } else if (parsed && parsed.handler && compiledFn) {
         var args = [];
@@ -739,7 +878,7 @@
         for (var i = 0; i < argList.length; i += 1) {
           var arg = argList[i];
           if (arg === 'event') {
-            args.push(event);
+            args.push(effectiveEvent);
           } else if (arg === 'ctx') {
             args.push(ctx);
           } else {
@@ -751,7 +890,7 @@
                 M: Mishkah,
                 UI: Mishkah.UI,
                 D: Mishkah.DSL,
-                locals: { event: event, ctx: ctx }
+                locals: { event: effectiveEvent, ctx: ctx }
               })
             );
           }
