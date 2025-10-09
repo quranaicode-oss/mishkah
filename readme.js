@@ -269,45 +269,35 @@ const orders = {
 
 -----
 
-### **7. إعادة البناء الواعي (Conscious Reconstruction): من الأمر الشامل إلى التحكم الجراحي**
+### **7. سريان النور الفطري والتحكم الجراحي (Reactive Flow & Surgical Control)**
 
-**المبدأ:** في "مشكاة"، لا توجد آليات سحرية خفية. كل فعل حيوي في دورة حياة التطبيق يجب أن يكون فعلاً واعياً ومقصوداً. إن أمر \`rebuild()\` ليس مجرد استدعاء دالة، بل هو **فعل التكوين الصريح** الذي ينقل التطبيق من حالة (State) إلى حالة أخرى. هذا المبدأ يرفض فكرة التحديثات التلقائية الضمنية التي قد تبدو مريحة، لكنها تفتح باب الفوضى الخفية، مثل حلقات إعادة التصيير اللانهائية (Infinite Re-render Loops) ومشاكل الأداء الغامضة. نحن نؤمن بأن الوضوح والتحكم الصريح هما أساس بناء أنظمة متينة وقابلة للصيانة.
+**المبدأ:** ابتداءً من هذا الإصدار صار النور يسري وحده؛ أي \`setState()\` صادقة تعني إعادة بناء تلقائية بلا استدعاء إضافي. الجسد (VDOM) لا يتخلف عن روحه (database)، مصداقًا لقوله تعالى: ﴿مَا كَانَ لِأَهۡلِ ٱلۡمَدِينَةِ وَمَنۡ حَوۡلَهُم مِّنَ ٱلۡأَعۡرَابِ أَن يَتَخَلَّفُواْ عَن رَّسُولِ ٱللَّهِ وَلَا يَرۡغَبُواْ بِأَنفُسِهِمۡ عَن نَّفۡسِهِ﴾. هذا هو الأصل البدهي: حالة صادقة ⇒ واجهة صادقة، دون يمين ولا قسم ولا أوامر زائدة.
 
-**الشبهة الهندسية والرد العلمي:** قد يُنظر إلى استدعاء \`rebuild()\` اليدوي على أنه آلية "غاشمة" (Brute-force) أو "غير ذكية" مقارنة بالأنظمة التفاعلية الدقيقة (Fine-grained Reactivity). هذا التحليل سطحي ويتجاهل حقيقة التنفيذ. إن بساطة الاستدعاء تخفي وراءها محركاً عالي الذكاء. \`rebuild()\` لا يعيد بناء الـ DOM من الصفر، بل يطلق سلسلة من العمليات المحسوبة بدقة:
+**الشبهة الهندسية والرد العلمي:** قد يبدو التفاعل التلقائي وكأنه عودة إلى الفوضى أو بوابة لحلقات التصيير اللانهائية. لكن "مشكاة" لا تزال تسلك نفس المسار الجراحي السابق: كل تحديث يمر عبر \`flush()\` الذي يعيد استخدام خوارزمية الـ Diff ذاتها (LIS، تجميد المقاطع الحساسة، واسترجاع التمرير). الجديد أننا نُجدوِل هذا الفعل تلقائيًا على إطار الرسوم التالي (أو مباشرة في غياب \`requestAnimationFrame\`)، ما يمنحك سلاسة الـ reactive systems دون خسارة وضوح pipeline ولا يقين النتائج.
 
-1.  **توليد شجرة افتراضية جديدة (Next VDOM):** يتم استدعاء دالة \`body\` لإنتاج تمثيل نقي للحالة الجديدة.
-2.  **خوارزمية المقارنة (Diffing Algorithm):** تقوم النواة بتطبيق خوارزمية مقارنة عالية الكفاءة بين الشجرة الجديدة (Next VDOM) والسابقة (Previous VDOM) لتحديد مجموعة التغيرات الدنيا (Minimal Change Set).
-3.  **تحديثات DOM الجراحية (Surgical DOM Mutations):** بدلاً من استبدال كتل كبيرة، يتم تطبيق التغييرات المكتشفة فقط على الـ DOM الحقيقي. بالنسبة للقوائم والمصفوفات، تستخدم "مشكاة" خوارزميات متقدمة مثل **أطول سلسلة جزئية متزايدة (Longest Increasing Subsequence - LIS)** لتقليل عمليات إزالة وإضافة العناصر إلى الحد الأدنى، مما يضمن أداءً استثنائياً حتى مع البيانات الضخمة.
+#### **الأدوات الجديدة للتحكم المتقدم**
 
-إن بساطة \`rebuild()\` هي **تجريد للقوة (Abstraction of Power)**، وليست غياباً للذكاء.
+تركنا باب الولاية مفتوحًا لمن أراد أقصى درجات التحكم:
 
-#### **القوة الحالية: التحكم الجراحي والانتقائي**
-
-إن كون \`rebuild()\` أمراً يدوياً يمنح المطور قدرات تحكم دقيقة غير متاحة في الأنظمة التلقائية. فهو ليس مجرد أمر واحد، بل هو واجهة تحكم (Control Interface) تقبل معامِلات لتوجيه عملية التحديث:
-
-  * **التركيز (Focusing):** عبر \`buildOnly\`، يمكنك حصر عملية المقارنة والتحديث في نطاق محدد من التطبيق، مما يزيد السرعة بشكل هائل في التفاعلات المتكررة (مثل الألعاب أو تحديثات الشبكة الحية).
-  * **الاستثناء (Exclusion):** عبر \`except\`، يمكنك حماية أجزاء "ثقيلة" أو حساسة من الـ DOM (مثل مشغل فيديو، خرائط، أو مكونات طرف ثالث) من أي عملية مقارنة، مما يضمن استقرارها الكامل.
-
-<!-- end list -->
+  * **\`freeze(opts?)\`**: يرفع عمق التجميد ويجمع خيارات \`keepScroll/except/buildOnly\`. كل \`setState()\` أثناء التجميد تُكدَّس بلا تصيير.
+  * **\`unfreeze(opts?)\`**: ينقص العمق، وعند الرجوع إلى الصفر يطلق دفعة التصيير مرة واحدة مع كل الخيارات المتراكمة.
+  * **\`flush(opts?)\`**: يأمر بتصيير فوري (سريعًا، وبنفس خيارات \`rebuild\` القديمة). يدعم \`force:true\` لتجاوز التجميد عند الضرورة.
+  * **\`batch(fn)\`**: غلاف مريح يقوم بـ \`freeze()\` ثم ينفذ الدفعة ثم \`unfreeze()\` تلقائيًا.
 
 \`\`\`javascript
-// مثال: تحديث لوحة النتائج في لعبة مع استثناء الدردشة الحية
-context.rebuild({
-  buildOnly: ['#game-scoreboard'], // ركّز المقارنة هنا فقط
-  except: ['#live-chat-widget']   // لا تلمس هذا العنصر أبدًا
-});
+// مثال: تحديث حزمة من القيم الثقيلة بدون ترميش للواجهة
+context.batch((ctx) => {
+  ctx.setState((s) => ({ ...s, metrics: computeHeavyMetrics() }));
+  ctx.setState((s) => ({ ...s, charts: recomputeCharts(s.metrics) }));
+}); // ← سيحدث تصيير واحد عند unfreeze
+
+// مثال: إجبار التحديث حالًا مع الحفاظ على التمرير
+context.flush({ keepScroll: ['#orders-list'], except: ['#map-widget'] });
 \`\`\`
 
-#### **الرؤية المستقبلية: \`rebuild\` كبوابة حوكمة (Governance Gateway)**
+وللتوافق باقٍ: \`rebuild()\` ما زال موجودًا كاختصار مباشر لـ \`flush()\` حتى لا ينكسر أي كود قديم، لكنك لم تعد بحاجة إليه في الأوامر اليومية. استدعِه فقط عندما تريد التصريح الصريح بأنك تقود العملية يدويًا.
 
-هذا التحكم الصريح يفتح الباب مستقبلاً لآفاق حوكمة غير مسبوقة. إن أمر \`rebuild\` ليس مجرد آلية عرض، بل هو **نقطة تفتيش أمنية (Security Checkpoint)** أساسية للحارس (Guardian).
-
-لأننا نعرف من أين أتى طلب التحديث، يمكننا فرض **نطاقات إلزامية (Mandatory Scopes)** على المكونات. تخيل مستقبلاً حيث يمكن للحارس فرض القواعد التالية:
-
-  * **جدار ناري للحالة (State Firewall):** مكون "زر الطباعة" (\`PrintButton\`) عندما يستدعي \`rebuild\`، يُسمح له فقط بتحديث نطاق الطباعة في الـ DOM، ويُمنع تماماً من التأثير على حالة أو DOM سلة المشتريات (\`#shopping-cart\`).
-  * **صناديق رمل للمكونات (Component Sandboxing):** يتم إجبار كل مكون على العيش والعمل ضمن نطاق محدد من الحالة والـ DOM، مما يمنع التداخلات غير المرغوب فيها ويجعل النظام أكثر أماناً ومتانة بشكل جذري.
-
-للتبسيط الآن، يكفينا أن نمتلك قوة **التركيز والاستثناء والتصريح**، وهي ميزة استراتيجية تضع "مشكاة" في فئة خاصة بها من حيث التحكم الواعي في الأداء والسلوك.
+بهذه النقلة نجمع بين السريان التلقائي للنور وبين سلاح التحكم الجراحي عند الطلب؛ فلا فوضى صامتة، ولا أوامر زائدة، بل "طاعة معروفة" تحفظ يقين النظام وتمنحك الولاية عند الحاجة.
 
 -----
 
@@ -621,45 +611,35 @@ const orders = {
 
 -----
 
-### **7. Conscious Reconstruction: From Global Command to Surgical Control**
+### **7. Native Reactive Flow & Surgical Control**
 
-**Principle:** In Mishkah, there are no hidden magical mechanisms. Every vital action in the application's lifecycle must be a conscious and intentional act. The \`rebuild()\` command is not merely a function call; it is the **explicit act of formation** that transitions the application from one state to another. This principle rejects the notion of implicit, automatic updates, which, while seemingly convenient, open the door to hidden chaos such as infinite re-render loops and cryptic performance issues. We believe that clarity and explicit control are the foundation for building robust and maintainable systems.
+**Principle:** From now on, every truthful \`setState()\` automatically schedules a render. The VDOM body no longer lags behind the database soul; the default is seamless obedience without extra declarations. The Qur'anic reminder — "that they should not lag behind the Messenger of Allah nor prefer themselves to his self" — captures the spirit: the interface follows the state without hesitation.
 
-**The Engineering Critique and The Scientific Rebuttal:** A manual \`rebuild()\` call might be perceived as a "brute-force" or "unintelligent" mechanism compared to fine-grained reactivity systems. This analysis is superficial and ignores the implementation's reality. The simplicity of the call conceals a highly intelligent engine. \`rebuild()\` does not reconstruct the DOM from scratch; rather, it initiates a series of precisely calculated operations:
+**Engineering Concern & Scientific Rebuttal:** Automatic reactivity can look like an invitation to chaos or endless render loops. Mishkah keeps the same surgical pipeline: every update still travels through \`flush()\`, reusing the exact diff algorithm (LIS, selective freezing, scroll restoration). We simply schedule that work on the next animation frame (or immediately if no RAF is available), delivering the smoothness of reactive systems while preserving determinism and auditability.
 
-1.  **Generate Next VDOM Tree:** The \`body\` function is invoked to produce a pure representation of the new state.
-2.  **Diffing Algorithm:** The kernel applies a high-efficiency diffing algorithm between the new (Next VDOM) and previous (Previous VDOM) trees to identify the minimal change set.
-3.  **Surgical DOM Mutations:** Instead of replacing large blocks, only the detected changes are applied to the real DOM. For lists and arrays, Mishkah employs advanced algorithms like the **Longest Increasing Subsequence (LIS)** to minimize element removal and addition operations, ensuring exceptional performance even with large datasets.
+#### **Advanced Control Tools**
 
-The simplicity of \`rebuild()\` is an **Abstraction of Power**, not an absence of intelligence.
+We still hand you the reins when you need precise governance:
 
-#### **The Present Power: Surgical and Selective Control**
-
-The manual nature of \`rebuild()\` grants the developer precise control capabilities unavailable in automatic systems. It is not a single command but a control interface that accepts parameters to direct the update process:
-
-  * **Focusing:** Via \`buildOnly\`, you can confine the diffing and patching process to a specific scope of the application, dramatically increasing speed for frequent interactions (like games or live data updates).
-  * **Exclusion:** Via \`except\`, you can shield "heavy" or sensitive parts of the DOM (like video players, interactive maps, or third-party components) from any diffing, guaranteeing their complete stability.
-
-<!-- end list -->
+  * **\`freeze(opts?)\`**: increments the freeze depth and merges \`keepScroll/except/buildOnly\` options. All \`setState()\` calls while frozen are queued.
+  * **\`unfreeze(opts?)\`**: decrements the depth and, when it reaches zero, flushes once with the accumulated options.
+  * **\`flush(opts?)\`**: forces an immediate render (with the legacy \`rebuild\` options). Supports \`force:true\` to bypass freezes in emergencies.
+  * **\`batch(fn)\`**: a convenience wrapper that does \`freeze()\` → \`fn()\` → \`unfreeze()\` for you.
 
 \`\`\`javascript
-// Example: Updating a game scoreboard while excluding the live chat
-context.rebuild({
-  buildOnly: ['#game-scoreboard'], // Focus the diffing process here
-  except: ['#live-chat-widget']   // Never touch this element
-});
+// Example: update heavy metrics without flickering the UI
+context.batch((ctx) => {
+  ctx.setState((s) => ({ ...s, metrics: computeHeavyMetrics() }));
+  ctx.setState((s) => ({ ...s, charts: recomputeCharts(s.metrics) }));
+}); // ← a single render on unfreeze
+
+// Example: force a render right now while keeping scroll positions
+context.flush({ keepScroll: ['#orders-list'], except: ['#map-widget'] });
 \`\`\`
 
-#### **The Future Vision: \`rebuild\` as a Governance Gateway**
+\`rebuild()\` stays as a thin alias of \`flush()\` so legacy code keeps working, but day-to-day orders no longer need it. Use it only when you deliberately want to assert manual control.
 
-This explicit control paves the way for unprecedented governance prospects. The \`rebuild\` command is not just a rendering mechanism; it is a primary **security checkpoint** for the Guardian.
-
-Because we can know where the update request originated, we can enforce **Mandatory Scopes** on components. Imagine a future where the Guardian can enforce the following rules:
-
-  * **State Firewall:** A \`PrintButton\` component, when it calls \`rebuild\`, is only permitted to update the print scope in the DOM. It is strictly forbidden from affecting the state or DOM of the \`#shopping-cart\`.
-  * **Component Sandboxing:** Each component is forced to live and operate within a defined scope of the state and the DOM, preventing unintended side effects and making the system radically more secure and robust.
-
-For now, it is sufficient that we possess the power of **Focus, Exclusion, and Declaration**. This is a strategic advantage that places Mishkah in its own class of conscious control over performance and behavior.
+This shift combines effortless reactive flow with surgical authority on demand: no silent chaos, no redundant commands — just a clear, governable pipeline.
 
 -----
 Now that we've discussed the seven pillars of the Mishkat nucleus,
@@ -941,26 +921,24 @@ const orders = {
 
 -----
 
-### 7\. إعادة البناء الواعي (Conscious Reconstruction): فعل الخلق بأمرٍ معلوم
+### 7\. سريان النور الفطري (Reactive Flow by Default): طاعةٌ بلا تلكؤ
 
-**المبدأ الإيماني:** الخلق في الكون لا يتم عشوائيًا، بل بأمر واعٍ ومقصود. ﴿إِنَّمَا أَمْرُهُ إِذَا أَرَادَ شَيْئًا أَن يَقُولَ لَهُ كُن فَيَكُونُ﴾.
+**المبدأ الإيماني:** كما أن الجند لا يتخلفون عن رسولهم، لا ينبغي للجسد (الواجهة) أن يتأخر عن الروح (الحالة). ﴿مَا كَانَ لِأَهۡلِ ٱلۡمَدِينَةِ وَمَنۡ حَوۡلَهُم مِّنَ ٱلۡأَعۡرَابِ أَن يَتَخَلَّفُواْ عَن رَّسُولِ ٱللَّهِ﴾. من اليوم صار \`setState()\` وحده كافيًا؛ الصدق في الحالة يشعل التصيير تلقائيًا بلا أوامر زائدة.
 
-**التجلي الهندسي:** "مشكاة" ترفض السحر الخفي والآليات التلقائية الغامضة. أمر \`rebuild()\` ليس مجرد تحديث، بل هو **فعل خلقٍ واعٍ**. أنت من يصدر الأمر، والنظام ينفذه بذكاء فائق. هو لا يعيد بناء كل شيء بغباء، بل يستخدم خوارزميات مقارنة متقدمة لتحديد التغييرات الدنيا وتطبيقها بدقة جراحية على الـ DOM. هذه البساطة الظاهرية هي **تجريد للقوة (Abstraction of Power)**، تمنحك تحكمًا مطلقًا ووضوحًا تامًا.
+**التجلي الهندسي:** ما زال المسار جراحيًا كما هو: كل تحديث يمر عبر \`flush()\`، بنفس خوارزمية الـ Diff (LIS، استثناء المقاطع الحساسة، الحفاظ على التمرير). الجديد أننا نُجدوِل التصيير تلقائيًا على إطار الرسوم التالي، فنحصل على سلاسة الأنظمة reactive دون أن نفقد وضوح الحكم ولا يقين النتائج. ومع ذلك بقي باب الولاية مفتوحًا عبر \`freeze/unfreeze/flush/batch\` لمن أراد التحكم الصريح.
 
 #### التطبيق العملي:
 
 \`\`\`javascript
-const orders = {
-  'counter.increment': {
-    handler: (e, context) => {
-      context.setState(s => ({ ...s, count: s.count + 1 }));
-      // بعد تغيير الحقيقة، نصدر أمر "كن" فيكون.
-      // فعل واعٍ، صريح، ومقصود.
-      context.rebuild();
-    }
-  }
-};
+context.batch((ctx) => {
+  ctx.setState((s) => ({ ...s, metrics: computeHeavyMetrics() }));
+  ctx.setState((s) => ({ ...s, charts: recomputeCharts(s.metrics) }));
+});
+
+context.flush({ keepScroll: ['#orders-list'], except: ['#map-widget'] });
 \`\`\`
+
+\`rebuild()\` بقي اسمًا مستعارًا لـ \`flush()\` من أجل التوافق، لكن الأصل اليوم هو السريان التلقائي، والولاية عند الطلب.
 
 -----
 
@@ -1276,11 +1254,11 @@ const orders = {
 
 -----
 
-### 7\. Conscious Reconstruction: An Act of Creation by a Known Command
+### 7\. Native Reactive Flow: Creation that Follows Without Delay
 
-**The Theological Principle:** Creation in the universe does not occur randomly, but by a conscious and intentional command. *“His command is only when He intends a thing that He says to it, 'Be,' and it is.”* (Qur'an, Ya-Sin: 82).
+**The Theological Principle:** Creation happens by an explicit divine command. *“His command is only when He intends a thing that He says to it, ‘Be,’ and it is.”* (Ya-Sin 82). Likewise, the interface must not lag behind the truth; every sincere change to the state now propagates automatically.
 
-**The Engineering Manifestation:** Mishkah rejects hidden magic and opaque, automatic mechanisms. The \`rebuild()\` command is not just an update; it is a **conscious act of creation**. You issue the command, and the system executes it with supreme intelligence. It does not foolishly rebuild everything; it uses advanced diffing algorithms to identify the minimal set of changes and apply them with surgical precision to the DOM. This apparent simplicity is an **Abstraction of Power**, granting you absolute control and total clarity.
+**The Engineering Manifestation:** Mishkah still walks the same surgical path—every update flows through \`flush()\`, reusing the LIS diffing, selective freezing, and scroll restoration. We simply schedule that work automatically on the next frame, gifting you reactive smoothness without surrendering auditability. When you need governance, \`freeze/unfreeze/flush/batch\` remain at your command.
 
 #### Practical Application:
 
@@ -1289,13 +1267,18 @@ const orders = {
   'counter.increment': {
     handler: (e, context) => {
       context.setState(s => ({ ...s, count: s.count + 1 }));
-      // After changing the truth, we issue the command "Be," and it is.
-      // A conscious, explicit, and intentional act.
-      context.rebuild();
+      context.flush(); // Declare immediacy only when you truly need it
     }
   }
 };
+
+context.batch((ctx) => {
+  ctx.setState(s => ({ ...s, stats: computeStats() }));
+  ctx.setState(s => ({ ...s, charts: recomputeCharts(s.stats) }));
+});
 \`\`\`
+
+\`rebuild()\` survives as an alias of \`flush()\` for legacy code, but the default is an obedient, reactive flow—with manual authority reserved for deliberate governance.
 
 -----
 

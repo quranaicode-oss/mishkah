@@ -41,7 +41,7 @@
         count: s.data.count + 1
       }
     }));
-    rebuild();
+    flush();
   }
 </orders>
 ```

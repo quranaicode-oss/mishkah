@@ -1656,16 +1656,15 @@ function auto(db, app, opt={}){
         const next = cur.env?.theme==='dark'?'light':'dark';
         setTheme(next);
         ctx.setState(s=> ({ ...s, env:{ ...(s.env||{}), theme: next } }));
-        ctx.rebuild();
       }
     },
     'ui.lang.ar': {
       on:['click'], gkeys:['ui:lang-ar'],
-      handler:(e,ctx)=>{ setDir('rtl'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'ar', dir:'rtl'}, i18n:{...(s.i18n||{}), lang:'ar'} })); ctx.rebuild(); }
+      handler:(e,ctx)=>{ setDir('rtl'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'ar', dir:'rtl'}, i18n:{...(s.i18n||{}), lang:'ar'} })); }
     },
     'ui.lang.en': {
       on:['click'], gkeys:['ui:lang-en'],
-      handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); ctx.rebuild(); }
+      handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); }
     }
   };
   return { orders };

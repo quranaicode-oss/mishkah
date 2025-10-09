@@ -425,7 +425,6 @@
               })
             });
           });
-          context.rebuild();
         }
       },
       'pages.theme.lab.close': {
@@ -445,7 +444,6 @@
               })
             });
           });
-          context.rebuild();
         }
       },
       'pages.theme.lab.change': {
@@ -476,7 +474,6 @@
               })
             });
           });
-          context.rebuild();
         }
       },
       'pages.theme.lab.apply': {
@@ -503,7 +500,6 @@
             });
           });
           applyThemeOverrides(cleaned);
-          context.rebuild();
         }
       },
       'pages.theme.lab.reset': {
@@ -526,7 +522,6 @@
             });
           });
           applyThemeOverrides({});
-          context.rebuild();
         }
       }
     };
@@ -614,7 +609,6 @@
                 active: key
               }
             }));
-            context.rebuild();
           }
         };
         return acc;

@@ -517,17 +517,48 @@ const ChartBridge = (() => {
     scheduleHydrate(target);
     watchForCharts(target);
 
-    const original = app.rebuild;
-    app.rebuild = function patchedRebuild() {
-      const result = original.apply(app, arguments);
-      const root = resolveRoot();
-      scheduleHydrate(root);
-      watchForCharts(root);
-      return result;
+    const devtools = M.Devtools || {};
+    const watchersKey = '__chartHydrateWatchers';
+    const hookFlag = '__chartHydrateHooked';
+    let watchers = devtools[watchersKey];
+    if (!watchers) {
+      watchers = devtools[watchersKey] = new Set();
+    }
+    if (!devtools[hookFlag] && typeof devtools.scheduleRebuild === 'function') {
+      const originalSchedule = devtools.scheduleRebuild;
+      devtools.scheduleRebuild = function patchedSchedule(ctx, fn) {
+        return originalSchedule.call(devtools, ctx, function () {
+          let result;
+          try {
+            result = fn();
+            return result;
+          } finally {
+            const registry = devtools[watchersKey];
+            if (registry && registry.size) {
+              registry.forEach((cb) => {
+                try { cb(ctx); } catch (_err) {}
+              });
+            }
+          }
+        });
+      };
+      devtools[hookFlag] = true;
+    }
+
+    const watcher = (ctxArg) => {
+      const mountNode = resolveRoot();
+      const targetEl = mountNode || document;
+      if (!ctxArg || !ctxArg.root || !targetEl) return;
+      if (ctxArg.root === targetEl) {
+        scheduleHydrate(targetEl);
+        watchForCharts(targetEl);
+      }
     };
+    watchers.add(watcher);
+
     return {
       unbind() {
-        app.rebuild = original;
+        watchers.delete(watcher);
         if (observer) {
           observer.disconnect();
           observer = null;
@@ -1107,12 +1138,11 @@ UI.pushToast = (ctx,{ title, message, icon, ttl=2800 })=>{
     const list=(s.ui?.toasts||[]).concat([{ id:_toId++, title, message, icon }]);
     return { ...s, ui:{ ...(s.ui||{}), toasts:list } };
   });
-  ctx.rebuild();
   const id=_toId-1;
   setTimeout(()=>{
     const st=ctx.getState();
     const list=(st.ui?.toasts||[]).filter(t=> t.id!==id);
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), toasts:list } })); ctx.rebuild();
+    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), toasts:list } }));
   }, ttl);
 };
 
@@ -1140,17 +1170,17 @@ const ORDERS = {
   'ui.tabs.select': { on:['click'], gkeys:['ui:tabs:select'], handler:(e,ctx)=>{
     const btn = e.target && (e.target.closest && e.target.closest('[data-tab-id]'));
     if(!btn) return; const id=btn.getAttribute('data-tab-id');
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), activeTab:id } })); ctx.rebuild();
+    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), activeTab:id } }));
   }},
-  'ui.modal.open':  { on:['click'], gkeys:['ui:modal:open'],  handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:true } })); ctx.rebuild(); } },
-  'ui.modal.close': { on:['click'], gkeys:['ui:modal:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:false } })); ctx.rebuild(); } },
-  'ui.drawer.toggle':{on:['click'], gkeys:['ui:drawer:toggle'],handler:(e,ctx)=>{ const cur=!!ctx.getState().ui?.drawerOpen; ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:!cur } })); ctx.rebuild(); } },
-  'ui.drawer.close': {on:['click'], gkeys:['ui:drawer:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:false } })); ctx.rebuild(); } },
+  'ui.modal.open':  { on:['click'], gkeys:['ui:modal:open'],  handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:true } })); } },
+  'ui.modal.close': { on:['click'], gkeys:['ui:modal:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:false } })); } },
+  'ui.drawer.toggle':{on:['click'], gkeys:['ui:drawer:toggle'],handler:(e,ctx)=>{ const cur=!!ctx.getState().ui?.drawerOpen; ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:!cur } })); } },
+  'ui.drawer.close': {on:['click'], gkeys:['ui:drawer:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:false } })); } },
 
   // Routing (Dashboard / Inventory / Sales)
-  'route.dashboard': { on:['click'], gkeys:['route:dashboard'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'dashboard' } })); ctx.rebuild(); } },
-  'route.inventory': { on:['click'], gkeys:['route:inventory'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'inventory' } })); ctx.rebuild(); } },
-  'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); ctx.rebuild(); } }
+  'route.dashboard': { on:['click'], gkeys:['route:dashboard'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'dashboard' } })); } },
+  'route.inventory': { on:['click'], gkeys:['route:inventory'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'inventory' } })); } },
+  'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); } }
 };
 
 const NOOP = ()=>{};

@@ -401,7 +401,7 @@
 
 * **الحقيقة الواحدة**: `app.truth` هو المصدر الوحيد للحالة. التعديل حصريًا داخل **أوامر** (commands) مع `truth.set()` و`truth.batch()`.
 * **الكيانات المسجّلة**: أي مكوّن يُستدعى مع `uniqueKey` يُخاطَب مباشرة ويُعلَّم بالـ `data-m-k`; مجموعات عبر `groupKey` بـ `data-m-g`.
-* **التحديث الجراحي**: بعد كل أمر، علّم أصغر Region متأثر: `truth.mark('menu-panel')`, `truth.mark('order-panel')`, …؛ استخدام `truth.rebuild()` عند تغيير جذري، و`truth.rebuildAll({ except })` للّغة/الثيم.
+* **التحديث الجراحي**: بعد كل أمر، علّم أصغر Region متأثر: `truth.mark('menu-panel')`, `truth.mark('order-panel')`, …؛ الحالة تتدفق تلقائيًا، واستعمل `truth.flush(opts?)` عند الحاجة لاجبار التحديث أو لخيارات مثل `keepScroll/except` (مثل `truth.flush({ except:['modals-root'] })`).
 * **تفويض الأحداث**: اربط التفاعلات بسمات `data-on*` فقط.
 * **البيئة**: `env.toggleTheme()`, `env.setLocale()`, `env.toggleDir()`؛ كل التنسيقات عبر خاصية `tw` المتوافقة مع RTL/Dark.
 

@@ -1575,7 +1575,6 @@
           ...state,
           ui: { ...(state.ui || {}), sidebarOpen: !state.ui?.sidebarOpen }
         }));
-        ctx.rebuild();
       }
     },
     'templates.sidebar.close': {
@@ -1585,7 +1584,6 @@
           ...state,
           ui: { ...(state.ui || {}), sidebarOpen: false }
         }));
-        ctx.rebuild();
       }
     },
     'templates.nav.link': {
@@ -1631,7 +1629,6 @@
           ...state,
           ui: { ...(state.ui || {}), activeRange: id }
         }));
-        ctx.rebuild();
         dispatchTemplateEvent('dashboard:filters:range', { id });
       }
     },
@@ -1667,7 +1664,6 @@
           ...state,
           ui: { ...(state.ui || {}), activeAction: id }
         }));
-        ctx.rebuild();
         dispatchTemplateEvent('mobile:actions:select', { id });
       }
     },
@@ -1684,7 +1680,6 @@
           ...state,
           ui: { ...(state.ui || {}), sideMenuOpen: true }
         }));
-        ctx.rebuild();
         dispatchTemplateEvent('mobile:menu:open', {});
       }
     },
@@ -1695,7 +1690,6 @@
           ...state,
           ui: { ...(state.ui || {}), sideMenuOpen: false }
         }));
-        ctx.rebuild();
         dispatchTemplateEvent('mobile:menu:close', {});
       }
     },
@@ -1710,7 +1704,6 @@
           ...state,
           ui: { ...(state.ui || {}), activePage: id, sideMenuOpen: false, activeAction: null }
         }));
-        ctx.rebuild();
         dispatchTemplateEvent('mobile:page:select', { id });
       }
     },

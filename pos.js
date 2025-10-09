@@ -1314,7 +1314,6 @@
               }
             }
           }));
-          ctx.rebuild();
           try{
             socket = new WebSocket(url);
           } catch(error){
@@ -1326,7 +1325,6 @@
                 status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
               }
             }));
-            ctx.rebuild();
             return;
           }
           socket.onopen = ()=>{
@@ -1338,7 +1336,6 @@
                 status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'online' } }
               }
             }));
-            ctx.rebuild();
           };
           socket.onclose = ()=>{
             UI.pushToast(ctx, { title:t.toast.kdsClosed, icon:'ℹ️' });
@@ -1349,7 +1346,6 @@
                 status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
               }
             }));
-            ctx.rebuild();
           };
           socket.onerror = ()=>{
             UI.pushToast(ctx, { title:t.toast.kdsFailed, icon:'🛑' });
@@ -1360,7 +1356,6 @@
                 status:{ ...s.data.status, kds:{ ...(s.data.status?.kds || {}), state:'offline' } }
               }
             }));
-            ctx.rebuild();
           };
           socket.onmessage = (event)=>{
             try{
@@ -2159,8 +2154,8 @@
             ui: nextUi
           }));
         }
-        if(appRef && typeof appRef.rebuild === 'function'){
-          appRef.rebuild();
+        if(appRef && typeof appRef.flush === 'function'){
+          appRef.flush({ force: true });
         }
         return { current: currentShift, history, orders: historyOrders };
       } catch(error){
@@ -3554,7 +3549,6 @@
           }
         };
       });
-      ctx.rebuild();
     }
 
     function PaymentsSheet(db){
@@ -4297,7 +4291,6 @@
           ui:{ ...(s.ui || {}), modalOpen:false, modals: current }
         };
       });
-      ctx.rebuild();
       return true;
     }
 
@@ -4331,7 +4324,6 @@
               ui:{ ...(s.ui || {}), modalSizes: next }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.shift.tab':{
@@ -4346,7 +4338,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), activeTab: tabId } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.settings.open':{
@@ -4357,7 +4348,6 @@
             ...s,
             ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), open:true, activeTheme:(s.ui?.settings?.activeTheme || s.env?.theme || 'dark') } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.settings.close':{
@@ -4368,7 +4358,6 @@
             ...s,
             ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), open:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.settings.theme':{
@@ -4382,7 +4371,6 @@
             ...s,
             ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), activeTheme: theme || 'light', open:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.settings.color':{
@@ -4406,7 +4394,6 @@
             return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
           });
           applyThemePreferenceStyles(ctx.getState().data.themePrefs);
-          ctx.rebuild();
         }
       },
       'pos.settings.font':{
@@ -4428,7 +4415,6 @@
             return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
           });
           applyThemePreferenceStyles(ctx.getState().data.themePrefs);
-          ctx.rebuild();
         }
       },
       'pos.settings.reset':{
@@ -4446,7 +4432,6 @@
             return { ...s, data:{ ...(s.data || {}), themePrefs: prefs } };
           });
           applyThemePreferenceStyles(ctx.getState().data.themePrefs);
-          ctx.rebuild();
         }
       },
       'ui.modal.escape':{
@@ -4472,7 +4457,6 @@
               menu:{ ...(s.data.menu || {}), search:value }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.menu.category':{
@@ -4489,7 +4473,6 @@
               menu:{ ...(s.data.menu || {}), category:id }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.menu:add':{
@@ -4538,7 +4521,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.item_added, icon:'✅' });
         }
       },
@@ -4563,7 +4545,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.menu.favorites-only':{
@@ -4577,7 +4558,6 @@
               menu:{ ...(s.data.menu || {}), showFavoritesOnly: !s.data.menu?.showFavoritesOnly }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.menu.load-more':{
@@ -4619,7 +4599,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.order.line.dec':{
@@ -4658,7 +4637,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.order.line.qty':{
@@ -4694,7 +4672,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.order.line.modifiers':{
@@ -4727,7 +4704,6 @@
               lineModifiers:{ lineId, addOns:selectedAddOns, removals:selectedRemovals }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.line.modifiers.toggle':{
@@ -4766,7 +4742,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.order.line.modifiers.apply':{
@@ -4815,7 +4790,6 @@
               lineModifiers:{ lineId:null, addOns:[], removals:[] }
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.line_modifiers_applied, icon:'✨' });
         }
       },
@@ -4831,7 +4805,6 @@
               lineModifiers:{ lineId:null, addOns:[], removals:[] }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.clear':{
@@ -4853,7 +4826,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.cart_cleared, icon:'🧺' });
         }
       },
@@ -4909,7 +4881,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.new_order, icon:'🆕' });
         }
       },
@@ -4940,7 +4911,6 @@
               tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock)
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
         }
       },
@@ -4986,7 +4956,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.notes_updated, icon:'📝' });
         }
       },
@@ -5037,7 +5006,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.order_type_changed, icon:'🔄' });
         }
       },
@@ -5060,7 +5028,6 @@
               ...s,
               ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'' } }
             }));
-            ctx.rebuild();
             return;
           }
           const order = state.data.order || {};
@@ -5086,7 +5053,6 @@
                 paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount: outstanding ? String(outstanding) : '' }
               }
             }));
-            ctx.rebuild();
             UI.pushToast(ctx, { title:t.ui.payments, message:t.ui.balance_due, icon:'💳' });
             return;
           }
@@ -5168,7 +5134,6 @@
                 }
               };
             });
-            ctx.rebuild();
             await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
             if(mode === 'save-print'){
               ctx.setState(s=>({
@@ -5179,7 +5144,6 @@
                   print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' }
                 }
               }));
-              ctx.rebuild();
             }
             UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
           } catch(error){
@@ -5194,7 +5158,6 @@
                 }
               }
             }));
-            ctx.rebuild();
           }
         }
       },
@@ -5206,7 +5169,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'', openingFloat: s.ui?.shift?.openingFloat ?? s.data?.shift?.config?.openingFloat ?? SHIFT_OPEN_FLOAT_DEFAULT } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.pin':{
@@ -5222,7 +5184,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), pin:value } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.opening-float':{
@@ -5234,7 +5195,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), openingFloat: Number.isFinite(value) ? value : 0 } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.pin.confirm':{
@@ -5323,7 +5283,6 @@
             },
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'', showSummary:false, viewShiftId:normalizedShift.id } }
           }));
-          ctx.rebuild();
           await refreshPersistentSnapshot({ focusCurrent:true });
           UI.pushToast(ctx, { title:t.toast.shift_open_success, icon:'✅' });
         }
@@ -5336,7 +5295,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:false, pin:'' } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.summary':{
@@ -5352,7 +5310,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId: s.ui?.shift?.viewShiftId || defaultId, activeTab:'summary' } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.summary.close':{
@@ -5363,7 +5320,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.view':{
@@ -5377,7 +5333,6 @@
             ...s,
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), viewShiftId:shiftId } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.shift.close':{
@@ -5392,7 +5347,6 @@
               ...s,
               ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:false } }
             }));
-            ctx.rebuild();
             return;
           }
           const sanitizedCurrent = SHIFT_TABLE.createRecord({
@@ -5449,7 +5403,6 @@
             },
             ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showSummary:true, viewShiftId:normalizedClosed.id } }
           }));
-          ctx.rebuild();
           await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
           UI.pushToast(ctx, { title:t.toast.shift_close_success, icon:'✅' });
         }
@@ -5480,7 +5433,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.close':{
@@ -5491,7 +5443,6 @@
             ...s,
             ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), open:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.customer.mode':{
@@ -5520,7 +5471,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.search':{
@@ -5571,7 +5521,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.keypad':{
@@ -5583,7 +5532,6 @@
             ...s,
             ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), keypad:digits } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.customer.keypad.confirm':{
@@ -5634,7 +5582,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.select':{
@@ -5660,7 +5607,6 @@
               }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.address.select':{
@@ -5674,7 +5620,6 @@
             ...s,
             ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), selectedAddressId:id } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.customer.attach':{
@@ -5718,7 +5663,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.customer_attach_success, icon:'✅' });
         }
       },
@@ -5748,7 +5692,6 @@
               }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.customer.form.reset':{
@@ -5759,7 +5702,6 @@
             ...s,
             ui:{ ...(s.ui || {}), customer:{ ...(s.ui?.customer || {}), form:createEmptyCustomerForm(), keypad:'' } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.customer.form.name':{
@@ -5776,7 +5718,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.phone':{
@@ -5797,7 +5738,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.phone.add':{
@@ -5815,7 +5755,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.phone.remove':{
@@ -5835,7 +5774,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address.add':{
@@ -5853,7 +5791,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address.remove':{
@@ -5873,7 +5810,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address:title':{
@@ -5894,7 +5830,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address:area':{
@@ -5915,7 +5850,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address:line':{
@@ -5936,7 +5870,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.address:notes':{
@@ -5957,7 +5890,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.form.keypad.confirm':{
@@ -5981,7 +5913,6 @@
               ui:{ ...(s.ui || {}), customer:{ ...current, form, keypad:'' } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.customer.save':{
@@ -6043,7 +5974,6 @@
               }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.customer_saved, icon:'💾' });
         }
       },
@@ -6083,7 +6013,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.nav.close':{
@@ -6094,7 +6023,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.nav.input':{
@@ -6106,7 +6034,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), value } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.nav.confirm':{
@@ -6122,7 +6049,6 @@
               ...s,
               ui:{ ...(s.ui || {}), orderNav:{ ...(s.ui?.orderNav || {}), showPad:false } }
             }));
-            ctx.rebuild();
             return;
           }
           const normalized = value.toLowerCase();
@@ -6160,7 +6086,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:true }, print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.order.export':{
@@ -6219,7 +6144,6 @@
             },
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), size } }
           }));
-          ctx.rebuild();
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.print_size_switched, icon:'🖨️' });
         }
@@ -6236,7 +6160,6 @@
             data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), docType:doc } },
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), docType:doc } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.printer-select':{
@@ -6272,7 +6195,6 @@
             ...s,
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), showAdvanced: !s.ui?.print?.showAdvanced } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.manage-toggle':{
@@ -6283,7 +6205,6 @@
             ...s,
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), managePrinters: !s.ui?.print?.managePrinters } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.preview-expand':{
@@ -6294,7 +6215,6 @@
             ...s,
             ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), previewExpanded: !s.ui?.print?.previewExpanded } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.manage-input':{
@@ -6340,7 +6260,6 @@
               ui:{ ...(s.ui || {}), print:{ ...(s.ui?.print || {}), newPrinterName:'' } }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.printer_added, icon:'🖨️' });
         }
       },
@@ -6369,7 +6288,6 @@
               data:{ ...(s.data || {}), print: current }
             };
           });
-          ctx.rebuild();
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.printer_removed, icon:'🗑️' });
         }
@@ -6419,7 +6337,6 @@
               data:{ ...(s.data || {}), print:{ ...(s.data.print || {}), profiles } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.print.save':{
@@ -6432,7 +6349,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.send':{
@@ -6445,7 +6361,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), print:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.print.browser':{
@@ -6483,7 +6398,6 @@
             ...s,
             ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null }, modals:{ ...(s.ui?.modals || {}), reservations:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.new':{
@@ -6501,7 +6415,6 @@
               }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.range':{
@@ -6515,7 +6428,6 @@
             ...s,
             ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), filter:range } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.status':{
@@ -6529,7 +6441,6 @@
             ...s,
             ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), status } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.form':{
@@ -6563,7 +6474,6 @@
             form.tableIds = Array.from(set);
             return { ...s, ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), form } } };
           });
-          ctx.rebuild();
         }
       },
       'pos.reservations.cancel-edit':{
@@ -6574,7 +6484,6 @@
             ...s,
             ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.save':{
@@ -6627,7 +6536,6 @@
               ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:null, form:null } }
             };
           });
-          ctx.rebuild();
           UI.pushToast(ctx, { title: form.id ? t.toast.reservation_updated : t.toast.reservation_created, icon:'📅' });
         }
       },
@@ -6645,7 +6553,6 @@
             ...s,
             ui:{ ...(s.ui || {}), reservations:{ ...(s.ui?.reservations || {}), editing:resId, form:{ ...reservation } } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reservations.convert':{
@@ -6692,7 +6599,6 @@
               tableLocks:[...(s.data.tableLocks || []), ...reservation.tableIds.map(id=> ({ id:`lock-${Date.now().toString(36)}-${id}`, tableId:id, orderId:newOrder.id, lockedBy:s.data.user?.id || 'pos-user', lockedAt:Date.now(), source:'reservation-convert', active:true }))]
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.reservation_converted, icon:'🍽️' });
         }
       },
@@ -6709,7 +6615,6 @@
             ...s,
             data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'no-show' } : res) }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.reservation_no_show, icon:'⏰' });
         }
       },
@@ -6726,7 +6631,6 @@
             ...s,
             data:{ ...(s.data || {}), reservations:(s.data.reservations || []).map(res=> res.id === resId ? { ...res, status:'cancelled' } : res) }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.reservation_cancelled, icon:'🚫' });
         }
       },
@@ -6745,7 +6649,6 @@
                 data:{ ...(s.data || {}), ordersQueue: orders },
                 ui:{ ...(s.ui || {}), orders: defaultOrdersUi, modals:{ ...(s.ui?.modals || {}), orders:true } }
               }));
-              ctx.rebuild();
               UI.pushToast(ctx, { title:t.toast.orders_loaded, icon:'📥' });
               return;
             } catch(error){
@@ -6758,7 +6661,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orders: defaultOrdersUi, modals:{ ...(s.ui?.modals || {}), orders:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.orders.toggle':{
@@ -6769,7 +6671,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), orders:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.orders.tab':{
@@ -6783,7 +6684,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), tab: tabId }, modals:{ ...(s.ui?.modals || {}), orders:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.orders.search':{
@@ -6795,7 +6695,6 @@
             ...s,
             ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), search:value }, modals:{ ...(s.ui?.modals || {}), orders:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.orders.sort':{
@@ -6813,7 +6712,6 @@
               ui:{ ...(s.ui || {}), orders:{ ...(s.ui?.orders || {}), sort:{ field, direction } }, modals:{ ...(s.ui?.modals || {}), orders:true } }
             };
           });
-          ctx.rebuild();
         }
       },
       'pos.orders.refresh':{
@@ -6832,7 +6730,6 @@
               ...s,
               data:{ ...(s.data || {}), ordersQueue: orders }
             }));
-            ctx.rebuild();
             UI.pushToast(ctx, { title:t.toast.orders_loaded, icon:'📥' });
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.orders_failed, message:String(error), icon:'🛑' });
@@ -6875,7 +6772,6 @@
               modals:{ ...(s.ui?.modals || {}), tables:true }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.view':{
@@ -6889,7 +6785,6 @@
             ...s,
             ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), view } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.filter':{
@@ -6903,7 +6798,6 @@
             ...s,
             ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), filter } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.search':{
@@ -6928,7 +6822,6 @@
             ...s,
             ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:tableId } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.details-close':{
@@ -6939,7 +6832,6 @@
             ...s,
             ui:{ ...(s.ui || {}), tables:{ ...(s.ui?.tables || {}), details:null } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.card.tap':{
@@ -6980,7 +6872,6 @@
                 order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() }
               }
             }));
-            ctx.rebuild();
             UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
             return;
           }
@@ -6996,7 +6887,6 @@
               order:{ ...(s.data.order || {}), tableIds:Array.from(new Set([...(s.data.order?.tableIds || []), tableId])), updatedAt: Date.now() }
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_locked_now, icon:'🔒' });
         }
       },
@@ -7017,7 +6907,6 @@
               tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === orderId ? { ...lock, active:false } : lock)
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_unlock_partial, icon:'🔓' });
         }
       },
@@ -7035,7 +6924,6 @@
               tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId ? { ...lock, active:false } : lock)
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.add':{
@@ -7058,7 +6946,6 @@
               tables:[...(s.data.tables || []), { id:`T${Date.now().toString(36)}`, name, capacity:4, zone:'', state:'active', displayOrder: nextIndex, note:'' }]
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_added, icon:'➕' });
         }
       },
@@ -7086,7 +6973,6 @@
               auditTrail:[...(s.data.auditTrail || []), { id:`audit-${Date.now().toString(36)}`, userId:s.data.user?.id || 'pos-user', action:'table.rename', refType:'table', refId:tableId, at:Date.now(), meta:{ name:nextName } }]
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_updated, icon:'✏️' });
         }
       },
@@ -7115,7 +7001,6 @@
               tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, capacity } : tbl)
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_updated, icon:'👥' });
         }
       },
@@ -7138,7 +7023,6 @@
               tables:(s.data.tables || []).map(tbl=> tbl.id === tableId ? { ...tbl, zone } : tbl)
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.tables.state':{
@@ -7167,7 +7051,6 @@
               })
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_state_updated, icon:'♻️' });
         }
       },
@@ -7193,7 +7076,6 @@
               tables:(s.data.tables || []).filter(tbl=> tbl.id !== tableId)
             }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.table_removed, icon:'🗑️' });
         }
       },
@@ -7212,7 +7094,6 @@
             });
             return { ...s, data:{ ...(s.data || {}), tables } };
           });
-          ctx.rebuild();
         }
       },
       'ui.numpad.decimal.key':{
@@ -7236,7 +7117,6 @@
           input.value = value;
           input.dispatchEvent(new Event('input', { bubbles:true }));
           input.dispatchEvent(new Event('change', { bubbles:true }));
-          ctx.rebuild();
         }
       },
       'ui.numpad.decimal.clear':{
@@ -7252,7 +7132,6 @@
           input.value = '';
           input.dispatchEvent(new Event('input', { bubbles:true }));
           input.dispatchEvent(new Event('change', { bubbles:true }));
-          ctx.rebuild();
         }
       },
       'ui.numpad.decimal.backspace':{
@@ -7269,7 +7148,6 @@
           input.value = value.length ? value.slice(0, -1) : '';
           input.dispatchEvent(new Event('input', { bubbles:true }));
           input.dispatchEvent(new Event('change', { bubbles:true }));
-          ctx.rebuild();
         }
       },
       'ui.numpad.decimal.confirm':{
@@ -7284,7 +7162,7 @@
           if(input){
             input.dispatchEvent(new Event('change', { bubbles:true }));
           }
-          ctx.rebuild();
+
         }
       },
       'pos.payments.open':{
@@ -7299,7 +7177,6 @@
               paymentDraft:{ amount:'', method: s.data.payments?.activeMethod || 'cash' }
             }
           }));
-          ctx.rebuild();
         }
       },
       'pos.payments.close':{
@@ -7310,7 +7187,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.payments.method':{
@@ -7325,7 +7201,6 @@
             data:{ ...(s.data || {}), payments:{ ...(s.data.payments || {}), activeMethod: method } },
             ui:{ ...(s.ui || {}), paymentDraft:{ ...(s.ui?.paymentDraft || {}), method } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.payments.amount':{
@@ -7337,7 +7212,6 @@
             ...s,
             ui:{ ...(s.ui || {}), paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount:value } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.payments.capture':{
@@ -7363,7 +7237,6 @@
             },
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false }, paymentDraft:{ amount:'' } }
           }));
-          ctx.rebuild();
           UI.pushToast(ctx, { title:t.toast.payment_recorded, icon:'💰' });
         }
       },
@@ -7375,7 +7248,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:true } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.reports.toggle':{
@@ -7386,7 +7258,6 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), reports: !s.ui?.modals?.reports } }
           }));
-          ctx.rebuild();
         }
       },
       'pos.indexeddb.sync':{
@@ -7411,7 +7282,6 @@
                 reports:{ ...(s.data.reports || {}), ordersCount: orders.length }
               }
             }));
-            ctx.rebuild();
             UI.pushToast(ctx, { title:t.toast.sync_complete, icon:'✅' });
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
@@ -7422,7 +7292,6 @@
                 status:{ ...s.data.status, indexeddb:{ state:'offline', lastSync: s.data.status?.indexeddb?.lastSync || null } }
               }
             }));
-            ctx.rebuild();
           }
         }
       },
@@ -7445,7 +7314,6 @@
             env:{ ...(s.env || {}), theme },
             ui:{ ...(s.ui || {}), settings:{ ...(s.ui?.settings || {}), activeTheme: theme } }
           }));
-          ctx.rebuild();
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.theme_switched, icon: theme === 'dark' ? '🌙' : '☀️' });
         }
@@ -7461,7 +7329,6 @@
             ...s,
             env:{ ...(s.env || {}), lang, dir: lang === 'ar' ? 'rtl' : 'ltr' }
           }));
-          ctx.rebuild();
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.lang_switched, icon:'🌐' });
         }

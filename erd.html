@@ -387,7 +387,7 @@
             canvas:{ ...(s.data.canvas || {}), zoom, mode:'auto' },
           },
         }));
-        erdAppInstance.rebuild();
+        erdAppInstance.flush({ force: true });
       } finally {
         applyingAutoZoom = false;
       }
@@ -881,7 +881,7 @@
         nextState = draft;
         return draft;
       });
-      ctx.rebuild();
+      
       if(nextState){
         schedulePersist(recordFromState(nextState));
       }
@@ -2188,7 +2188,7 @@
           contextMenu:{ open:false, x:0, y:0, type:'canvas', table:'', field:'' }
         }
       }));
-      erdAppInstance.rebuild();
+      erdAppInstance.flush({ force: true });
     }
 
     function openContextMenu(payload){
@@ -2210,7 +2210,7 @@
           }
         }
       }));
-      erdAppInstance.rebuild();
+      erdAppInstance.flush({ force: true });
     }
 
     function ensureContextMenuHandlers(host){
@@ -2423,7 +2423,7 @@
                 canvas:{ ...(s.data.canvas || {}), mode:'manual', zoom: currentZoom },
               },
             }));
-            erdAppInstance.rebuild();
+            erdAppInstance.flush({ force: true });
           }
         }
         if(switchedToManual){
@@ -2593,7 +2593,7 @@
             layout: payload.layout,
           },
         }));
-        erdAppInstance.rebuild();
+        erdAppInstance.flush({ force: true });
       }
       const palette = currentPalette();
       payload.palette = palette;
@@ -2665,7 +2665,7 @@
           },
         };
       });
-      erdAppInstance.rebuild();
+      erdAppInstance.flush({ force: true });
       if(persistRecord){
         schedulePersist(persistRecord);
       }
@@ -2678,7 +2678,7 @@
       const tableName = list[0];
       if(!tableName) return;
       erdAppInstance.setState(s => withTableSelection(s, tableName));
-      erdAppInstance.rebuild();
+      erdAppInstance.flush({ force: true });
     }
 
     function handleDriverEdgeConnect(connection){
@@ -2737,7 +2737,7 @@
         draft = withFieldSelection(draft, sourceTable, sourceField);
         return draft;
       });
-      erdAppInstance.rebuild();
+      erdAppInstance.flush({ force: true });
       if(persistRecord){
         schedulePersist(persistRecord);
       }
@@ -3178,7 +3178,7 @@
           ui:{ ...(s.ui || {}), hiddenTables: nextHidden }
         };
       });
-      ctx.rebuild();
+      
     }
 
     function openColumnsManager(ctx, tableName){
@@ -3195,7 +3195,7 @@
           form:{ ...(s.ui?.form || {}), columns:{ table: targetName, rows } }
         }
       }));
-      ctx.rebuild();
+      
     }
 
     function openRelationModal(ctx, tableName, fieldName){
@@ -3217,7 +3217,7 @@
           }
         }
       }));
-      ctx.rebuild();
+      
     }
 
     function autoLayoutDiagram(ctx){
@@ -3254,7 +3254,7 @@
         nextState = draft;
         return draft;
       });
-      ctx.rebuild();
+      
       if(nextState){
         schedulePersist(recordFromState(nextState));
       }
@@ -3279,7 +3279,7 @@
             form:{ ...(s.ui?.form || {}), import:{ name: s.data.schemaMeta?.name || '', title: s.data.schemaMeta?.title || '', targetId: s.data.schemaId || '', text } }
           }
         }));
-        ctx.rebuild();
+        
         UI.pushToast(ctx, { title:'تم جلب المخطط من الحافظة', icon:'📋' });
       } catch(error){
         console.warn('[Mishkah][ERD] clipboard paste failed', error);
@@ -3347,7 +3347,7 @@
         nextState = draft;
         return draft;
       });
-      ctx.rebuild();
+      
       if(nextState){
         schedulePersist(recordFromState(nextState));
       }
@@ -4410,7 +4410,7 @@
             };
             return next;
           });
-          ctx.rebuild();
+          
           if(next) schedulePersist(recordFromState(next));
         }
       },
@@ -4444,7 +4444,7 @@
             };
             return next;
           });
-          ctx.rebuild();
+          
           if(next) schedulePersist(recordFromState(next));
         }
       },
@@ -4477,7 +4477,7 @@
             };
             return next;
           });
-          ctx.rebuild();
+          
           if(next) schedulePersist(recordFromState(next));
         }
       },
@@ -4515,7 +4515,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.toolbar.export.close':{
@@ -4529,7 +4529,7 @@
               toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false, exportAnchor:null }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.export.run':{
@@ -4547,7 +4547,7 @@
               toolbar:{ ...(s.ui?.toolbar || {}), exportOpen:false, exportAnchor:null }
             }
           }));
-          ctx.rebuild();
+          
           const state = ctx.getState();
           if(format === 'svg'){
             const driver = ensureDriverInstance(state);
@@ -4617,7 +4617,7 @@
                 form:{ ...(s.ui?.form || {}), export:{ text: JSON.stringify(payload, null, 2) } }
               }
             }));
-            ctx.rebuild();
+            
             return;
           }
           if(format === 'sql'){
@@ -4638,7 +4638,7 @@
                 form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
               }
             }));
-            ctx.rebuild();
+            
             return;
           }
         }
@@ -4651,7 +4651,7 @@
           if(!card) return;
           const tableName = card.getAttribute('data-table-name');
           ctx.setState(s => withTableSelection(s, tableName));
-          ctx.rebuild();
+          
         }
       },
       'erd.field.select':{
@@ -4663,7 +4663,7 @@
           const tableName = row.getAttribute('data-table-name');
           const fieldName = row.getAttribute('data-field-name');
           ctx.setState(s => withFieldSelection(s, tableName, fieldName));
-          ctx.rebuild();
+          
         }
       },
       'erd.import.open':{
@@ -4688,7 +4688,7 @@
               form:{ ...(s.ui?.form || {}), import:{ name: payload.name, title: payload.title, targetId: s.data.schemaId || '', text: JSON.stringify(payload, null, 2) } }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.modal.close':{
@@ -4699,7 +4699,7 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false, columns:false, classification:false } }
           }));
-          ctx.rebuild();
+          
         }
       },
         'erd.template.toggle':{
@@ -4717,7 +4717,7 @@
                 }
               };
             });
-            ctx.rebuild();
+            
           }
         },
         'erd.panel.library.toggle':{
@@ -4735,7 +4735,7 @@
                 }
               };
             });
-            ctx.rebuild();
+            
           }
         },
         'erd.panel.classification.toggle':{
@@ -4753,7 +4753,7 @@
                 }
               };
             });
-            ctx.rebuild();
+            
           }
         },
         'erd.form.update':{
@@ -4894,7 +4894,7 @@
             }
             return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, [formKey]: value } } };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.form.toggle':{
@@ -4911,7 +4911,7 @@
             const targetForm = currentForms[formKey] || {};
             return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, [formKey]: { ...targetForm, [fieldKey]: checked } } } };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.table.add':{
@@ -4922,7 +4922,7 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), table:true } }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.table.create':{
@@ -5000,7 +5000,7 @@
               next = draft;
               return next;
             });
-            ctx.rebuild();
+            
             if(next) schedulePersist(recordFromState(next));
           } catch(error){
             console.warn('[Mishkah][ERD] failed to create table', error);
@@ -5039,7 +5039,7 @@
               }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.field.add.table':{
@@ -5082,7 +5082,7 @@
             };
             return tableName ? withTableSelection(nextState, tableName) : nextState;
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.field.create':{
@@ -5193,7 +5193,7 @@
               next = draft;
               return next;
             });
-            ctx.rebuild();
+            
             if(next) schedulePersist(recordFromState(next));
           } catch(error){
             console.warn('[Mishkah][ERD] failed to add field', error);
@@ -5225,7 +5225,7 @@
             };
             return defaultTable ? withTableSelection(nextState, defaultTable) : nextState;
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.add-row':{
@@ -5255,7 +5255,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.select-table':{
@@ -5280,7 +5280,7 @@
             };
             return withTableSelection(draft, tableName);
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.update':{
@@ -5370,7 +5370,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.open-relation':{
@@ -5405,7 +5405,7 @@
               }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.focus':{
@@ -5427,7 +5427,7 @@
             };
             return withFieldSelection(draft, tableName || columnsForm.table || '', fieldName);
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.columns.save':{
@@ -5554,7 +5554,7 @@
             nextState = draft;
             return draft;
           });
-          ctx.rebuild();
+          
           if(persistRecord) schedulePersist(recordFromState(nextState));
           UI.pushToast(ctx, { title:'تم حفظ الأعمدة بنجاح', icon:'✅' });
         }
@@ -5578,7 +5578,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.classes.update':{
@@ -5607,7 +5607,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.classes.remove':{
@@ -5633,7 +5633,7 @@
               }
             };
           });
-          ctx.rebuild();
+          
         }
       },
       'erd.classes.save':{
@@ -5676,7 +5676,7 @@
               }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.classes.update-bulk':{
@@ -5752,7 +5752,7 @@
                 ...s,
                 ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), table:true } }
               }));
-              ctx.rebuild();
+              
               break;
             }
             case 'canvas:auto-layout':
@@ -5787,7 +5787,7 @@
                   form:{ ...(s.ui?.form || {}), import:{ name: payload.name, title: payload.title, targetId: s.data.schemaId || '', text: JSON.stringify(payload, null, 2) } }
                 }
               }));
-              ctx.rebuild();
+              
               break;
             }
             case 'table:columns':
@@ -5823,7 +5823,7 @@
                   form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
                 }
               }));
-              ctx.rebuild();
+              
               break;
             }
             case 'table:export-json':{
@@ -5843,7 +5843,7 @@
                   form:{ ...(s.ui?.form || {}), export:{ text: JSON.stringify(payload, null, 2) } }
                 }
               }));
-              ctx.rebuild();
+              
               break;
             }
             case 'field:pk':
@@ -5891,7 +5891,7 @@
               form:{ ...(s.ui?.form || {}), relation:{ sourceTable: selection.table || '', sourceField: selection.field || '', targetTable:'', targetField:'', onDelete:'CASCADE', onUpdate:'CASCADE' } }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.relation.create':{
@@ -5948,7 +5948,7 @@
               next = draft;
               return next;
             });
-            ctx.rebuild();
+            
             if(next) schedulePersist(recordFromState(next));
           } catch(error){
             console.warn('[Mishkah][ERD] failed to create relation', error);
@@ -6024,7 +6024,7 @@
                 }
               }
             }));
-            ctx.rebuild();
+            
             UI.pushToast(ctx, { title:'تم استيراد المخطط وتخزينه', icon:'✅' });
           } catch(error){
             console.warn('[Mishkah][ERD] import failed', error);
@@ -6043,7 +6043,7 @@
             ...s,
             ui:{ ...(s.ui || {}), form:{ ...(s.ui?.form || {}), layout:{ ...(s.ui?.form?.layout || {}), [axis]: Number.isFinite(value) ? value : 0 } } }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.layout.apply':{
@@ -6085,7 +6085,7 @@
             };
             return next;
           });
-          ctx.rebuild();
+          
           if(next) schedulePersist(recordFromState(next));
         }
       },
@@ -6134,7 +6134,7 @@
                 }
               }
             }));
-            ctx.rebuild();
+            
             UI.pushToast(ctx, { title:'تم إنشاء مخطط جديد', icon:'✨' });
           } catch(error){
             console.warn('[Mishkah][ERD] failed to create new schema', error);
@@ -6196,7 +6196,7 @@
                 }
               }
             }));
-            ctx.rebuild();
+            
           } catch(error){
             console.warn('[Mishkah][ERD] failed to select schema', error);
             UI.pushToast(ctx, { title:'فشل تحميل المخطط', message:String(error), icon:'🛑' });
@@ -6270,7 +6270,7 @@
                 }
               }
             }));
-            ctx.rebuild();
+            
             UI.pushToast(ctx, { title:'تم حذف المخطط', icon:'🗑️' });
           } catch(error){
             console.warn('[Mishkah][ERD] failed to delete schema', error);
@@ -6290,7 +6290,7 @@
               form:{ ...(s.ui?.form || {}), schemaMeta:{ ...(s.data.schemaMeta || {}) } }
             }
           }));
-          ctx.rebuild();
+          
         }
       },
       'erd.schema.meta.save':{
@@ -6335,7 +6335,7 @@
             };
             return next;
           });
-          ctx.rebuild();
+          
           if(next) schedulePersist(recordFromState(next));
         }
       }

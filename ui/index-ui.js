@@ -2771,7 +2771,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         feedback,
         revealSolution: status === 'won' ? true : game.revealSolution
       })));
-      context.rebuild();
     }, 1000);
     return { ...baseGame, intervalId: iid };
   }
@@ -2798,7 +2797,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...prev,
           data: { ...prev.data, counter: prev.data.counter + 1 }
         }));
-        context.rebuild();
       }
     },
     'counter:dec': {
@@ -2809,7 +2807,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...prev,
           data: { ...prev.data, counter: prev.data.counter - 1 }
         }));
-        context.rebuild();
       }
     },
     'counter:reset': {
@@ -2820,7 +2817,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...prev,
           data: { ...prev.data, counter: 0 }
         }));
-        context.rebuild();
       }
     },
     'index:themeLab:open': {
@@ -2841,7 +2837,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'index:themeLab:close': {
@@ -2862,7 +2857,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'index:themeLab:resetAll': {
@@ -2899,7 +2893,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         if (shell && typeof shell.applyThemeOverrides === 'function') {
           shell.applyThemeOverrides(appliedOverrides || {});
         }
-        context.rebuild();
+
       }
     },
     'index:themeLab:varUpdate': {
@@ -2947,7 +2941,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         if (shell && typeof shell.applyThemeOverrides === 'function') {
           shell.applyThemeOverrides(appliedOverrides || {});
         }
-        context.rebuild();
+
       }
     },
     'index:themeLab:varReset': {
@@ -2994,7 +2988,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         if (shell && typeof shell.applyThemeOverrides === 'function') {
           shell.applyThemeOverrides(appliedOverrides || {});
         }
-        context.rebuild();
+
       }
     },
     'sequence:start': {
@@ -3011,7 +3005,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           feedback: null,
           history: []
         })));
-        context.rebuild();
       }
     },
     'sequence:update': {
@@ -3025,7 +3018,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...seq,
           guess: value
         })));
-        context.rebuild();
       }
     },
     'sequence:submit': {
@@ -3069,7 +3061,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           history,
           feedback: feedbackType ? { type: feedbackType, stamp: Date.now() } : null
         })));
-        context.rebuild();
       }
     },
     'sequence:reveal': {
@@ -3080,7 +3071,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...seq,
           reveal: true
         })));
-        context.rebuild();
       }
     },
     'game:start': {
@@ -3115,7 +3105,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         stopTimer(previousGame);
         const withTimer = startTimer(context, baseGame);
         context.setState((prev) => withGame(prev, () => withTimer));
-        context.rebuild();
       }
     },
     'game:guess': {
@@ -3181,7 +3170,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           revealSolution: status === 'won' ? true : game.revealSolution,
           feedback
         })));
-        context.rebuild();
       }
     },
     'game:reveal': {
@@ -3192,7 +3180,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           ...game,
           revealSolution: true
         })));
-        context.rebuild();
       }
     },
     'game:settings:update': {
@@ -3230,7 +3217,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             timeLeft: game.timerOn ? nextTimeLeft : nextTimerSec
           };
         }));
-        context.rebuild();
       }
     },
     'ui:lang:select': {
@@ -3265,7 +3251,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           };
         });
         setDir(dir);
-        context.rebuild();
       }
     },
     'ui:theme:select': {
@@ -3310,7 +3295,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           };
         });
         setTheme(nextTheme);
-        context.rebuild();
       }
     },
     'ui:header:menuToggle': {
@@ -3351,7 +3335,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'ui:header:menuClose': {
@@ -3389,7 +3372,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        if (changed) context.rebuild();
+
       }
     },
     'ui:header:menuMaybeClose': {
@@ -3423,7 +3406,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        if (changed) context.rebuild();
+
       }
     },
     'index:search:update': {
@@ -3449,7 +3432,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'index:search:clear': {
@@ -3467,7 +3449,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'index:search:pick': {
@@ -3489,7 +3470,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             })
           };
         });
-        context.rebuild();
       }
     },
     'index:class:activate': {
@@ -3511,7 +3491,6 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             data: Object.assign({}, prevData, { active: nextActive })
           };
         });
-        context.rebuild();
       }
     }
   };

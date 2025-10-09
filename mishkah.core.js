@@ -720,6 +720,41 @@
     }
 
     function createContext(){
+      var _dirty = false;
+      var _scheduled = false;
+      var _freezeDepth = 0;
+      var _pendingOpts = null;
+      var ctx = null;
+
+      function mergeOpts(base, extra){
+        if (!base) return extra || null;
+        if (!extra) return base || null;
+        var out = Object.assign({}, base);
+        var add = function(k){
+          var a = base && base[k];
+          var b = extra && extra[k];
+          var arr = [].concat(a||[], b||[]).filter(Boolean);
+          if (arr.length) out[k] = arr;
+        };
+        add('keepScroll');
+        add('except');
+        add('buildonly');
+        return out;
+      }
+
+      function schedule(){
+        if (_scheduled || _freezeDepth > 0 || !_dirty) return;
+        _scheduled = true;
+        var raf = (global && typeof global.requestAnimationFrame === 'function') ? global.requestAnimationFrame : null;
+        var tick = function(){
+          _scheduled = false;
+          if (_dirty && _freezeDepth === 0) flush(null);
+        };
+        if (raf) raf(tick);
+        else if (global && typeof global.setTimeout === 'function') global.setTimeout(tick, 0);
+        else tick();
+      }
+
       function captureScrollTarget(target){
         var doc = global && global.document;
         if (!doc || !target) return null;
@@ -892,44 +927,111 @@
         }
       }
 
-      return {
+      function flush(opts){
+        _scheduled = false;
+        _pendingOpts = mergeOpts(_pendingOpts, opts);
+        if (_freezeDepth > 0 && !(opts && opts.force === true)) {
+          return;
+        }
+
+        applyEnv(_database);
+        var head = _database && _database.head;
+        if (head) Head.batch(head);
+
+        var effective = _pendingOpts || null;
+        var keepScrollEntries = [];
+        var keepScrollTargets = toArr(effective && effective.keepScroll);
+        if (keepScrollTargets.length && global && global.document){
+          for (var i=0;i<keepScrollTargets.length;i++){
+            var entry = captureScrollTarget(keepScrollTargets[i]);
+            if (entry) keepScrollEntries.push(entry);
+          }
+        }
+
+        var options = {
+          freeze: new Set(toArr(effective && effective.except)),
+          only: new Set(toArr(effective && effective.buildonly))
+        };
+
+        var self = ctx;
+        M.Devtools.scheduleRebuild(self, function(){
+          var dsl = assign({ h: VDOM.h }, hAtoms);
+          var next = _bodyFn(_database, dsl);
+          VDOM.patch(_$root, next, _vApp, _database, options, "");
+          _vApp = next;
+          try { M.RuleCenter && M.RuleCenter.evaluate && M.RuleCenter.evaluate('afterRender', { rootEl:_$root, db:_database }, _ctx); }
+          catch(eAR){ M.Auditor.warn('W-AFTER','afterRender rules error', {error:String(eAR)}); }
+          if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
+          if (keepScrollEntries.length) restoreScrollEntries(keepScrollEntries);
+        });
+
+        _dirty = false;
+        _pendingOpts = null;
+      }
+
+      ctx = {
         root: _$root,
         getState: function(){ return _database; },
         setState: function(updater){
-          var draft = (typeof updater==='function') ? updater(_database) : updater;
-          try { M.Guardian.runPreflight('state', { next:draft, prev:_database }, this); } catch(pf){ M.Auditor.error('E-PREFLIGHT','state blocked', pf); return; }
-          if (typeof updater==='function') _database = draft;
-          else if (isObj(updater)){
-            var next={}, k; for (k in _database) next[k]=_database[k]; for (k in updater) next[k]=updater[k]; _database = next;
-          }
-        },
-        rebuild: function(opts){
-          applyEnv(_database);
-          var head = _database && _database.head; if (head) Head.batch(head);
-
-          var keepScrollEntries = [];
-          var keepScrollTargets = toArr(opts && opts.keepScroll);
-          if (keepScrollTargets.length && global && global.document){
-            for (var i=0;i<keepScrollTargets.length;i++){
-              var entry = captureScrollTarget(keepScrollTargets[i]);
-              if (entry) keepScrollEntries.push(entry);
-            }
+          var prevState = _database;
+          var draft = (typeof updater==='function') ? updater(prevState) : updater;
+          try {
+            M.Guardian.runPreflight('state', { next:draft, prev:prevState }, this);
+          } catch(pf){
+            M.Auditor.error('E-PREFLIGHT','state blocked', pf);
+            return;
           }
 
-          var options = { freeze: new Set(toArr(opts && opts.except)), only: new Set(toArr(opts && opts.buildonly)) };
-          var self = this;
-          M.Devtools.scheduleRebuild(self, function(){
-            var dsl = assign({ h: VDOM.h }, hAtoms);
-            var next = _bodyFn(_database, dsl);
-            VDOM.patch(_$root, next, _vApp, _database, options, "");
-            _vApp = next;
-            try { M.RuleCenter && M.RuleCenter.evaluate && M.RuleCenter.evaluate('afterRender', { rootEl:_$root, db:_database }, _ctx); } catch(eAR){ M.Auditor.warn('W-AFTER','afterRender rules error', {error:String(eAR)}); }
-            if (M.Devtools && M.Devtools.auditOrdersKeys) M.Devtools.auditOrdersKeys(_$root, _ordersArr);
-            if (keepScrollEntries.length) restoreScrollEntries(keepScrollEntries);
-          });
+          var nextState;
+          if (typeof updater === 'function') {
+            nextState = draft;
+          } else if (isObj(updater)) {
+            var next = {}, k;
+            for (k in prevState) next[k] = prevState[k];
+            for (k in updater) next[k] = updater[k];
+            nextState = next;
+          } else {
+            nextState = draft;
+          }
+
+          if (nextState === prevState){
+            return;
+          }
+
+          _database = nextState;
+          _dirty = true;
+          schedule();
         },
-        batch: function(fn){ if (typeof fn==='function') fn(this); this.rebuild(); }
+        flush: function(opts){ flush(opts); },
+        rebuild: function(opts){ flush(opts); },
+        freeze: function(opts){
+          _freezeDepth++;
+          _pendingOpts = mergeOpts(_pendingOpts, opts);
+          return _freezeDepth;
+        },
+        unfreeze: function(opts){
+          if (_freezeDepth > 0) _freezeDepth--;
+          _pendingOpts = mergeOpts(_pendingOpts, opts);
+          if (_freezeDepth === 0 && _dirty){
+            var toFlush = _pendingOpts;
+            _pendingOpts = null;
+            flush(toFlush);
+          }
+          return _freezeDepth;
+        },
+        batch: function(fn){
+          this.freeze();
+          try {
+            if (typeof fn === 'function') fn(this);
+          } finally {
+            this.unfreeze();
+          }
+        },
+        isFrozen: function(){ return _freezeDepth > 0; },
+        isDirty: function(){ return !!_dirty; }
       };
+
+      return ctx;
     }
 
     function mount(selector){
@@ -984,7 +1086,12 @@
             _database = assign({}, _database, updater);
           }
         },
-        rebuild: function(){ if (_ctx) _ctx.rebuild(); }
+        rebuild: function(opts){ if (_ctx && _ctx.rebuild) _ctx.rebuild(opts); },
+        flush: function(opts){ if (_ctx && _ctx.flush) _ctx.flush(opts); },
+        freeze: function(opts){ return _ctx && _ctx.freeze ? _ctx.freeze(opts) : 0; },
+        unfreeze: function(opts){ return _ctx && _ctx.unfreeze ? _ctx.unfreeze(opts) : 0; },
+        isFrozen: function(){ return _ctx && _ctx.isFrozen ? _ctx.isFrozen() : false; },
+        isDirty: function(){ return _ctx && _ctx.isDirty ? _ctx.isDirty() : false; }
       };
     }
 

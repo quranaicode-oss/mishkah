@@ -1905,7 +1905,11 @@ Mishkah.Devtools.Snapshot.compute().then(({ rules, topViolations, candidates }) 
 // طريقة عمل Hot Code
 // طريقة التوصيل: لو عندك app من النواة:
 
-Mishkah.Devtools.HMR.setHandler(() => app.rebuild());
+Mishkah.Devtools.HMR.setHandler(() => {
+  if (app && typeof app.flush === 'function') {
+    app.flush({ force: true });
+  }
+});
 Mishkah.Devtools.HMR.enable();
 //مع Vite مثلًا:
 if (import.meta && import.meta.hot) {
