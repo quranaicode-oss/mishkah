@@ -86,7 +86,6 @@
                 ...s,
                 data: { ...(s.data || {}), counter: (s.data?.counter || 0) + 1 }
               }));
-              context.rebuild();
             }
           },
           'counter.dec': {
@@ -98,7 +97,6 @@
                 ...s,
                 data: { ...(s.data || {}), counter: (s.data?.counter || 0)- 1 }
               }));
-              context.rebuild();
             }
           }
         };

@@ -2055,8 +2055,7 @@
             disabled: hasCustom ? undefined : 'disabled',
             class:'design-lab-reset',
             title: TL('designLab.resetVar'),
-            'aria-label': TL('designLab.resetVar')
-          }}, ['↺']);
+            'aria-label': TL('designLab.resetVar') }}, ['↺']);
 
           const rowAttrs = { key:name, class:'design-lab-row', 'data-type': def.type };
           const rowChildren = [labelNode];
@@ -2378,21 +2377,21 @@
 
     const orders = {
       // Routing
-      'route:readmeBase':{ on:['click'], gkeys:['route:readmeBase'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeBase' }}); ctx.rebuild(); }},
-      'route:readmeTec' :{ on:['click'], gkeys:['route:readmeTec' ], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeTec'  }}); ctx.rebuild(); }},
-      'route:counter'   :{ on:['click'], gkeys:['route:counter'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); ctx.rebuild(); }},
-      'route:game'      :{ on:['click'], gkeys:['route:game'],      handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); ctx.rebuild(); }},
-      'route:logic'     :{ on:['click'], gkeys:['route:logic'],     handler:(e,ctx)=>{ const s=ctx.getState(); let lg = s.data.logicGame || {}; if (!lg.challenge){ const created = generateLogicChallenge(); lg = { challenge: created, options: created.options, selected:null, feedback:null }; } else { lg = { ...lg }; } ctx.setState({...s, data:{...s.data, activeTab:'logic', logicGame: lg }}); ctx.rebuild(); }},
+      'route:readmeBase':{ on:['click'], gkeys:['route:readmeBase'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeBase' }}); }},
+      'route:readmeTec' :{ on:['click'], gkeys:['route:readmeTec' ], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'readmeTec'  }}); }},
+      'route:counter'   :{ on:['click'], gkeys:['route:counter'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'counter'}}); }},
+      'route:game'      :{ on:['click'], gkeys:['route:game'],      handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, activeTab:'game'   }}); }},
+      'route:logic'     :{ on:['click'], gkeys:['route:logic'],     handler:(e,ctx)=>{ const s=ctx.getState(); let lg = s.data.logicGame || {}; if (!lg.challenge){ const created = generateLogicChallenge(); lg = { challenge: created, options: created.options, selected:null, feedback:null }; } else { lg = { ...lg }; } ctx.setState({...s, data:{...s.data, activeTab:'logic', logicGame: lg }}); }},
 
       // Settings modal & theme preferences
-      'ui:settings:toggle':{ on:['change'], gkeys:['ui:settings:toggle'], handler:(e,ctx)=>{ const open = !!(e && e.target && e.target.checked); const s=ctx.getState(); ctx.setState({...s, data:{...s.data, settingsOpen: open }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'ui:settings:open'  :{ on:['click'], gkeys:['ui:settings:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:true }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'ui:settings:close' :{ on:['click'], gkeys:['ui:settings:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:false }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'ui:settings:toggle':{ on:['change'], gkeys:['ui:settings:toggle'], handler:(e,ctx)=>{ const open = !!(e && e.target && e.target.checked); const s=ctx.getState(); ctx.setState({...s, data:{...s.data, settingsOpen: open }}); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'ui:settings:open'  :{ on:['click'], gkeys:['ui:settings:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:true }}); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'ui:settings:close' :{ on:['click'], gkeys:['ui:settings:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.settingsOpen) return; ctx.setState({...s, data:{...s.data, settingsOpen:false }}); ctx.flush(KEEP_MAIN_SCROLL); }},
       'theme:sync'        :{ on:['click'], gkeys:['ui:theme-toggle'], handler:(e,ctx)=>{ const prefs = ctx.getState().data?.themePrefs || INITIAL_THEME_PREFS; setTimeout(()=> applyThemePrefs(prefs), 0); }},
-      'prefs:background'  :{ on:['change'], gkeys:['prefs:background'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.backgroundId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, backgroundId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'prefs:text'        :{ on:['change'], gkeys:['prefs:text'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.textSchemeId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, textSchemeId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'prefs:fontScale'   :{ on:['input','change'], gkeys:['prefs:fontScale'], handler:(e,ctx)=>{ const raw = e && e.target ? parseInt(e.target.value,10) : null; if (raw==null || Number.isNaN(raw)) return; const scale = Math.min(120, Math.max(90, raw)); const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.fontScale === scale) { applyThemePrefs(current); return; } const next = { ...current, fontScale: scale }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'prefs:reset'       :{ on:['click'], gkeys:['prefs:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); const next = { ...THEME_DEFAULT_PREFS }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'prefs:background'  :{ on:['change'], gkeys:['prefs:background'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.backgroundId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, backgroundId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'prefs:text'        :{ on:['change'], gkeys:['prefs:text'], handler:(e,ctx)=>{ const value = e && e.target ? e.target.value : null; if (!value) return; const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.textSchemeId === value) { applyThemePrefs(current); return; } const next = normalizeThemePrefs({ ...current, textSchemeId: value }); persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'prefs:fontScale'   :{ on:['input','change'], gkeys:['prefs:fontScale'], handler:(e,ctx)=>{ const raw = e && e.target ? parseInt(e.target.value,10) : null; if (raw==null || Number.isNaN(raw)) return; const scale = Math.min(120, Math.max(90, raw)); const s=ctx.getState(); const current = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); if (current.fontScale === scale) { applyThemePrefs(current); return; } const next = { ...current, fontScale: scale }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'prefs:reset'       :{ on:['click'], gkeys:['prefs:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); const next = { ...THEME_DEFAULT_PREFS }; persistThemePrefs(next); ctx.setState({...s, data:{...s.data, themePrefs: next }}); applyThemePrefs(next); ctx.flush(KEEP_MAIN_SCROLL); }},
       'ui:theme:set'     :{ on:['click'], gkeys:['ui:theme:set'], handler:(e,ctx)=>{
         const target = e && e.target ? e.target.closest('[data-value]') : null;
         if (!target) return;
@@ -2408,17 +2407,15 @@
           data:{ ...s.data, themePrefs: prefs }
         });
         applyThemePrefs(prefs);
-        ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
-      'design:lab:open'   :{ on:['click'], gkeys:['design:lab:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:true }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'design:lab:close'  :{ on:['click'], gkeys:['design:lab:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:false }}}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+        ctx.flush(KEEP_MAIN_SCROLL); }},
+      'design:lab:open'   :{ on:['click'], gkeys:['design:lab:open'], handler:(e,ctx)=>{ const s=ctx.getState(); if (s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:true }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'design:lab:close'  :{ on:['click'], gkeys:['design:lab:close'], handler:(e,ctx)=>{ const s=ctx.getState(); if (!s.data.designLab?.open) return; ctx.setState({...s, data:{...s.data, designLab:{ ...(s.data.designLab||{}), open:false }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
       'design:theme'      :{ on:['click'], gkeys:['design:theme'], handler:(e,ctx)=>{ const btn=e && e.target ? e.target.closest('[data-mode]'):null; const mode=btn?btn.getAttribute('data-mode'):null; if(!mode) return; const s=ctx.getState(); const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS); let nextPrefs = prefs; if (mode==='pink'){ nextPrefs = normalizeThemePrefs({ ...prefs, backgroundId:'sunset', textSchemeId:'warm' }); U.twcss.setTheme('light'); } else { U.twcss.setTheme(mode==='dark'?'dark':'light'); }
         const envTheme = mode;
         persistThemePrefs(nextPrefs);
         ctx.setState({...s, env:{ ...(s.env||{}), theme: envTheme }, data:{...s.data, themePrefs: nextPrefs, designLab:{ ...(s.data.designLab||{}), open:true }}});
         applyThemePrefs(nextPrefs);
-        ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.flush(KEEP_MAIN_SCROLL); }},
       'design:var:update' :{ on:['input','change'], gkeys:['design:var:update'], handler:(e,ctx)=>{
         const target = e && e.target ? e.target : null; if (!target) return;
         const name = target.getAttribute('data-var'); if (!name) return;
@@ -2453,8 +2450,7 @@
         persistThemePrefs(next);
         ctx.setState({...s, data:{...s.data, themePrefs: next }});
         applyThemePrefs(next);
-        ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.flush(KEEP_MAIN_SCROLL); }},
       'design:var:reset'  :{ on:['click'], gkeys:['design:var:reset'], handler:(e,ctx)=>{
         const btn = e && e.target ? e.target.closest('[data-var]') : null; const name = btn ? btn.getAttribute('data-var') : null; if(!name) return;
         const def = DESIGN_VAR_DEF_MAP[name];
@@ -2470,8 +2466,7 @@
         persistThemePrefs(next);
         ctx.setState({...s, data:{...s.data, themePrefs: next }});
         applyThemePrefs(next);
-        ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.flush(KEEP_MAIN_SCROLL); }},
       'design:var:resetAll':{ on:['click'], gkeys:['design:var:resetAll'], handler:(e,ctx)=>{
         const s=ctx.getState();
         const prefs = normalizeThemePrefs(s.data?.themePrefs || INITIAL_THEME_PREFS);
@@ -2479,38 +2474,33 @@
         persistThemePrefs(next);
         ctx.setState({...s, data:{...s.data, themePrefs: next }});
         applyThemePrefs(next);
-        ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.flush(KEEP_MAIN_SCROLL); }},
 
       // Logic challenge
-      'logic:start'       :{ on:['click'], gkeys:['logic:start'], handler:(e,ctx)=>{ const s=ctx.getState(); const challenge = generateLogicChallenge(); const next = { challenge, options: challenge.options, selected:null, feedback:null }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
-      'logic:answer'      :{ on:['click'], gkeys:['logic:answer'], handler:(e,ctx)=>{ const target = e && e.target && e.target.closest ? e.target.closest('[data-choice]') : null; if (!target) return; const choice = parseInt(target.getAttribute('data-choice'),10); if (Number.isNaN(choice)) return; const s=ctx.getState(); const lg = s.data.logicGame || {}; const challenge = lg.challenge; if (!challenge) return; if (lg.feedback && lg.feedback.type==='correct') return; const feedbackType = choice === challenge.answer ? 'correct' : 'wrong'; const feedback = { type: feedbackType, stamp: Date.now() }; const next = { ...lg, selected: choice, feedback }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.rebuild(KEEP_MAIN_SCROLL); }},
+      'logic:start'       :{ on:['click'], gkeys:['logic:start'], handler:(e,ctx)=>{ const s=ctx.getState(); const challenge = generateLogicChallenge(); const next = { challenge, options: challenge.options, selected:null, feedback:null }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.flush(KEEP_MAIN_SCROLL); }},
+      'logic:answer'      :{ on:['click'], gkeys:['logic:answer'], handler:(e,ctx)=>{ const target = e && e.target && e.target.closest ? e.target.closest('[data-choice]') : null; if (!target) return; const choice = parseInt(target.getAttribute('data-choice'),10); if (Number.isNaN(choice)) return; const s=ctx.getState(); const lg = s.data.logicGame || {}; const challenge = lg.challenge; if (!challenge) return; if (lg.feedback && lg.feedback.type==='correct') return; const feedbackType = choice === challenge.answer ? 'correct' : 'wrong'; const feedback = { type: feedbackType, stamp: Date.now() }; const next = { ...lg, selected: choice, feedback }; ctx.setState({...s, data:{...s.data, logicGame: next }}); ctx.flush(KEEP_MAIN_SCROLL); }},
 
       // Counter
-      'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); ctx.rebuild(); }},
-      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-1 }}); ctx.rebuild(); }},
-      'counter:reset':{ on:['click'], gkeys:['counter:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:0 }}); ctx.rebuild(); }},
+      'counter:inc'  :{ on:['click'], gkeys:['counter:inc'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter+1 }}); }},
+      'counter:dec'  :{ on:['click'], gkeys:['counter:dec'],   handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:s.data.counter-1 }}); }},
+      'counter:reset':{ on:['click'], gkeys:['counter:reset'], handler:(e,ctx)=>{ const s=ctx.getState(); ctx.setState({...s, data:{...s.data, counter:0 }}); }},
 
       // Game toggles
       'game:music:toggle':{ on:['change'], gkeys:['game:music:toggle'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const on = !!e.target.checked;
         const stamp = on ? Date.now() : g.soundStamp;
-        ctx.setState({...s, data:{...s.data, game:{...g, musicOn:on, soundStamp: stamp }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.setState({...s, data:{...s.data, game:{...g, musicOn:on, soundStamp: stamp }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
       'game:music:select':{ on:['change'], gkeys:['game:music:select'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const idx=Math.max(0,parseInt(e.target.value,10)||0);
-        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx, soundStamp: Date.now() }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.setState({...s, data:{...s.data, game:{...g, audioIdx: idx, soundStamp: Date.now() }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
       'game:timer:toggle':{ on:['change'], gkeys:['game:timer:toggle'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const on=!!e.target.checked; if(!on && g.intervalId) try{ clearInterval(g.intervalId); }catch(_){ }
         const timeLeft = on ? (g.status==='running' ? (typeof g.timeLeft === 'number' && g.timeLeft>0 ? g.timeLeft : g.timerSec) : g.timerSec) : 0;
-        ctx.setState({...s, data:{...s.data, game:{...g, timerOn:on, timeLeft, intervalId: on ? g.intervalId : null }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.setState({...s, data:{...s.data, game:{...g, timerOn:on, timeLeft, intervalId: on ? g.intervalId : null }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
       'game:timer:value':{ on:['input','change'], gkeys:['game:timer:value'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; const v=Math.max(5, parseInt(e.target.value,10)||g.timerSec);
         const timeLeft = g.timerOn ? (g.status==='running' ? v : v) : g.timeLeft;
-        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v, timeLeft }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
-      }},
+        ctx.setState({...s, data:{...s.data, game:{...g, timerSec: v, timeLeft }}}); ctx.flush(KEEP_MAIN_SCROLL); }},
 
       // Start / New game
       'game:start':{ on:['click'], gkeys:['game:start'], handler:(e,ctx)=>{
@@ -2519,7 +2509,7 @@
         const stamp = Date.now();
         const baseTime = g0.timerOn ? g0.timerSec : 0;
         const g1 = { ...g0, proverb: pv, guessed:{}, triesLeft:g0.triesMax, status:'running', timeLeft: baseTime, intervalId:null, revealSolution:false, soundStamp: stamp, feedback:null };
-        ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.rebuild(KEEP_MAIN_SCROLL);
+        ctx.setState({ ...s0, data:{ ...s0.data, game:g1 } }); ctx.flush(KEEP_MAIN_SCROLL);
 
         if (g1.timerOn) {
           const iid = setInterval(()=>{
@@ -2541,10 +2531,10 @@
                 feedback = { type:'wrong', stamp: Date.now() };
               }
             }
-            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status, feedback, revealSolution: status==='won' ? true : g.revealSolution } }}); ctx.rebuild(KEEP_MAIN_SCROLL);
+            ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, timeLeft, triesLeft, status, feedback, revealSolution: status==='won' ? true : g.revealSolution } }}); ctx.flush(KEEP_MAIN_SCROLL);
           }, 1000);
           const s1=ctx.getState(); const g2=s1.data.game;
-          ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.rebuild(KEEP_MAIN_SCROLL);
+          ctx.setState({ ...s1, data:{ ...s1.data, game:{ ...g2, intervalId:iid }}}); ctx.flush(KEEP_MAIN_SCROLL);
         }
       }},
 
@@ -2578,7 +2568,7 @@
           revealSolution: status==='won' ? true : g.revealSolution,
           feedback
         }}});
-        ctx.rebuild(KEEP_MAIN_SCROLL);
+        ctx.flush(KEEP_MAIN_SCROLL);
         if (status === 'won'){
           U.Control.nextTick(()=>{
             U.DOM.focusById('game-solution-card');
@@ -2589,12 +2579,11 @@
       'game:reveal':{ on:['click'], gkeys:['game:reveal'], handler:(e,ctx)=>{
         const s=ctx.getState(); const g=s.data.game; if (!g.proverb) return;
         ctx.setState({ ...s, data:{ ...s.data, game:{ ...g, revealSolution:true }}});
-        ctx.rebuild(KEEP_MAIN_SCROLL);
+        ctx.flush(KEEP_MAIN_SCROLL);
         U.Control.nextTick(()=>{
           U.DOM.focusById('game-solution-card');
           U.DOM.flashClass('game-solution-card', 'focus-pulse', 2200);
-        });
-      }}
+        }); }}
     };
 
     // ----------------------------------------------------------------
