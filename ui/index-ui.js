@@ -1783,7 +1783,7 @@
               D.Tables.Td({ attrs: { class: tw`px-3 py-2 text-[var(--muted-foreground)]` } }, [row.orders]),
               D.Tables.Td({ attrs: { class: tw`rounded-r-2xl px-3 py-2 text-[color-mix(in_oklab,var(--primary)82%,transparent)]` } }, [row.rating])
             ]))
-            ])
+            )
           ])
         })
       ])
@@ -1830,7 +1830,7 @@
                   : tw`rounded-full hover:bg-[color-mix(in_oklab,var(--surface-2)88%,transparent)]`
             )
           }
-        }, [day.day]))))
+        }, [day.day])))))
       ])
     ]);
 
