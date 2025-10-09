@@ -391,6 +391,10 @@
             console.error('Mishkah HTMLx bootstrap failed:', error);
           });
         }
+
+        M.HTMLxAgent.boot(db).catch(function (error) {
+          console.error('Mishkah HTMLx bootstrap failed:', error);
+        });
       })();
     </script>
   </body>
