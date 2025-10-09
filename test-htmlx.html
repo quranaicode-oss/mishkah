@@ -401,11 +401,21 @@
                 'UI',
                 'D',
                 'locals',
-                'with (locals || Object.create(null)) { return (' + code + '); }'
+                '__code',
+                'with (locals || Object.create(null)) { return eval(__code); }'
               );
             }
             try {
-              return cache[code](scope.state, scope.ctx, scope.db, scope.M, scope.UI, scope.D, scope.locals);
+              return cache[code](
+                scope.state,
+                scope.ctx,
+                scope.db,
+                scope.M,
+                scope.UI,
+                scope.D,
+                scope.locals,
+                String(code)
+              );
             } catch (error) {
               console.error('HTMLx expression failed:', code, error);
               return undefined;
