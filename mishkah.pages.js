@@ -717,7 +717,6 @@
           })
         });
       });
-      ctx.rebuild();
     }
 
     return {
@@ -749,7 +748,6 @@
               data: Object.assign({}, state.data || {}, { pages, active })
             });
           });
-          ctx.rebuild();
         }
       },
       'ui:template:prev': {
@@ -771,7 +769,6 @@
               data: Object.assign({}, state.data || {}, { pages, active })
             });
           });
-          ctx.rebuild();
         }
       },
       'templates:defaults:toggle': {
@@ -786,7 +783,6 @@
             });
             return Object.assign({}, state, { ui: uiState });
           });
-          ctx.rebuild();
         }
       },
       'templates:defaults:apply': {
@@ -806,7 +802,6 @@
               })
             });
           });
-          ctx.rebuild();
         }
       }
     };
