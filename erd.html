@@ -116,6 +116,42 @@
     const { tw } = U.twcss;
     const Text = U.Text || {};
     const LangUtils = U.lang || {};
+    const StorageUtils = U.Storage || {};
+    const preferencesStore = StorageUtils && typeof StorageUtils.local === 'function'
+      ? StorageUtils.local('erd-preferences')
+      : null;
+
+    function readUIPreferences(){
+      const defaults = {
+        panels:{ libraryOpen:false, classificationOpen:false },
+        template:{ open:false }
+      };
+      if(!preferencesStore){
+        return defaults;
+      }
+      const storedPanels = preferencesStore.get('panels', {});
+      const storedTemplate = preferencesStore.get('template', {});
+      return {
+        panels:{
+          libraryOpen: storedPanels.libraryOpen != null ? !!storedPanels.libraryOpen : defaults.panels.libraryOpen,
+          classificationOpen: storedPanels.classificationOpen != null ? !!storedPanels.classificationOpen : defaults.panels.classificationOpen
+        },
+        template:{
+          open: storedTemplate.open != null ? !!storedTemplate.open : defaults.template.open
+        }
+      };
+    }
+
+    function persistPanelPreference(panelKey, value){
+      if(!preferencesStore) return;
+      const current = preferencesStore.get('panels', {});
+      preferencesStore.set('panels', Object.assign({}, current, { [panelKey]: !!value }));
+    }
+
+    function persistTemplatePreference(isOpen){
+      if(!preferencesStore) return;
+      preferencesStore.set('template', { open: !!isOpen });
+    }
 
     function hasOpenModal(state){
       if(!state || typeof state !== 'object') return false;
@@ -249,7 +285,7 @@
       'modal.columns.length.placeholder':{ ar:'الطول', en:'Length' },
       'modal.columns.precision.placeholder':{ ar:'الدقة', en:'Precision' },
       'modal.columns.scale.placeholder':{ ar:'المقياس', en:'Scale' },
-      'modal.columns.focus':{ ar:'انتقال', en:'Focus' },
+      'modal.columns.focus':{ ar:'عرض في المخطط', en:'Locate' },
       'modal.columns.name.placeholder':{ ar:'اسم العمود (snake_case)', en:'Column name (snake_case)' },
       'modal.columns.default.placeholder':{ ar:'القيمة الافتراضية', en:'Default value' },
       'modal.columns.refTable.placeholder':{ ar:'جدول المرجع (FK)', en:'Reference table (FK)' },
@@ -1447,6 +1483,44 @@
         this.baseBBox = Object.assign({}, bbox, { pad });
       }
 
+      focusNode(nodeId, options = {}){
+        if(!nodeId) return;
+        const container = this.container;
+        if(!container) return;
+        const state = this.lastState;
+        if(!state) return;
+        const tables = Array.isArray(state.tables) ? state.tables : [];
+        if(!tables.length) return;
+        const target = tables.find(tbl => String(tbl.id) === String(nodeId) || String(tbl.name) === String(nodeId));
+        if(!target) return;
+        const layout = state.layout || {};
+        const fallbackPositions = createAutoLayoutFallbackMap(tables);
+        const source = layout[target.id] || layout[target.name];
+        const fallback = fallbackPositions[target.id] || fallbackPositions[target.name] || { x: AUTO_LAYOUT_ORIGIN_X, y: AUTO_LAYOUT_ORIGIN_Y };
+        const position = normalisePoint(source, fallback);
+        const fields = Array.isArray(target.fields) ? target.fields : [];
+        let centerY = position.y + computeTableHeight(fields.length) / 2;
+        if(options.field){
+          const index = fields.findIndex(field => String(field?.name || '').toLowerCase() === String(options.field).toLowerCase());
+          if(index >= 0){
+            centerY = position.y + HEADER_HEIGHT + ROW_HEIGHT * index + ROW_HEIGHT / 2;
+          }
+        }
+        const centerX = position.x + TABLE_WIDTH / 2;
+        const targetLeft = Math.max(0, centerX - (container.clientWidth || 0) / 2);
+        const targetTop = Math.max(0, centerY - (container.clientHeight || 0) / 2);
+        if(typeof container.scrollTo === 'function'){
+          try {
+            container.scrollTo({ left: targetLeft, top: targetTop, behavior:'smooth' });
+          } catch(_){
+            container.scrollTo(targetLeft, targetTop);
+          }
+        } else {
+          container.scrollLeft = targetLeft;
+          container.scrollTop = targetTop;
+        }
+      }
+
       updateEdgePaths(nodeId){
         if(!nodeId || !this.edgeCache.size) return;
         this.edgeCache.forEach(meta => {
@@ -2084,6 +2158,29 @@
 
         if(!this.initialized){
           this.initialized = true;
+        }
+      }
+
+      focusNode(nodeId, options = {}){
+        if(!this.graph || nodeId == null) return;
+        const id = String(nodeId);
+        const cell = this.graph.getCellById(id);
+        if(!cell) return;
+        try {
+          if(this.graph.scroller && typeof this.graph.scroller.center === 'function'){
+            this.graph.scroller.center(cell, { animation:{ duration:200 } });
+          } else if(typeof this.graph.centerCell === 'function'){
+            this.graph.centerCell(cell);
+          } else if(typeof this.graph.scrollIntoView === 'function'){
+            this.graph.scrollIntoView(cell, { animation:{ duration:200 } });
+          } else if(typeof this.graph.centerContent === 'function'){
+            this.graph.centerContent();
+          }
+          if(options.field && typeof this.graph.select === 'function'){
+            this.graph.select(cell);
+          }
+        } catch(error){
+          console.warn('[Mishkah][ERD] focusNode (X6) failed', error);
         }
       }
 
@@ -3155,6 +3252,7 @@
     const initialLayout = computeLayout(activeRegistry, activeRecord.layout);
     const firstTable = activeRegistry.list()[0]?.name || null;
     const initialLayoutPoint = firstTable ? (initialLayout[firstTable] || { x:120, y:120 }) : { x:120, y:120 };
+    const uiPreferences = readUIPreferences();
 
     const erdState = {
       head:{ title: activeRecord.title || 'مخطط قاعدة بيانات مشكاة' },
@@ -3180,8 +3278,8 @@
       },
       ui:{
         modals:{ import:false, exportJson:false, exportSql:false, table:false, field:false, relation:false, schemaMeta:false, columns:false, columnsUnique:false, columnsIndex:false, classification:false },
-        template:{ open:true },
-        panels:{ libraryOpen:true, classificationOpen:true },
+        template:{ open: uiPreferences.template.open },
+        panels:{ libraryOpen: uiPreferences.panels.libraryOpen, classificationOpen: uiPreferences.panels.classificationOpen },
         form:{
           table:{ name:'', nameInput:'', label:'', comment:'', includeId:true, classCode:'' },
           field:{
@@ -3291,6 +3389,51 @@
           }
         }
       };
+    }
+
+    function focusTableOnCanvas(tableName, fieldName){
+      if(!tableName || typeof document === 'undefined') return;
+      const state = erdAppInstance ? erdAppInstance.getState() : lastDiagramState;
+      if(!state) return;
+      const registry = getRegistry(state);
+      if(!registry || typeof registry.get !== 'function') return;
+      const table = registry.get(tableName);
+      if(!table) return;
+      const layout = ensureLayout(state, tableName, { registry });
+      const position = layout[tableName] || layout[String(table?.id || '')] || { x: AUTO_LAYOUT_ORIGIN_X, y: AUTO_LAYOUT_ORIGIN_Y };
+      const fields = Array.isArray(table.fields) ? table.fields : [];
+      const host = document.getElementById('erd-diagram');
+      const driver = ensureDriverInstance(state);
+      if(driver && typeof driver.focusNode === 'function'){
+        try {
+          driver.focusNode(tableName, { field: fieldName });
+        } catch(error){
+          console.warn('[Mishkah][ERD] focusNode failed', error);
+        }
+      }
+      if(!host) return;
+      const fieldCount = fields.length;
+      const tableHeight = computeTableHeight(fieldCount);
+      const centerX = position.x + TABLE_WIDTH / 2;
+      let centerY = position.y + tableHeight / 2;
+      if(fieldName){
+        const index = fields.findIndex(field => String(field?.name || '').toLowerCase() === String(fieldName).toLowerCase());
+        if(index >= 0){
+          centerY = position.y + HEADER_HEIGHT + ROW_HEIGHT * index + ROW_HEIGHT / 2;
+        }
+      }
+      const targetLeft = Math.max(0, centerX - (host.clientWidth || 0) / 2);
+      const targetTop = Math.max(0, centerY - (host.clientHeight || 0) / 2);
+      if(typeof host.scrollTo === 'function'){
+        try {
+          host.scrollTo({ left: targetLeft, top: targetTop, behavior: 'smooth' });
+        } catch(_){
+          host.scrollTo(targetLeft, targetTop);
+        }
+      } else {
+        host.scrollLeft = targetLeft;
+        host.scrollTop = targetTop;
+      }
     }
 
     function mergeLibraryItems(list, record){
@@ -4238,7 +4381,7 @@
                 ];
             const quickActions = D.Containers.Div({ attrs:{ class: tw`flex items-center justify-end gap-2` }}, [
               UI.Button({ attrs:{ gkey:'erd:columns:open-relation', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, ['FK']),
-              UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, [t('modal.columns.focus', 'انتقال')])
+                UI.Button({ attrs:{ gkey:'erd:columns:focus', 'data-row': key, 'data-table': currentTableName, class: tw`!px-2 !py-1 text-xs` }, variant:'ghost', size:'xs' }, [t('modal.columns.focus', 'عرض في المخطط')])
             ]);
             return D.Tables.Tr({ attrs:{ key, class: tw`bg-[var(--surface-1)]` }}, [
               D.Tables.Td({ attrs:{ class: tw`px-3 py-3 align-top` }}, [
@@ -4275,16 +4418,18 @@
           currentTableName
             ? t('modal.columns.header.withName', `أعمدة الجدول: ${formatIdentifier(currentTableName)}`).replace('{name}', formatIdentifier(currentTableName))
             : t('modal.columns.header', 'أعمدة الجدول')
-        ]),
-        UI.Button({
-          attrs:{ gkey:'erd:columns:add-row', 'data-table': currentTableName || '' },
-          variant:'soft',
-          size:'sm'
-        }, [`➕ ${t('modal.columns.addColumn', 'عمود جديد')}`])
+        ])
       ]);
+      const addColumnButton = UI.Button({
+        attrs:{ gkey:'erd:columns:add-row', 'data-table': currentTableName || '' },
+        variant:'soft',
+        size:'sm'
+      }, [`➕ ${t('modal.columns.addColumn', 'عمود جديد')}`]);
+      const columnsFooter = D.Containers.Div({ attrs:{ class: tw`flex justify-end pt-2` }}, [addColumnButton]);
       const columnsSection = D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-1)]/80 p-4 space-y-3` }}, [
         columnsHeader,
-        D.Containers.Div({ attrs:{ class: tw`overflow-auto` }}, [columnsTable])
+        D.Containers.Div({ attrs:{ class: tw`overflow-auto` }}, [columnsTable]),
+        columnsFooter
       ]);
       const indexes = getTableIndexes(currentTable);
       const uniqueConstraints = indexes.filter(index => index.unique);
@@ -5039,9 +5184,10 @@
           on:['click'],
           gkeys:['erd:template:toggle'],
           handler:(e,ctx)=>{
+            let nextOpen = false;
             ctx.setState(s=>{
               const currentOpen = s.ui?.template?.open !== false;
-              const nextOpen = !currentOpen;
+              nextOpen = !currentOpen;
               return {
                 ...s,
                 ui:{
@@ -5051,15 +5197,17 @@
               };
             });
             ctx.rebuild();
+            persistTemplatePreference(nextOpen);
           }
         },
         'erd.panel.library.toggle':{
           on:['click'],
           gkeys:['erd:panel:library:toggle'],
           handler:(e,ctx)=>{
+            let nextOpen = false;
             ctx.setState(s=>{
               const currentOpen = s.ui?.panels?.libraryOpen !== false;
-              const nextOpen = !currentOpen;
+              nextOpen = !currentOpen;
               return {
                 ...s,
                 ui:{
@@ -5069,15 +5217,19 @@
               };
             });
             ctx.rebuild();
+            persistPanelPreference('libraryOpen', nextOpen);
+            const snapshot = ctx.getState();
+            scheduleDiagramRender(snapshot);
           }
         },
         'erd.panel.classification.toggle':{
           on:['click'],
           gkeys:['erd:panel:classification:toggle'],
           handler:(e,ctx)=>{
+            let nextOpen = false;
             ctx.setState(s=>{
               const currentOpen = s.ui?.panels?.classificationOpen !== false;
-              const nextOpen = !currentOpen;
+              nextOpen = !currentOpen;
               return {
                 ...s,
                 ui:{
@@ -5087,6 +5239,9 @@
               };
             });
             ctx.rebuild();
+            persistPanelPreference('classificationOpen', nextOpen);
+            const snapshot = ctx.getState();
+            scheduleDiagramRender(snapshot);
           }
         },
         'erd.form.update':{
@@ -5784,19 +5939,43 @@
           const button = e.target.closest('[data-row]');
           if(!button) return;
           const rowKey = button.getAttribute('data-row');
-          const tableName = button.getAttribute('data-table');
+          const requestedTable = button.getAttribute('data-table');
+          let targetTable = '';
+          let targetField = rowKey || '';
           ctx.setState(s=>{
             const columnsForm = s.ui?.form?.columns || {};
             const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows : [];
             const row = rows.find(item => (item.key || item.originalName || item.name) === rowKey);
-            const fieldName = row ? (sanitizeSqlIdentifier(row.name || row.originalName || rowKey) || row.originalName || rowKey) : rowKey;
+            const resolvedTable = requestedTable || columnsForm.table || '';
+            const resolvedField = row
+              ? (sanitizeSqlIdentifier(row.name || row.originalName || rowKey) || row.originalName || rowKey)
+              : (rowKey || '');
+            targetTable = resolvedTable;
+            targetField = resolvedField;
             const draft = {
               ...s,
+              data:{ ...(s.data || {}), canvas:{ ...(s.data?.canvas || {}), mode:'manual' } },
               ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), columns:false } }
             };
-            return withFieldSelection(draft, tableName || columnsForm.table || '', fieldName);
+            if(resolvedTable && resolvedField){
+              return withFieldSelection(draft, resolvedTable, resolvedField);
+            }
+            if(resolvedTable){
+              return withTableSelection(draft, resolvedTable);
+            }
+            return draft;
           });
           ctx.rebuild();
+          const snapshot = ctx.getState();
+          scheduleDiagramRender(snapshot);
+          if(targetTable){
+            const focusFn = ()=> focusTableOnCanvas(targetTable, targetField);
+            if(typeof requestAnimationFrame === 'function'){
+              requestAnimationFrame(()=> requestAnimationFrame(focusFn));
+            } else {
+              setTimeout(focusFn, 16);
+            }
+          }
         }
       },
       'erd.columns.save':{
@@ -7126,6 +7305,7 @@
     };
 
     const app = M.app.createApp(erdState, {});
+    erdAppInstance = app;
     const auto = U.twcss.auto(erdState, app, { pageScaffold:true });
 
     M.app.setBody(AppView);
