@@ -355,6 +355,7 @@
     <!-- النسخة الجديدة تعتمد على ملف UMD جاهز مباشرة بدون TypeScript -->
     <script src="./dist/htmlx.umd.js"></script>
     <script src="./dist/htmlx.runtime.js"></script>
+    <script src="./dist/htmlx.agent.js"></script>
 
     <script>
       (function () {
@@ -390,11 +391,14 @@
           }
         };
 
-        try {
-          M.app.make(db);
-        } catch (error) {
-          console.error('Mishkah HTMLx bootstrap failed:', error);
+        if (!M.HTMLxAgent || typeof M.HTMLxAgent.boot !== 'function') {
+          console.error('Mishkah HTMLx agent is not available.');
+          return;
         }
+
+        M.HTMLxAgent.boot(db).catch(function (error) {
+          console.error('Mishkah HTMLx bootstrap failed:', error);
+        });
       })();
     </script>
   </body>
