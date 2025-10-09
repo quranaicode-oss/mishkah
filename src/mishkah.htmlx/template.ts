@@ -1,14 +1,14 @@
 import { parse } from 'parse5';
 import type { Document, Element, Template } from 'parse5/dist/tree-adapters/default';
 import { TemplateDescriptor } from './types';
-import { createHash } from 'crypto';
+import { stableHash } from './hash';
 
 interface TemplateExtractionOptions {
   hash?: (value: string) => string;
 }
 
 export function extractTemplates(html: string, options: TemplateExtractionOptions = {}): TemplateDescriptor[] {
-  const hashFn = options.hash ?? ((value: string) => createHash('sha1').update(value).digest('hex').slice(0, 8));
+  const hashFn = options.hash ?? stableHash;
   const document = parse(html, { sourceCodeLocationInfo: true }) as Document;
   const templates: TemplateDescriptor[] = [];
   traverse(document, (node) => {
