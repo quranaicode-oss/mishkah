@@ -655,31 +655,89 @@
     return false;
   }
 
+  function computePathsFrom(target, root){
+    var keysPath = [], gkeysPath = [];
+    var node = (target && target.nodeType === 1) ? target : null;
+    var fenceNode = null;
+    var scopeId = null;
+    var limit = null;
+    if (root) {
+      if (root.nodeType === 1) limit = root;
+      else if (root.nodeType === 9 && root.documentElement) limit = root.documentElement;
+    }
+    while (node && node.nodeType === 1){
+      if (node.hasAttribute('data-m-key')){
+        var raw = node.getAttribute('data-m-key') || '';
+        var parts = raw.split(/[\s,]+/);
+        for (var i=0;i<parts.length;i++){
+          var k = parts[i];
+          if (!k) continue;
+          if (keysPath.indexOf(k) === -1) keysPath.push(k);
+          if (!scopeId && k.indexOf('tpl:') === 0) scopeId = k;
+        }
+      }
+      if (node.hasAttribute('data-m-gkey')){
+        var raw2 = node.getAttribute('data-m-gkey') || '';
+        var parts2 = raw2.split(/[\s,]+/);
+        for (var j=0;j<parts2.length;j++){
+          var g = parts2[j];
+          if (!g) continue;
+          if (gkeysPath.indexOf(g) === -1) gkeysPath.push(g);
+        }
+      }
+      if (node.hasAttribute('data-m-scope')){
+        if (!fenceNode) fenceNode = node;
+        var scopeAttr = node.getAttribute('data-m-scope') || '';
+        var segments = scopeAttr.trim() ? scopeAttr.trim().split(/[\s,]+/) : [];
+        var soft = false;
+        for (var p=0;p<segments.length;p++){
+          if (segments[p] === 'soft'){ soft = true; break; }
+        }
+        if (!soft) break;
+      }
+      if (limit && node === limit) break;
+      node = node.parentElement;
+    }
+    return { keysPath: keysPath, gkeysPath: gkeysPath, fenceNode: fenceNode, scopeId: scopeId };
+  }
+
   function handleEvent(type, e, ctx, orders){
     try{
-      var rootEl = ctx.root || global.document;
-      var keysPath=[], gkeysPath=[];
-      var el = e && e.target && e.target.nodeType===1 ? e.target : null;
-      while (el && el.nodeType===1){
-        if (el.hasAttribute('data-m-key')){
-          var raw = el.getAttribute('data-m-key') || '';
-          var parts = raw.split(/[\s,]+/);
-          for (var i=0;i<parts.length;i++){ var k=parts[i]; if (k && keysPath.indexOf(k)===-1) keysPath.push(k); }
-        }
-        if (el.hasAttribute('data-m-gkey')){
-          var raw2 = el.getAttribute('data-m-gkey') || '';
-          var parts2 = raw2.split(/[\s,]+/);
-          for (var j=0;j<parts2.length;j++){ var g=parts2[j]; if (g && gkeysPath.indexOf(g)===-1) gkeysPath.push(g); }
-        }
-        if (el===rootEl) break;
-        el = el.parentElement;
-      }
+      var rootEl = (ctx && ctx.root) || global.document || null;
+      var pathInfo = computePathsFrom(e && e.target, rootEl);
+      var keysPath = pathInfo.keysPath;
+      var gkeysPath = pathInfo.gkeysPath;
 
       // preflight (event)
       try { M.Guardian.runPreflight('event', { type:type, event:e, keysPath:keysPath, gkeysPath:gkeysPath }, ctx); }
       catch (prefErr){ M.Auditor.error('E-PREFLIGHT','event blocked', {error:String(prefErr), type:type}); return; }
 
       var matched=0;
+      var halted = false;
+      var baseCtx = ctx || {};
+      var scopeBase = pathInfo.fenceNode || rootEl || (global.document || null);
+
+      function createScopedContext(){
+        var derived = Object.create(baseCtx);
+        derived.scopeNode = pathInfo.fenceNode || null;
+        derived.scopeId = pathInfo.scopeId || null;
+        derived.scopeQuery = function(sel){
+          if (!sel) return null;
+          var base = scopeBase;
+          if (!base && global && global.document) base = global.document;
+          return base && typeof base.querySelector === 'function' ? base.querySelector(sel) : null;
+        };
+        derived.scopeQueryAll = function(sel){
+          if (!sel) return [];
+          var base = scopeBase;
+          if (!base && global && global.document) base = global.document;
+          if (!base || typeof base.querySelectorAll !== 'function') return [];
+          return base.querySelectorAll(sel);
+        };
+        derived.stop = function(){ halted = true; };
+        return derived;
+      }
+
       for (var x=0;x<orders.length;x++){
         var o = orders[x];
         if (!o || o.disabled) continue;
@@ -691,12 +749,14 @@
           matched++;
           try{
             var end = (M.Auditor && M.Auditor.timing && M.Auditor.timing.start) ? M.Auditor.timing.start('event:'+ (o.name||type), {type:type, order:o.name, keysPath:keysPath}) : function(){ return 0; };
-            o.handler(e, ctx);
+            var scopedCtx = createScopedContext();
+            o.handler(e, scopedCtx);
             var ms = end(true);
             if (M.Auditor && M.Auditor.timing && M.Auditor.timing.record) M.Auditor.timing.record('event', (o.name||type), ms, { keysPath:keysPath, gkeysPath:gkeysPath });
           } catch (err) {
             M.Auditor.warn('E-HANDLER','handler threw for order: '+(o.name||'order'), { error:String(err && err.message || err) });
           }
+          if (halted) break;
         }
       }
       if (matched===0) { M.Auditor.debug('I-NOMATCH','no order matched: '+type, { keysPath:keysPath, gkeysPath:gkeysPath }); }
