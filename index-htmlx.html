@@ -6,7 +6,10 @@
     <title>مشكاة — تجربة HTMLx</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         color-scheme: light dark;
@@ -578,129 +581,66 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
-      <script>
-        function __htmlxInvoke(name) {
-          var handlers = window.__htmlxHandlers || {};
-          var fn = handlers && handlers[name];
-          if (typeof fn === 'function') {
-            return fn.apply(window, Array.prototype.slice.call(arguments, 1));
-          }
-          console.warn('HTMLx handler not found for', name);
+      <style>
+        :host {
+          display: block;
         }
+      </style>
 
-        function switchTab(tab, ctx) {
-          return __htmlxInvoke('switchTab', tab, ctx);
-        }
-
-        function setTheme(theme, ctx) {
-          return __htmlxInvoke('setTheme', theme, ctx);
-        }
-
-        function setLanguage(lang, ctx) {
-          return __htmlxInvoke('setLanguage', lang, ctx);
-        }
-
-        function toggleSettings(ctx) {
-          return __htmlxInvoke('toggleSettings', ctx);
-        }
-
-        function startGame(ctx) {
-          return __htmlxInvoke('startGame', ctx);
-        }
-
-        function updateCounter(delta, ctx) {
-          return __htmlxInvoke('updateCounter', delta, ctx);
-        }
-
-        function resetCounter(ctx) {
-          return __htmlxInvoke('resetCounter', ctx);
-        }
-
-        function startLogic(ctx) {
-          return __htmlxInvoke('startLogic', ctx);
-        }
-
-        function chooseLogic(option, ctx) {
-          return __htmlxInvoke('chooseLogic', option, ctx);
-        }
-
-        function chooseLetter(letter, ctx) {
-          return __htmlxInvoke('chooseLetter', letter, ctx);
-        }
-
-        function toggleMusic(event, ctx) {
-          return __htmlxInvoke('toggleMusic', event, ctx);
-        }
-
-        function selectTrack(event, ctx) {
-          return __htmlxInvoke('selectTrack', event, ctx);
-        }
-
-        function toggleTimer(event, ctx) {
-          return __htmlxInvoke('toggleTimer', event, ctx);
-        }
-
-        function setTimerSeconds(event, ctx) {
-          return __htmlxInvoke('setTimerSeconds', event, ctx);
-        }
-
-        function revealSolution(ctx) {
-          return __htmlxInvoke('revealSolution', ctx);
-        }
-
-        function closeSettings(event, ctx) {
-          return __htmlxInvoke('closeSettings', event, ctx);
-        }
-
-        function setFontScale(event, ctx) {
-          return __htmlxInvoke('setFontScale', event, ctx);
-        }
-
-        function setBackgroundPreset(event, ctx) {
-          return __htmlxInvoke('setBackgroundPreset', event, ctx);
-        }
-
-        function resetThemePrefs(ctx) {
-          return __htmlxInvoke('resetThemePrefs', ctx);
-        }
-      </script>
       <div class="page-shell">
         <header class="header app-card">
           <div class="header-inner">
             <div class="intro">
-              <h1>{t(state, 'app.title')}</h1>
-              <p>{t(state, 'header.subtitle')}</p>
+              <h1>{translate(state, 'app.title')}</h1>
+              <p>{translate(state, 'header.subtitle')}</p>
             </div>
 
             <div class="status-strip" x-if="state.data.activeTab === 'game'">
               <div class="status-block">
-                <span>⏳ {t(state, 'game.timeLabel')}</span>
+                <span>⏳ {translate(state, 'game.timeLabel')}</span>
                 <strong>{formatTimeLeft(state.data.game)}</strong>
               </div>
               <div class="status-block">
-                <span>❤️ {t(state, 'game.tries')}</span>
+                <span>❤️ {translate(state, 'game.tries')}</span>
                 <div class="hearts-row">
-                  <span x-for="i in range(state.data.game.triesMax)" key="i" class="{ i < state.data.game.triesLeft ? '' : 'opacity-45' }">{i < state.data.game.triesLeft ? '❤️' : '💔'}</span>
+                  <span
+                    x-for="i in range(state.data.game.triesMax)"
+                    key="i"
+                    class="{ i < state.data.game.triesLeft ? '' : 'opacity-45' }"
+                    >{i < state.data.game.triesLeft ? '❤️' : '💔'}</span
+                  >
                 </div>
               </div>
               <div class="status-block">
-                <span>🎯 {t(state, 'game.statusLabel')}</span>
-                <strong>{t(state, 'game.status.' + state.data.game.status)}</strong>
+                <span>🎯 {translate(state, 'game.statusLabel')}</span>
+                <strong>{translate(state, 'game.status.' + state.data.game.status)}</strong>
               </div>
             </div>
 
             <div class="controls">
               <div class="segmented">
-                <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">🌞 {t(state, 'header.theme.light')}</button>
-                <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">🌙 {t(state, 'header.theme.dark')}</button>
+                <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">
+                  🌞 {translate(state, 'header.theme.light')}
+                </button>
+                <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">
+                  🌙 {translate(state, 'header.theme.dark')}
+                </button>
               </div>
               <div class="segmented">
-                <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">ع {t(state, 'header.lang.ar')}</button>
-                <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">EN {t(state, 'header.lang.en')}</button>
+                <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">
+                  ع {translate(state, 'header.lang.ar')}
+                </button>
+                <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">
+                  EN {translate(state, 'header.lang.en')}
+                </button>
               </div>
-              <button class="button secondary" onclick="toggleSettings(ctx)">⚙️ {t(state, 'settings.open')}</button>
+              <button class="button secondary" onclick="toggleSettings(ctx)">
+                ⚙️ {translate(state, 'settings.open')}
+              </button>
               <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">
-                {state.data.game.status === 'running' ? t(state, 'game.new') : t(state, 'game.start')}
+                {state.data.game.status === 'running'
+                  ? translate(state, 'game.new')
+                  : translate(state, 'game.start')}
               </button>
             </div>
           </div>
@@ -709,27 +649,27 @@
         <div class="layout">
           <aside class="sidebar">
             <div class="app-card sidebar-card">
-              <h2>{t(state, 'nav.menu')}</h2>
+              <h2>{translate(state, 'nav.menu')}</h2>
               <div class="nav-list">
                 <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)">
-                  {t(state, 'nav.readmeBase')}
-                  <span class="hint">{t(state, 'doc.base.lead')}</span>
+                  {translate(state, 'nav.readmeBase')}
+                  <span class="hint">{translate(state, 'doc.base.lead')}</span>
                 </button>
                 <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)">
-                  {t(state, 'nav.readmeTec')}
-                  <span class="hint">{t(state, 'doc.tec.lead')}</span>
+                  {translate(state, 'nav.readmeTec')}
+                  <span class="hint">{translate(state, 'doc.tec.lead')}</span>
                 </button>
                 <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)">
-                  {t(state, 'nav.counter')}
-                  <span class="hint">{t(state, 'counter.lead')}</span>
+                  {translate(state, 'nav.counter')}
+                  <span class="hint">{translate(state, 'counter.lead')}</span>
                 </button>
                 <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)">
-                  {t(state, 'nav.logic')}
-                  <span class="hint">{t(state, 'logic.lead')}</span>
+                  {translate(state, 'nav.logic')}
+                  <span class="hint">{translate(state, 'logic.lead')}</span>
                 </button>
                 <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)">
-                  {t(state, 'nav.game')}
-                  <span class="hint">{t(state, 'game.lead')}</span>
+                  {translate(state, 'nav.game')}
+                  <span class="hint">{translate(state, 'game.lead')}</span>
                 </button>
               </div>
             </div>
@@ -738,44 +678,53 @@
           <div class="main-column">
             <section class="panel" x-if="state.data.activeTab === 'readmeBase'">
               <header>
-                <h2>{t(state, 'nav.readmeBase')}</h2>
-                <p>{t(state, 'doc.language.hint')}</p>
+                <h2>{translate(state, 'nav.readmeBase')}</h2>
+                <p>{translate(state, 'doc.language.hint')}</p>
               </header>
               <article class="md-prose" x-html="state.data.docs.base[state.env.lang]"></article>
             </section>
 
             <section class="panel" x-if="state.data.activeTab === 'readmeTec'">
               <header>
-                <h2>{t(state, 'nav.readmeTec')}</h2>
-                <p>{t(state, 'doc.language.hint')}</p>
+                <h2>{translate(state, 'nav.readmeTec')}</h2>
+                <p>{translate(state, 'doc.language.hint')}</p>
               </header>
               <article class="md-prose" x-html="state.data.docs.tec[state.env.lang]"></article>
             </section>
 
             <section class="panel" x-if="state.data.activeTab === 'counter'">
               <header>
-                <h2>{t(state, 'counter.title')}</h2>
-                <p>{t(state, 'counter.lead')}</p>
+                <h2>{translate(state, 'counter.title')}</h2>
+                <p>{translate(state, 'counter.lead')}</p>
               </header>
               <div class="counter-view">
                 <button class="button secondary" onclick="updateCounter(-1, ctx)">−</button>
                 <div class="counter-display">{state.data.counter}</div>
                 <button class="button" onclick="updateCounter(+1, ctx)">+</button>
-                <button class="button secondary" onclick="resetCounter(ctx)">{t(state, 'counter.reset')}</button>
+                <button class="button secondary" onclick="resetCounter(ctx)" data-m-once>
+                  {translate(state, 'counter.reset')}
+                </button>
               </div>
             </section>
 
             <section class="panel" x-if="state.data.activeTab === 'logic'">
               <header>
-                <h2>{t(state, 'logic.title')}</h2>
-                <p>{t(state, 'logic.subtitle')}</p>
+                <h2>{translate(state, 'logic.title')}</h2>
+                <p>{translate(state, 'logic.subtitle')}</p>
               </header>
               <div class="logic-sequence">
                 <div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div>
                 <div class="term">?</div>
               </div>
               <div class="logic-options">
-                <button x-for="option in state.data.logicGame.options" key="option" class="{logicOptionClass(option, state.data.logicGame)}" onclick="chooseLogic(option, ctx)">{option}</button>
+                <button
+                  x-for="option in state.data.logicGame.options"
+                  key="option"
+                  class="{logicOptionClass(option, state.data.logicGame)}"
+                  onclick="chooseLogic(option, ctx)"
+                >
+                  {option}
+                </button>
               </div>
               <div class="game-feedback" x-if="state.data.logicGame.feedback">
                 <div class="card">
@@ -783,40 +732,70 @@
                   <p>{logicFeedbackMessage(state)}</p>
                 </div>
               </div>
-              <div class="controls" style="margin-top:1.5rem;">
-                <button class="button" onclick="startLogic(ctx)">{t(state, state.data.logicGame.sequence.length ? 'logic.newChallenge' : 'logic.start')}</button>
+              <div class="controls" style="margin-top: 1.5rem;">
+                <button class="button" onclick="startLogic(ctx)">
+                  {translate(state, state.data.logicGame.sequence.length ? 'logic.newChallenge' : 'logic.start')}
+                </button>
               </div>
             </section>
 
             <section class="panel" x-if="state.data.activeTab === 'game'">
               <header>
-                <h2>{t(state, 'game.title')}</h2>
-                <p>{t(state, 'game.subtitle')}</p>
+                <h2>{translate(state, 'game.title')}</h2>
+                <p>{translate(state, 'game.subtitle')}</p>
               </header>
               <div class="game-board">
                 <div class="puzzle-row">
-                  <div class="puzzle-tile {tileClass(ch, state.data.game)}" x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []" key="idx">{tileContent(ch, state.data.game)}</div>
+                  <div
+                    class="{tileClass(ch, state.data.game)}"
+                    x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []"
+                    key="idx"
+                  >
+                    {tileContent(ch, state.data.game)}
+                  </div>
                 </div>
                 <div class="letters-grid">
-                  <button x-for="letter in AR_ALPHA" key="letter" class="{state.data.game.guessed[letter] ? 'used' : ''}" onclick="chooseLetter(letter, ctx)">{letter}</button>
+                  <button
+                    x-for="letter in state.data.alphabet"
+                    key="letter"
+                    class="{letterClass(letter, state.data.game)}"
+                    onclick="chooseLetter(letter, ctx)"
+                  >
+                    {letter}
+                  </button>
                 </div>
                 <div class="game-controls">
                   <div class="control-row">
                     <span class="toggle">
                       <input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" />
-                      <span>{state.data.game.musicOn ? t(state, 'game.musicOn') : t(state, 'game.musicOff')}</span>
+                      <span>
+                        {state.data.game.musicOn
+                          ? translate(state, 'game.musicOn')
+                          : translate(state, 'game.musicOff')}
+                      </span>
                     </span>
                     <select onchange="selectTrack(event, ctx)">
-                      <option x-for="track, idx in state.data.game.audioList" key="track.url" value="{idx}" selected="{idx === state.data.game.audioIdx ? 'selected' : null}">{track.name}</option>
+                      <option
+                        x-for="track, idx in state.data.game.audioList"
+                        key="track.url"
+                        value="{idx}"
+                        selected="{idx === state.data.game.audioIdx ? 'selected' : null}"
+                      >
+                        {track.name}
+                      </option>
                     </select>
                   </div>
                   <div class="control-row">
                     <span class="toggle">
                       <input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" />
-                      <span>{state.data.game.timerOn ? t(state, 'game.timerOn') : t(state, 'game.timerOff')}</span>
+                      <span>
+                        {state.data.game.timerOn
+                          ? translate(state, 'game.timerOn')
+                          : translate(state, 'game.timerOff')}
+                      </span>
                     </span>
                     <label>
-                      {t(state, 'game.timerSeconds')}
+                      {translate(state, 'game.timerSeconds')}
                       <input type="number" min="5" max="300" value="{state.data.game.timerSec}" onchange="setTimerSeconds(event, ctx)" />
                     </label>
                   </div>
@@ -827,22 +806,39 @@
                     <p>{gameFeedbackMessage(state)}</p>
                   </div>
                   <div class="card" x-if="state.data.game.proverb">
-                    <strong>💡 {t(state, 'game.hintTitle')}</strong>
+                    <strong>💡 {translate(state, 'game.hintTitle')}</strong>
                     <p>{state.data.game.proverb.hint}</p>
                   </div>
                   <div class="card" x-if="state.data.game.revealSolution && state.data.game.proverb">
-                    <strong>📜 {t(state, 'game.solution')}</strong>
-                    <p>{t(state, 'game.explanation')}: {state.data.game.proverb.explanation}</p>
-                    <p>{t(state, 'game.lesson')}: {state.data.game.proverb.lesson}</p>
-                    <p class="hint">{t(state, 'game.source')}: {state.data.game.proverb.source}</p>
+                    <strong>📜 {translate(state, 'game.solution')}</strong>
+                    <p>{translate(state, 'game.explanation')}: {state.data.game.proverb.explanation}</p>
+                    <p>{translate(state, 'game.lesson')}: {state.data.game.proverb.lesson}</p>
+                    <p class="hint">{translate(state, 'game.source')}: {state.data.game.proverb.source}</p>
                   </div>
                 </div>
-                <audio class="hidden" x-if="state.data.game.musicOn && state.data.game.status === 'running'" src="{state.data.game.audioList[state.data.game.audioIdx].url}" autoplay loop></audio>
-                <audio class="hidden" x-if="state.data.game.feedback && state.data.game.feedback.sound" src="{state.data.game.feedback.sound}" autoplay></audio>
+                <audio
+                  class="hidden"
+                  x-if="state.data.game.musicOn && state.data.game.status === 'running'"
+                  src="{state.data.game.audioList[state.data.game.audioIdx].url}"
+                  autoplay
+                  loop
+                ></audio>
+                <audio
+                  class="hidden"
+                  x-if="state.data.game.feedback && state.data.game.feedback.sound"
+                  src="{state.data.game.feedback.sound}"
+                  autoplay
+                ></audio>
               </div>
-              <div class="controls" style="margin-top:1.5rem;">
-                <button class="button" onclick="startGame(ctx)">{state.data.game.status === 'running' ? t(state, 'game.new') : t(state, 'game.start')}</button>
-                <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">{t(state, 'game.reveal')}</button>
+              <div class="controls" style="margin-top: 1.5rem;">
+                <button class="button" onclick="startGame(ctx)">
+                  {state.data.game.status === 'running'
+                    ? translate(state, 'game.new')
+                    : translate(state, 'game.start')}
+                </button>
+                <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">
+                  {translate(state, 'game.reveal')}
+                </button>
               </div>
             </section>
           </div>
@@ -850,26 +846,435 @@
 
         <div class="settings-modal" x-if="state.data.settingsOpen" onclick="closeSettings(event, ctx)">
           <div class="settings-body" onclick="event.stopPropagation()">
-            <h3>{t(state, 'settings.title')}</h3>
+            <h3>{translate(state, 'settings.title')}</h3>
             <div class="settings-grid">
               <label>
-                {t(state, 'settings.fontLabel')} ({state.data.themePrefs.fontScale}%)
+                {translate(state, 'settings.fontLabel')} ({state.data.themePrefs.fontScale}%)
                 <input type="range" min="85" max="130" step="5" value="{state.data.themePrefs.fontScale}" onchange="setFontScale(event, ctx)" />
               </label>
               <label>
-                {t(state, 'settings.background')}
+                {translate(state, 'settings.background')}
                 <select onchange="setBackgroundPreset(event, ctx)">
-                  <option x-for="preset in THEME_BACKGROUND_PRESETS" key="preset.id" value="{preset.id}" selected="{preset.id === state.data.themePrefs.background ? 'selected' : null}">{preset.label[state.env.lang] || preset.label.ar}</option>
+                  <option
+                    x-for="preset in state.data.backgrounds"
+                    key="preset.id"
+                    value="{preset.id}"
+                    selected="{preset.id === state.data.themePrefs.background ? 'selected' : null}"
+                  >
+                    {preset.label[state.env.lang] || preset.label.ar}
+                  </option>
                 </select>
               </label>
             </div>
             <div class="settings-actions">
-              <button class="button secondary" onclick="resetThemePrefs(ctx)">{t(state, 'settings.reset')}</button>
-              <button class="button" onclick="toggleSettings(ctx)">{t(state, 'settings.close')}</button>
+              <button class="button secondary" onclick="resetThemePrefs(ctx)">
+                {translate(state, 'settings.reset')}
+              </button>
+              <button class="button" onclick="toggleSettings(ctx)">
+                {translate(state, 'settings.close')}
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      <script>
+        function getHelpers() {
+          return window.__INDEX || {};
+        }
+
+        function cloneState(prev) {
+          return JSON.parse(JSON.stringify(prev || {}));
+        }
+
+        function translate(state, key) {
+          var helpers = getHelpers();
+          var dict = helpers.STRINGS || {};
+          var entry = dict[key];
+          if (!entry) return key;
+          var lang = (state.env && state.env.lang) || 'ar';
+          return entry[lang] || entry.ar || entry.en || key;
+        }
+
+        function range(count) {
+          var len = Math.max(0, Number(count) || 0);
+          var out = [];
+          for (var i = 0; i < len; i++) out.push(i);
+          return out;
+        }
+
+        function formatTimeLeft(game) {
+          if (!game || !game.timerOn) return '—';
+          var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
+          return value >= 0 ? value : '—';
+        }
+
+        function logicOptionClass(option, game) {
+          if (!game || !game.feedback) return '';
+          if (option === game.answer) return 'correct';
+          if (game.selected === option) return 'wrong';
+          return '';
+        }
+
+        function logicFeedbackTitle(state) {
+          var game = state && state.data && state.data.logicGame;
+          if (!game || !game.feedback) return '';
+          var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
+          var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
+          var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
+          return emoji + translate(state, key);
+        }
+
+        function logicFeedbackMessage(state) {
+          var game = state && state.data && state.data.logicGame;
+          if (!game || !game.feedback) return '';
+          var message = game.feedback.message;
+          var lang = (state.env && state.env.lang) || 'ar';
+          if (typeof message === 'function') {
+            return message(lang);
+          }
+          if (typeof message === 'string') {
+            return message;
+          }
+          if (message && typeof message === 'object') {
+            return message[lang] || message.ar || message.en || '';
+          }
+          return '';
+        }
+
+        function tileClass(ch, game) {
+          if (ch === ' ') return 'puzzle-tile space';
+          var helpers = getHelpers();
+          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+          var revealed = game && game.guessed && game.guessed[norm];
+          return 'puzzle-tile' + (revealed ? ' revealed' : '');
+        }
+
+        function tileContent(ch, game) {
+          if (ch === ' ') return '';
+          var helpers = getHelpers();
+          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+          return game && game.guessed && game.guessed[norm] ? ch : '•';
+        }
+
+        function letterClass(letter, game) {
+          if (!game) return '';
+          var helpers = getHelpers();
+          var norm = helpers.normLetter ? helpers.normLetter(letter) : letter;
+          return game.guessed && game.guessed[norm] ? 'used' : '';
+        }
+
+        function gameFeedbackTitle(state) {
+          var game = state && state.data && state.data.game;
+          if (!game || !game.feedback) return '';
+          var emojiMap = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
+          var keyMap = {
+            correct: 'game.feedback.correct',
+            wrong: 'game.feedback.wrong',
+            win: 'game.feedback.win',
+            lose: 'game.feedback.lose'
+          };
+          var type = game.feedback.type;
+          var emoji = emojiMap[type] || '✨';
+          var key = keyMap[type] || 'game.feedback.correct';
+          return emoji + ' ' + translate(state, key);
+        }
+
+        function gameFeedbackMessage(state) {
+          var game = state && state.data && state.data.game;
+          if (!game || !game.feedback) return '';
+          var keyMap = {
+            correct: 'game.feedback.correct',
+            wrong: 'game.feedback.wrong',
+            win: 'game.feedback.win',
+            lose: 'game.feedback.lose'
+          };
+          var key = keyMap[game.feedback.type] || 'game.feedback.correct';
+          return translate(state, key);
+        }
+
+        function switchTab(tab, ctx) {
+          if (!ctx) return;
+          ctx.set('data.activeTab', tab);
+        }
+
+        function setTheme(theme, ctx) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.env.theme = theme;
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+            if (helpers.persistPrefs) helpers.persistPrefs(state);
+          }, 0);
+        }
+
+        function setLanguage(lang, ctx) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.env.lang = lang;
+            next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+            if (helpers.persistPrefs) helpers.persistPrefs(state);
+          }, 0);
+        }
+
+        function toggleSettings(ctx) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.data.settingsOpen = !next.data.settingsOpen;
+            return next;
+          });
+        }
+
+        function updateCounter(delta, ctx) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var value = typeof next.data.counter === 'number' ? next.data.counter : 0;
+            next.data.counter = value + delta;
+            return next;
+          });
+        }
+
+        function resetCounter(ctx) {
+          if (!ctx) return;
+          ctx.set('data.counter', 0);
+        }
+
+        function startLogic(ctx) {
+          if (!ctx) return;
+          var helpers = getHelpers();
+          var generators = helpers.LOGIC_GENERATORS || [];
+          if (!generators.length) return;
+          var generator = generators[Math.floor(Math.random() * generators.length)];
+          var challenge = generator(helpers);
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var logic = next.data.logicGame;
+            logic.sequence = challenge.sequence;
+            logic.options = challenge.options;
+            logic.answer = challenge.answer;
+            logic.feedback = null;
+            logic.explain = challenge.message;
+            logic.selected = null;
+            return next;
+          });
+        }
+
+        function chooseLogic(option, ctx) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var logic = next.data.logicGame;
+            if (!Array.isArray(logic.options) || !logic.options.length) return prev;
+            if (logic.feedback && logic.feedback.type === 'correct') return prev;
+            var isCorrect = option === logic.answer;
+            logic.selected = option;
+            logic.feedback = {
+              type: isCorrect ? 'correct' : 'wrong',
+              message: logic.explain
+            };
+            return next;
+          });
+        }
+
+        function startGame(ctx) {
+          if (!ctx) return;
+          var helpers = getHelpers();
+          if (helpers.clearTimer) helpers.clearTimer();
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var game = next.data.game;
+            var list = helpers.PROVERBS || [];
+            var proverb = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+            game.proverb = proverb;
+            game.guessed = {};
+            game.triesLeft = game.triesMax;
+            game.status = 'running';
+            game.revealSolution = false;
+            game.feedback = null;
+            game.timeLeft = game.timerOn ? game.timerSec : 0;
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+            if (state.data.game.timerOn && state.data.game.status === 'running' && helpers.startTimer) {
+              helpers.startTimer(ctx);
+            }
+          }, 0);
+        }
+
+        function chooseLetter(letter, ctx) {
+          if (!ctx) return;
+          var helpers = getHelpers();
+          var normValue = helpers.normLetter ? helpers.normLetter(letter) : letter;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var game = next.data.game;
+            if (!game || game.status !== 'running') return prev;
+            if (game.guessed[normValue]) return prev;
+            game.guessed[normValue] = true;
+            var proverb = game.proverb;
+            var hasLetter = proverb && proverb.t.split('').some(function (ch) {
+              return (helpers.normLetter ? helpers.normLetter(ch) : ch) === normValue;
+            });
+            var sounds = helpers.SOUND_EFFECTS || {};
+            if (!hasLetter) {
+              game.triesLeft = Math.max(0, game.triesLeft - 1);
+              game.feedback = { type: 'wrong', sound: sounds.wrong || '' };
+            } else {
+              game.feedback = { type: 'correct', sound: sounds.correct || '' };
+            }
+            if (helpers.checkSolved && helpers.checkSolved(game)) {
+              game.status = 'won';
+              game.revealSolution = true;
+              game.feedback = { type: 'win', sound: sounds.win || '' };
+              game.timeLeft = game.timerOn ? game.timeLeft : 0;
+              if (helpers.clearTimer) helpers.clearTimer();
+            } else if (game.triesLeft <= 0) {
+              game.status = 'lost';
+              game.revealSolution = true;
+              game.feedback = { type: 'lose', sound: sounds.lose || '' };
+              if (helpers.clearTimer) helpers.clearTimer();
+            }
+            return next;
+          });
+        }
+
+        function toggleMusic(event, ctx) {
+          if (!ctx) return;
+          var checked = !!(event && event.target && event.target.checked);
+          ctx.set('data.game.musicOn', checked);
+        }
+
+        function selectTrack(event, ctx) {
+          if (!ctx || !event || !event.target) return;
+          var idx = parseInt(event.target.value, 10);
+          if (!Number.isFinite(idx)) idx = 0;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var list = next.data.game.audioList || [];
+            next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
+            return next;
+          });
+        }
+
+        function toggleTimer(event, ctx) {
+          if (!ctx || !event || !event.target) return;
+          var helpers = getHelpers();
+          var checked = !!event.target.checked;
+          if (helpers.clearTimer) helpers.clearTimer();
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var game = next.data.game;
+            game.timerOn = checked;
+            game.timeLeft = checked ? game.timerSec : 0;
+            if (!checked && game.status === 'running') {
+              game.status = 'idle';
+            }
+            return next;
+          });
+          window.setTimeout(function () {
+            var state = ctx.getState();
+            if (state.data.game.status === 'running' && state.data.game.timerOn && helpers.startTimer) {
+              helpers.startTimer(ctx);
+            }
+          }, 0);
+        }
+
+        function setTimerSeconds(event, ctx) {
+          if (!ctx || !event || !event.target) return;
+          var value = parseInt(event.target.value, 10);
+          if (!Number.isFinite(value)) return;
+          value = Math.min(300, Math.max(5, value));
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            var game = next.data.game;
+            game.timerSec = value;
+            if (game.timerOn) {
+              game.timeLeft = value;
+            }
+            return next;
+          });
+        }
+
+        function revealSolution(ctx) {
+          if (!ctx) return;
+          ctx.set('data.game.revealSolution', true);
+        }
+
+        function closeSettings(event, ctx) {
+          if (!ctx) return;
+          if (event && event.target && event.currentTarget && event.target !== event.currentTarget) {
+            return;
+          }
+          ctx.set('data.settingsOpen', false);
+        }
+
+        function setFontScale(event, ctx) {
+          if (!ctx || !event || !event.target) return;
+          var value = parseInt(event.target.value, 10);
+          if (!Number.isFinite(value)) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.data.themePrefs.fontScale = value;
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+            if (helpers.persistPrefs) helpers.persistPrefs(state);
+          }, 0);
+        }
+
+        function setBackgroundPreset(event, ctx) {
+          if (!ctx || !event || !event.target) return;
+          var id = event.target.value;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.data.themePrefs.background = id;
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+            if (helpers.persistPrefs) helpers.persistPrefs(state);
+          }, 0);
+        }
+
+        function resetThemePrefs(ctx) {
+          if (!ctx) return;
+          var helpers = getHelpers();
+          var defaults = helpers.defaultThemePrefs ? helpers.defaultThemePrefs() : { fontScale: 100, background: 'nebula' };
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            next.data.themePrefs = defaults;
+            return next;
+          });
+          window.setTimeout(function () {
+            var helpers = getHelpers();
+            var state = ctx.getState();
+            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+            if (helpers.persistPrefs) helpers.persistPrefs(state);
+          }, 0);
+        }
+      </script>
     </template>
 
     <script src="./mishkah-utils.js"></script>
@@ -882,17 +1287,12 @@
         'use strict';
 
         var M = window.Mishkah;
-        var HTMLX_HANDLERS = window.__htmlxHandlers = window.__htmlxHandlers || {};
-
-        function defineHandler(name, fn) {
-          HTMLX_HANDLERS[name] = fn;
-          window[name] = fn;
-        }
         if (!M || !M.HTMLxAgent) {
           console.error('Mishkah HTMLx agent is required.');
           return;
         }
 
+        var helpers = window.__INDEX = window.__INDEX || {};
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
 
         var STRINGS = {
@@ -913,7 +1313,7 @@
           'nav.game': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
           'doc.base.lead': {
             ar: 'قراءة روحية لمعماريات مشكاة ومحركها.',
-            en: 'A reflective tour through Mishkah\'s architecture.'
+            en: "A reflective tour through Mishkah's architecture."
           },
           'doc.tec.lead': {
             ar: 'الملف التقني الذي يشرح تفاصيل النظام.',
@@ -967,6 +1367,7 @@
           'settings.reset': { ar: 'إعادة الافتراضي', en: 'Reset defaults' },
           'settings.close': { ar: 'تم', en: 'Done' }
         };
+        helpers.STRINGS = STRINGS;
 
         var SOUND_EFFECTS = {
           correct: 'https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3',
@@ -974,8 +1375,56 @@
           win: 'https://assets.mixkit.co/sfx/preview/mixkit-small-crowd-cheer-and-applause-518.mp3',
           lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
         };
+        helpers.SOUND_EFFECTS = SOUND_EFFECTS;
 
-        var AR_ALPHA = window.AR_ALPHA = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
+        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length
+          ? window.PROVERBS.slice()
+          : [
+              { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
+              { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
+              { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' },
+              { t: 'من طلب العلا سهر الليالي', hint: 'يتحدث عن الاجتهاد.', explanation: 'المثل يدعو إلى المثابرة وبذل الجهد لتحقيق الأهداف السامية.', lesson: 'الطموح يتحقق بالعمل والصبر.', source: 'حكمة تعليمية' },
+              { t: 'القناعة كنز لا يفنى', hint: 'يدعو للرضا.', explanation: 'يبين المثل أن القناعة ثروة داخلية تمنح صاحبها راحة مستدامة.', lesson: 'تقدير النعم الحالية يجلب السكينة.', source: 'مثل عربي متداول' },
+              { t: 'من شب على شيء شاب عليه', hint: 'يتعلق بالعادات.', explanation: 'يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه.', lesson: 'تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.', source: 'مثل عربي دارج' },
+              { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
+              { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
+            ];
+        helpers.PROVERBS = PROVERBS;
+
+        function randomBetween(min, max) {
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        helpers.randomBetween = randomBetween;
+
+        function shuffle(arr) {
+          var copy = arr.slice();
+          for (var i = copy.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = copy[i];
+            copy[i] = copy[j];
+            copy[j] = tmp;
+          }
+          return copy;
+        }
+        helpers.shuffle = shuffle;
+
+        function normLetter(ch) {
+          return String(ch || '').replace(/[أإآ]/g, 'ا');
+        }
+        helpers.normLetter = normLetter;
+
+        function checkSolved(game) {
+          if (!game || !game.proverb) return false;
+          return game.proverb.t.split('').every(function (ch) {
+            return ch === ' ' || game.guessed[normLetter(ch)];
+          });
+        }
+        helpers.checkSolved = checkSolved;
+
+        function defaultThemePrefs() {
+          return { fontScale: 100, background: 'nebula' };
+        }
+        helpers.defaultThemePrefs = defaultThemePrefs;
 
         var THEME_BACKGROUND_PRESETS = [
           {
@@ -1007,33 +1456,22 @@
             }
           }
         ];
-        window.THEME_BACKGROUND_PRESETS = THEME_BACKGROUND_PRESETS;
+        helpers.BACKGROUNDS = THEME_BACKGROUND_PRESETS;
 
-        var PROVERBS = window.PROVERBS || [];
-        if (!PROVERBS.length) {
-          PROVERBS = [
-            { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
-            { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
-            { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' },
-            { t: 'من طلب العلا سهر الليالي', hint: 'يتحدث عن الاجتهاد.', explanation: 'المثل يدعو إلى المثابرة وبذل الجهد لتحقيق الأهداف السامية.', lesson: 'الطموح يتحقق بالعمل والصبر.', source: 'حكمة تعليمية' },
-            { t: 'القناعة كنز لا يفنى', hint: 'يدعو للرضا.', explanation: 'يبين المثل أن القناعة ثروة داخلية تمنح صاحبها راحة مستدامة.', lesson: 'تقدير النعم الحالية يجلب السكينة.', source: 'مثل عربي متداول' },
-            { t: 'من شب على شيء شاب عليه', hint: 'يتعلق بالعادات.', explanation: 'يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه.', lesson: 'تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.', source: 'مثل عربي دارج' },
-            { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
-            { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
-          ];
-        }
+        var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
+        helpers.ALPHABET = ALPHABET;
 
         var LOGIC_GENERATORS = [
-          function arithmetic() {
-            var step = randomBetween(2, 8);
-            var start = randomBetween(2, 15);
+          function arithmetic(h) {
+            var step = h.randomBetween(2, 8);
+            var start = h.randomBetween(2, 15);
             var length = 4;
             var sequence = [];
             for (var i = 0; i < length; i++) {
               sequence.push(start + i * step);
             }
             var answer = start + length * step;
-            var pool = shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
+            var pool = h.shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
             return {
               type: 'arithmetic',
               sequence: sequence,
@@ -1045,15 +1483,15 @@
               }
             };
           },
-          function doubling() {
-            var start = randomBetween(2, 6);
+          function doubling(h) {
+            var start = h.randomBetween(2, 6);
             var length = 4;
             var sequence = [];
             for (var i = 0; i < length; i++) {
               sequence.push(start * Math.pow(2, i));
             }
             var answer = start * Math.pow(2, length);
-            var pool = shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
+            var pool = h.shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
             return {
               type: 'double',
               sequence: sequence,
@@ -1065,8 +1503,8 @@
               }
             };
           },
-          function squares() {
-            var start = randomBetween(2, 5);
+          function squares(h) {
+            var start = h.randomBetween(2, 5);
             var length = 4;
             var sequence = [];
             for (var i = 0; i < length; i++) {
@@ -1075,7 +1513,13 @@
             }
             var nextBase = start + length;
             var answer = nextBase * nextBase;
-            var pool = shuffle([answer, (nextBase + 1) * (nextBase + 1), (nextBase - 1) * (nextBase - 1), answer + nextBase, answer - nextBase]).slice(0, 4);
+            var pool = h.shuffle([
+              answer,
+              (nextBase + 1) * (nextBase + 1),
+              (nextBase - 1) * (nextBase - 1),
+              answer + nextBase,
+              answer - nextBase
+            ]).slice(0, 4);
             return {
               type: 'square',
               sequence: sequence,
@@ -1088,404 +1532,26 @@
             };
           }
         ];
-
-        function randomBetween(min, max) {
-          return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        function shuffle(arr) {
-          var a = arr.slice();
-          for (var i = a.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = a[i];
-            a[i] = a[j];
-            a[j] = tmp;
-          }
-          return a;
-        }
-
-        function normLetter(ch) {
-          return String(ch || '').replace(/[أإآ]/g, 'ا');
-        }
-
-        function translate(state, key) {
-          var entry = STRINGS[key];
-          if (!entry) return key;
-          var lang = state.env && state.env.lang ? state.env.lang : 'ar';
-          return entry[lang] || entry.ar || entry.en || key;
-        }
-
-        window.t = translate;
-
-        window.range = function (count) {
-          var len = Math.max(0, Number(count) || 0);
-          return Array.from({ length: len }, function (_, i) { return i; });
-        };
-
-        window.logicOptionClass = function (option, game) {
-          if (!game || !game.feedback) return '';
-          if (option === game.answer) return 'correct';
-          if (game.selected === option) return 'wrong';
-          return '';
-        };
-
-        window.logicFeedbackTitle = function (state) {
-          if (!state || !state.data || !state.data.logicGame.feedback) return '';
-          var type = state.data.logicGame.feedback.type;
-          return type === 'correct' ? '✅ ' + translate(state, 'logic.feedback.correct') : '⚠️ ' + translate(state, 'logic.feedback.wrong');
-        };
-
-        window.logicFeedbackMessage = function (state) {
-          if (!state || !state.data) return '';
-          var feedback = state.data.logicGame.feedback;
-          if (!feedback || !feedback.message) return '';
-          var message = feedback.message;
-          if (typeof message === 'function') {
-            return message(state.env.lang || 'ar');
-          }
-          if (typeof message === 'string') {
-            return message;
-          }
-          return message[state.env.lang || 'ar'] || message.ar || message.en || '';
-        };
-
-        window.tileClass = function (ch, game) {
-          if (ch === ' ') return 'puzzle-tile space';
-          var revealed = game && game.guessed && game.guessed[normLetter(ch)];
-          return 'puzzle-tile' + (revealed ? ' revealed' : '');
-        };
-
-        window.tileContent = function (ch, game) {
-          if (ch === ' ') return '';
-          return (game && game.guessed && game.guessed[normLetter(ch)]) ? ch : '•';
-        };
-
-        window.formatTimeLeft = function (game) {
-          if (!game || !game.timerOn) return '—';
-          var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
-          return value >= 0 ? value : '—';
-        };
-
-        window.gameFeedbackTitle = function (state) {
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var map = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var key = map[game.feedback.type];
-          var emoji = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
-          return (emoji[game.feedback.type] || '✨') + ' ' + translate(state, key || 'game.feedback.correct');
-        };
-
-        window.gameFeedbackMessage = function (state) {
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var map = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var key = map[game.feedback.type];
-          return translate(state, key || 'game.feedback.correct');
-        };
-
-        defineHandler('switchTab', function (tab, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.activeTab = tab;
-            return next;
-          });
-        });
-
-        defineHandler('setTheme', function (theme, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.env.theme = theme;
-            return next;
-          });
-          setTimeout(function () {
-            var updated = ctx.getState();
-            applyEnvironment(updated);
-            persistPrefs(updated);
-          }, 0);
-        });
-
-        defineHandler('setLanguage', function (lang, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.env.lang = lang;
-            next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            return next;
-          });
-          setTimeout(function () {
-            var updated = ctx.getState();
-            applyEnvironment(updated);
-            persistPrefs(updated);
-          }, 0);
-        });
-
-        defineHandler('updateCounter', function (delta, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.counter = (next.data.counter || 0) + delta;
-            return next;
-          });
-        });
-
-        defineHandler('resetCounter', function (ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.counter = 0;
-            return next;
-          });
-        });
-
-        defineHandler('startLogic', function (ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var generator = LOGIC_GENERATORS[Math.floor(Math.random() * LOGIC_GENERATORS.length)];
-            var challenge = generator();
-            next.data.logicGame.sequence = challenge.sequence;
-            next.data.logicGame.options = shuffle(challenge.options).slice(0, 4);
-            next.data.logicGame.answer = challenge.answer;
-            next.data.logicGame.feedback = null;
-            next.data.logicGame.explain = challenge.message;
-            return next;
-          });
-        });
-
-        defineHandler('chooseLogic', function (option, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.logicGame;
-            if (!game || !game.options || !game.options.length) return prev;
-            if (game.feedback && game.feedback.type === 'correct') return prev;
-            var isCorrect = option === game.answer;
-            game.selected = option;
-            game.feedback = {
-              type: isCorrect ? 'correct' : 'wrong',
-              message: game.explain
-            };
-            return next;
-          });
-        });
+        helpers.LOGIC_GENERATORS = LOGIC_GENERATORS;
 
         var activeTimer = null;
-
-        defineHandler('startGame', function (ctx) {
-          if (!ctx) return;
-          clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var proverb = PROVERBS[Math.floor(Math.random() * PROVERBS.length)];
-            next.data.game.proverb = proverb;
-            next.data.game.guessed = {};
-            next.data.game.triesLeft = next.data.game.triesMax;
-            next.data.game.status = 'running';
-            next.data.game.revealSolution = false;
-            next.data.game.feedback = null;
-            next.data.game.timeLeft = next.data.game.timerOn ? next.data.game.timerSec : 0;
-            return next;
-          });
-          setTimeout(function () {
-            var state = ctx.getState();
-            applyEnvironment(state);
-            if (state.data.game.timerOn) {
-              activeTimer = setInterval(function () {
-                tickTimer(ctx);
-              }, 1000);
-            }
-          }, 0);
-        });
-
-        defineHandler('chooseLetter', function (letter, ctx) {
-          if (!ctx) return;
-          var value = normLetter(letter);
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.game;
-            if (!game || game.status !== 'running') return prev;
-            if (game.guessed[value]) return prev;
-            game.guessed[value] = true;
-            var hasLetter = game.proverb && game.proverb.t.split('').some(function (ch) {
-              return normLetter(ch) === value;
-            });
-            if (!hasLetter) {
-              game.triesLeft = Math.max(0, game.triesLeft - 1);
-              game.feedback = { type: 'wrong', sound: SOUND_EFFECTS.wrong };
-            } else {
-              game.feedback = { type: 'correct', sound: SOUND_EFFECTS.correct };
-            }
-            var solved = checkSolved(game);
-            if (solved) {
-              game.status = 'won';
-              game.revealSolution = true;
-              game.feedback = { type: 'win', sound: SOUND_EFFECTS.win };
-              game.timeLeft = game.timerOn ? game.timeLeft : 0;
-              clearTimer();
-            } else if (game.triesLeft <= 0) {
-              game.status = 'lost';
-              game.revealSolution = true;
-              game.feedback = { type: 'lose', sound: SOUND_EFFECTS.lose };
-              clearTimer();
-            }
-            return next;
-          });
-        });
-
-        defineHandler('toggleMusic', function (event, ctx) {
-          if (!ctx) return;
-          var checked = !!(event && event.target && event.target.checked);
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.game.musicOn = checked;
-            return next;
-          });
-        });
-
-        defineHandler('selectTrack', function (event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var idx = parseInt(event.target.value, 10) || 0;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.game.audioIdx = Math.max(0, Math.min(idx, next.data.game.audioList.length - 1));
-            return next;
-          });
-        });
-
-        defineHandler('toggleTimer', function (event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var checked = !!event.target.checked;
-          clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.game.timerOn = checked;
-            next.data.game.timeLeft = checked ? next.data.game.timerSec : 0;
-            if (!checked && next.data.game.status === 'running') {
-              next.data.game.status = 'idle';
-            }
-            return next;
-          });
-          setTimeout(function () {
-            var state = ctx.getState();
-            if (state.data.game.status === 'running' && state.data.game.timerOn) {
-              activeTimer = setInterval(function () { tickTimer(ctx); }, 1000);
-            }
-          }, 0);
-        });
-
-        defineHandler('setTimerSeconds', function (event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          value = Math.min(300, Math.max(5, value));
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.game.timerSec = value;
-            if (next.data.game.timerOn) {
-              next.data.game.timeLeft = value;
-            }
-            return next;
-          });
-        });
-
-        defineHandler('revealSolution', function (ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.game.revealSolution = true;
-            return next;
-          });
-        });
-
-        defineHandler('toggleSettings', function (ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.settingsOpen = !next.data.settingsOpen;
-            return next;
-          });
-        });
-
-        defineHandler('closeSettings', function (event, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            if (event && event.target !== event.currentTarget) return prev;
-            var next = cloneState(prev);
-            next.data.settingsOpen = false;
-            return next;
-          });
-        });
-
-        defineHandler('setFontScale', function (event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs.fontScale = value;
-            applyThemePrefs(next);
-            return next;
-          });
-          setTimeout(function () {
-            persistPrefs(ctx.getState());
-          }, 0);
-        });
-
-        defineHandler('setBackgroundPreset', function (event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var id = event.target.value;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs.background = id;
-            applyThemePrefs(next);
-            return next;
-          });
-          setTimeout(function () {
-            persistPrefs(ctx.getState());
-          }, 0);
-        });
-
-        defineHandler('resetThemePrefs', function (ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs = defaultThemePrefs();
-            applyThemePrefs(next);
-            return next;
-          });
-          setTimeout(function () {
-            persistPrefs(ctx.getState());
-          }, 0);
-        });
-
-        function checkSolved(game) {
-          if (!game || !game.proverb) return false;
-          return game.proverb.t.split('').every(function (ch) {
-            return ch === ' ' || game.guessed[normLetter(ch)];
-          });
+        function clearTimer() {
+          if (activeTimer) {
+            window.clearInterval(activeTimer);
+            activeTimer = null;
+          }
         }
+        helpers.clearTimer = clearTimer;
 
         function tickTimer(ctx) {
           var state = ctx.getState();
-          var game = state.data.game;
-          if (!game || game.status !== 'running' || !game.timerOn) {
+          var game = state.data && state.data.game;
+          if (!game || !game.timerOn || game.status !== 'running') {
             clearTimer();
             return;
           }
           ctx.setState(function (prev) {
-            var next = cloneState(prev);
+            var next = JSON.parse(JSON.stringify(prev || {}));
             var g = next.data.game;
             if (!g.timerOn || g.status !== 'running') return prev;
             var nextTime = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
@@ -1499,24 +1565,17 @@
             return next;
           });
         }
+        helpers.tickTimer = tickTimer;
 
-        function clearTimer() {
-          if (activeTimer) {
-            clearInterval(activeTimer);
-            activeTimer = null;
-          }
-        }
-
-        function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev));
-        }
-
-        function defaultThemePrefs() {
-          return { fontScale: 100, background: 'nebula' };
-        }
+        helpers.startTimer = function (ctx) {
+          clearTimer();
+          activeTimer = window.setInterval(function () {
+            tickTimer(ctx);
+          }, 1000);
+        };
 
         function applyThemePrefs(state) {
-          var prefs = state.data.themePrefs || defaultThemePrefs();
+          var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
           var scale = prefs.fontScale || 100;
           document.documentElement.style.setProperty('--user-font-scale', String(scale));
           var preset = THEME_BACKGROUND_PRESETS.find(function (p) { return p.id === prefs.background; }) || THEME_BACKGROUND_PRESETS[0];
@@ -1527,6 +1586,7 @@
             document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2);
           }
         }
+        helpers.applyThemePrefs = applyThemePrefs;
 
         function applyEnvironment(state) {
           document.documentElement.lang = state.env.lang || 'ar';
@@ -1534,6 +1594,7 @@
           document.documentElement.classList.toggle('dark', state.env.theme === 'dark');
           applyThemePrefs(state);
         }
+        helpers.applyEnvironment = applyEnvironment;
 
         function persistPrefs(state) {
           try {
@@ -1548,6 +1609,7 @@
             console.warn('Failed to persist preferences', err);
           }
         }
+        helpers.persistPrefs = persistPrefs;
 
         function loadPrefs() {
           try {
@@ -1558,6 +1620,19 @@
             console.warn('Failed to read preferences', err);
             return null;
           }
+        }
+        helpers.loadPrefs = loadPrefs;
+
+        function escapeHtml(text) {
+          return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function inlineMarkdown(text) {
+          var out = escapeHtml(text);
+          out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+          out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
+          out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+          return out;
         }
 
         function simpleMarkdownToHtml(md) {
@@ -1622,21 +1697,7 @@
           if (inCode) html.push('<pre><code>' + escapeHtml(codeBuffer.join('\n')) + '</code></pre>');
           return html.join('\n');
         }
-
-        function inlineMarkdown(text) {
-          var out = escapeHtml(text);
-          out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-          out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
-          out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-          return out;
-        }
-
-        function escapeHtml(text) {
-          return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        }
+        helpers.simpleMarkdownToHtml = simpleMarkdownToHtml;
 
         function prepareDocs() {
           var store = M.readme || {};
@@ -1649,6 +1710,7 @@
             tec: { ar: simpleMarkdownToHtml(tecAr), en: simpleMarkdownToHtml(tecEn) }
           };
         }
+        helpers.prepareDocs = prepareDocs;
 
         function buildInitialState() {
           var prefs = loadPrefs() || {};
@@ -1663,6 +1725,8 @@
               logicGame: { sequence: [], options: [], answer: null, feedback: null, explain: null, selected: null },
               settingsOpen: false,
               themePrefs: prefs.themePrefs || defaultThemePrefs(),
+              backgrounds: THEME_BACKGROUND_PRESETS,
+              alphabet: ALPHABET,
               game: {
                 musicOn: true,
                 timerOn: true,
@@ -1685,10 +1749,7 @@
             }
           };
         }
-
-        function buildOrders() {
-          return {};
-        }
+        helpers.buildInitialState = buildInitialState;
 
         var state = buildInitialState();
         applyEnvironment(state);
@@ -1698,7 +1759,7 @@
           head: { title: 'مشكاة — تجربة HTMLx' },
           env: state.env,
           data: state.data,
-          orders: buildOrders(),
+          orders: {},
           templates: [{ id: 'mishkah-index' }]
         });
 
