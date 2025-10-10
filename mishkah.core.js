@@ -46,6 +46,33 @@
     return out;
   }
 
+  function reportCoreError(context, description, detail, err){
+    var payload = {};
+    var errorObj = err;
+    if (!errorObj && detail instanceof Error){
+      errorObj = detail;
+      detail = undefined;
+    }
+    if (detail && typeof detail === 'object') payload = assign({}, detail);
+    if (errorObj){
+      payload.error = errorObj && errorObj.message ? errorObj.message : String(errorObj);
+      if (errorObj && errorObj.stack) payload.stack = errorObj.stack;
+    }
+    try {
+      if (M && M.Auditor && typeof M.Auditor.error === 'function'){
+        M.Auditor.error(context, description, payload);
+        return;
+      }
+    } catch (auditorErr){
+      if (typeof console !== 'undefined' && console.error){
+        console.error('[Mishkah] Auditor reporting failed', auditorErr);
+      }
+    }
+    if (typeof console !== 'undefined' && console.error){
+      console.error('[Mishkah] '+description, assign({ context: context }, payload));
+    }
+  }
+
   // -------------------------------------------------------------------
   // Contracts STUBS (قابلة للاستبدال بملفات كاملة لاحقًا)
   // -------------------------------------------------------------------
@@ -60,7 +87,8 @@
       function log(t, code, msg, ctx){
         if (t === 'silent') return;
         if (typeof console !== 'undefined' && console[t]) {
-          try { console[t]((code?code+' ':'')+'[Mishkah] '+msg, ctx||''); } catch(_){}
+          try { console[t]((code?code+' ':'')+'[Mishkah] '+msg, ctx||''); }
+          catch (err){ reportCoreError('CORE:AUDITOR:LOG', 'Console logging failed', { level: t, code: code, ctx: ctx }, err); }
         }
       }
       var timing = {
@@ -319,7 +347,8 @@
 
     function trackVNodeDom(vnode){
       if (!domToVNode || !vnode || !vnode._dom) return;
-      try { domToVNode.set(vnode._dom, vnode); } catch(_){ }
+      try { domToVNode.set(vnode._dom, vnode); }
+      catch (err){ reportCoreError('CORE:VCACHE', 'Failed to track vnode/dom relation', { vnodeId: vnode && vnode._uid }, err); }
     }
 
     function normalizeChildren(children){
@@ -336,7 +365,20 @@
       return out;
     }
 
+    /**
+     * @param {string} tag - HTML tag name
+     * @param {string} category - Atom category
+     * @param {Object} [config] - Configuration object
+     * @param {Array} [children] - Child nodes
+     * @returns {Object}
+     * @throws {TypeError} If tag is not a string
+     */
     function h(tag, category, config, children){
+      if (typeof tag !== 'string'){
+        var typeError = new TypeError('tag must be a string');
+        reportCoreError('CORE:VDOM', 'Invalid tag passed to h()', { tag: tag, category: category }, typeError);
+        throw typeError;
+      }
       var cfg   = isObj(config) ? config : {};
       var attrs = isObj(cfg.attrs) ? cfg.attrs : {};
       var events= isObj(cfg.events)? cfg.events: {};
@@ -359,7 +401,8 @@
 
     function setStyle(el, style){
       if (!style) return;
-      if (isObj(style)){ for (var k in style){ try { el.style[k] = style[k]; } catch(_){ } } }
+      if (isObj(style)){ for (var k in style){ try { el.style[k] = style[k]; }
+        catch (err){ reportCoreError('CORE:STYLE', 'Failed to set style property', { property: k }, err); } } }
       else if (typeof style === 'string'){ el.setAttribute('style', style); }
     }
 
@@ -385,7 +428,8 @@
         if (active && typeof el.selectionStart==='number' && typeof el.selectionEnd==='number'){
           var s=el.selectionStart, e=el.selectionEnd;
           if (el.value !== value) el.value = value;
-          try { el.setSelectionRange(s,e); } catch(_){}
+          try { el.setSelectionRange(s,e); }
+          catch (err){ reportCoreError('CORE:INPUT', 'Failed to restore selection range', { tag: tag }, err); }
         } else {
           if (el.value !== value) el.value = value;
         }
@@ -496,10 +540,12 @@
       var host = parent._dom || parent;
       var dom = prev ? prev._dom : null;
       if (prev==null){ return host.appendChild(render(next, db, parentPath)); }
-      if (next==null){ if (dom && dom.parentNode===host){ try{ host.removeChild(dom); }catch(_){}} return; }
+      if (next==null){ if (dom && dom.parentNode===host){ try{ host.removeChild(dom); }
+        catch (err){ reportCoreError('CORE:DOM', 'Failed to remove child during patch', { hostTag: host && host.tagName }, err); } } return; }
       if (!same(next, prev)){
         var repl = render(next, db, parentPath);
-        try{ host.replaceChild(repl, dom); } catch(_){ host.appendChild(repl); }
+        try{ host.replaceChild(repl, dom); }
+        catch (err){ reportCoreError('CORE:DOM', 'Failed to replace child during patch', { hostTag: host && host.tagName }, err); host.appendChild(repl); }
         return;
       }
       if (next._type === 'text'){
@@ -509,7 +555,8 @@
           if (nv!==pv) dom.nodeValue = nv; next._dom = dom; trackVNodeDom(next);
         } else {
           var n = global.document.createTextNode(String(next.props && next.props.nodeValue!=null ? next.props.nodeValue : ""));
-          next._dom = n; if (dom){ try{ host.replaceChild(n, dom); }catch(_){ host.appendChild(n); } } else host.appendChild(n);
+          next._dom = n; if (dom){ try{ host.replaceChild(n, dom); }
+            catch (err){ reportCoreError('CORE:DOM', 'Failed to replace vnode DOM node', { hostTag: host && host.tagName }, err); host.appendChild(n); } } else host.appendChild(n);
           trackVNodeDom(next);
         }
         return;
@@ -542,7 +589,15 @@
       for (i=0;i<nextList.length;i++){ var oldIdx=newIndexToOld[i]; if (oldIdx>=0) patch(parent, nextList[i], prevList[oldIdx], db, opts, parentPath); else patch(parent, nextList[i], null, db, opts, parentPath); }
 
       var used = new Set(); for (i=0;i<newIndexToOld.length;i++) if (newIndexToOld[i]>=0) used.add(newIndexToOld[i]);
-      for (i=0;i<prevList.length;i++){ if (!used.has(i)){ var pv=prevList[i], el=pv && pv._dom; if (el && el.parentNode===parent){ try{ parent.removeChild(el); }catch(_){}} } }
+      for (i=0;i<prevList.length;i++){
+        if (used.has(i)) continue;
+        var pv=prevList[i];
+        var el=pv && pv._dom;
+        if (el && el.parentNode===parent){
+          try{ parent.removeChild(el); }
+          catch (err){ reportCoreError('CORE:DOM', 'Failed to remove stale child', { parentTag: parent && parent.tagName }, err); }
+        }
+      }
 
       function lis(arr){
         var n=arr.length, p=new Array(n), result=[], u,v,c,m;
