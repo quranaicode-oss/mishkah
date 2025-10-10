@@ -578,6 +578,92 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
+      <script>
+        function __htmlxInvoke(name) {
+          var handlers = window.__htmlxHandlers || {};
+          var fn = handlers && handlers[name];
+          if (typeof fn === 'function') {
+            return fn.apply(window, Array.prototype.slice.call(arguments, 1));
+          }
+          console.warn('HTMLx handler not found for', name);
+        }
+
+        function switchTab(tab, ctx) {
+          return __htmlxInvoke('switchTab', tab, ctx);
+        }
+
+        function setTheme(theme, ctx) {
+          return __htmlxInvoke('setTheme', theme, ctx);
+        }
+
+        function setLanguage(lang, ctx) {
+          return __htmlxInvoke('setLanguage', lang, ctx);
+        }
+
+        function toggleSettings(ctx) {
+          return __htmlxInvoke('toggleSettings', ctx);
+        }
+
+        function startGame(ctx) {
+          return __htmlxInvoke('startGame', ctx);
+        }
+
+        function updateCounter(delta, ctx) {
+          return __htmlxInvoke('updateCounter', delta, ctx);
+        }
+
+        function resetCounter(ctx) {
+          return __htmlxInvoke('resetCounter', ctx);
+        }
+
+        function startLogic(ctx) {
+          return __htmlxInvoke('startLogic', ctx);
+        }
+
+        function chooseLogic(option, ctx) {
+          return __htmlxInvoke('chooseLogic', option, ctx);
+        }
+
+        function chooseLetter(letter, ctx) {
+          return __htmlxInvoke('chooseLetter', letter, ctx);
+        }
+
+        function toggleMusic(event, ctx) {
+          return __htmlxInvoke('toggleMusic', event, ctx);
+        }
+
+        function selectTrack(event, ctx) {
+          return __htmlxInvoke('selectTrack', event, ctx);
+        }
+
+        function toggleTimer(event, ctx) {
+          return __htmlxInvoke('toggleTimer', event, ctx);
+        }
+
+        function setTimerSeconds(event, ctx) {
+          return __htmlxInvoke('setTimerSeconds', event, ctx);
+        }
+
+        function revealSolution(ctx) {
+          return __htmlxInvoke('revealSolution', ctx);
+        }
+
+        function closeSettings(event, ctx) {
+          return __htmlxInvoke('closeSettings', event, ctx);
+        }
+
+        function setFontScale(event, ctx) {
+          return __htmlxInvoke('setFontScale', event, ctx);
+        }
+
+        function setBackgroundPreset(event, ctx) {
+          return __htmlxInvoke('setBackgroundPreset', event, ctx);
+        }
+
+        function resetThemePrefs(ctx) {
+          return __htmlxInvoke('resetThemePrefs', ctx);
+        }
+      </script>
       <div class="page-shell">
         <header class="header app-card">
           <div class="header-inner">
@@ -796,6 +882,12 @@
         'use strict';
 
         var M = window.Mishkah;
+        var HTMLX_HANDLERS = window.__htmlxHandlers = window.__htmlxHandlers || {};
+
+        function defineHandler(name, fn) {
+          HTMLX_HANDLERS[name] = fn;
+          window[name] = fn;
+        }
         if (!M || !M.HTMLxAgent) {
           console.error('Mishkah HTMLx agent is required.');
           return;
@@ -1101,16 +1193,16 @@
           return translate(state, key || 'game.feedback.correct');
         };
 
-        window.switchTab = function (tab, ctx) {
+        defineHandler('switchTab', function (tab, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.activeTab = tab;
             return next;
           });
-        };
+        });
 
-        window.setTheme = function (theme, ctx) {
+        defineHandler('setTheme', function (theme, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1122,9 +1214,9 @@
             applyEnvironment(updated);
             persistPrefs(updated);
           }, 0);
-        };
+        });
 
-        window.setLanguage = function (lang, ctx) {
+        defineHandler('setLanguage', function (lang, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1137,27 +1229,27 @@
             applyEnvironment(updated);
             persistPrefs(updated);
           }, 0);
-        };
+        });
 
-        window.updateCounter = function (delta, ctx) {
+        defineHandler('updateCounter', function (delta, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.counter = (next.data.counter || 0) + delta;
             return next;
           });
-        };
+        });
 
-        window.resetCounter = function (ctx) {
+        defineHandler('resetCounter', function (ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.counter = 0;
             return next;
           });
-        };
+        });
 
-        window.startLogic = function (ctx) {
+        defineHandler('startLogic', function (ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1170,9 +1262,9 @@
             next.data.logicGame.explain = challenge.message;
             return next;
           });
-        };
+        });
 
-        window.chooseLogic = function (option, ctx) {
+        defineHandler('chooseLogic', function (option, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1187,11 +1279,11 @@
             };
             return next;
           });
-        };
+        });
 
         var activeTimer = null;
 
-        window.startGame = function (ctx) {
+        defineHandler('startGame', function (ctx) {
           if (!ctx) return;
           clearTimer();
           ctx.setState(function (prev) {
@@ -1215,9 +1307,9 @@
               }, 1000);
             }
           }, 0);
-        };
+        });
 
-        window.chooseLetter = function (letter, ctx) {
+        defineHandler('chooseLetter', function (letter, ctx) {
           if (!ctx) return;
           var value = normLetter(letter);
           ctx.setState(function (prev) {
@@ -1250,9 +1342,9 @@
             }
             return next;
           });
-        };
+        });
 
-        window.toggleMusic = function (event, ctx) {
+        defineHandler('toggleMusic', function (event, ctx) {
           if (!ctx) return;
           var checked = !!(event && event.target && event.target.checked);
           ctx.setState(function (prev) {
@@ -1260,9 +1352,9 @@
             next.data.game.musicOn = checked;
             return next;
           });
-        };
+        });
 
-        window.selectTrack = function (event, ctx) {
+        defineHandler('selectTrack', function (event, ctx) {
           if (!ctx || !event || !event.target) return;
           var idx = parseInt(event.target.value, 10) || 0;
           ctx.setState(function (prev) {
@@ -1270,9 +1362,9 @@
             next.data.game.audioIdx = Math.max(0, Math.min(idx, next.data.game.audioList.length - 1));
             return next;
           });
-        };
+        });
 
-        window.toggleTimer = function (event, ctx) {
+        defineHandler('toggleTimer', function (event, ctx) {
           if (!ctx || !event || !event.target) return;
           var checked = !!event.target.checked;
           clearTimer();
@@ -1291,9 +1383,9 @@
               activeTimer = setInterval(function () { tickTimer(ctx); }, 1000);
             }
           }, 0);
-        };
+        });
 
-        window.setTimerSeconds = function (event, ctx) {
+        defineHandler('setTimerSeconds', function (event, ctx) {
           if (!ctx || !event || !event.target) return;
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
@@ -1306,27 +1398,27 @@
             }
             return next;
           });
-        };
+        });
 
-        window.revealSolution = function (ctx) {
+        defineHandler('revealSolution', function (ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.game.revealSolution = true;
             return next;
           });
-        };
+        });
 
-        window.toggleSettings = function (ctx) {
+        defineHandler('toggleSettings', function (ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.settingsOpen = !next.data.settingsOpen;
             return next;
           });
-        };
+        });
 
-        window.closeSettings = function (event, ctx) {
+        defineHandler('closeSettings', function (event, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             if (event && event.target !== event.currentTarget) return prev;
@@ -1334,9 +1426,9 @@
             next.data.settingsOpen = false;
             return next;
           });
-        };
+        });
 
-        window.setFontScale = function (event, ctx) {
+        defineHandler('setFontScale', function (event, ctx) {
           if (!ctx || !event || !event.target) return;
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
@@ -1349,9 +1441,9 @@
           setTimeout(function () {
             persistPrefs(ctx.getState());
           }, 0);
-        };
+        });
 
-        window.setBackgroundPreset = function (event, ctx) {
+        defineHandler('setBackgroundPreset', function (event, ctx) {
           if (!ctx || !event || !event.target) return;
           var id = event.target.value;
           ctx.setState(function (prev) {
@@ -1363,9 +1455,9 @@
           setTimeout(function () {
             persistPrefs(ctx.getState());
           }, 0);
-        };
+        });
 
-        window.resetThemePrefs = function (ctx) {
+        defineHandler('resetThemePrefs', function (ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1376,7 +1468,7 @@
           setTimeout(function () {
             persistPrefs(ctx.getState());
           }, 0);
-        };
+        });
 
         function checkSolved(game) {
           if (!game || !game.proverb) return false;
