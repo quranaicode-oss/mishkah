@@ -218,6 +218,61 @@
 
   var evaluateExpression = createExpressionEvaluator();
 
+  var runtimeScopeSequence = 0;
+  var runtimeScopeRegistry = Object.create(null);
+
+  function cloneRuntimeLocals(locals) {
+    if (!locals || typeof locals !== 'object') return null;
+    var snapshot = {};
+    var hasAny = false;
+    for (var key in locals) {
+      if (!Object.prototype.hasOwnProperty.call(locals, key)) continue;
+      snapshot[key] = locals[key];
+      hasAny = true;
+    }
+    return hasAny ? snapshot : null;
+  }
+
+  function registerRuntimeLocals(locals) {
+    var snapshot = cloneRuntimeLocals(locals);
+    if (!snapshot) return null;
+    runtimeScopeSequence += 1;
+    var id = 'mrt-' + runtimeScopeSequence;
+    runtimeScopeRegistry[id] = snapshot;
+    return id;
+  }
+
+  function resolveRuntimeLocals(target) {
+    var node = target;
+    while (node) {
+      if (node.nodeType && node.nodeType !== 1) {
+        node = node.parentElement || null;
+        continue;
+      }
+      if (node && typeof node.getAttribute === 'function') {
+        var token = node.getAttribute('data-m-runtime');
+        if (token) {
+          var parts = token.split(/[\s,]+/);
+          for (var i = 0; i < parts.length; i += 1) {
+            var key = parts[i];
+            if (key && runtimeScopeRegistry[key]) {
+              return runtimeScopeRegistry[key];
+            }
+          }
+        }
+      }
+      node = node && node.parentElement ? node.parentElement : null;
+    }
+    return null;
+  }
+
+  function mergeRuntimeLocals(base, event, ctx) {
+    var merged = Object.assign({}, base || {});
+    merged.event = event;
+    merged.ctx = ctx;
+    return merged;
+  }
+
   function parseMustache(value) {
     var text = String(value || '');
     var parts = [];
@@ -243,35 +298,132 @@
     return parts;
   }
 
+  function splitEventArgs(source) {
+    var text = String(source || '');
+    if (!text.trim()) return [];
+    var args = [];
+    var current = '';
+    var depth = 0;
+    var inSingle = false;
+    var inDouble = false;
+    var inTemplate = false;
+    var templateDepth = 0;
+    for (var i = 0; i < text.length; i += 1) {
+      var ch = text.charAt(i);
+      if (inSingle) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '\'') {
+          inSingle = false;
+        }
+        continue;
+      }
+      if (inDouble) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '"') {
+          inDouble = false;
+        }
+        continue;
+      }
+      if (inTemplate) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '{') {
+          if (templateDepth > 0 || (i > 0 && text.charAt(i - 1) === '$')) {
+            templateDepth += 1;
+          }
+          continue;
+        }
+        if (ch === '}') {
+          if (templateDepth > 0) {
+            templateDepth -= 1;
+            continue;
+          }
+        }
+        if (ch === '`' && templateDepth === 0) {
+          inTemplate = false;
+        }
+        continue;
+      }
+      if (ch === '\'') {
+        inSingle = true;
+        current += ch;
+        continue;
+      }
+      if (ch === '"') {
+        inDouble = true;
+        current += ch;
+        continue;
+      }
+      if (ch === '`') {
+        inTemplate = true;
+        templateDepth = 0;
+        current += ch;
+        continue;
+      }
+      if (ch === '(' || ch === '[' || ch === '{') {
+        depth += 1;
+        current += ch;
+        continue;
+      }
+      if (ch === ')' || ch === ']' || ch === '}') {
+        if (depth > 0) depth -= 1;
+        current += ch;
+        continue;
+      }
+      if (ch === ',' && depth === 0) {
+        if (current.trim()) args.push(current.trim());
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    if (current.trim()) args.push(current.trim());
+    return args;
+  }
+
   function parseEventExpression(raw) {
     if (!raw) return null;
     var trimmed = raw.trim();
     if (!trimmed) return null;
-    var nameMatch = trimmed.match(/^[a-zA-Z_$][\w$]*/);
-    if (!nameMatch) {
-      return {
-        handler: null,
-        args: [trimmed],
-        inline: true,
-        source: trimmed
-      };
+    if (/^return\b/i.test(trimmed)) {
+      trimmed = trimmed.replace(/^return\b/i, '').trim();
     }
-    var handlerName = nameMatch[0];
-    var args = [];
-    var rest = trimmed.slice(handlerName.length).trim();
-    if (rest.startsWith('(') && rest.endsWith(')')) {
-      var inner = rest.slice(1, -1);
-      if (inner.trim()) {
-        args = inner
-          .split(',')
-          .map(function (part) { return part.trim(); })
-          .filter(function (part) { return part.length > 0; });
+    if (trimmed.endsWith(';')) {
+      trimmed = trimmed.slice(0, -1).trim();
+    }
+    if (!trimmed) return null;
+    var openIndex = trimmed.indexOf('(');
+    var closeIndex = trimmed.lastIndexOf(')');
+    if (openIndex > 0 && closeIndex > openIndex) {
+      var handlerName = trimmed.slice(0, openIndex).trim();
+      if (/^[a-zA-Z_$][\w$]*$/.test(handlerName)) {
+        var inner = trimmed.slice(openIndex + 1, closeIndex);
+        return {
+          handler: handlerName,
+          args: splitEventArgs(inner),
+          inline: false,
+          source: trimmed
+        };
       }
     }
     return {
-      handler: handlerName,
-      args: args,
-      inline: false,
+      handler: null,
+      args: [trimmed],
+      inline: true,
       source: trimmed
     };
   }
@@ -601,6 +753,16 @@
       var attrs = resolveAttrs(scope) || {};
       var kids = renderChildren(scope);
       if (node.key) attrs.key = node.key;
+      if (node.events && node.events.length) {
+        var runtimeId = registerRuntimeLocals(scope.locals);
+        if (runtimeId) {
+          if (attrs['data-m-runtime']) {
+            attrs['data-m-runtime'] = String(attrs['data-m-runtime']) + ' ' + runtimeId;
+          } else {
+            attrs['data-m-runtime'] = runtimeId;
+          }
+        }
+      }
       if (node.type === 'component') {
         var componentFactory = scope.UI[node.component];
         if (typeof componentFactory !== 'function') {
@@ -826,6 +988,34 @@
     return map;
   }
 
+  function instantiateFunctionMap(defs) {
+    var names = Object.keys(defs || {});
+    if (!names.length) return {};
+    var body = [];
+    for (var i = 0; i < names.length; i += 1) {
+      var name = names[i];
+      var def = defs[name] || {};
+      var args = def.args || '';
+      var fnBody = def.body || '';
+      body.push('function ' + name + '(' + args + ') {\n' + fnBody + '\n}');
+    }
+    body.push(
+      'return {' +
+        names
+          .map(function (name) {
+            return '\'' + name.replace(/'/g, "\\'") + '\': ' + name;
+          })
+          .join(', ') +
+        '};'
+    );
+    try {
+      return new Function(body.join('\n'))();
+    } catch (error) {
+      console.warn('HTMLx: فشل بناء دوال السكربت:', error);
+      return {};
+    }
+  }
+
   function ContextAdapter(context) {
     return {
       getState: function () {
@@ -890,12 +1080,13 @@
     return namespace + ':' + eventExpr.handler;
   }
 
-  function synthesizeOrders(namespace, events, scriptFns) {
+  function synthesizeOrders(namespace, events, scriptFns, runtimeFns) {
     var orders = {};
     events.forEach(function (event) {
       var key = createOrderKey(namespace, event.value);
       var parsed = parseEventExpression(event.value);
       var handlerDef = parsed && parsed.handler ? scriptFns[parsed.handler] : null;
+      var runtimeFn = parsed && parsed.handler && runtimeFns ? runtimeFns[parsed.handler] : null;
       var gkey = key;
       if (!orders[key]) {
         orders[key] = { on: [event.name], gkeys: [gkey], handler: null };
@@ -903,7 +1094,7 @@
         if (orders[key].on.indexOf(event.name) === -1) orders[key].on.push(event.name);
         if (orders[key].gkeys.indexOf(gkey) === -1) orders[key].gkeys.push(gkey);
       }
-      orders[key].handler = createOrderHandler(parsed, handlerDef);
+      orders[key].handler = createOrderHandler(parsed, handlerDef, runtimeFn);
       if (event.owner && !event.owner.attrs['data-m-gkey']) {
         event.owner.attrs['data-m-gkey'] = gkey;
       }
@@ -911,9 +1102,11 @@
     return orders;
   }
 
-  function createOrderHandler(parsed, handlerDef) {
+  function createOrderHandler(parsed, handlerDef, runtimeFn) {
     var compiledFn = null;
-    if (handlerDef && handlerDef.body != null) {
+    if (runtimeFn && typeof runtimeFn === 'function') {
+      compiledFn = runtimeFn;
+    } else if (handlerDef && handlerDef.body != null) {
       compiledFn = new Function(handlerDef.args || '', handlerDef.body);
     }
     return function (event, context) {
@@ -921,6 +1114,8 @@
         event.preventDefault();
       }
       var ctx = ContextAdapter(context);
+      var runtimeLocals = resolveRuntimeLocals(event && event.target);
+      var localsBag = mergeRuntimeLocals(runtimeLocals, event, ctx);
       if (parsed && parsed.inline && parsed.args && parsed.args.length) {
         evaluateExpression(parsed.args[0], {
           state: ctx.getState(),
@@ -929,7 +1124,7 @@
           M: Mishkah,
           UI: Mishkah.UI,
           D: Mishkah.DSL,
-          locals: { event: event, ctx: ctx }
+          locals: localsBag
         });
       } else if (parsed && parsed.handler && compiledFn) {
         var args = [];
@@ -949,7 +1144,7 @@
                 M: Mishkah,
                 UI: Mishkah.UI,
                 D: Mishkah.DSL,
-                locals: { event: event, ctx: ctx }
+                locals: localsBag
               })
             );
           }
@@ -1029,7 +1224,8 @@
       collectEvents(entry, events);
     });
     var scriptFns = parseFunctions(parts.scriptSource || '');
-    var orders = synthesizeOrders(parts.namespace, events, scriptFns);
+    var runtimeFns = instantiateFunctionMap(scriptFns);
+    var orders = synthesizeOrders(parts.namespace, events, scriptFns, runtimeFns);
 
     var compiledChildren = grouped.map(function (child) { return compileNode(child); });
     var render = function (scope) {
