@@ -218,6 +218,61 @@
 
   var evaluateExpression = createExpressionEvaluator();
 
+  var runtimeScopeSequence = 0;
+  var runtimeScopeRegistry = Object.create(null);
+
+  function cloneRuntimeLocals(locals) {
+    if (!locals || typeof locals !== 'object') return null;
+    var snapshot = {};
+    var hasAny = false;
+    for (var key in locals) {
+      if (!Object.prototype.hasOwnProperty.call(locals, key)) continue;
+      snapshot[key] = locals[key];
+      hasAny = true;
+    }
+    return hasAny ? snapshot : null;
+  }
+
+  function registerRuntimeLocals(locals) {
+    var snapshot = cloneRuntimeLocals(locals);
+    if (!snapshot) return null;
+    runtimeScopeSequence += 1;
+    var id = 'mrt-' + runtimeScopeSequence;
+    runtimeScopeRegistry[id] = snapshot;
+    return id;
+  }
+
+  function resolveRuntimeLocals(target) {
+    var node = target;
+    while (node) {
+      if (node.nodeType && node.nodeType !== 1) {
+        node = node.parentElement || null;
+        continue;
+      }
+      if (node && typeof node.getAttribute === 'function') {
+        var token = node.getAttribute('data-m-runtime');
+        if (token) {
+          var parts = token.split(/[\s,]+/);
+          for (var i = 0; i < parts.length; i += 1) {
+            var key = parts[i];
+            if (key && runtimeScopeRegistry[key]) {
+              return runtimeScopeRegistry[key];
+            }
+          }
+        }
+      }
+      node = node && node.parentElement ? node.parentElement : null;
+    }
+    return null;
+  }
+
+  function mergeRuntimeLocals(base, event, ctx) {
+    var merged = Object.assign({}, base || {});
+    merged.event = event;
+    merged.ctx = ctx;
+    return merged;
+  }
+
   function parseMustache(value) {
     var text = String(value || '');
     var parts = [];
@@ -243,35 +298,132 @@
     return parts;
   }
 
+  function splitEventArgs(source) {
+    var text = String(source || '');
+    if (!text.trim()) return [];
+    var args = [];
+    var current = '';
+    var depth = 0;
+    var inSingle = false;
+    var inDouble = false;
+    var inTemplate = false;
+    var templateDepth = 0;
+    for (var i = 0; i < text.length; i += 1) {
+      var ch = text.charAt(i);
+      if (inSingle) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '\'') {
+          inSingle = false;
+        }
+        continue;
+      }
+      if (inDouble) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '"') {
+          inDouble = false;
+        }
+        continue;
+      }
+      if (inTemplate) {
+        current += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) current += text.charAt(i);
+          continue;
+        }
+        if (ch === '{') {
+          if (templateDepth > 0 || (i > 0 && text.charAt(i - 1) === '$')) {
+            templateDepth += 1;
+          }
+          continue;
+        }
+        if (ch === '}') {
+          if (templateDepth > 0) {
+            templateDepth -= 1;
+            continue;
+          }
+        }
+        if (ch === '`' && templateDepth === 0) {
+          inTemplate = false;
+        }
+        continue;
+      }
+      if (ch === '\'') {
+        inSingle = true;
+        current += ch;
+        continue;
+      }
+      if (ch === '"') {
+        inDouble = true;
+        current += ch;
+        continue;
+      }
+      if (ch === '`') {
+        inTemplate = true;
+        templateDepth = 0;
+        current += ch;
+        continue;
+      }
+      if (ch === '(' || ch === '[' || ch === '{') {
+        depth += 1;
+        current += ch;
+        continue;
+      }
+      if (ch === ')' || ch === ']' || ch === '}') {
+        if (depth > 0) depth -= 1;
+        current += ch;
+        continue;
+      }
+      if (ch === ',' && depth === 0) {
+        if (current.trim()) args.push(current.trim());
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    if (current.trim()) args.push(current.trim());
+    return args;
+  }
+
   function parseEventExpression(raw) {
     if (!raw) return null;
     var trimmed = raw.trim();
     if (!trimmed) return null;
-    var nameMatch = trimmed.match(/^[a-zA-Z_$][\w$]*/);
-    if (!nameMatch) {
-      return {
-        handler: null,
-        args: [trimmed],
-        inline: true,
-        source: trimmed
-      };
+    if (/^return\b/i.test(trimmed)) {
+      trimmed = trimmed.replace(/^return\b/i, '').trim();
     }
-    var handlerName = nameMatch[0];
-    var args = [];
-    var rest = trimmed.slice(handlerName.length).trim();
-    if (rest.startsWith('(') && rest.endsWith(')')) {
-      var inner = rest.slice(1, -1);
-      if (inner.trim()) {
-        args = inner
-          .split(',')
-          .map(function (part) { return part.trim(); })
-          .filter(function (part) { return part.length > 0; });
+    if (trimmed.endsWith(';')) {
+      trimmed = trimmed.slice(0, -1).trim();
+    }
+    if (!trimmed) return null;
+    var openIndex = trimmed.indexOf('(');
+    var closeIndex = trimmed.lastIndexOf(')');
+    if (openIndex > 0 && closeIndex > openIndex) {
+      var handlerName = trimmed.slice(0, openIndex).trim();
+      if (/^[a-zA-Z_$][\w$]*$/.test(handlerName)) {
+        var inner = trimmed.slice(openIndex + 1, closeIndex);
+        return {
+          handler: handlerName,
+          args: splitEventArgs(inner),
+          inline: false,
+          source: trimmed
+        };
       }
     }
     return {
-      handler: handlerName,
-      args: args,
-      inline: false,
+      handler: null,
+      args: [trimmed],
+      inline: true,
       source: trimmed
     };
   }
@@ -601,6 +753,16 @@
       var attrs = resolveAttrs(scope) || {};
       var kids = renderChildren(scope);
       if (node.key) attrs.key = node.key;
+      if (node.events && node.events.length) {
+        var runtimeId = registerRuntimeLocals(scope.locals);
+        if (runtimeId) {
+          if (attrs['data-m-runtime']) {
+            attrs['data-m-runtime'] = String(attrs['data-m-runtime']) + ' ' + runtimeId;
+          } else {
+            attrs['data-m-runtime'] = runtimeId;
+          }
+        }
+      }
       if (node.type === 'component') {
         var componentFactory = scope.UI[node.component];
         if (typeof componentFactory !== 'function') {
@@ -952,6 +1114,8 @@
         event.preventDefault();
       }
       var ctx = ContextAdapter(context);
+      var runtimeLocals = resolveRuntimeLocals(event && event.target);
+      var localsBag = mergeRuntimeLocals(runtimeLocals, event, ctx);
       if (parsed && parsed.inline && parsed.args && parsed.args.length) {
         evaluateExpression(parsed.args[0], {
           state: ctx.getState(),
@@ -960,7 +1124,7 @@
           M: Mishkah,
           UI: Mishkah.UI,
           D: Mishkah.DSL,
-          locals: { event: event, ctx: ctx }
+          locals: localsBag
         });
       } else if (parsed && parsed.handler && compiledFn) {
         var args = [];
@@ -980,7 +1144,7 @@
                 M: Mishkah,
                 UI: Mishkah.UI,
                 D: Mishkah.DSL,
-                locals: { event: event, ctx: ctx }
+                locals: localsBag
               })
             );
           }
