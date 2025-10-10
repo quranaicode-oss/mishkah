@@ -511,7 +511,9 @@
         continue;
       }
       if (name === 'key') {
-        descriptor.key = value;
+        var keyExpr = (value || '').trim();
+        descriptor.keyExpr = keyExpr || null;
+        descriptor.key = keyExpr ? [{ type: 'expr', code: keyExpr }] : null;
         continue;
       }
       var tokenized = parseMustache(value);
@@ -537,8 +539,8 @@
 
     if (descriptor.xFor) {
       if (!descriptor.attrs['data-m-key']) {
-        if (descriptor.key) {
-          descriptor.attrs['data-m-key'] = [{ type: 'expr', code: descriptor.key }];
+        if (descriptor.keyExpr) {
+          descriptor.attrs['data-m-key'] = [{ type: 'expr', code: descriptor.keyExpr }];
         } else if (descriptor.xFor.index) {
           descriptor.attrs['data-m-key'] = [{ type: 'expr', code: descriptor.xFor.index }];
         } else {
@@ -548,7 +550,7 @@
         }
       }
     } else if (!descriptor.attrs['data-m-key']) {
-      descriptor.attrs['data-m-key'] = createNodeKey(namespace, descriptor.path, descriptor.key);
+      descriptor.attrs['data-m-key'] = createNodeKey(namespace, descriptor.path, descriptor.keyExpr);
     }
 
     return descriptor;
@@ -748,11 +750,17 @@
 
     var renderChildren = compileChildren(groupConditionals(node.children));
     var resolveAttrs = compileAttrs(node.attrs);
+    var resolveKey = node.key ? compileAttrValue(node.key) : null;
 
     return function (scope) {
       var attrs = resolveAttrs(scope) || {};
+      if (resolveKey) {
+        var keyValue = resolveKey(scope);
+        if (keyValue != null && keyValue !== '') {
+          attrs.key = keyValue;
+        }
+      }
       var kids = renderChildren(scope);
-      if (node.key) attrs.key = node.key;
       if (node.events && node.events.length) {
         var runtimeId = registerRuntimeLocals(scope.locals);
         if (runtimeId) {

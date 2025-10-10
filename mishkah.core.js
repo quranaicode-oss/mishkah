@@ -674,13 +674,19 @@
 
     var NB = (options && options.nonBubble instanceof Set) ? options.nonBubble : NON_BUBBLE_DEFAULT;
     var CP = (options && options.capturePref instanceof Set) ? options.capturePref : CAPTURE_PREF_DEFAULT;
-    var passive = options && typeof options.passive==='boolean' ? options.passive : true;
+    var passiveDefault = options && typeof options.passive==='boolean' ? options.passive : false;
     var r = rootEl || (ctx && ctx.root) || global.document;
 
     var bound = new Map();
     function bind(type){
       var useCapture = NB.has(type) || CP.has(type);
       var handler = function(e){ handleEvent(type, e, ctx, orders); };
+      var passive = passiveDefault;
+      if (passiveDefault === true) {
+        passive = true;
+      } else if (passiveDefault === false) {
+        passive = false;
+      }
       r.addEventListener(type, handler, { capture: useCapture, passive: passive });
       bound.set(type, { handler:handler, useCapture:useCapture });
     }
