@@ -206,7 +206,7 @@
     }
   }
 
-  function renderNavButton(page, activeKey, orientation) {
+  function renderNavButton(page, activeKey, orientation, langInfo) {
     const key = page.key;
     const label = page.label || {};
     const icon = page.icon || '';
@@ -220,7 +220,11 @@
     const inactiveClasses = orientation === 'mobile'
       ? tw`bg-[color-mix(in_oklab,var(--surface-1)80%,transparent)] text-[var(--foreground)]`
       : tw`bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)12%,transparent)]`;
-    const buttonLabel = label.title || label.ar || label.en || key;
+    const localizedSource = typeof label.title === 'object' ? label.title : label;
+    const fallbackLabel = typeof label.title === 'string'
+      ? label.title
+      : label.ar || label.en || key;
+    const buttonLabel = localizeText(localizedSource, fallbackLabel || key, langInfo);
 
     return UI.Button({
       attrs: {
@@ -234,6 +238,7 @@
   }
 
   function renderNavigation(db, pages, activeKey) {
+    const langInfo = getLangInfo(db);
     const mobileNav = D.Containers.Nav({
       attrs: {
         class: tw`md:hidden px-4 pt-4 pb-2 overflow-x-auto`
@@ -244,7 +249,7 @@
           class: tw`flex items-center gap-2 min-w-max`
         }
       }, pages.map((page) => D.Lists.Li({ attrs: { key: `m-${page.key}` } }, [
-        renderNavButton(page, activeKey, 'mobile')
+        renderNavButton(page, activeKey, 'mobile', langInfo)
       ])))
     ]);
 
@@ -257,7 +262,7 @@
         attrs: {
           class: tw`sticky top-24 flex flex-col gap-2`
         }
-      }, pages.map((page) => renderNavButton(page, activeKey, 'desktop')))
+      }, pages.map((page) => renderNavButton(page, activeKey, 'desktop', langInfo)))
     ]);
 
     return { mobileNav, sideNav };
