@@ -803,16 +803,16 @@
                 <div class="game-controls">
                   <div class="control-row">
                     <span class="toggle">
-                      <input type="checkbox" onclick="toggleMusic(event, ctx)" {state.data.game.musicOn ? 'checked' : ''} />
+                      <input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" />
                       <span>{state.data.game.musicOn ? t(state, 'game.musicOn') : t(state, 'game.musicOff')}</span>
                     </span>
                     <select onchange="selectTrack(event, ctx)">
-                      <option x-for="track, idx in state.data.game.audioList" key="track.url" value="{idx}" {idx === state.data.game.audioIdx ? 'selected' : ''}>{track.name}</option>
+                      <option x-for="track, idx in state.data.game.audioList" key="track.url" value="{idx}" selected="{idx === state.data.game.audioIdx ? 'selected' : null}">{track.name}</option>
                     </select>
                   </div>
                   <div class="control-row">
                     <span class="toggle">
-                      <input type="checkbox" onclick="toggleTimer(event, ctx)" {state.data.game.timerOn ? 'checked' : ''} />
+                      <input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" />
                       <span>{state.data.game.timerOn ? t(state, 'game.timerOn') : t(state, 'game.timerOff')}</span>
                     </span>
                     <label>
@@ -859,7 +859,7 @@
               <label>
                 {t(state, 'settings.background')}
                 <select onchange="setBackgroundPreset(event, ctx)">
-                  <option x-for="preset in THEME_BACKGROUND_PRESETS" key="preset.id" value="{preset.id}" {preset.id === state.data.themePrefs.background ? 'selected' : ''}>{preset.label[state.env.lang] || preset.label.ar}</option>
+                  <option x-for="preset in THEME_BACKGROUND_PRESETS" key="preset.id" value="{preset.id}" selected="{preset.id === state.data.themePrefs.background ? 'selected' : null}">{preset.label[state.env.lang] || preset.label.ar}</option>
                 </select>
               </label>
             </div>
