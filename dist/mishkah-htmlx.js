@@ -826,6 +826,34 @@
     return map;
   }
 
+  function instantiateFunctionMap(defs) {
+    var names = Object.keys(defs || {});
+    if (!names.length) return {};
+    var body = [];
+    for (var i = 0; i < names.length; i += 1) {
+      var name = names[i];
+      var def = defs[name] || {};
+      var args = def.args || '';
+      var fnBody = def.body || '';
+      body.push('function ' + name + '(' + args + ') {\n' + fnBody + '\n}');
+    }
+    body.push(
+      'return {' +
+        names
+          .map(function (name) {
+            return '\'' + name.replace(/'/g, "\\'") + '\': ' + name;
+          })
+          .join(', ') +
+        '};'
+    );
+    try {
+      return new Function(body.join('\n'))();
+    } catch (error) {
+      console.warn('HTMLx: فشل بناء دوال السكربت:', error);
+      return {};
+    }
+  }
+
   function ContextAdapter(context) {
     return {
       getState: function () {
@@ -890,12 +918,13 @@
     return namespace + ':' + eventExpr.handler;
   }
 
-  function synthesizeOrders(namespace, events, scriptFns) {
+  function synthesizeOrders(namespace, events, scriptFns, runtimeFns) {
     var orders = {};
     events.forEach(function (event) {
       var key = createOrderKey(namespace, event.value);
       var parsed = parseEventExpression(event.value);
       var handlerDef = parsed && parsed.handler ? scriptFns[parsed.handler] : null;
+      var runtimeFn = parsed && parsed.handler && runtimeFns ? runtimeFns[parsed.handler] : null;
       var gkey = key;
       if (!orders[key]) {
         orders[key] = { on: [event.name], gkeys: [gkey], handler: null };
@@ -903,7 +932,7 @@
         if (orders[key].on.indexOf(event.name) === -1) orders[key].on.push(event.name);
         if (orders[key].gkeys.indexOf(gkey) === -1) orders[key].gkeys.push(gkey);
       }
-      orders[key].handler = createOrderHandler(parsed, handlerDef);
+      orders[key].handler = createOrderHandler(parsed, handlerDef, runtimeFn);
       if (event.owner && !event.owner.attrs['data-m-gkey']) {
         event.owner.attrs['data-m-gkey'] = gkey;
       }
@@ -911,9 +940,11 @@
     return orders;
   }
 
-  function createOrderHandler(parsed, handlerDef) {
+  function createOrderHandler(parsed, handlerDef, runtimeFn) {
     var compiledFn = null;
-    if (handlerDef && handlerDef.body != null) {
+    if (runtimeFn && typeof runtimeFn === 'function') {
+      compiledFn = runtimeFn;
+    } else if (handlerDef && handlerDef.body != null) {
       compiledFn = new Function(handlerDef.args || '', handlerDef.body);
     }
     return function (event, context) {
@@ -1029,7 +1060,8 @@
       collectEvents(entry, events);
     });
     var scriptFns = parseFunctions(parts.scriptSource || '');
-    var orders = synthesizeOrders(parts.namespace, events, scriptFns);
+    var runtimeFns = instantiateFunctionMap(scriptFns);
+    var orders = synthesizeOrders(parts.namespace, events, scriptFns, runtimeFns);
 
     var compiledChildren = grouped.map(function (child) { return compileNode(child); });
     var render = function (scope) {
