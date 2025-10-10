@@ -1150,14 +1150,23 @@
   function synthesizeOrders(namespace, events, scriptFns, runtimeFns, scopeKey) {
     var orders = {};
     events.forEach(function (event) {
-      var key = createOrderKey(namespace, event.value);
+      var baseKey = createOrderKey(namespace, event.value);
       var parsed = parseEventExpression(event.value);
       var handlerDef = parsed && parsed.handler ? scriptFns[parsed.handler] : null;
       var runtimeFn = parsed && parsed.handler && runtimeFns ? runtimeFns[parsed.handler] : null;
+      var signature = [
+        namespace || '',
+        event && event.name ? event.name : '',
+        event && event.owner && event.owner.path ? event.owner.path : '',
+        event && event.value ? event.value : ''
+      ].join('|');
+      var variantHash = createHash(signature);
+      var key = baseKey + '#' + variantHash;
       var gkey = key;
       if (!orders[key]) {
         orders[key] = { on: [event.name], gkeys: [gkey], handler: null };
         if (scopeKey) orders[key].keys = [scopeKey];
+        orders[key].alias = baseKey;
       } else {
         if (orders[key].on.indexOf(event.name) === -1) orders[key].on.push(event.name);
         if (orders[key].gkeys.indexOf(gkey) === -1) orders[key].gkeys.push(gkey);
