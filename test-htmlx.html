@@ -157,34 +157,54 @@
       </comp-card>
 
       <script>
-        function pushHistory(ctx, delta) {
-          var now = new Date();
-          var entry = {
-            id: 'h-' + now.getTime(),
-            label: delta > 0 ? 'زيادة' : 'نقصان',
-            delta: delta,
-            time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-            hot: Math.abs(delta) >= 5
-          };
-          var current = ctx.get('data.counter.history');
-          ctx.set('data.counter.history', [entry].concat(current).slice(0, 6));
+        function applyCounterDelta(ctx, delta) {
+          ctx.setState(function (prev) {
+            var base = prev || {};
+            var data = base.data || {};
+            var counter = data.counter || {};
+            var now = new Date();
+            var entry = {
+              id: 'h-' + now.getTime(),
+              label: delta > 0 ? 'زيادة' : 'نقصان',
+              delta: delta,
+              time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+              hot: Math.abs(delta) >= 5
+            };
+            var history = Array.isArray(counter.history) ? counter.history : [];
+            var nextHistory = [entry].concat(history).slice(0, 6);
+            return Object.assign({}, base, {
+              data: Object.assign({}, data, {
+                counter: Object.assign({}, counter, {
+                  value: (typeof counter.value === 'number' ? counter.value : 0) + delta,
+                  history: nextHistory
+                })
+              })
+            });
+          });
         }
 
         function increment(event, ctx) {
-          var current = ctx.get('data.counter.value');
-          ctx.set('data.counter.value', current + 1);
-          pushHistory(ctx, +1);
+          applyCounterDelta(ctx, +1);
         }
 
         function decrement(event, ctx) {
-          var current = ctx.get('data.counter.value');
-          ctx.set('data.counter.value', current - 1);
-          pushHistory(ctx, -1);
+          applyCounterDelta(ctx, -1);
         }
 
         function reset(event, ctx) {
-          ctx.set('data.counter.value', 0);
-          ctx.set('data.counter.history', []);
+          ctx.setState(function (prev) {
+            var base = prev || {};
+            var data = base.data || {};
+            var counter = data.counter || {};
+            return Object.assign({}, base, {
+              data: Object.assign({}, data, {
+                counter: Object.assign({}, counter, {
+                  value: 0,
+                  history: []
+                })
+              })
+            });
+          });
         }
       </script>
     </template>
@@ -274,7 +294,7 @@
           </p>
         </header>
 
-        <form onsubmit="addTodo(event, ctx)">
+        <form onsubmit="return addTodo(event, ctx)">
           <input type="text" name="title" placeholder="أضف مهمة جديدة" />
           <button type="submit">حفظ</button>
         </form>
@@ -315,15 +335,32 @@
         }
 
         function addTodo(event, ctx) {
-          event.preventDefault();
+          if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+          }
           var form = event.target;
-          var title = form.title.value.trim();
-          if (!title) return;
-          var now = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-          var entry = { id: nextId(), title: title, done: false, createdAt: now };
-          var items = ctx.get('data.todos.items');
-          ctx.set('data.todos.items', [entry].concat(items));
-          form.reset();
+          if (!form) return false;
+          var title = (form.title && form.title.value ? form.title.value : '').trim();
+          if (!title) return false;
+          ctx.setState(function (prev) {
+            var base = prev || {};
+            var data = base.data || {};
+            var todos = data.todos || {};
+            var items = Array.isArray(todos.items) ? todos.items : [];
+            var now = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+            var entry = { id: nextId(), title: title, done: false, createdAt: now };
+            return Object.assign({}, base, {
+              data: Object.assign({}, data, {
+                todos: Object.assign({}, todos, {
+                  items: [entry].concat(items)
+                })
+              })
+            });
+          });
+          if (typeof form.reset === 'function') {
+            form.reset();
+          }
+          return false;
         }
 
         function toggleTodo(id, ctx) {
