@@ -607,7 +607,13 @@
           console.warn('E_COMPONENT_NOT_FOUND: component', node.component, 'غير متوفر.');
           return null;
         }
-        return componentFactory({ attrs: attrs }, kids);
+        var props = { attrs: attrs };
+        if (kids.length === 1) {
+          props.content = kids[0];
+        } else if (kids.length > 1) {
+          props.content = kids;
+        }
+        return componentFactory(props);
       }
       var family = node.family;
       var atom = node.atom;
@@ -1018,6 +1024,13 @@
         }
       }
     }
+    var events = [];
+    grouped.forEach(function (entry) {
+      collectEvents(entry, events);
+    });
+    var scriptFns = parseFunctions(parts.scriptSource || '');
+    var orders = synthesizeOrders(parts.namespace, events, scriptFns);
+
     var compiledChildren = grouped.map(function (child) { return compileNode(child); });
     var render = function (scope) {
       var pieces = [];
@@ -1033,13 +1046,6 @@
       }
       return pieces.length === 1 ? pieces[0] : pieces;
     };
-
-    var events = [];
-    grouped.forEach(function (entry) {
-      collectEvents(entry, events);
-    });
-    var scriptFns = parseFunctions(parts.scriptSource || '');
-    var orders = synthesizeOrders(parts.namespace, events, scriptFns);
 
     var databasePatch = null;
     if (scopedStyle) {
@@ -1165,7 +1171,10 @@
     for (var i = 0; i < compiled.length; i += 1) {
       var rendered = compiled[i].render(scope);
       if (rendered == null) continue;
-      fragments.push(wrapForMount(compiled[i].mount, scope.D, ensureArray(rendered)));
+      var wrapped = wrapForMount(compiled[i].mount, scope.D, ensureArray(rendered));
+      if (wrapped != null) {
+        fragments.push(wrapped);
+      }
     }
     if (!fragments.length) {
       return activeDsl.Containers.Div({ attrs: { class: 'p-6 text-center text-slate-500' } }, ['لا يوجد محتوى HTMLx']);
@@ -1176,8 +1185,19 @@
 
   function wrapForMount(target, D, children) {
     var dsl = D || Mishkah.DSL;
-    if (!target) return children.length === 1 ? children[0] : dsl.Containers.Div({ attrs: {} }, children);
-    return dsl.Containers.Div({ attrs: { 'data-mount': target } }, children);
+    if (!children || !children.length) return null;
+    if (!target || target === '#app') {
+      return children.length === 1 ? children[0] : dsl.Containers.Div({ attrs: { class: 'grid gap-10' } }, children);
+    }
+    var attrs = {};
+    if (target.charAt(0) === '#') {
+      attrs.id = target.slice(1);
+    } else if (target.charAt(0) === '.') {
+      attrs.class = target.slice(1);
+    } else {
+      attrs['data-mount'] = target;
+    }
+    return dsl.Containers.Div({ attrs: attrs }, children);
   }
 
   async function createApp(db, options) {
@@ -1207,6 +1227,14 @@
       }
       if (envResult && envResult.databasePatch && envResult.databasePatch.head && Array.isArray(envResult.databasePatch.head.styles)) {
         db.head.styles = mergeStyles(db.head.styles, [{ databasePatch: envResult.databasePatch }]);
+      }
+    }
+
+    if (Mishkah.Head && typeof Mishkah.Head.batch === 'function') {
+      try {
+        Mishkah.Head.batch(db.head);
+      } catch (error) {
+        console.warn('Mishkah.Head.batch فشل مع head القادم من HTMLx:', error);
       }
     }
 
