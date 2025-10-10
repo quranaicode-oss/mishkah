@@ -321,7 +321,10 @@ ctx.rebuild({ except: ['#legacy-widget'] });
   * **ب. الرقيب (Auditor): المراقبة والتشخيص:**
     يعمل كطبيب يسجل كل الأعراض والسلوكيات في التطبيق. يراقب أداء المكونات، ويلتزم بأفضل الممارسات، ويسجل أي انحراف عن المعايير في سجل دقيق، مع إعطاء تقييم كمي (درجة من -7 إلى +7) لكل حدث. إنه يمثل **التشخيص** الدقيق للمشاكل.
 
-  * **ج. أدوات المطور (DevTools): الحكم والعلاج:**
+  * **ج. HTMLx: واجهة التيسير والانضباط:**
+    تمثل طبقة الترجمة التي تُيسر على المطورين الالتزام بقرارات الحارس والرقيب دون الحاجة لكتابة DSL يدويًا. تقوم تلقائيًا بوسم القوالب بـ `data-m-scope`، وحقن مفاتيح `data-m-gkey`، وتوليد أوامر آمنة مع معرّفات `tpl:<id>` تمنع تسرب الأحداث بين القوالب المتداخلة.
+
+  * **د. أدوات المطور (DevTools): الحكم والعلاج:**
     تعمل كهيئة قضائية تحلل سجلات "الرقيب" وتصدر أحكامًا آلية. المكونات ذات السجل الممتاز تتم ترقيتها، بينما المكونات ذات السجل السيء يتم عزلها ووضعها في قائمة المراجعة الإجبارية. إنه يمثل **العلاج** المبني على بيانات.
 
 #### التطبيق التقني (مُجمّع):
@@ -673,7 +676,10 @@ let's talk about the rules of protection, security, and the triple assessment ma
   * **B. The Auditor: Monitoring and Diagnosis:**
     Acts as a doctor that logs all symptoms and behaviors in the application. It monitors component performance, adheres to best practices, and records any deviation from standards in a detailed log, assigning a quantitative score (-7 to +7) to each event. It represents precise **diagnosis** of problems.
 
-  * **C. The DevTools: Judgment and Treatment:**
+  * **C. HTMLx: The Facilitation Interface:**
+    Serves as a compassionate translator over the DSL, allowing developers to write template-driven interfaces while still honoring the Guardian and Auditor. It automatically stamps templates with `data-m-scope`, injects `data-m-gkey`, and generates scoped orders with `tpl:<id>` identifiers so nested components remain isolated and auditable without manual wiring.
+
+  * **D. The DevTools: Judgment and Treatment:**
     Acts as a judicial body that analyzes the Auditor's logs and issues automated verdicts. Components with excellent records are promoted, while those with poor records are isolated and placed on a mandatory review list. It represents data-driven **treatment**.
 
 #### Technical Implementation (Aggregated):
