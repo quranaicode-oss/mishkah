@@ -1428,6 +1428,16 @@
     }
   }
 
+  function mergeFunctionLocals(base, fns) {
+    var merged = Object.assign({}, base || {});
+    if (!fns) return merged;
+    for (var key in fns) {
+      if (!Object.prototype.hasOwnProperty.call(fns, key)) continue;
+      merged[key] = fns[key];
+    }
+    return merged;
+  }
+
   function ContextAdapter(context) {
     return {
       getState: function () {
@@ -1751,8 +1761,11 @@
     grouped.forEach(function (entry) {
       collectEvents(entry, events);
     });
-    var scriptLocals = scriptBundle && scriptBundle.global ? scriptBundle.global.locals : {};
     var runtimeGlobal = instantiateFunctionMap(scriptBundle && scriptBundle.global ? scriptBundle.global.fns : {});
+    var scriptLocals = mergeFunctionLocals(
+      scriptBundle && scriptBundle.global ? scriptBundle.global.locals : {},
+      runtimeGlobal
+    );
     var runtimeScoped = {};
     var scopedLocalsMap = {};
     if (scriptBundle && scriptBundle.scoped) {
@@ -1760,7 +1773,7 @@
         if (!Object.prototype.hasOwnProperty.call(scriptBundle.scoped, scopeId)) continue;
         var scopedEntry = scriptBundle.scoped[scopeId] || {};
         runtimeScoped[scopeId] = instantiateFunctionMap(scopedEntry.fns || {});
-        scopedLocalsMap[scopeId] = scopedEntry.locals || {};
+        scopedLocalsMap[scopeId] = mergeFunctionLocals(scopedEntry.locals || {}, runtimeScoped[scopeId]);
       }
     }
     var orders = synthesizeOrders(parts.namespace, events, scriptBundle, { global: runtimeGlobal, scoped: runtimeScoped }, useScope ? tplId : null);
