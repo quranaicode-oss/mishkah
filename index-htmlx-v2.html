@@ -894,6 +894,27 @@
           }, 0);
         }
 
+        function cloneThemePrefs(source) {
+          try {
+            return JSON.parse(JSON.stringify(source || { fontScale: 100, background: 'nebula' }));
+          } catch (error) {
+            return { fontScale: 100, background: 'nebula' };
+          }
+        }
+
+        function getDefaultThemePrefs() {
+          var source = assets().defaultThemePrefs;
+          if (!source) return { fontScale: 100, background: 'nebula' };
+          if (typeof source === 'function') {
+            try {
+              return source();
+            } catch (error) {
+              return { fontScale: 100, background: 'nebula' };
+            }
+          }
+          return cloneThemePrefs(source);
+        }
+
         function range(count) {
           var len = Math.max(0, Number(count) || 0);
           var out = [];
@@ -1261,7 +1282,7 @@
         }
 
         function resetThemePrefs(ctx) {
-          var defaults = (assets().defaultThemePrefs && assets().defaultThemePrefs()) || { fontScale: 100, background: 'nebula' };
+          var defaults = getDefaultThemePrefs();
           commit(ctx, function (next) {
             next.data.themePrefs = defaults;
           }, function (state) {
@@ -1383,24 +1404,7 @@
               { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
             ];
 
-        function randomBetween(min, max) {
-          return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        function shuffle(arr) {
-          var copy = arr.slice();
-          for (var i = copy.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = copy[i];
-            copy[i] = copy[j];
-            copy[j] = tmp;
-          }
-          return copy;
-        }
-
-        function defaultThemePrefs() {
-          return { fontScale: 100, background: 'nebula' };
-        }
+        var DEFAULT_THEME_PREFS = { fontScale: 100, background: 'nebula' };
 
         var THEME_BACKGROUND_PRESETS = [
           {
@@ -1623,8 +1627,8 @@
         }
 
         function applyThemePrefs(state) {
-          var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
-          var scale = prefs.fontScale || 100;
+          var prefs = (state.data && state.data.themePrefs) || DEFAULT_THEME_PREFS;
+          var scale = typeof prefs.fontScale === 'number' ? prefs.fontScale : DEFAULT_THEME_PREFS.fontScale;
           document.documentElement.style.setProperty('--user-font-scale', String(scale));
           var preset = THEME_BACKGROUND_PRESETS.find(function (p) { return p.id === prefs.background; }) || THEME_BACKGROUND_PRESETS[0];
           if (preset) {
@@ -1655,7 +1659,9 @@
               counter: 0,
               logicGame: { sequence: [], options: [], answer: null, feedback: null, explain: null, selected: null },
               settingsOpen: false,
-              themePrefs: prefs.themePrefs || defaultThemePrefs(),
+              themePrefs: prefs.themePrefs
+                ? JSON.parse(JSON.stringify(prefs.themePrefs))
+                : JSON.parse(JSON.stringify(DEFAULT_THEME_PREFS)),
               backgrounds: THEME_BACKGROUND_PRESETS,
               alphabet: ALPHABET,
               game: {
@@ -1690,7 +1696,7 @@
           logicGenerators: LOGIC_GENERATORS,
           alphabet: ALPHABET,
           backgrounds: THEME_BACKGROUND_PRESETS,
-          defaultThemePrefs: defaultThemePrefs
+          defaultThemePrefs: DEFAULT_THEME_PREFS
         };
 
         var activeTimer = null;
