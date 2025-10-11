@@ -879,401 +879,592 @@
       </div>
 
       <script>
-        function getHelpers() {
-          return window.__INDEX || {};
-        }
+        (function () {
+          var helpers = window.__INDEX = window.__INDEX || {};
 
-        function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev || {}));
-        }
-
-        function translate(state, key) {
-          var helpers = getHelpers();
-          var dict = helpers.STRINGS || {};
-          var entry = dict[key];
-          if (!entry) return key;
-          var lang = (state.env && state.env.lang) || 'ar';
-          return entry[lang] || entry.ar || entry.en || key;
-        }
-
-        function range(count) {
-          var len = Math.max(0, Number(count) || 0);
-          var out = [];
-          for (var i = 0; i < len; i++) out.push(i);
-          return out;
-        }
-
-        function formatTimeLeft(game) {
-          if (!game || !game.timerOn) return '—';
-          var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
-          return value >= 0 ? value : '—';
-        }
-
-        function logicOptionClass(option, game) {
-          if (!game || !game.feedback) return '';
-          if (option === game.answer) return 'correct';
-          if (game.selected === option) return 'wrong';
-          return '';
-        }
-
-        function logicFeedbackTitle(state) {
-          var game = state && state.data && state.data.logicGame;
-          if (!game || !game.feedback) return '';
-          var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
-          var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
-          var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
-          return emoji + translate(state, key);
-        }
-
-        function logicFeedbackMessage(state) {
-          var game = state && state.data && state.data.logicGame;
-          if (!game || !game.feedback) return '';
-          var message = game.feedback.message;
-          var lang = (state.env && state.env.lang) || 'ar';
-          if (typeof message === 'function') {
-            return message(lang);
+          function exposeHelper(name, fn) {
+            helpers[name] = fn;
+            window[name] = fn;
+            return fn;
           }
-          if (typeof message === 'string') {
-            return message;
-          }
-          if (message && typeof message === 'object') {
-            return message[lang] || message.ar || message.en || '';
-          }
-          return '';
-        }
 
-        function tileClass(ch, game) {
-          if (ch === ' ') return 'puzzle-tile space';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
-          var revealed = game && game.guessed && game.guessed[norm];
-          return 'puzzle-tile' + (revealed ? ' revealed' : '');
-        }
-
-        function tileContent(ch, game) {
-          if (ch === ' ') return '';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
-          return game && game.guessed && game.guessed[norm] ? ch : '•';
-        }
-
-        function letterClass(letter, game) {
-          if (!game) return '';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(letter) : letter;
-          return game.guessed && game.guessed[norm] ? 'used' : '';
-        }
-
-        function gameFeedbackTitle(state) {
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var emojiMap = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
-          var keyMap = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var type = game.feedback.type;
-          var emoji = emojiMap[type] || '✨';
-          var key = keyMap[type] || 'game.feedback.correct';
-          return emoji + ' ' + translate(state, key);
-        }
-
-        function gameFeedbackMessage(state) {
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var keyMap = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var key = keyMap[game.feedback.type] || 'game.feedback.correct';
-          return translate(state, key);
-        }
-
-        function switchTab(tab, ctx) {
-          if (!ctx) return;
-          ctx.set('data.activeTab', tab);
-        }
-
-        function setTheme(theme, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.env.theme = theme;
-            return next;
+          var getHelpers = exposeHelper('getHelpers', function getHelpers() {
+            return window.__INDEX || {};
           });
-          window.setTimeout(function () {
+
+          var cloneState = exposeHelper('cloneState', function cloneState(prev) {
+            return JSON.parse(JSON.stringify(prev || {}));
+          });
+
+          var translate = exposeHelper('translate', function translate(state, key) {
+            if (!key) return '';
             var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
-        }
-
-        function setLanguage(lang, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.env.lang = lang;
-            next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            return next;
+            var dict = helpers.STRINGS || {};
+            var entry = dict[key];
+            if (!entry) return key;
+            var lang = (state.env && state.env.lang) || 'ar';
+            return entry[lang] || entry.ar || entry.en || key;
           });
-          window.setTimeout(function () {
+
+          function range(count) {
+            var len = Math.max(0, Number(count) || 0);
+            var out = [];
+            for (var i = 0; i < len; i++) out.push(i);
+            return out;
+          }
+
+          function formatTimeLeft(game) {
+            if (!game || !game.timerOn) return '—';
+            var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
+            return value >= 0 ? value : '—';
+          }
+
+          function logicOptionClass(option, game) {
+            if (!game || !game.feedback) return '';
+            if (option === game.answer) return 'correct';
+            if (game.selected === option) return 'wrong';
+            return '';
+          }
+
+          function logicFeedbackTitle(state) {
+            var game = state && state.data && state.data.logicGame;
+            if (!game || !game.feedback) return '';
+            var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
+            var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
+            var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
+            return emoji + translate(state, key);
+          }
+
+          function logicFeedbackMessage(state) {
+            var game = state && state.data && state.data.logicGame;
+            if (!game || !game.feedback) return '';
+            var message = game.feedback.message;
+            var lang = (state.env && state.env.lang) || 'ar';
+            if (typeof message === 'function') {
+              return message(lang);
+            }
+            if (typeof message === 'string') {
+              return message;
+            }
+            if (message && typeof message === 'object') {
+              return message[lang] || message.ar || message.en || '';
+            }
+            return '';
+          }
+
+          function tileClass(ch, game) {
+            if (ch === ' ') return 'puzzle-tile space';
             var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
-        }
+            var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+            var revealed = game && game.guessed && game.guessed[norm];
+            return 'puzzle-tile' + (revealed ? ' revealed' : '');
+          }
 
-        function toggleSettings(ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.settingsOpen = !next.data.settingsOpen;
-            return next;
-          });
-        }
+          function tileContent(ch, game) {
+            if (ch === ' ') return '';
+            var helpers = getHelpers();
+            var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+            return game && game.guessed && game.guessed[norm] ? ch : '•';
+          }
 
-        function updateCounter(delta, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var value = typeof next.data.counter === 'number' ? next.data.counter : 0;
-            next.data.counter = value + delta;
-            return next;
-          });
-        }
+          function letterClass(letter, game) {
+            if (!game) return '';
+            var helpers = getHelpers();
+            var norm = helpers.normLetter ? helpers.normLetter(letter) : letter;
+            return game.guessed && game.guessed[norm] ? 'used' : '';
+          }
 
-        function resetCounter(ctx) {
-          if (!ctx) return;
-          ctx.set('data.counter', 0);
-        }
-
-        function startLogic(ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          var generators = helpers.LOGIC_GENERATORS || [];
-          if (!generators.length) return;
-          var generator = generators[Math.floor(Math.random() * generators.length)];
-          var challenge = generator(helpers);
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var logic = next.data.logicGame;
-            logic.sequence = challenge.sequence;
-            logic.options = challenge.options;
-            logic.answer = challenge.answer;
-            logic.feedback = null;
-            logic.explain = challenge.message;
-            logic.selected = null;
-            return next;
-          });
-        }
-
-        function chooseLogic(option, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var logic = next.data.logicGame;
-            if (!Array.isArray(logic.options) || !logic.options.length) return prev;
-            if (logic.feedback && logic.feedback.type === 'correct') return prev;
-            var isCorrect = option === logic.answer;
-            logic.selected = option;
-            logic.feedback = {
-              type: isCorrect ? 'correct' : 'wrong',
-              message: logic.explain
+          function gameFeedbackTitle(state) {
+            var game = state && state.data && state.data.game;
+            if (!game || !game.feedback) return '';
+            var emojiMap = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
+            var keyMap = {
+              correct: 'game.feedback.correct',
+              wrong: 'game.feedback.wrong',
+              win: 'game.feedback.win',
+              lose: 'game.feedback.lose'
             };
-            return next;
-          });
-        }
-
-        function startGame(ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          if (helpers.clearTimer) helpers.clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.game;
-            var list = helpers.PROVERBS || [];
-            var proverb = list.length ? list[Math.floor(Math.random() * list.length)] : null;
-            game.proverb = proverb;
-            game.guessed = {};
-            game.triesLeft = game.triesMax;
-            game.status = 'running';
-            game.revealSolution = false;
-            game.feedback = null;
-            game.timeLeft = game.timerOn ? game.timerSec : 0;
-            return next;
-          });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (state.data.game.timerOn && state.data.game.status === 'running' && helpers.startTimer) {
-              helpers.startTimer(ctx);
-            }
-          }, 0);
-        }
-
-        function chooseLetter(letter, ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          var normValue = helpers.normLetter ? helpers.normLetter(letter) : letter;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.game;
-            if (!game || game.status !== 'running') return prev;
-            if (game.guessed[normValue]) return prev;
-            game.guessed[normValue] = true;
-            var proverb = game.proverb;
-            var hasLetter = proverb && proverb.t.split('').some(function (ch) {
-              return (helpers.normLetter ? helpers.normLetter(ch) : ch) === normValue;
-            });
-            var sounds = helpers.SOUND_EFFECTS || {};
-            if (!hasLetter) {
-              game.triesLeft = Math.max(0, game.triesLeft - 1);
-              game.feedback = { type: 'wrong', sound: sounds.wrong || '' };
-            } else {
-              game.feedback = { type: 'correct', sound: sounds.correct || '' };
-            }
-            if (helpers.checkSolved && helpers.checkSolved(game)) {
-              game.status = 'won';
-              game.revealSolution = true;
-              game.feedback = { type: 'win', sound: sounds.win || '' };
-              game.timeLeft = game.timerOn ? game.timeLeft : 0;
-              if (helpers.clearTimer) helpers.clearTimer();
-            } else if (game.triesLeft <= 0) {
-              game.status = 'lost';
-              game.revealSolution = true;
-              game.feedback = { type: 'lose', sound: sounds.lose || '' };
-              if (helpers.clearTimer) helpers.clearTimer();
-            }
-            return next;
-          });
-        }
-
-        function toggleMusic(event, ctx) {
-          if (!ctx) return;
-          var checked = !!(event && event.target && event.target.checked);
-          ctx.set('data.game.musicOn', checked);
-        }
-
-        function selectTrack(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var idx = parseInt(event.target.value, 10);
-          if (!Number.isFinite(idx)) idx = 0;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var list = next.data.game.audioList || [];
-            next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
-            return next;
-          });
-        }
-
-        function toggleTimer(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var helpers = getHelpers();
-          var checked = !!event.target.checked;
-          if (helpers.clearTimer) helpers.clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.game;
-            game.timerOn = checked;
-            game.timeLeft = checked ? game.timerSec : 0;
-            if (!checked && game.status === 'running') {
-              game.status = 'idle';
-            }
-            return next;
-          });
-          window.setTimeout(function () {
-            var state = ctx.getState();
-            if (state.data.game.status === 'running' && state.data.game.timerOn && helpers.startTimer) {
-              helpers.startTimer(ctx);
-            }
-          }, 0);
-        }
-
-        function setTimerSeconds(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          value = Math.min(300, Math.max(5, value));
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            var game = next.data.game;
-            game.timerSec = value;
-            if (game.timerOn) {
-              game.timeLeft = value;
-            }
-            return next;
-          });
-        }
-
-        function revealSolution(ctx) {
-          if (!ctx) return;
-          ctx.set('data.game.revealSolution', true);
-        }
-
-        function closeSettings(event, ctx) {
-          if (!ctx) return;
-          if (event && event.target && event.currentTarget && event.target !== event.currentTarget) {
-            return;
+            var type = game.feedback.type;
+            var emoji = emojiMap[type] || '✨';
+            var key = keyMap[type] || 'game.feedback.correct';
+            return emoji + ' ' + translate(state, key);
           }
-          ctx.set('data.settingsOpen', false);
-        }
 
-        function setFontScale(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs.fontScale = value;
-            return next;
-          });
-          window.setTimeout(function () {
+          function gameFeedbackMessage(state) {
+            var game = state && state.data && state.data.game;
+            if (!game || !game.feedback) return '';
+            var keyMap = {
+              correct: 'game.feedback.correct',
+              wrong: 'game.feedback.wrong',
+              win: 'game.feedback.win',
+              lose: 'game.feedback.lose'
+            };
+            var key = keyMap[game.feedback.type] || 'game.feedback.correct';
+            return translate(state, key);
+          }
+
+          function switchTab(tab, ctx) {
+            if (!ctx) return;
+            ctx.set('data.activeTab', tab);
+          }
+
+          function setTheme(theme, ctx) {
+            if (!ctx) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.env.theme = theme;
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+              if (helpers.persistPrefs) helpers.persistPrefs(state);
+            }, 0);
+          }
+
+          function setLanguage(lang, ctx) {
+            if (!ctx) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.env.lang = lang;
+              next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+              if (helpers.persistPrefs) helpers.persistPrefs(state);
+            }, 0);
+          }
+
+          function toggleSettings(ctx) {
+            if (!ctx) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.data.settingsOpen = !next.data.settingsOpen;
+              return next;
+            });
+          }
+
+          function updateCounter(delta, ctx) {
+            if (!ctx) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var value = typeof next.data.counter === 'number' ? next.data.counter : 0;
+              next.data.counter = value + delta;
+              return next;
+            });
+          }
+
+          function resetCounter(ctx) {
+            if (!ctx) return;
+            ctx.set('data.counter', 0);
+          }
+
+          function startLogic(ctx) {
+            if (!ctx) return;
+            var helpers = getHelpers();
+            var generators = helpers.LOGIC_GENERATORS || [];
+            if (!generators.length) return;
+            var generator = generators[Math.floor(Math.random() * generators.length)];
+            var challenge = generator(helpers);
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var logic = next.data.logicGame;
+              logic.sequence = challenge.sequence;
+              logic.options = challenge.options;
+              logic.answer = challenge.answer;
+              logic.feedback = null;
+              logic.explain = challenge.message;
+              logic.selected = null;
+              return next;
+            });
+          }
+
+          function chooseLogic(option, ctx) {
+            if (!ctx) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var logic = next.data.logicGame;
+              if (!Array.isArray(logic.options) || !logic.options.length) return prev;
+              if (logic.feedback && logic.feedback.type === 'correct') return prev;
+              var isCorrect = option === logic.answer;
+              logic.selected = option;
+              logic.feedback = {
+                type: isCorrect ? 'correct' : 'wrong',
+                message: logic.explain
+              };
+              return next;
+            });
+          }
+
+          function startGame(ctx) {
+            if (!ctx) return;
+            var helpers = getHelpers();
+            if (helpers.clearTimer) helpers.clearTimer();
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var game = next.data.game;
+              var list = helpers.PROVERBS || [];
+              var proverb = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+              game.proverb = proverb;
+              game.guessed = {};
+              game.triesLeft = game.triesMax;
+              game.status = 'running';
+              game.revealSolution = false;
+              game.feedback = null;
+              game.timeLeft = game.timerOn ? game.timerSec : 0;
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyEnvironment) helpers.applyEnvironment(state);
+              if (state.data.game.timerOn && state.data.game.status === 'running' && helpers.startTimer) {
+                helpers.startTimer(ctx);
+              }
+            }, 0);
+          }
+
+          function chooseLetter(letter, ctx) {
+            if (!ctx) return;
+            var helpers = getHelpers();
+            var normValue = helpers.normLetter ? helpers.normLetter(letter) : letter;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var game = next.data.game;
+              if (!game || game.status !== 'running') return prev;
+              if (game.guessed[normValue]) return prev;
+              game.guessed[normValue] = true;
+              var proverb = game.proverb;
+              var hasLetter = proverb && proverb.t.split('').some(function (ch) {
+                return (helpers.normLetter ? helpers.normLetter(ch) : ch) === normValue;
+              });
+              var sounds = helpers.SOUND_EFFECTS || {};
+              if (!hasLetter) {
+                game.triesLeft = Math.max(0, game.triesLeft - 1);
+                game.feedback = { type: 'wrong', sound: sounds.wrong || '' };
+              } else {
+                game.feedback = { type: 'correct', sound: sounds.correct || '' };
+              }
+              if (helpers.checkSolved && helpers.checkSolved(game)) {
+                game.status = 'won';
+                game.revealSolution = true;
+                game.feedback = { type: 'win', sound: sounds.win || '' };
+                game.timeLeft = game.timerOn ? game.timeLeft : 0;
+                if (helpers.clearTimer) helpers.clearTimer();
+              } else if (game.triesLeft <= 0) {
+                game.status = 'lost';
+                game.revealSolution = true;
+                game.feedback = { type: 'lose', sound: sounds.lose || '' };
+                if (helpers.clearTimer) helpers.clearTimer();
+              }
+              return next;
+            });
+          }
+
+          function toggleMusic(event, ctx) {
+            if (!ctx) return;
+            var checked = !!(event && event.target && event.target.checked);
+            ctx.set('data.game.musicOn', checked);
+          }
+
+          function selectTrack(event, ctx) {
+            if (!ctx || !event || !event.target) return;
+            var idx = parseInt(event.target.value, 10);
+            if (!Number.isFinite(idx)) idx = 0;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var list = next.data.game.audioList || [];
+              next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
+              return next;
+            });
+          }
+
+          function toggleTimer(event, ctx) {
+            if (!ctx || !event || !event.target) return;
+            var helpers = getHelpers();
+            var checked = !!event.target.checked;
+            if (helpers.clearTimer) helpers.clearTimer();
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var game = next.data.game;
+              game.timerOn = checked;
+              game.timeLeft = checked ? game.timerSec : 0;
+              if (!checked && game.status === 'running') {
+                game.status = 'idle';
+              }
+              return next;
+            });
+            window.setTimeout(function () {
+              var state = ctx.getState();
+              if (state.data.game.status === 'running' && state.data.game.timerOn && helpers.startTimer) {
+                helpers.startTimer(ctx);
+              }
+            }, 0);
+          }
+
+          function setTimerSeconds(event, ctx) {
+            if (!ctx || !event || !event.target) return;
+            var value = parseInt(event.target.value, 10);
+            if (!Number.isFinite(value)) return;
+            value = Math.min(300, Math.max(5, value));
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              var game = next.data.game;
+              game.timerSec = value;
+              if (game.timerOn) {
+                game.timeLeft = value;
+              }
+              return next;
+            });
+          }
+
+          function revealSolution(ctx) {
+            if (!ctx) return;
+            ctx.set('data.game.revealSolution', true);
+          }
+
+          function closeSettings(event, ctx) {
+            if (!ctx) return;
+            if (event && event.target && event.currentTarget && event.target !== event.currentTarget) {
+              return;
+            }
+            ctx.set('data.settingsOpen', false);
+          }
+
+          function setFontScale(event, ctx) {
+            if (!ctx || !event || !event.target) return;
+            var value = parseInt(event.target.value, 10);
+            if (!Number.isFinite(value)) return;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.data.themePrefs.fontScale = value;
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+              if (helpers.persistPrefs) helpers.persistPrefs(state);
+            }, 0);
+          }
+
+          function setBackgroundPreset(event, ctx) {
+            if (!ctx || !event || !event.target) return;
+            var id = event.target.value;
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.data.themePrefs.background = id;
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+              if (helpers.persistPrefs) helpers.persistPrefs(state);
+            }, 0);
+          }
+
+          function resetThemePrefs(ctx) {
+            if (!ctx) return;
+            var helpers = getHelpers();
+            var defaults = helpers.defaultThemePrefs ? helpers.defaultThemePrefs() : { fontScale: 100, background: 'nebula' };
+            ctx.setState(function (prev) {
+              var next = cloneState(prev);
+              next.data.themePrefs = defaults;
+              return next;
+            });
+            window.setTimeout(function () {
+              var helpers = getHelpers();
+              var state = ctx.getState();
+              if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
+              if (helpers.persistPrefs) helpers.persistPrefs(state);
+            }, 0);
+          }
+
+
+          function randomBetween(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+          }
+          helpers.randomBetween = randomBetween;
+
+          function shuffle(arr) {
+            var copy = arr.slice();
+            for (var i = copy.length - 1; i > 0; i--) {
+              var j = Math.floor(Math.random() * (i + 1));
+              var tmp = copy[i];
+              copy[i] = copy[j];
+              copy[j] = tmp;
+            }
+            return copy;
+          }
+          helpers.shuffle = shuffle;
+
+          function normLetter(ch) {
+            return String(ch || '').replace(/[أإآ]/g, 'ا');
+          }
+          helpers.normLetter = normLetter;
+
+          function checkSolved(game) {
+            if (!game || !game.proverb) return false;
+            return game.proverb.t.split('').every(function (ch) {
+              return ch === ' ' || game.guessed[normLetter(ch)];
+            });
+          }
+          helpers.checkSolved = checkSolved;
+
+          var LOGIC_GENERATORS = [
+            function arithmetic(h) {
+              var step = h.randomBetween(2, 8);
+              var start = h.randomBetween(2, 15);
+              var length = 4;
+              var sequence = [];
+              for (var i = 0; i < length; i++) {
+                sequence.push(start + i * step);
+              }
+              var answer = start + length * step;
+              var pool = h.shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
+              return {
+                type: 'arithmetic',
+                sequence: sequence,
+                answer: answer,
+                options: pool,
+                message: {
+                  ar: 'تزداد القيم بمقدار ' + step + ' في كل خطوة.',
+                  en: 'Values increase by ' + step + ' each step.'
+                }
+              };
+            },
+            function doubling(h) {
+              var start = h.randomBetween(2, 6);
+              var length = 4;
+              var sequence = [];
+              for (var i = 0; i < length; i++) {
+                sequence.push(start * Math.pow(2, i));
+              }
+              var answer = start * Math.pow(2, length);
+              var pool = h.shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
+              return {
+                type: 'double',
+                sequence: sequence,
+                answer: answer,
+                options: pool,
+                message: {
+                  ar: 'كل قيمة ضعف السابقة.',
+                  en: 'Each value doubles the previous one.'
+                }
+              };
+            },
+            function squares(h) {
+              var start = h.randomBetween(2, 5);
+              var length = 4;
+              var sequence = [];
+              for (var i = 0; i < length; i++) {
+                var base = start + i;
+                sequence.push(base * base);
+              }
+              var nextBase = start + length;
+              var answer = nextBase * nextBase;
+              var pool = h.shuffle([
+                answer,
+                (nextBase + 1) * (nextBase + 1),
+                (nextBase - 1) * (nextBase - 1),
+                answer + nextBase,
+                answer - nextBase
+              ]).slice(0, 4);
+              return {
+                type: 'square',
+                sequence: sequence,
+                answer: answer,
+                options: pool,
+                message: {
+                  ar: 'الأعداد مربعات متتالية تبدأ من ' + start + '².',
+                  en: 'Squares that start at ' + start + '².'
+                }
+              };
+            }
+          ];
+          helpers.LOGIC_GENERATORS = LOGIC_GENERATORS;
+
+          var activeTimer = null;
+
+          function clearTimer() {
+            if (activeTimer) {
+              window.clearInterval(activeTimer);
+              activeTimer = null;
+            }
+          }
+          helpers.clearTimer = clearTimer;
+
+          function tickTimer(ctx) {
             var helpers = getHelpers();
             var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
-        }
+            var game = state.data && state.data.game;
+            if (!game || !game.timerOn || game.status !== 'running') {
+              clearTimer();
+              return;
+            }
+            ctx.setState(function (prev) {
+              var next = JSON.parse(JSON.stringify(prev || {}));
+              var g = next.data.game;
+              if (!g.timerOn || g.status !== 'running') return prev;
+              var nextTime = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
+              g.timeLeft = Math.max(0, nextTime);
+              if (g.timeLeft <= 0) {
+                var sounds = helpers.SOUND_EFFECTS || {};
+                g.status = 'lost';
+                g.revealSolution = true;
+                g.feedback = { type: 'lose', sound: sounds.lose || '' };
+                clearTimer();
+              }
+              return next;
+            });
+          }
+          helpers.tickTimer = tickTimer;
 
-        function setBackgroundPreset(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var id = event.target.value;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs.background = id;
-            return next;
+          helpers.startTimer = function (ctx) {
+            clearTimer();
+            activeTimer = window.setInterval(function () {
+              tickTimer(ctx);
+            }, 1000);
+          };
+          [
+            ['range', range],
+            ['formatTimeLeft', formatTimeLeft],
+            ['logicOptionClass', logicOptionClass],
+            ['logicFeedbackTitle', logicFeedbackTitle],
+            ['logicFeedbackMessage', logicFeedbackMessage],
+            ['tileClass', tileClass],
+            ['tileContent', tileContent],
+            ['letterClass', letterClass],
+            ['gameFeedbackTitle', gameFeedbackTitle],
+            ['gameFeedbackMessage', gameFeedbackMessage],
+            ['switchTab', switchTab],
+            ['setTheme', setTheme],
+            ['setLanguage', setLanguage],
+            ['toggleSettings', toggleSettings],
+            ['updateCounter', updateCounter],
+            ['resetCounter', resetCounter],
+            ['startLogic', startLogic],
+            ['chooseLogic', chooseLogic],
+            ['startGame', startGame],
+            ['chooseLetter', chooseLetter],
+            ['toggleMusic', toggleMusic],
+            ['selectTrack', selectTrack],
+            ['toggleTimer', toggleTimer],
+            ['setTimerSeconds', setTimerSeconds],
+            ['revealSolution', revealSolution],
+            ['closeSettings', closeSettings],
+            ['setFontScale', setFontScale],
+            ['setBackgroundPreset', setBackgroundPreset],
+            ['resetThemePrefs', resetThemePrefs]
+          ].forEach(function (entry) {
+            exposeHelper(entry[0], entry[1]);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
-        }
-
-        function resetThemePrefs(ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          var defaults = helpers.defaultThemePrefs ? helpers.defaultThemePrefs() : { fontScale: 100, background: 'nebula' };
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            next.data.themePrefs = defaults;
-            return next;
-          });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
-        }
+        })();
       </script>
     
       
@@ -1297,31 +1488,6 @@
         var helpers = window.__INDEX = window.__INDEX || {};
         helpers.orders = helpers.orders || {};
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
-
-        function exposeHelper(name, fn) {
-          helpers[name] = fn;
-          window[name] = fn;
-          return fn;
-        }
-
-        var getHelpers = exposeHelper('getHelpers', function getHelpers() {
-          return window.__INDEX || {};
-        });
-
-        var cloneState = exposeHelper('cloneState', function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev || {}));
-        });
-
-        var translate = exposeHelper('translate', function translate(state, key) {
-          if (!key) return '';
-          var helpers = getHelpers();
-          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
-          var entry = dict[key];
-          if (!entry) return key;
-          var lang = (state && state.env && state.env.lang) || 'ar';
-          return entry[lang] || entry.ar || entry.en || key;
-        });
-
 
         var STRINGS = {
           'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
@@ -1419,41 +1585,10 @@
             ];
         helpers.PROVERBS = PROVERBS;
 
-        function randomBetween(min, max) {
-          return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-        helpers.randomBetween = randomBetween;
-
-        function shuffle(arr) {
-          var copy = arr.slice();
-          for (var i = copy.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = copy[i];
-            copy[i] = copy[j];
-            copy[j] = tmp;
-          }
-          return copy;
-        }
-        helpers.shuffle = shuffle;
-
-        function normLetter(ch) {
-          return String(ch || '').replace(/[أإآ]/g, 'ا');
-        }
-        helpers.normLetter = normLetter;
-
-        function checkSolved(game) {
-          if (!game || !game.proverb) return false;
-          return game.proverb.t.split('').every(function (ch) {
-            return ch === ' ' || game.guessed[normLetter(ch)];
-          });
-        }
-        helpers.checkSolved = checkSolved;
-
         function defaultThemePrefs() {
           return { fontScale: 100, background: 'nebula' };
         }
         helpers.defaultThemePrefs = defaultThemePrefs;
-
         var THEME_BACKGROUND_PRESETS = [
           {
             id: 'nebula',
@@ -1488,119 +1623,6 @@
 
         var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
         helpers.ALPHABET = ALPHABET;
-
-        var LOGIC_GENERATORS = [
-          function arithmetic(h) {
-            var step = h.randomBetween(2, 8);
-            var start = h.randomBetween(2, 15);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start + i * step);
-            }
-            var answer = start + length * step;
-            var pool = h.shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
-            return {
-              type: 'arithmetic',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'تزداد القيم بمقدار ' + step + ' في كل خطوة.',
-                en: 'Values increase by ' + step + ' each step.'
-              }
-            };
-          },
-          function doubling(h) {
-            var start = h.randomBetween(2, 6);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start * Math.pow(2, i));
-            }
-            var answer = start * Math.pow(2, length);
-            var pool = h.shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
-            return {
-              type: 'double',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'كل قيمة ضعف السابقة.',
-                en: 'Each value doubles the previous one.'
-              }
-            };
-          },
-          function squares(h) {
-            var start = h.randomBetween(2, 5);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              var base = start + i;
-              sequence.push(base * base);
-            }
-            var nextBase = start + length;
-            var answer = nextBase * nextBase;
-            var pool = h.shuffle([
-              answer,
-              (nextBase + 1) * (nextBase + 1),
-              (nextBase - 1) * (nextBase - 1),
-              answer + nextBase,
-              answer - nextBase
-            ]).slice(0, 4);
-            return {
-              type: 'square',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'الأعداد مربعات متتالية تبدأ من ' + start + '².',
-                en: 'Squares that start at ' + start + '².'
-              }
-            };
-          }
-        ];
-        helpers.LOGIC_GENERATORS = LOGIC_GENERATORS;
-
-        var activeTimer = null;
-        function clearTimer() {
-          if (activeTimer) {
-            window.clearInterval(activeTimer);
-            activeTimer = null;
-          }
-        }
-        helpers.clearTimer = clearTimer;
-
-        function tickTimer(ctx) {
-          var state = ctx.getState();
-          var game = state.data && state.data.game;
-          if (!game || !game.timerOn || game.status !== 'running') {
-            clearTimer();
-            return;
-          }
-          ctx.setState(function (prev) {
-            var next = JSON.parse(JSON.stringify(prev || {}));
-            var g = next.data.game;
-            if (!g.timerOn || g.status !== 'running') return prev;
-            var nextTime = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
-            g.timeLeft = Math.max(0, nextTime);
-            if (g.timeLeft <= 0) {
-              g.status = 'lost';
-              g.revealSolution = true;
-              g.feedback = { type: 'lose', sound: SOUND_EFFECTS.lose };
-              clearTimer();
-            }
-            return next;
-          });
-        }
-        helpers.tickTimer = tickTimer;
-
-        helpers.startTimer = function (ctx) {
-          clearTimer();
-          activeTimer = window.setInterval(function () {
-            tickTimer(ctx);
-          }, 1000);
-        };
 
         function applyThemePrefs(state) {
           var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
@@ -1784,17 +1806,15 @@
         var state = buildInitialState();
         applyEnvironment(state);
         persistPrefs(state);
-let db = {
-            head: { title: 'مشكاة — تجربة HTMLx' },
-            env: state.env,
-            i18n: state.i18n,
-            data: state.data,
-            templates: [{ id: 'mishkah-index' }]
-          }
-		  let gn_orders={
-            orders: helpers.orders || {}
-          }
-		  
+
+        var db = {
+          head: { title: 'مشكاة — تجربة HTMLx' },
+          env: state.env,
+          i18n: state.i18n,
+          data: state.data,
+          templates: [{ id: 'mishkah-index' }]
+        };
+
         var start = M.HTMLxAgent.make(db);
 
         if (start && typeof start.catch === 'function') {
