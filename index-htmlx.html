@@ -879,9 +879,8 @@
       </div>
 
       <script>
-        function getHelpers() {
-          return window.__INDEX || {};
-        }
+        (function () {
+          var helpers = window.__INDEX = window.__INDEX || {};
 
         function translate(state, key) {
           if (!key) return '';
