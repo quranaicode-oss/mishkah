@@ -878,54 +878,81 @@
         </div>
       </div>
 
-      <script>
-        function getHelpers() {
+      
+    </template>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./readme.js"></script>
+    <script src="./dist/mishkah-htmlx.js"></script>
+
+    <script>
+      (function (window) {
+        'use strict';
+
+        var M = window.Mishkah;
+        if (!M || !M.HTMLxAgent) {
+          console.error('Mishkah HTMLx agent is required.');
+          return;
+        }
+
+        var helpers = window.__INDEX = window.__INDEX || {};
+        var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
+
+        function exposeHelper(name, fn) {
+          helpers[name] = fn;
+          window[name] = fn;
+          return fn;
+        }
+
+        var getHelpers = exposeHelper('getHelpers', function getHelpers() {
           return window.__INDEX || {};
-        }
+        });
 
-        function cloneState(prev) {
+        var cloneState = exposeHelper('cloneState', function cloneState(prev) {
           return JSON.parse(JSON.stringify(prev || {}));
-        }
+        });
 
-        function translate(state, key) {
+        var translate = exposeHelper('translate', function translate(state, key) {
+          if (!key) return '';
           var helpers = getHelpers();
-          var dict = helpers.STRINGS || {};
+          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
           var entry = dict[key];
           if (!entry) return key;
-          var lang = (state.env && state.env.lang) || 'ar';
+          var lang = (state && state.env && state.env.lang) || 'ar';
           return entry[lang] || entry.ar || entry.en || key;
-        }
+        });
 
-        function range(count) {
+        exposeHelper('range', function range(count) {
           var len = Math.max(0, Number(count) || 0);
           var out = [];
           for (var i = 0; i < len; i++) out.push(i);
           return out;
-        }
+        });
 
-        function formatTimeLeft(game) {
+        exposeHelper('formatTimeLeft', function formatTimeLeft(game) {
           if (!game || !game.timerOn) return '—';
           var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
           return value >= 0 ? value : '—';
-        }
+        });
 
-        function logicOptionClass(option, game) {
+        exposeHelper('logicOptionClass', function logicOptionClass(option, game) {
           if (!game || !game.feedback) return '';
           if (option === game.answer) return 'correct';
           if (game.selected === option) return 'wrong';
           return '';
-        }
+        });
 
-        function logicFeedbackTitle(state) {
+        exposeHelper('logicFeedbackTitle', function logicFeedbackTitle(state) {
           var game = state && state.data && state.data.logicGame;
           if (!game || !game.feedback) return '';
           var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
           var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
           var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
           return emoji + translate(state, key);
-        }
+        });
 
-        function logicFeedbackMessage(state) {
+        exposeHelper('logicFeedbackMessage', function logicFeedbackMessage(state) {
           var game = state && state.data && state.data.logicGame;
           if (!game || !game.feedback) return '';
           var message = game.feedback.message;
@@ -940,31 +967,31 @@
             return message[lang] || message.ar || message.en || '';
           }
           return '';
-        }
+        });
 
-        function tileClass(ch, game) {
+        exposeHelper('tileClass', function tileClass(ch, game) {
           if (ch === ' ') return 'puzzle-tile space';
           var helpers = getHelpers();
           var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
           var revealed = game && game.guessed && game.guessed[norm];
           return 'puzzle-tile' + (revealed ? ' revealed' : '');
-        }
+        });
 
-        function tileContent(ch, game) {
+        exposeHelper('tileContent', function tileContent(ch, game) {
           if (ch === ' ') return '';
           var helpers = getHelpers();
           var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
           return game && game.guessed && game.guessed[norm] ? ch : '•';
-        }
+        });
 
-        function letterClass(letter, game) {
+        exposeHelper('letterClass', function letterClass(letter, game) {
           if (!game) return '';
           var helpers = getHelpers();
           var norm = helpers.normLetter ? helpers.normLetter(letter) : letter;
           return game.guessed && game.guessed[norm] ? 'used' : '';
-        }
+        });
 
-        function gameFeedbackTitle(state) {
+        exposeHelper('gameFeedbackTitle', function gameFeedbackTitle(state) {
           var game = state && state.data && state.data.game;
           if (!game || !game.feedback) return '';
           var emojiMap = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
@@ -978,9 +1005,9 @@
           var emoji = emojiMap[type] || '✨';
           var key = keyMap[type] || 'game.feedback.correct';
           return emoji + ' ' + translate(state, key);
-        }
+        });
 
-        function gameFeedbackMessage(state) {
+        exposeHelper('gameFeedbackMessage', function gameFeedbackMessage(state) {
           var game = state && state.data && state.data.game;
           if (!game || !game.feedback) return '';
           var keyMap = {
@@ -991,14 +1018,14 @@
           };
           var key = keyMap[game.feedback.type] || 'game.feedback.correct';
           return translate(state, key);
-        }
+        });
 
-        function switchTab(tab, ctx) {
+        exposeHelper('switchTab', function switchTab(tab, ctx) {
           if (!ctx) return;
           ctx.set('data.activeTab', tab);
-        }
+        });
 
-        function setTheme(theme, ctx) {
+        exposeHelper('setTheme', function setTheme(theme, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1011,9 +1038,9 @@
             if (helpers.applyEnvironment) helpers.applyEnvironment(state);
             if (helpers.persistPrefs) helpers.persistPrefs(state);
           }, 0);
-        }
+        });
 
-        function setLanguage(lang, ctx) {
+        exposeHelper('setLanguage', function setLanguage(lang, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1027,18 +1054,18 @@
             if (helpers.applyEnvironment) helpers.applyEnvironment(state);
             if (helpers.persistPrefs) helpers.persistPrefs(state);
           }, 0);
-        }
+        });
 
-        function toggleSettings(ctx) {
+        exposeHelper('toggleSettings', function toggleSettings(ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
             next.data.settingsOpen = !next.data.settingsOpen;
             return next;
           });
-        }
+        });
 
-        function updateCounter(delta, ctx) {
+        exposeHelper('updateCounter', function updateCounter(delta, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1046,14 +1073,14 @@
             next.data.counter = value + delta;
             return next;
           });
-        }
+        });
 
-        function resetCounter(ctx) {
+        exposeHelper('resetCounter', function resetCounter(ctx) {
           if (!ctx) return;
           ctx.set('data.counter', 0);
-        }
+        });
 
-        function startLogic(ctx) {
+        exposeHelper('startLogic', function startLogic(ctx) {
           if (!ctx) return;
           var helpers = getHelpers();
           var generators = helpers.LOGIC_GENERATORS || [];
@@ -1071,9 +1098,9 @@
             logic.selected = null;
             return next;
           });
-        }
+        });
 
-        function chooseLogic(option, ctx) {
+        exposeHelper('chooseLogic', function chooseLogic(option, ctx) {
           if (!ctx) return;
           ctx.setState(function (prev) {
             var next = cloneState(prev);
@@ -1088,9 +1115,9 @@
             };
             return next;
           });
-        }
+        });
 
-        function startGame(ctx) {
+        exposeHelper('startGame', function startGame(ctx) {
           if (!ctx) return;
           var helpers = getHelpers();
           if (helpers.clearTimer) helpers.clearTimer();
@@ -1116,9 +1143,9 @@
               helpers.startTimer(ctx);
             }
           }, 0);
-        }
+        });
 
-        function chooseLetter(letter, ctx) {
+        exposeHelper('chooseLetter', function chooseLetter(letter, ctx) {
           if (!ctx) return;
           var helpers = getHelpers();
           var normValue = helpers.normLetter ? helpers.normLetter(letter) : letter;
@@ -1153,15 +1180,15 @@
             }
             return next;
           });
-        }
+        });
 
-        function toggleMusic(event, ctx) {
+        exposeHelper('toggleMusic', function toggleMusic(event, ctx) {
           if (!ctx) return;
           var checked = !!(event && event.target && event.target.checked);
           ctx.set('data.game.musicOn', checked);
-        }
+        });
 
-        function selectTrack(event, ctx) {
+        exposeHelper('selectTrack', function selectTrack(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var idx = parseInt(event.target.value, 10);
           if (!Number.isFinite(idx)) idx = 0;
@@ -1171,9 +1198,9 @@
             next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
             return next;
           });
-        }
+        });
 
-        function toggleTimer(event, ctx) {
+        exposeHelper('toggleTimer', function toggleTimer(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var helpers = getHelpers();
           var checked = !!event.target.checked;
@@ -1194,9 +1221,9 @@
               helpers.startTimer(ctx);
             }
           }, 0);
-        }
+        });
 
-        function setTimerSeconds(event, ctx) {
+        exposeHelper('setTimerSeconds', function setTimerSeconds(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
@@ -1210,22 +1237,22 @@
             }
             return next;
           });
-        }
+        });
 
-        function revealSolution(ctx) {
+        exposeHelper('revealSolution', function revealSolution(ctx) {
           if (!ctx) return;
           ctx.set('data.game.revealSolution', true);
-        }
+        });
 
-        function closeSettings(event, ctx) {
+        exposeHelper('closeSettings', function closeSettings(event, ctx) {
           if (!ctx) return;
           if (event && event.target && event.currentTarget && event.target !== event.currentTarget) {
             return;
           }
           ctx.set('data.settingsOpen', false);
-        }
+        });
 
-        function setFontScale(event, ctx) {
+        exposeHelper('setFontScale', function setFontScale(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
@@ -1240,9 +1267,9 @@
             if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
             if (helpers.persistPrefs) helpers.persistPrefs(state);
           }, 0);
-        }
+        });
 
-        function setBackgroundPreset(event, ctx) {
+        exposeHelper('setBackgroundPreset', function setBackgroundPreset(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var id = event.target.value;
           ctx.setState(function (prev) {
@@ -1256,9 +1283,9 @@
             if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
             if (helpers.persistPrefs) helpers.persistPrefs(state);
           }, 0);
-        }
+        });
 
-        function resetThemePrefs(ctx) {
+        exposeHelper('resetThemePrefs', function resetThemePrefs(ctx) {
           if (!ctx) return;
           var helpers = getHelpers();
           var defaults = helpers.defaultThemePrefs ? helpers.defaultThemePrefs() : { fontScale: 100, background: 'nebula' };
@@ -1273,27 +1300,7 @@
             if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
             if (helpers.persistPrefs) helpers.persistPrefs(state);
           }, 0);
-        }
-      </script>
-    </template>
-
-    <script src="./mishkah-utils.js"></script>
-    <script src="./mishkah.core.js"></script>
-    <script src="./readme.js"></script>
-    <script src="./dist/mishkah-htmlx.js"></script>
-
-    <script>
-      (function (window) {
-        'use strict';
-
-        var M = window.Mishkah;
-        if (!M || !M.HTMLxAgent) {
-          console.error('Mishkah HTMLx agent is required.');
-          return;
-        }
-
-        var helpers = window.__INDEX = window.__INDEX || {};
-        var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
+        });
 
         var STRINGS = {
           'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
@@ -1716,8 +1723,10 @@
           var prefs = loadPrefs() || {};
           var lang = prefs.lang || 'ar';
           var theme = prefs.theme || 'dark';
+          var strings = helpers.STRINGS || STRINGS;
           return {
             env: { lang: lang, dir: lang === 'ar' ? 'rtl' : 'ltr', theme: theme },
+            i18n: { strings: JSON.parse(JSON.stringify(strings || {})) },
             data: {
               activeTab: 'readmeBase',
               docs: prepareDocs(),
@@ -1758,6 +1767,7 @@
         var start = M.HTMLxAgent.make({
           head: { title: 'مشكاة — تجربة HTMLx' },
           env: state.env,
+          i18n: state.i18n,
           data: state.data,
           orders: {},
           templates: [{ id: 'mishkah-index' }]
