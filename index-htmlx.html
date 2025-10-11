@@ -882,29 +882,33 @@
         (function () {
           var helpers = window.__INDEX = window.__INDEX || {};
 
+        function translate(state, key) {
+          if (!key) return '';
+          var helpers = getHelpers();
+          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
+          var entry = dict[key];
+          if (!entry) return key;
+          var env = (state && state.env) || {};
+          var lang = env.lang || 'ar';
+          return entry[lang] || entry.ar || entry.en || key;
+        }
+
+        (function () {
+          var helpers = (window.__INDEX = window.__INDEX || {});
+
           function exposeHelper(name, fn) {
             helpers[name] = fn;
             window[name] = fn;
             return fn;
           }
 
-          var getHelpers = exposeHelper('getHelpers', function getHelpers() {
-            return window.__INDEX || {};
-          });
+          exposeHelper('getHelpers', getHelpers);
 
           var cloneState = exposeHelper('cloneState', function cloneState(prev) {
             return JSON.parse(JSON.stringify(prev || {}));
           });
 
-          var translate = exposeHelper('translate', function translate(state, key) {
-            if (!key) return '';
-            var helpers = getHelpers();
-            var dict = helpers.STRINGS || {};
-            var entry = dict[key];
-            if (!entry) return key;
-            var lang = (state.env && state.env.lang) || 'ar';
-            return entry[lang] || entry.ar || entry.en || key;
-          });
+          exposeHelper('translate', translate);
 
           function range(count) {
             var len = Math.max(0, Number(count) || 0);
