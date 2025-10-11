@@ -3,13 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>مشكاة — تجربة HTMLx</title>
+    <title>مشكاة — تجربة HTMLx (v3)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
       :root {
         color-scheme: light dark;
@@ -33,9 +30,7 @@
         --letters-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.35);
         --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
         --font-body: 'Cairo', 'Tajawal', system-ui;
-        --font-size: 1rem;
       }
-
       :root.dark {
         --page-gradient: linear-gradient(160deg, #0d1224 0%, #111c3d 100%);
         --page-overlay-1: radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%);
@@ -57,514 +52,80 @@
         --letters-shadow: 0 20px 40px -18px rgba(148, 163, 184, 0.35);
         --letters-hover: 0 28px 60px -20px rgba(99, 102, 241, 0.6);
       }
-
-      *, *::before, *::after {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: var(--font-body);
-        background: var(--page-gradient);
-        color: var(--foreground);
-      }
-
-      .page-shell {
-        position: relative;
-        min-height: 100vh;
-        padding: 2rem 1.5rem 3.5rem;
-      }
-
-      .page-shell::before,
-      .page-shell::after {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: -1;
-      }
-
-      .page-shell::before {
-        background: var(--page-overlay-1);
-      }
-
-      .page-shell::after {
-        background: var(--page-overlay-2);
-      }
-
-      .app-card {
-        background: var(--panel-glass);
-        backdrop-filter: blur(22px);
-        border: 1px solid var(--panel-border);
-        border-radius: 2rem;
-        box-shadow: var(--panel-shadow);
-        overflow: hidden;
-      }
-
-      header.header {
-        margin: 0 auto 2rem;
-        max-width: 1500px;
-      }
-
-      header.header .header-inner {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-        align-items: center;
-        padding: 1.5rem;
-      }
-
-      header.header h1 {
-        margin: 0;
-        font-size: clamp(1.8rem, 2.8vw, 2.6rem);
-      }
-
-      header.header p {
-        margin: 0.4rem 0 0;
-        font-size: 0.95rem;
-        color: var(--muted-foreground);
-      }
-
-      .status-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.25rem;
-        padding: 0.75rem 1.25rem;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--surface-1);
-        box-shadow: 0 18px 40px -28px rgba(79, 70, 229, 0.45);
-      }
-
-      .status-block {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.6rem;
-        font-size: 0.95rem;
-      }
-
-      .status-block strong {
-        font-size: 1.05rem;
-      }
-
-      .hearts-row {
-        display: inline-flex;
-        gap: 0.4rem;
-        font-size: 1.1rem;
-      }
-
-      .controls {
-        margin-inline-start: auto;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        align-items: center;
-      }
-
-      .segmented {
-        display: inline-flex;
-        align-items: center;
-        background: var(--surface-1);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 0.25rem;
-        gap: 0.25rem;
-      }
-
-      .segmented button {
-        border: none;
-        background: transparent;
-        color: var(--muted-foreground);
-        padding: 0.45rem 1.15rem;
-        border-radius: 999px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: color 0.2s ease, background 0.2s ease;
-      }
-
-      .segmented button.active {
-        background: var(--primary);
-        color: var(--primary-foreground);
-        box-shadow: 0 18px 38px -22px rgba(79, 70, 229, 0.55);
-      }
-
-      .layout {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-        margin: 0 auto;
-        max-width: 1500px;
-      }
-
-      @media (min-width: 1024px) {
-        .layout {
-          flex-direction: row;
-        }
-      }
-
-      aside.sidebar {
-        flex: 0 0 280px;
-      }
-
-      .sidebar-card {
-        position: sticky;
-        top: 1.5rem;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      .sidebar-card h2 {
-        margin: 0;
-        font-size: 1rem;
-        letter-spacing: 0.35em;
-        text-transform: uppercase;
-        color: var(--muted-foreground);
-      }
-
-      .nav-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.65rem;
-      }
-
-      .nav-button {
-        width: 100%;
-        border: 1px solid transparent;
-        border-radius: 1.1rem;
-        background: transparent;
-        padding: 0.85rem 1rem;
-        text-align: start;
-        font-weight: 600;
-        font-size: 1rem;
-        color: var(--muted-foreground);
-        cursor: pointer;
-        transition: border 0.25s ease, background 0.25s ease, color 0.25s ease;
-      }
-
-      .nav-button .hint {
-        display: block;
-        margin-top: 0.35rem;
-        font-size: 0.82rem;
-        color: var(--muted-foreground);
-        font-weight: 400;
-      }
-
-      .nav-button.active {
-        border-color: var(--primary);
-        background: color-mix(in oklab, var(--primary) 16%, transparent);
-        color: var(--foreground);
-      }
-
-      .main-column {
-        flex: 1 1 auto;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-
-      .panel {
-        padding: 2rem;
-        border-radius: 2rem;
-        background: var(--panel-glass);
-        border: 1px solid var(--panel-border);
-        box-shadow: var(--panel-shadow);
-        backdrop-filter: blur(18px);
-      }
-
-      .panel header {
-        margin-bottom: 1.5rem;
-      }
-
-      .panel header h2 {
-        margin: 0;
-        font-size: 1.4rem;
-      }
-
-      .panel header p {
-        margin: 0.4rem 0 0;
-        color: var(--muted-foreground);
-        font-size: 0.95rem;
-      }
-
-      .md-prose {
-        line-height: 1.7;
-        display: grid;
-        gap: 1.1rem;
-        color: var(--foreground);
-      }
-
-      .md-prose h3,
-      .md-prose h2,
-      .md-prose h4 {
-        margin: 0;
-      }
-
-      .md-prose h2 {
-        font-size: 1.4rem;
-      }
-
-      .md-prose h3 {
-        font-size: 1.2rem;
-      }
-
-      .md-prose ul {
-        margin: 0;
-        padding-inline-start: 1.4rem;
-        display: grid;
-        gap: 0.35rem;
-      }
-
-      .md-prose blockquote {
-        margin: 0;
-        padding: 1rem 1.25rem;
-        border-inline-start: 4px solid var(--primary);
-        background: color-mix(in oklab, var(--primary) 12%, transparent);
-        border-radius: 1rem;
-      }
-
-      .counter-view {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1.25rem;
-      }
-
-      .counter-display {
-        font-size: 2.2rem;
-        font-weight: 700;
-      }
-
-      .button {
-        border: none;
-        background: var(--primary);
-        color: var(--primary-foreground);
-        font-weight: 600;
-        padding: 0.65rem 1.5rem;
-        border-radius: 999px;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.2s ease;
-      }
-
-      .button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 40px -22px rgba(79, 70, 229, 0.6);
-      }
-
-      .button.secondary {
-        background: transparent;
-        color: var(--foreground);
-        border: 1px solid var(--border);
-      }
-
-      .logic-sequence {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.75rem;
-      }
-
-      .logic-sequence .term,
-      .logic-options button {
-        width: 4rem;
-        height: 4rem;
-        display: grid;
-        place-items: center;
-        border-radius: 1.4rem;
-        border: 1px solid var(--panel-border);
-        background: var(--surface-1);
-        font-weight: 600;
-        font-size: 1.1rem;
-        box-shadow: var(--panel-shadow);
-      }
-
-      .logic-options {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      }
-
-      .logic-options button {
-        cursor: pointer;
-        border: none;
-        transition: transform 0.15s ease;
-      }
-
-      .logic-options button:hover {
-        transform: translateY(-2px);
-      }
-
-      .logic-options button.correct {
-        border-color: rgba(34, 197, 94, 0.45);
-        background: rgba(34, 197, 94, 0.2);
-      }
-
-      .logic-options button.wrong {
-        border-color: rgba(239, 68, 68, 0.45);
-        background: rgba(239, 68, 68, 0.2);
-      }
-
-      .game-board {
-        display: grid;
-        gap: 1.5rem;
-      }
-
-      .puzzle-row {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.75rem;
-      }
-
-      .puzzle-tile {
-        width: var(--tile-size, 3rem);
-        height: var(--tile-size, 3rem);
-        border-radius: 1.4rem;
-        display: grid;
-        place-items: center;
-        background: var(--tile-bg);
-        border: 1px solid var(--tile-border);
-        font-weight: 600;
-        font-size: 1.2rem;
-        box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.45);
-      }
-
-      .puzzle-tile.revealed {
-        background: var(--tile-bg-revealed);
-        color: #fff;
-      }
-
-      .puzzle-tile.space {
-        width: 2rem;
-        border: none;
-        background: transparent;
-        box-shadow: none;
-      }
-
-      .letters-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
-        gap: 0.55rem;
-      }
-
-      .letters-grid button {
-        border: none;
-        border-radius: 0.95rem;
-        padding: 0.5rem 0;
-        font-weight: 600;
-        background: var(--surface-1);
-        cursor: pointer;
-        box-shadow: var(--panel-shadow);
-        transition: transform 0.15s ease, box-shadow 0.2s ease;
-      }
-
-      .letters-grid button:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--letters-hover);
-      }
-
-      .letters-grid button.used {
-        opacity: 0.45;
-        box-shadow: none;
-        cursor: default;
-      }
-
-      .game-controls {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .game-controls .control-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        align-items: center;
-      }
-
-      .toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.4rem 0.85rem;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--surface-1);
-      }
-
-      .game-feedback {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .game-feedback .card {
-        border-radius: 1.5rem;
-        border: 1px solid var(--panel-border);
-        background: var(--surface-2);
-        padding: 1.25rem;
-        box-shadow: var(--panel-shadow);
-      }
-
-      .game-feedback .card strong {
-        font-size: 1rem;
-      }
-
-      .settings-modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.45);
-        backdrop-filter: blur(12px);
-        display: grid;
-        place-items: center;
-        padding: 2rem;
-        z-index: 40;
-      }
-
-      .settings-body {
-        width: min(420px, 100%);
-        background: var(--panel-glass);
-        border-radius: 1.6rem;
-        padding: 1.75rem;
-        display: grid;
-        gap: 1.25rem;
-        border: 1px solid var(--panel-border);
-        box-shadow: var(--panel-shadow);
-      }
-
-      .settings-body h3 {
-        margin: 0;
-        font-size: 1.25rem;
-      }
-
-      .settings-grid {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .settings-grid label {
-        display: grid;
-        gap: 0.4rem;
-        font-size: 0.95rem;
-      }
-
-      .settings-grid input[type="range"],
-      .settings-grid select {
-        width: 100%;
-      }
-
-      .settings-actions {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.75rem;
-      }
-
-      select,
-      input,
-      button {
-        font-family: inherit;
-      }
+      *,*::before,*::after{box-sizing:border-box}
+      body{margin:0;min-height:100vh;font-family:var(--font-body);background:var(--page-gradient);color:var(--foreground)}
+      .page-shell{position:relative;min-height:100vh;padding:2rem 1.5rem 3.5rem}
+      .page-shell::before,.page-shell::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1}
+      .page-shell::before{background:var(--page-overlay-1)}
+      .page-shell::after{background:var(--page-overlay-2)}
+      .app-card{background:var(--panel-glass);backdrop-filter:blur(22px);border:1px solid var(--panel-border);border-radius:2rem;box-shadow:var(--panel-shadow);overflow:hidden}
+      header.header{margin:0 auto 2rem;max-width:1500px}
+      header.header .header-inner{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;padding:1.5rem}
+      header.header h1{margin:0;font-size:clamp(1.8rem,2.8vw,2.6rem)}
+      header.header p{margin:.4rem 0 0;font-size:.95rem;color:var(--muted-foreground)}
+      .status-strip{display:flex;flex-wrap:wrap;gap:1.25rem;padding:.75rem 1.25rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-1);box-shadow:0 18px 40px -28px rgba(79,70,229,.45)}
+      .status-block{display:inline-flex;align-items:center;gap:.6rem;font-size:.95rem}
+      .status-block strong{font-size:1.05rem}
+      .hearts-row{display:inline-flex;gap:.4rem;font-size:1.1rem}
+      .controls{margin-inline-start:auto;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
+      .segmented{display:inline-flex;align-items:center;background:var(--surface-1);border:1px solid var(--border);border-radius:999px;padding:.25rem;gap:.25rem}
+      .segmented button{border:none;background:transparent;color:var(--muted-foreground);padding:.45rem 1.15rem;border-radius:999px;font-weight:600;cursor:pointer;transition:color .2s ease, background .2s ease}
+      .segmented button.active{background:var(--primary);color:var(--primary-foreground);box-shadow:0 18px 38px -22px rgba(79,70,229,.55)}
+      .layout{display:flex;flex-direction:column;gap:1.5rem;margin:0 auto;max-width:1500px}
+      @media (min-width:1024px){.layout{flex-direction:row}}
+      aside.sidebar{flex:0 0 280px}
+      .sidebar-card{position:sticky;top:1.5rem;padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
+      .sidebar-card h2{margin:0;font-size:1rem;letter-spacing:.35em;text-transform:uppercase;color:var(--muted-foreground)}
+      .nav-list{display:flex;flex-direction:column;gap:.65rem}
+      .nav-button{width:100%;border:1px solid transparent;border-radius:1.1rem;background:transparent;padding:.85rem 1rem;text-align:start;font-weight:600;font-size:1rem;color:var(--muted-foreground);cursor:pointer;transition:border .25s ease, background .25s ease, color .25s ease}
+      .nav-button .hint{display:block;margin-top:.35rem;font-size:.82rem;color:var(--muted-foreground);font-weight:400}
+      .nav-button.active{border-color:var(--primary);background:color-mix(in oklab, var(--primary) 16%, transparent);color:var(--foreground)}
+      .main-column{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1.5rem}
+      .panel{padding:2rem;border-radius:2rem;background:var(--panel-glass);border:1px solid var(--panel-border);box-shadow:var(--panel-shadow);backdrop-filter:blur(18px)}
+      .panel header{margin-bottom:1.5rem}
+      .panel header h2{margin:0;font-size:1.4rem}
+      .panel header p{margin:.4rem 0 0;color:var(--muted-foreground);font-size:.95rem}
+      .md-prose{line-height:1.7;display:grid;gap:1.1rem;color:var(--foreground)}
+      .md-prose h2,.md-prose h3,.md-prose h4{margin:0}
+      .md-prose h2{font-size:1.4rem}
+      .md-prose h3{font-size:1.2rem}
+      .md-prose ul{margin:0;padding-inline-start:1.4rem;display:grid;gap:.35rem}
+      .md-prose blockquote{margin:0;padding:1rem 1.25rem;border-inline-start:4px solid var(--primary);background:color-mix(in oklab, var(--primary) 12%, transparent);border-radius:1rem}
+      .counter-view{display:flex;align-items:center;justify-content:center;gap:1.25rem}
+      .counter-display{font-size:2.2rem;font-weight:700}
+      .button{border:none;background:var(--primary);color:var(--primary-foreground);font-weight:600;padding:.65rem 1.5rem;border-radius:999px;cursor:pointer;transition:transform .15s ease, box-shadow .2s ease}
+      .button:hover{transform:translateY(-1px);box-shadow:0 16px 40px -22px rgba(79,70,229,.6)}
+      .button.secondary{background:transparent;color:var(--foreground);border:1px solid var(--border)}
+      .logic-sequence{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem}
+      .logic-sequence .term,.logic-options button{width:4rem;height:4rem;display:grid;place-items:center;border-radius:1.4rem;border:1px solid var(--panel-border);background:var(--surface-1);font-weight:600;font-size:1.1rem;box-shadow:var(--panel-shadow)}
+      .logic-options{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}
+      .logic-options button{cursor:pointer;border:none;transition:transform .15s ease}
+      .logic-options button:hover{transform:translateY(-2px)}
+      .logic-options button.correct{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.2)}
+      .logic-options button.wrong{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.2)}
+      .game-board{display:grid;gap:1.5rem}
+      .puzzle-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem}
+      .puzzle-tile{width:var(--tile-size,3rem);height:var(--tile-size,3rem);border-radius:1.4rem;display:grid;place-items:center;background:var(--tile-bg);border:1px solid var(--tile-border);font-weight:600;font-size:1.2rem;box-shadow:0 18px 38px -28px rgba(15,23,42,.45)}
+      .puzzle-tile.revealed{background:var(--tile-bg-revealed);color:#fff}
+      .puzzle-tile.space{width:2rem;border:none;background:transparent;box-shadow:none}
+      .letters-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(46px,1fr));gap:.55rem}
+      .letters-grid button{border:none;border-radius:.95rem;padding:.5rem 0;font-weight:600;background:var(--surface-1);cursor:pointer;box-shadow:var(--panel-shadow);transition:transform .15s ease, box-shadow .2s ease}
+      .letters-grid button:hover{transform:translateY(-1px);box-shadow:var(--letters-hover)}
+      .letters-grid button.used{opacity:.45;box-shadow:none;cursor:default}
+      .game-controls{display:grid;gap:1rem}
+      .game-controls .control-row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
+      .toggle{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .85rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-1)}
+      .game-feedback{display:grid;gap:1rem}
+      .game-feedback .card{border-radius:1.5rem;border:1px solid var(--panel-border);background:var(--surface-2);padding:1.25rem;box-shadow:var(--panel-shadow)}
+      .game-feedback .card strong{font-size:1rem}
+      .settings-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(12px);display:grid;place-items:center;padding:2rem;z-index:40}
+      .settings-body{width:min(420px,100%);background:var(--panel-glass);border-radius:1.6rem;padding:1.75rem;display:grid;gap:1.25rem;border:1px solid var(--panel-border);box-shadow:var(--panel-shadow)}
+      .settings-body h3{margin:0;font-size:1.25rem}
+      .settings-grid{display:grid;gap:1rem}
+      .settings-grid label{display:grid;gap:.4rem;font-size:.95rem}
+      .settings-grid input[type="range"],.settings-grid select{width:100%}
+      .settings-actions{display:flex;justify-content:space-between;gap:.75rem}
+      select,input,button{font-family:inherit}
     </style>
   </head>
   <body>
@@ -594,229 +155,139 @@
                 </div>
                 <div class="controls">
                   <div class="segmented">
-                    <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">
-                      {trans('header.theme.light')}
-                    </button>
-                    <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">
-                      {trans('header.theme.dark')}
-                    </button>
+                    <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">{trans('header.theme.light')}</button>
+                    <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">{trans('header.theme.dark')}</button>
                   </div>
                   <div class="segmented">
-                    <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">
-                      {trans('header.lang.ar')}
-                    </button>
-                    <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">
-                      {trans('header.lang.en')}
-                    </button>
+                    <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">{trans('header.lang.ar')}</button>
+                    <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">{trans('header.lang.en')}</button>
                   </div>
-                  <button class="button secondary" onclick="toggleSettings(ctx)">
-                    {trans('settings.open')}
-                  </button>
-                  <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">
-                    🎮 {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}
-                  </button>
+                  <button class="button secondary" onclick="toggleSettings(ctx)">{trans('settings.open')}</button>
+                  <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">🎮 {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}</button>
                 </div>
               </div>
             </div>
           </header>
+
+          <script>
+            function formatTimeLeft(game){ if(!game || !game.timerOn) return '—'; var value=typeof game.timeLeft==='number'? game.timeLeft: game.timerSec; return value>=0? value: '—'; }
+            function switchTab(tab, ctx){ ctx.set('data.activeTab', tab); rememberState(ctx); }
+            function setTheme(theme, ctx){ commit(ctx, function(next){ next.env.theme=theme; }, function(state){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(env.persistPrefs) env.persistPrefs(state); }); }
+            function setLanguage(lang, ctx){ commit(ctx, function(next){ next.env.lang=lang; next.env.dir= lang==='ar'? 'rtl':'ltr'; }, function(state){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(env.persistPrefs) env.persistPrefs(state); }); }
+            function toggleSettings(ctx){ commit(ctx, function(next){ next.data.settingsOpen=!next.data.settingsOpen; }); }
+          </script>
 
           <div class="layout">
             <aside class="sidebar">
               <div class="sidebar-card">
                 <h2>{trans('nav.menu')}</h2>
                 <div class="nav-list">
-                  <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)">
-                    <span>{trans('nav.readmeBase')}</span>
-                    <span class="hint">{trans('doc.base.lead')}</span>
-                  </button>
-                  <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)">
-                    <span>{trans('nav.readmeTec')}</span>
-                    <span class="hint">{trans('doc.tec.lead')}</span>
-                  </button>
-                  <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)">
-                    <span>{trans('nav.counter')}</span>
-                    <span class="hint">{trans('counter.lead')}</span>
-                  </button>
-                  <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)">
-                    <span>{trans('nav.logic')}</span>
-                    <span class="hint">{trans('logic.lead')}</span>
-                  </button>
-                  <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)">
-                    <span>{trans('nav.game')}</span>
-                    <span class="hint">{trans('game.lead')}</span>
-                  </button>
+                  <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)"><span>{trans('nav.readmeBase')}</span><span class="hint">{trans('doc.base.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)"><span>{trans('nav.readmeTec')}</span><span class="hint">{trans('doc.tec.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)"><span>{trans('nav.counter')}</span><span class="hint">{trans('counter.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)"><span>{trans('nav.logic')}</span><span class="hint">{trans('logic.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)"><span>{trans('nav.game')}</span><span class="hint">{trans('game.lead')}</span></button>
                 </div>
               </div>
             </aside>
 
             <div class="main-column">
               <section class="panel" x-if="state.data.activeTab === 'readmeBase'">
-                <header>
-                  <h2>{trans('nav.readmeBase')}</h2>
-                  <p>{trans('doc.language.hint')}</p>
-                </header>
+                <header><h2>{trans('nav.readmeBase')}</h2><p>{trans('doc.language.hint')}</p></header>
                 <article class="md-prose" x-html="state.data.docs.base[state.env.lang]"></article>
               </section>
 
               <section class="panel" x-if="state.data.activeTab === 'readmeTec'">
-                <header>
-                  <h2>{trans('nav.readmeTec')}</h2>
-                  <p>{trans('doc.language.hint')}</p>
-                </header>
+                <header><h2>{trans('nav.readmeTec')}</h2><p>{trans('doc.language.hint')}</p></header>
                 <article class="md-prose" x-html="state.data.docs.tec[state.env.lang]"></article>
               </section>
 
               <section class="panel" x-if="state.data.activeTab === 'counter'">
-                <header>
-                  <h2>{trans('counter.title')}</h2>
-                  <p>{trans('counter.lead')}</p>
-                </header>
+                <header><h2>{trans('counter.title')}</h2><p>{trans('counter.lead')}</p></header>
                 <div class="counter-view">
                   <button class="button secondary" onclick="updateCounter(-1, ctx)">−</button>
                   <div class="counter-display">{state.data.counter}</div>
                   <button class="button" onclick="updateCounter(+1, ctx)">+</button>
-                  <button class="button secondary" onclick="resetCounter(ctx)" data-m-once>
-                    {trans('counter.reset')}
-                  </button>
+                  <button class="button secondary" onclick="resetCounter(ctx)" data-m-once>{trans('counter.reset')}</button>
                 </div>
               </section>
+
+              <script>
+                function updateCounter(delta, ctx){ commit(ctx, function(next){ var value=typeof next.data.counter==='number'? next.data.counter:0; next.data.counter=value+delta; }); }
+                function resetCounter(ctx){ ctx.set('data.counter', 0); rememberState(ctx); }
+              </script>
 
               <section class="panel" x-if="state.data.activeTab === 'logic'">
-                <header>
-                  <h2>{trans('logic.title')}</h2>
-                  <p>{trans('logic.subtitle')}</p>
-                </header>
-                <div class="logic-sequence">
-                  <div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div>
-                  <div class="term">?</div>
-                </div>
+                <header><h2>{trans('logic.title')}</h2><p>{trans('logic.subtitle')}</p></header>
+                <div class="logic-sequence"><div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div><div class="term">?</div></div>
                 <div class="logic-options">
-                  <button
-                    x-for="option in state.data.logicGame.options"
-                    key="option"
-                    class="{logicOptionClass(option, state.data.logicGame)}"
-                    onclick="chooseLogic(option, ctx)"
-                  >
-                    {option}
-                  </button>
+                  <button x-for="option in state.data.logicGame.options" key="option" class="{logicOptionClass(option, state.data.logicGame)}" onclick="chooseLogic(option, ctx)">{option}</button>
                 </div>
                 <div class="game-feedback" x-if="state.data.logicGame.feedback">
-                  <div class="card">
-                    <strong>{logicFeedbackTitle(ctx)}</strong>
-                    <p>{logicFeedbackMessage(ctx)}</p>
-                  </div>
+                  <div class="card"><strong>{logicFeedbackTitle(ctx)}</strong><p>{logicFeedbackMessage(ctx)}</p></div>
                 </div>
-                <div class="controls" style="margin-top: 1.5rem;">
-                  <button class="button" onclick="startLogic(ctx)">
-                    {state.data.logicGame.sequence.length ? trans('logic.newChallenge') : trans('logic.start')}
-                  </button>
-                </div>
+                <div class="controls" style="margin-top:1.5rem"><button class="button" onclick="startLogic(ctx)">{state.data.logicGame.sequence.length ? trans('logic.newChallenge') : trans('logic.start')}</button></div>
               </section>
 
+              <script>
+                function logicOptionClass(option, game){ if(!game || !game.feedback) return ''; if(option===game.answer) return 'correct'; if(game.selected===option) return 'wrong'; return ''; }
+                function logicFeedbackTitle(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.logicGame; if(!game || !game.feedback) return ''; var type=game.feedback.type==='correct'?'correct':'wrong'; var key= type==='correct'? 'logic.feedback.correct':'logic.feedback.wrong'; var emoji= type==='correct'? '✅ ':'⚠️ '; return emoji + ctx.trans(key); }
+                function logicFeedbackMessage(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.logicGame; if(!game || !game.feedback) return ''; var msg=game.feedback.message; var lang=(state.env && state.env.lang)||'ar'; if(typeof msg==='function') return msg(lang); if(typeof msg==='string') return msg; if(msg && typeof msg==='object') return msg[lang] || msg.ar || msg.en || ''; return ''; }
+                function buildLogicChallenge(){ var pick=randomBetween(0,2); var helpers={ randomBetween: randomBetween, shuffle: shuffle }; if(pick===0) return arithmeticChallenge(helpers); if(pick===1) return doublingChallenge(helpers); return squaresChallenge(helpers); }
+                function arithmeticChallenge(h){ var step=h.randomBetween(2,8); var start=h.randomBetween(2,15); var length=4; var seq=[]; for(var i=0;i<length;i++){ seq.push(start + i*step); } var answer=start + length*step; var pool=h.shuffle([answer, answer+step, answer-step, answer+2*step, answer-2*step]).slice(0,4); return { type:'arithmetic', sequence:seq, answer:answer, options:pool, message:{ ar:'تزداد القيم بمقدار '+step+' في كل خطوة.', en:'Values increase by '+step+' each step.' } }; }
+                function doublingChallenge(h){ var start=h.randomBetween(2,6); var length=4; var seq=[]; for(var i=0;i<length;i++){ seq.push(start * Math.pow(2,i)); } var answer=start * Math.pow(2,length); var pool=h.shuffle([answer, answer/2, answer*2, answer+start, answer-start]).slice(0,4); return { type:'double', sequence:seq, answer:answer, options:pool, message:{ ar:'كل قيمة ضعف السابقة.', en:'Each value doubles the previous one.' } }; }
+                function squaresChallenge(h){ var start=h.randomBetween(2,5); var length=4; var seq=[]; for(var i=0;i<length;i++){ var base=start+i; seq.push(base*base); } var nextBase=start+length; var answer=nextBase*nextBase; var pool=h.shuffle([answer,(nextBase+1)*(nextBase+1),(nextBase-1)*(nextBase-1), answer+nextBase, answer-nextBase]).slice(0,4); return { type:'square', sequence:seq, answer:answer, options:pool, message:{ ar:'الأعداد مربعات متتالية تبدأ من '+start+'².', en:'Squares that start at '+start+'².' } }; }
+                function startLogic(ctx){ var challenge=buildLogicChallenge(); if(!ctx || !challenge) return; commit(ctx, function(next){ var logic=next.data.logicGame; logic.sequence=challenge.sequence; logic.options=challenge.options; logic.answer=challenge.answer; logic.feedback=null; logic.explain=challenge.message; logic.selected=null; }); }
+                function chooseLogic(option, ctx){ commit(ctx, function(next){ var logic=next.data.logicGame; if(!Array.isArray(logic.options)||!logic.options.length) return; if(logic.feedback && logic.feedback.type==='correct') return; var isCorrect= option===logic.answer; logic.selected=option; logic.feedback={ type: isCorrect? 'correct':'wrong', message: logic.explain }; }); }
+              </script>
+
               <section class="panel" x-if="state.data.activeTab === 'game'">
-                <header>
-                  <h2>{trans('game.title')}</h2>
-                  <p>{trans('game.subtitle')}</p>
-                </header>
+                <header><h2>{trans('game.title')}</h2><p>{trans('game.subtitle')}</p></header>
                 <div class="game-board">
-                  <div class="puzzle-row">
-                    <div
-                      class="{tileClass(ch, state.data.game)}"
-                      x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []"
-                      key="idx"
-                    >
-                      {tileContent(ch, state.data.game)}
-                    </div>
-                  </div>
-                  <div class="letters-grid">
-                    <button
-                      x-for="letter in state.data.alphabet"
-                      key="letter"
-                      class="{letterClass(letter, state.data.game)}"
-                      onclick="chooseLetter(letter, ctx)"
-                    >
-                      {letter}
-                    </button>
-                  </div>
+                  <div class="puzzle-row"><div class="{tileClass(ch, state.data.game)}" x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []" key="idx">{tileContent(ch, state.data.game)}</div></div>
+                  <div class="letters-grid"><button x-for="letter in state.data.alphabet" key="letter" class="{letterClass(letter, state.data.game)}" onclick="chooseLetter(letter, ctx)">{letter}</button></div>
                   <div class="game-controls">
                     <div class="control-row">
-                      <span class="toggle">
-                        <input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" />
-                        <span>
-                          {state.data.game.musicOn ? trans('game.musicOn') : trans('game.musicOff')}
-                        </span>
-                      </span>
-                      <select onchange="selectTrack(event, ctx)">
-                        <option
-                          x-for="track, idx in state.data.game.audioList"
-                          key="track.url"
-                          value="{idx}"
-                          selected="{idx === state.data.game.audioIdx ? 'selected' : null}"
-                        >
-                          {track.name}
-                        </option>
-                      </select>
+                      <span class="toggle"><input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" /><span>{state.data.game.musicOn ? trans('game.musicOn') : trans('game.musicOff')}</span></span>
+                      <select onchange="selectTrack(event, ctx)"><option x-for="track, idx in state.data.game.audioList" key="track.url" value="{idx}" selected="{idx === state.data.game.audioIdx ? 'selected' : null}">{track.name}</option></select>
+                      <div class="status-block" style="margin-inline-start:auto"><strong>❤️</strong><div class="hearts-row"><span x-for="i in range(state.data.game.triesMax)" key="i">{i < state.data.game.triesLeft ? '❤️' : '🤍'}</span></div></div>
                     </div>
                     <div class="control-row">
-                      <span class="toggle">
-                        <input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" />
-                        <span>
-                          {state.data.game.timerOn ? trans('game.timerOn') : trans('game.timerOff')}
-                        </span>
-                      </span>
-                      <label>
-                        {trans('game.timerSeconds')}
-                        <input type="number" min="5" max="300" value="{state.data.game.timerSec}" onchange="setTimerSeconds(event, ctx)" />
-                      </label>
-                      <div class="status-block" style="margin-inline-start: auto;">
-                        <strong>❤️</strong>
-                        <div class="hearts-row">
-                          <span x-for="i in range(state.data.game.triesMax)" key="i">
-                            {i < state.data.game.triesLeft ? '❤️' : '🤍'}
-                          </span>
-                        </div>
-                      </div>
+                      <span class="toggle"><input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" /><span>{state.data.game.timerOn ? trans('game.timerOn') : trans('game.timerOff')}</span></span>
+                      <label>{trans('game.timerSeconds')} <input type="number" min="5" max="300" value="{state.data.game.timerSec}" onchange="setTimerSeconds(event, ctx)" /></label>
                     </div>
                   </div>
                   <div class="game-feedback">
-                    <div class="card" x-if="state.data.game.feedback">
-                      <strong>{gameFeedbackTitle(ctx)}</strong>
-                      <p>{gameFeedbackMessage(ctx)}</p>
-                    </div>
-                    <div class="card" x-if="state.data.game.proverb">
-                      <strong>💡 {trans('game.hintTitle')}</strong>
-                      <p>{state.data.game.proverb.hint}</p>
-                    </div>
-                    <div class="card" x-if="state.data.game.revealSolution && state.data.game.proverb">
-                      <strong>📜 {trans('game.solution')}</strong>
-                      <p>{trans('game.explanation')}: {state.data.game.proverb.explanation}</p>
-                      <p>{trans('game.lesson')}: {state.data.game.proverb.lesson}</p>
-                      <p class="hint">{trans('game.source')}: {state.data.game.proverb.source}</p>
-                    </div>
+                    <div class="card" x-if="state.data.game.feedback"><strong>{gameFeedbackTitle(ctx)}</strong><p>{gameFeedbackMessage(ctx)}</p></div>
+                    <div class="card" x-if="state.data.game.proverb"><strong>💡 {trans('game.hintTitle')}</strong><p>{state.data.game.proverb.hint}</p></div>
+                    <div class="card" x-if="state.data.game.revealSolution && state.data.game.proverb"><strong>📜 {trans('game.solution')}</strong><p>{trans('game.explanation')}: {state.data.game.proverb.explanation}</p><p>{trans('game.lesson')}: {state.data.game.proverb.lesson}</p><p class="hint">{trans('game.source')}: {state.data.game.proverb.source}</p></div>
                   </div>
-                  <audio
-                    class="hidden"
-                    x-if="state.data.game.musicOn && state.data.game.status === 'running'"
-                    src="{state.data.game.audioList[state.data.game.audioIdx].url}"
-                    autoplay
-                    loop
-                  ></audio>
-                  <audio
-                    class="hidden"
-                    x-if="state.data.game.feedback && state.data.game.feedback.sound"
-                    src="{state.data.game.feedback.sound}"
-                    autoplay
-                  ></audio>
+                  <audio class="hidden" x-if="state.data.game.musicOn && state.data.game.status === 'running'" src="{state.data.game.audioList[state.data.game.audioIdx].url}" autoplay loop></audio>
+                  <audio class="hidden" x-if="state.data.game.feedback && state.data.game.feedback.sound" src="{state.data.game.feedback.sound}" autoplay></audio>
                 </div>
-                <div class="controls" style="margin-top: 1.5rem;">
-                  <button class="button" onclick="startGame(ctx)">
-                    {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}
-                  </button>
-                  <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">
-                    {trans('game.reveal')}
-                  </button>
+                <div class="controls" style="margin-top:1.5rem">
+                  <button class="button" onclick="startGame(ctx)">{state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}</button>
+                  <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">{trans('game.reveal')}</button>
                 </div>
               </section>
+
+              <script>
+                function normalizeLetter(ch){ return String(ch||'').replace(/[أإآ]/g,'ا'); }
+                function tileClass(ch, game){ if(ch===' ') return 'puzzle-tile space'; var norm=normalizeLetter(ch); var revealed=game && game.guessed && game.guessed[norm]; return 'puzzle-tile' + (revealed? ' revealed':''); }
+                function tileContent(ch, game){ if(ch===' ') return ''; var norm=normalizeLetter(ch); return game && game.guessed && game.guessed[norm]? ch: '•'; }
+                function letterClass(letter, game){ if(!game) return ''; var norm=normalizeLetter(letter); return game.guessed && game.guessed[norm]? 'used': ''; }
+                function gameFeedbackTitle(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.game; if(!game || !game.feedback) return ''; var emojiMap={correct:'✅',wrong:'⚠️',win:'🏆',lose:'💔'}; var keyMap={correct:'game.feedback.correct',wrong:'game.feedback.wrong',win:'game.feedback.win',lose:'game.feedback.lose'}; var type=game.feedback.type; var emoji=emojiMap[type]||'✨'; var key=keyMap[type]||'game.feedback.correct'; return emoji+' '+ctx.trans(key); }
+                function gameFeedbackMessage(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.game; if(!game || !game.feedback) return ''; var keyMap={correct:'game.feedback.correct',wrong:'game.feedback.wrong',win:'game.feedback.win',lose:'game.feedback.lose'}; var key=keyMap[game.feedback.type]||'game.feedback.correct'; return ctx.trans(key); }
+                function isSolved(game){ if(!game || !game.proverb) return false; var text=game.proverb.t||''; return text.split('').every(function(ch){ return ch===' ' || game.guessed[normalizeLetter(ch)]; }); }
+                function startGame(ctx){ var store=assets(); var env=runtime(); if(env.stopTimer) env.stopTimer(); commit(ctx, function(next){ var game=next.data.game; var list=store.proverbs||[]; var proverb=list.length? list[Math.floor(Math.random()*list.length)]: null; game.proverb=proverb; game.guessed={}; game.triesLeft=game.triesMax; game.status='running'; game.revealSolution=false; game.feedback=null; game.timeLeft= game.timerOn ? game.timerSec: 0; }, function(state, context){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(state.data.game.timerOn && state.data.game.status==='running' && env.startTimer){ env.startTimer(context); } }); }
+                function chooseLetter(letter, ctx){ var sounds=assets().soundEffects || {}; commit(ctx, function(next){ var game=next.data.game; if(!game || game.status!=='running') return; var norm=normalizeLetter(letter); if(game.guessed[norm]) return; game.guessed[norm]=true; var hasLetter= game.proverb && game.proverb.t.split('').some(function(ch){ return normalizeLetter(ch)===norm; }); if(!hasLetter){ game.triesLeft=Math.max(0, game.triesLeft-1); game.feedback={ type:'wrong', sound: sounds.wrong || ''}; } else { game.feedback={ type:'correct', sound: sounds.correct || ''}; } if(isSolved(game)){ game.status='won'; game.revealSolution=true; game.feedback={ type:'win', sound: sounds.win || ''}; if(game.timerOn){ game.timeLeft= typeof game.timeLeft==='number'? game.timeLeft: game.timerSec; } } else if (game.triesLeft<=0){ game.status='lost'; game.revealSolution=true; game.feedback={ type:'lose', sound: sounds.lose || ''}; } }, function(state){ var env=runtime(); var game=state.data.game; if(game.status!=='running' && env.stopTimer){ env.stopTimer(); } }); }
+                function toggleMusic(event, ctx){ var checked=!!(event && event.target && event.target.checked); ctx.set('data.game.musicOn', checked); rememberState(ctx); }
+                function selectTrack(event, ctx){ var idx=parseInt(event && event.target && event.target.value,10); if(!Number.isFinite(idx)) idx=0; commit(ctx, function(next){ var list=next.data.game.audioList||[]; next.data.game.audioIdx=Math.max(0, Math.min(idx, list.length-1)); }); }
+                function toggleTimer(event, ctx){ var checked=!!(event && event.target && event.target.checked); var env=runtime(); if(env.stopTimer) env.stopTimer(); commit(ctx, function(next){ var game=next.data.game; game.timerOn=checked; game.timeLeft= checked? game.timerSec: 0; if(!checked && game.status==='running'){ game.status='idle'; } }, function(state, context){ if(state.data.game.status==='running' && state.data.game.timerOn && runtime().startTimer){ runtime().startTimer(context); } }); }
+                function setTimerSeconds(event, ctx){ var value=parseInt(event && event.target && event.target.value,10); if(!Number.isFinite(value)) return; value=Math.min(300, Math.max(5, value)); commit(ctx, function(next){ var game=next.data.game; game.timerSec=value; if(game.timerOn){ game.timeLeft=value; } }); }
+                function revealSolution(ctx){ ctx.set('data.game.revealSolution', true); rememberState(ctx); }
+              </script>
+
             </div>
           </div>
         </div>
@@ -825,475 +296,36 @@
           <div class="settings-body" onclick="event.stopPropagation()">
             <h3>{trans('settings.title')}</h3>
             <div class="settings-grid">
-              <label>
-                {trans('settings.fontLabel')} ({state.data.themePrefs.fontScale}%)
-                <input type="range" min="85" max="130" step="5" value="{state.data.themePrefs.fontScale}" onchange="setFontScale(event, ctx)" />
-              </label>
-              <label>
-                {trans('settings.background')}
-                <select onchange="setBackgroundPreset(event, ctx)">
-                  <option
-                    x-for="preset in state.data.backgrounds"
-                    key="preset.id"
-                    value="{preset.id}"
-                    selected="{preset.id === state.data.themePrefs.background ? 'selected' : null}"
-                  >
-                    {preset.label[state.env.lang] || preset.label.ar}
-                  </option>
-                </select>
-              </label>
+              <label>{trans('settings.fontLabel')} ({state.data.themePrefs.fontScale}%)<input type="range" min="85" max="130" step="5" value="{state.data.themePrefs.fontScale}" onchange="setFontScale(event, ctx)" /></label>
+              <label>{trans('settings.background')}<select onchange="setBackgroundPreset(event, ctx)"><option x-for="preset in state.data.backgrounds" key="preset.id" value="{preset.id}" selected="{preset.id === state.data.themePrefs.background ? 'selected' : null}">{preset.label[state.env.lang] || preset.label.ar}</option></select></label>
             </div>
-            <div class="settings-actions">
-              <button class="button secondary" onclick="resetThemePrefs(ctx)">
-                {trans('settings.reset')}
-              </button>
-              <button class="button" onclick="toggleSettings(ctx)">
-                {trans('settings.close')}
-              </button>
-            </div>
+            <div class="settings-actions"><button class="button secondary" onclick="resetThemePrefs(ctx)">{trans('settings.reset')}</button><button class="button" onclick="toggleSettings(ctx)">{trans('settings.close')}</button></div>
           </div>
         </div>
       </div>
 
       <script>
-        function assets() {
-          return window.__INDEX_ASSETS || {};
-        }
+        function closeSettings(event, ctx){ if(event && event.target && event.currentTarget && event.target!==event.currentTarget) return; ctx.set('data.settingsOpen', false); rememberState(ctx); }
+        function setFontScale(event, ctx){ var value=parseInt(event && event.target && event.target.value,10); if(!Number.isFinite(value)) return; commit(ctx, function(next){ next.data.themePrefs.fontScale=value; }, function(state){ var env=runtime(); if(env.applyThemePrefs) env.applyThemePrefs(state); if(env.persistPrefs) env.persistPrefs(state); }); }
+        function setBackgroundPreset(event, ctx){ var id= event && event.target && event.target.value; commit(ctx, function(next){ next.data.themePrefs.background=id; }, function(state){ var env=runtime(); if(env.applyThemePrefs) env.applyThemePrefs(state); if(env.persistPrefs) env.persistPrefs(state); }); }
+        function resetThemePrefs(ctx){ var defaults= defaultThemePrefs(); commit(ctx, function(next){ next.data.themePrefs=defaults; }, function(state){ var env=runtime(); if(env.applyThemePrefs) env.applyThemePrefs(state); if(env.persistPrefs) env.persistPrefs(state); }); }
+      </script>
 
-        function runtime() {
-          return window.__INDEX_RUNTIME || {};
-        }
-
-        function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev || {}));
-        }
-
-        function rememberState(ctx) {
-          if (!ctx) return;
-          try {
-            window.__INDEX_STATE__ = ctx.getState();
-          } catch (err) {
-            console.warn('failed to capture state', err);
-          }
-        }
-
-        function commit(ctx, mutate, after) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
-            if (typeof mutate === 'function') {
-              mutate(next, prev || {});
-            }
-            return next;
-          });
-          window.setTimeout(function () {
-            rememberState(ctx);
-            if (typeof after === 'function') {
-              after(ctx.getState(), ctx);
-            }
-          }, 0);
-        }
-
-        function cloneThemePrefs(source) {
-          try {
-            return JSON.parse(JSON.stringify(source || { fontScale: 100, background: 'nebula' }));
-          } catch (error) {
-            return { fontScale: 100, background: 'nebula' };
-          }
-        }
-
-        function getDefaultThemePrefs() {
-          var source = assets().defaultThemePrefs;
-          if (!source) return { fontScale: 100, background: 'nebula' };
-          if (typeof source === 'function') {
-            try {
-              return source();
-            } catch (error) {
-              return { fontScale: 100, background: 'nebula' };
-            }
-          }
-          return cloneThemePrefs(source);
-        }
-
-        function range(count) {
-          var len = Math.max(0, Number(count) || 0);
-          var out = [];
-          for (var i = 0; i < len; i++) out.push(i);
-          return out;
-        }
-
-        function formatTimeLeft(game) {
-          if (!game || !game.timerOn) return '—';
-          var value = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
-          return value >= 0 ? value : '—';
-        }
-
-        function logicOptionClass(option, game) {
-          if (!game || !game.feedback) return '';
-          if (option === game.answer) return 'correct';
-          if (game.selected === option) return 'wrong';
-          return '';
-        }
-
-        function logicFeedbackTitle(source, maybeCtx) {
-          var ctx = maybeCtx || (source && typeof source.trans === 'function' ? source : null);
-          var state = ctx && typeof ctx.getState === 'function' ? ctx.getState() : source;
-          var game = state && state.data && state.data.logicGame;
-          if (!game || !game.feedback) return '';
-          var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
-          var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
-          var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
-          var translate = ctx && typeof ctx.trans === 'function' ? ctx.trans.bind(ctx) : function (key) { return key; };
-          return emoji + translate(key);
-        }
-
-        function logicFeedbackMessage(source, maybeCtx) {
-          var ctx = maybeCtx || (source && typeof source.getState === 'function' ? source : null);
-          var state = ctx && typeof ctx.getState === 'function' ? ctx.getState() : source;
-          var game = state && state.data && state.data.logicGame;
-          if (!game || !game.feedback) return '';
-          var message = game.feedback.message;
-          var lang = (state.env && state.env.lang) || 'ar';
-          if (typeof message === 'function') {
-            return message(lang);
-          }
-          if (typeof message === 'string') {
-            return message;
-          }
-          if (message && typeof message === 'object') {
-            return message[lang] || message.ar || message.en || '';
-          }
-          return '';
-        }
-
-        function normalizeLetter(ch) {
-          return String(ch || '').replace(/[أإآ]/g, 'ا');
-        }
-
-        function tileClass(ch, game) {
-          if (ch === ' ') return 'puzzle-tile space';
-          var norm = normalizeLetter(ch);
-          var revealed = game && game.guessed && game.guessed[norm];
-          return 'puzzle-tile' + (revealed ? ' revealed' : '');
-        }
-
-        function tileContent(ch, game) {
-          if (ch === ' ') return '';
-          var norm = normalizeLetter(ch);
-          return game && game.guessed && game.guessed[norm] ? ch : '•';
-        }
-
-        function letterClass(letter, game) {
-          if (!game) return '';
-          var norm = normalizeLetter(letter);
-          return game.guessed && game.guessed[norm] ? 'used' : '';
-        }
-
-        function gameFeedbackTitle(source, maybeCtx) {
-          var ctx = maybeCtx || (source && typeof source.trans === 'function' ? source : null);
-          var state = ctx && typeof ctx.getState === 'function' ? ctx.getState() : source;
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var emojiMap = { correct: '✅', wrong: '⚠️', win: '🏆', lose: '💔' };
-          var keyMap = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var type = game.feedback.type;
-          var emoji = emojiMap[type] || '✨';
-          var key = keyMap[type] || 'game.feedback.correct';
-          var translate = ctx && typeof ctx.trans === 'function' ? ctx.trans.bind(ctx) : function (key) { return key; };
-          return emoji + ' ' + translate(key);
-        }
-
-        function gameFeedbackMessage(source, maybeCtx) {
-          var ctx = maybeCtx || (source && typeof source.trans === 'function' ? source : null);
-          var state = ctx && typeof ctx.getState === 'function' ? ctx.getState() : source;
-          var game = state && state.data && state.data.game;
-          if (!game || !game.feedback) return '';
-          var keyMap = {
-            correct: 'game.feedback.correct',
-            wrong: 'game.feedback.wrong',
-            win: 'game.feedback.win',
-            lose: 'game.feedback.lose'
-          };
-          var key = keyMap[game.feedback.type] || 'game.feedback.correct';
-          var translate = ctx && typeof ctx.trans === 'function' ? ctx.trans.bind(ctx) : function (key) { return key; };
-          return translate(key);
-        }
-
-        function switchTab(tab, ctx) {
-          if (!ctx) return;
-          ctx.set('data.activeTab', tab);
-          rememberState(ctx);
-        }
-
-        function setTheme(theme, ctx) {
-          commit(ctx, function (next) {
-            next.env.theme = theme;
-          }, function (state, context) {
-            var env = runtime();
-            if (env.applyEnvironment) env.applyEnvironment(state);
-            if (env.persistPrefs) env.persistPrefs(state);
-          });
-        }
-
-        function setLanguage(lang, ctx) {
-          commit(ctx, function (next) {
-            next.env.lang = lang;
-            next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
-          }, function (state) {
-            var env = runtime();
-            if (env.applyEnvironment) env.applyEnvironment(state);
-            if (env.persistPrefs) env.persistPrefs(state);
-          });
-        }
-
-        function toggleSettings(ctx) {
-          commit(ctx, function (next) {
-            next.data.settingsOpen = !next.data.settingsOpen;
-          });
-        }
-
-        function updateCounter(delta, ctx) {
-          commit(ctx, function (next) {
-            var value = typeof next.data.counter === 'number' ? next.data.counter : 0;
-            next.data.counter = value + delta;
-          });
-        }
-
-        function resetCounter(ctx) {
-          if (!ctx) return;
-          ctx.set('data.counter', 0);
-          rememberState(ctx);
-        }
-
-        function randomBetween(min, max) {
-          return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        function shuffle(arr) {
-          var copy = arr.slice();
-          for (var i = copy.length - 1; i > 0; i--) {
-            var j = Math.floor(Math.random() * (i + 1));
-            var tmp = copy[i];
-            copy[i] = copy[j];
-            copy[j] = tmp;
-          }
-          return copy;
-        }
-
-        function buildLogicChallenge() {
-          var list = assets().logicGenerators || [];
-          if (!list.length) return null;
-          var generator = list[Math.floor(Math.random() * list.length)];
-          return generator({ randomBetween: randomBetween, shuffle: shuffle });
-        }
-
-        function startLogic(ctx) {
-          var challenge = buildLogicChallenge();
-          if (!ctx || !challenge) return;
-          commit(ctx, function (next) {
-            var logic = next.data.logicGame;
-            logic.sequence = challenge.sequence;
-            logic.options = challenge.options;
-            logic.answer = challenge.answer;
-            logic.feedback = null;
-            logic.explain = challenge.message;
-            logic.selected = null;
-          });
-        }
-
-        function chooseLogic(option, ctx) {
-          if (!ctx) return;
-          commit(ctx, function (next) {
-            var logic = next.data.logicGame;
-            if (!Array.isArray(logic.options) || !logic.options.length) return;
-            if (logic.feedback && logic.feedback.type === 'correct') return;
-            var isCorrect = option === logic.answer;
-            logic.selected = option;
-            logic.feedback = { type: isCorrect ? 'correct' : 'wrong', message: logic.explain };
-          });
-        }
-
-        function isSolved(game) {
-          if (!game || !game.proverb) return false;
-          var text = game.proverb.t || '';
-          return text.split('').every(function (ch) {
-            return ch === ' ' || game.guessed[normalizeLetter(ch)];
-          });
-        }
-
-        function startGame(ctx) {
-          if (!ctx) return;
-          var store = assets();
-          var runtimeEnv = runtime();
-          if (runtimeEnv.stopTimer) runtimeEnv.stopTimer();
-          commit(ctx, function (next) {
-            var game = next.data.game;
-            var list = store.proverbs || [];
-            var proverb = list.length ? list[Math.floor(Math.random() * list.length)] : null;
-            game.proverb = proverb;
-            game.guessed = {};
-            game.triesLeft = game.triesMax;
-            game.status = 'running';
-            game.revealSolution = false;
-            game.feedback = null;
-            game.timeLeft = game.timerOn ? game.timerSec : 0;
-          }, function (state, context) {
-            var env = runtime();
-            if (env.applyEnvironment) env.applyEnvironment(state);
-            if (state.data.game.timerOn && state.data.game.status === 'running' && env.startTimer) {
-              env.startTimer(context);
-            }
-          });
-        }
-
-        function chooseLetter(letter, ctx) {
-          if (!ctx) return;
-          var sounds = assets().soundEffects || {};
-          commit(ctx, function (next) {
-            var game = next.data.game;
-            if (!game || game.status !== 'running') return;
-            var normValue = normalizeLetter(letter);
-            if (game.guessed[normValue]) return;
-            game.guessed[normValue] = true;
-            var proverb = game.proverb;
-            var hasLetter = proverb && proverb.t.split('').some(function (ch) {
-              return normalizeLetter(ch) === normValue;
-            });
-            if (!hasLetter) {
-              game.triesLeft = Math.max(0, game.triesLeft - 1);
-              game.feedback = { type: 'wrong', sound: sounds.wrong || '' };
-            } else {
-              game.feedback = { type: 'correct', sound: sounds.correct || '' };
-            }
-            if (isSolved(game)) {
-              game.status = 'won';
-              game.revealSolution = true;
-              game.feedback = { type: 'win', sound: sounds.win || '' };
-              if (game.timerOn) {
-                game.timeLeft = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
-              }
-            } else if (game.triesLeft <= 0) {
-              game.status = 'lost';
-              game.revealSolution = true;
-              game.feedback = { type: 'lose', sound: sounds.lose || '' };
-            }
-          }, function (state) {
-            var env = runtime();
-            var game = state.data.game;
-            if (game.status !== 'running' && env.stopTimer) {
-              env.stopTimer();
-            }
-          });
-        }
-
-        function toggleMusic(event, ctx) {
-          if (!ctx) return;
-          var checked = !!(event && event.target && event.target.checked);
-          ctx.set('data.game.musicOn', checked);
-          rememberState(ctx);
-        }
-
-        function selectTrack(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var idx = parseInt(event.target.value, 10);
-          if (!Number.isFinite(idx)) idx = 0;
-          commit(ctx, function (next) {
-            var list = next.data.game.audioList || [];
-            next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
-          });
-        }
-
-        function toggleTimer(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var checked = !!event.target.checked;
-          var env = runtime();
-          if (env.stopTimer) env.stopTimer();
-          commit(ctx, function (next) {
-            var game = next.data.game;
-            game.timerOn = checked;
-            game.timeLeft = checked ? game.timerSec : 0;
-            if (!checked && game.status === 'running') {
-              game.status = 'idle';
-            }
-          }, function (state, context) {
-            if (state.data.game.status === 'running' && state.data.game.timerOn && runtime().startTimer) {
-              runtime().startTimer(context);
-            }
-          });
-        }
-
-        function setTimerSeconds(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          value = Math.min(300, Math.max(5, value));
-          commit(ctx, function (next) {
-            var game = next.data.game;
-            game.timerSec = value;
-            if (game.timerOn) {
-              game.timeLeft = value;
-            }
-          });
-        }
-
-        function revealSolution(ctx) {
-          if (!ctx) return;
-          ctx.set('data.game.revealSolution', true);
-          rememberState(ctx);
-        }
-
-        function closeSettings(event, ctx) {
-          if (!ctx) return;
-          if (event && event.target && event.currentTarget && event.target !== event.currentTarget) {
-            return;
-          }
-          ctx.set('data.settingsOpen', false);
-          rememberState(ctx);
-        }
-
-        function setFontScale(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var value = parseInt(event.target.value, 10);
-          if (!Number.isFinite(value)) return;
-          commit(ctx, function (next) {
-            next.data.themePrefs.fontScale = value;
-          }, function (state) {
-            var env = runtime();
-            if (env.applyThemePrefs) env.applyThemePrefs(state);
-            if (env.persistPrefs) env.persistPrefs(state);
-          });
-        }
-
-        function setBackgroundPreset(event, ctx) {
-          if (!ctx || !event || !event.target) return;
-          var id = event.target.value;
-          commit(ctx, function (next) {
-            next.data.themePrefs.background = id;
-          }, function (state) {
-            var env = runtime();
-            if (env.applyThemePrefs) env.applyThemePrefs(state);
-            if (env.persistPrefs) env.persistPrefs(state);
-          });
-        }
-
-        function resetThemePrefs(ctx) {
-          var defaults = getDefaultThemePrefs();
-          commit(ctx, function (next) {
-            next.data.themePrefs = defaults;
-          }, function (state) {
-            var env = runtime();
-            if (env.applyThemePrefs) env.applyThemePrefs(state);
-            if (env.persistPrefs) env.persistPrefs(state);
-          });
-        }
+            <script>
+        // ====== وظائف محلية مشتركة داخل template ======
+        function assets(){ return window.__INDEX_ASSETS || {}; }
+        function runtime(){ return window.__INDEX_RUNTIME || {}; }
+        function cloneState(prev){ return JSON.parse(JSON.stringify(prev || {})); }
+        function rememberState(ctx){ try{ window.__INDEX_STATE__ = ctx.getState(); }catch(_){} }
+        function commit(ctx, mutate, after){ if(!ctx) return; ctx.setState(function(prev){ var next = cloneState(prev); if(typeof mutate==='function'){ mutate(next, prev||{}); } return next; }); window.setTimeout(function(){ rememberState(ctx); if(typeof after==='function'){ after(ctx.getState(), ctx); } },0); }
+        function randomBetween(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+        function shuffle(arr){ var copy = arr.slice(); for(var i=copy.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=copy[i]; copy[i]=copy[j]; copy[j]=tmp; } return copy; }
+        function defaultThemePrefs(){ return { fontScale: 100, background: 'nebula' }; }
+        function range(count){ var len=Math.max(0, Number(count)||0), out=[]; for(var i=0;i<len;i++) out.push(i); return out; }
       </script>
     </template>
 
+    <!-- النواة -->
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./readme.js"></script>
@@ -1302,21 +334,15 @@
     <script>
       (function (window) {
         'use strict';
-
         var M = window.Mishkah;
-        if (!M || !M.HTMLxAgent) {
-          console.error('Mishkah HTMLx agent is required.');
-          return;
-        }
+        if (!M || !M.HTMLxAgent) { console.error('Mishkah HTMLx agent is required.'); return; }
 
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
 
+        // ====== بيانات فقط (لا دوال تطبيقية هنا) ======
         var STRINGS = {
           'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
-          'header.subtitle': {
-            ar: 'نموذج مبسط يعرض التبويبات، العدادات، وتحديات Mishkah دون لغة DSL.',
-            en: 'A lightweight showcase of tabs, counters, and Mishkah challenges without the legacy DSL.'
-          },
+          'header.subtitle': { ar: 'نموذج مبسط يعرض التبويبات، العدادات، وتحديات Mishkah دون لغة DSL.', en: 'A lightweight showcase of tabs, counters, and Mishkah challenges without the legacy DSL.' },
           'header.theme.light': { ar: 'نهاري', en: 'Light' },
           'header.theme.dark': { ar: 'ليلي', en: 'Dark' },
           'header.lang.ar': { ar: 'العربية', en: 'Arabic' },
@@ -1327,18 +353,9 @@
           'nav.counter': { ar: 'العداد التفاعلي', en: 'Interactive Counter' },
           'nav.logic': { ar: 'تحدي المنطق', en: 'Logic Challenge' },
           'nav.game': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
-          'doc.base.lead': {
-            ar: 'قراءة روحية لمعماريات مشكاة ومحركها.',
-            en: "A reflective tour through Mishkah's architecture."
-          },
-          'doc.tec.lead': {
-            ar: 'الملف التقني الذي يشرح تفاصيل النظام.',
-            en: 'The technical dossier explaining the system.'
-          },
-          'doc.language.hint': {
-            ar: 'بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.',
-            en: 'Use the header switcher to view the document in Arabic or English.'
-          },
+          'doc.base.lead': { ar: 'قراءة روحية لمعماريات مشكاة ومحركها.', en: "A reflective tour through Mishkah's architecture." },
+          'doc.tec.lead': { ar: 'الملف التقني الذي يشرح تفاصيل النظام.', en: 'The technical dossier explaining the system.' },
+          'doc.language.hint': { ar: 'بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.', en: 'Use the header switcher to view the document in Arabic or English.' },
           'counter.title': { ar: 'عداد بسيط', en: 'Simple Counter' },
           'counter.lead': { ar: 'مثال يوضح استخدام أوامر HTMLx للتحديث.', en: 'An example that shows HTMLx driven updates.' },
           'counter.reset': { ar: 'إعادة الضبط', en: 'Reset' },
@@ -1391,381 +408,42 @@
           lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
         };
 
-        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length
-          ? window.PROVERBS.slice()
-          : [
-              { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
-              { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
-              { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' },
-              { t: 'من طلب العلا سهر الليالي', hint: 'يتحدث عن الاجتهاد.', explanation: 'المثل يدعو إلى المثابرة وبذل الجهد لتحقيق الأهداف السامية.', lesson: 'الطموح يتحقق بالعمل والصبر.', source: 'حكمة تعليمية' },
-              { t: 'القناعة كنز لا يفنى', hint: 'يدعو للرضا.', explanation: 'يبين المثل أن القناعة ثروة داخلية تمنح صاحبها راحة مستدامة.', lesson: 'تقدير النعم الحالية يجلب السكينة.', source: 'مثل عربي متداول' },
-              { t: 'من شب على شيء شاب عليه', hint: 'يتعلق بالعادات.', explanation: 'يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه.', lesson: 'تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.', source: 'مثل عربي دارج' },
-              { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
-              { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
-            ];
-
-        var DEFAULT_THEME_PREFS = { fontScale: 100, background: 'nebula' };
+        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length ? window.PROVERBS.slice() : [
+          { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
+          { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
+          { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' }
+        ];
 
         var THEME_BACKGROUND_PRESETS = [
-          {
-            id: 'nebula',
-            label: { ar: 'شفق بنفسجي', en: 'Violet nebula' },
-            light: {
-              gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)',
-              overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)'
-            },
-            dark: {
-              gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)',
-              overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)'
-            }
-          },
-          {
-            id: 'sunset',
-            label: { ar: 'غروب ذهبي', en: 'Golden sunset' },
-            light: {
-              gradient: 'linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)',
-              overlay1: 'radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)'
-            },
-            dark: {
-              gradient: 'linear-gradient(145deg, #1f172a 0%, #312e81 100%)',
-              overlay1: 'radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)'
-            }
-          }
+          { id: 'nebula', label: { ar: 'شفق بنفسجي', en: 'Violet nebula' }, light: { gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)', overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)', overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)' }, dark: { gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)', overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)', overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)' } },
+          { id: 'sunset', label: { ar: 'غروب ذهبي', en: 'Golden sunset' }, light: { gradient: 'linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)', overlay1: 'radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)', overlay2: 'radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)' }, dark: { gradient: 'linear-gradient(145deg, #1f172a 0%, #312e81 100%)', overlay1: 'radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)', overlay2: 'radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)' } }
         ];
 
         var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
 
-        var LOGIC_GENERATORS = [
-          function arithmetic(h) {
-            var step = h.randomBetween(2, 8);
-            var start = h.randomBetween(2, 15);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start + i * step);
-            }
-            var answer = start + length * step;
-            var pool = h.shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
-            return {
-              type: 'arithmetic',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'تزداد القيم بمقدار ' + step + ' في كل خطوة.',
-                en: 'Values increase by ' + step + ' each step.'
-              }
-            };
-          },
-          function doubling(h) {
-            var start = h.randomBetween(2, 6);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start * Math.pow(2, i));
-            }
-            var answer = start * Math.pow(2, length);
-            var pool = h.shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
-            return {
-              type: 'double',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'كل قيمة ضعف السابقة.',
-                en: 'Each value doubles the previous one.'
-              }
-            };
-          },
-          function squares(h) {
-            var start = h.randomBetween(2, 5);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              var base = start + i;
-              sequence.push(base * base);
-            }
-            var nextBase = start + length;
-            var answer = nextBase * nextBase;
-            var pool = h.shuffle([
-              answer,
-              (nextBase + 1) * (nextBase + 1),
-              (nextBase - 1) * (nextBase - 1),
-              answer + nextBase,
-              answer - nextBase
-            ]).slice(0, 4);
-            return {
-              type: 'square',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'الأعداد مربعات متتالية تبدأ من ' + start + '².',
-                en: 'Squares that start at ' + start + '².'
-              }
-            };
-          }
-        ];
+        // ====== Runtime بيئي (تأثيرات على DOM / تخزين) ======
+        function loadPrefs(){ try{ var raw=window.localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): null; }catch(_){ return null; } }
+        function persistPrefs(state){ try{ var payload={ theme: state.env.theme, lang: state.env.lang, dir: state.env.dir, themePrefs: state.data.themePrefs }; window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch(_){} }
+        function applyThemePrefs(state){ var prefs=(state.data && state.data.themePrefs) || { fontScale: 100, background: 'nebula' }; var scale=prefs.fontScale || 100; document.documentElement.style.setProperty('--user-font-scale', String(scale)); var preset = THEME_BACKGROUND_PRESETS.find(function(p){ return p.id===prefs.background; }) || THEME_BACKGROUND_PRESETS[0]; if(preset){ var theme = state.env.theme==='dark'? preset.dark: preset.light; document.documentElement.style.setProperty('--page-gradient', theme.gradient); document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1); document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2); } }
+        function applyEnvironment(state){ document.documentElement.lang = state.env.lang || 'ar'; document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr'); document.documentElement.classList.toggle('dark', state.env.theme==='dark'); applyThemePrefs(state); }
 
-        function escapeHtml(text) {
-          return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        }
-
-        function inlineMarkdown(text) {
-          var out = escapeHtml(text);
-          out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-          out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
-          out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-          return out;
-        }
-
-        function simpleMarkdownToHtml(md) {
-          var lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
-          var html = [];
-          var inList = false;
-          var inCode = false;
-          var codeBuffer = [];
-          lines.forEach(function (line) {
-            if (line.trim().startsWith('```')) {
-              if (!inCode) {
-                inCode = true;
-                codeBuffer = [];
-              } else {
-                inCode = false;
-                html.push('<pre><code>' + escapeHtml(codeBuffer.join('\n')) + '</code></pre>');
-              }
-              return;
-            }
-            if (inCode) {
-              codeBuffer.push(line);
-              return;
-            }
-            if (!line.trim()) {
-              if (inList) {
-                html.push('</ul>');
-                inList = false;
-              }
-              return;
-            }
-            if (/^\s*[-*+] /.test(line)) {
-              if (!inList) {
-                html.push('<ul>');
-                inList = true;
-              }
-              html.push('<li>' + inlineMarkdown(line.replace(/^\s*[-*+]\s*/, '')) + '</li>');
-              return;
-            }
-            if (inList) {
-              html.push('</ul>');
-              inList = false;
-            }
-            if (/^###\s+/.test(line)) {
-              html.push('<h3>' + inlineMarkdown(line.replace(/^###\s+/, '')) + '</h3>');
-              return;
-            }
-            if (/^##\s+/.test(line)) {
-              html.push('<h2>' + inlineMarkdown(line.replace(/^##\s+/, '')) + '</h2>');
-              return;
-            }
-            if (/^#\s+/.test(line)) {
-              html.push('<h2>' + inlineMarkdown(line.replace(/^#\s+/, '')) + '</h2>');
-              return;
-            }
-            if (/^>\s?/.test(line)) {
-              html.push('<blockquote>' + inlineMarkdown(line.replace(/^>\s?/, '')) + '</blockquote>');
-              return;
-            }
-            html.push('<p>' + inlineMarkdown(line) + '</p>');
-          });
-          if (inList) html.push('</ul>');
-          if (inCode) html.push('<pre><code>' + escapeHtml(codeBuffer.join('\n')) + '</code></pre>');
-          return html.join('\n');
-        }
-
-        function prepareDocs() {
-          var store = M.readme || {};
-          var baseAr = (store.base && store.base.ar) || '';
-          var baseEn = (store.base && store.base.en) || baseAr;
-          var tecAr = (store.tec && store.tec.ar) || '';
-          var tecEn = (store.tec && store.tec.en) || tecAr;
-          return {
-            base: { ar: simpleMarkdownToHtml(baseAr), en: simpleMarkdownToHtml(baseEn) },
-            tec: { ar: simpleMarkdownToHtml(tecAr), en: simpleMarkdownToHtml(tecEn) }
-          };
-        }
-
-        function loadPrefs() {
-          try {
-            var raw = window.localStorage.getItem(STORAGE_KEY);
-            if (!raw) return null;
-            return JSON.parse(raw);
-          } catch (err) {
-            console.warn('Failed to read preferences', err);
-            return null;
-          }
-        }
-
-        function persistPrefs(state) {
-          try {
-            var payload = {
-              theme: state.env.theme,
-              lang: state.env.lang,
-              dir: state.env.dir,
-              themePrefs: state.data.themePrefs
-            };
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-          } catch (err) {
-            console.warn('Failed to persist preferences', err);
-          }
-        }
-
-        function applyThemePrefs(state) {
-          var prefs = (state.data && state.data.themePrefs) || DEFAULT_THEME_PREFS;
-          var scale = typeof prefs.fontScale === 'number' ? prefs.fontScale : DEFAULT_THEME_PREFS.fontScale;
-          document.documentElement.style.setProperty('--user-font-scale', String(scale));
-          var preset = THEME_BACKGROUND_PRESETS.find(function (p) { return p.id === prefs.background; }) || THEME_BACKGROUND_PRESETS[0];
-          if (preset) {
-            var theme = state.env.theme === 'dark' ? preset.dark : preset.light;
-            document.documentElement.style.setProperty('--page-gradient', theme.gradient);
-            document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1);
-            document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2);
-          }
-        }
-
-        function applyEnvironment(state) {
-          document.documentElement.lang = state.env.lang || 'ar';
-          document.documentElement.dir = state.env.dir || (state.env.lang === 'ar' ? 'rtl' : 'ltr');
-          document.documentElement.classList.toggle('dark', state.env.theme === 'dark');
-          applyThemePrefs(state);
-        }
-
-        function buildInitialState() {
-          var prefs = loadPrefs() || {};
-          var lang = prefs.lang || 'ar';
-          var theme = prefs.theme || 'dark';
-          return {
-            env: { lang: lang, dir: lang === 'ar' ? 'rtl' : 'ltr', theme: theme },
-            i18n: { strings: JSON.parse(JSON.stringify(STRINGS)) },
-            data: {
-              activeTab: 'readmeBase',
-              docs: prepareDocs(),
-              counter: 0,
-              logicGame: { sequence: [], options: [], answer: null, feedback: null, explain: null, selected: null },
-              settingsOpen: false,
-              themePrefs: prefs.themePrefs
-                ? JSON.parse(JSON.stringify(prefs.themePrefs))
-                : JSON.parse(JSON.stringify(DEFAULT_THEME_PREFS)),
-              backgrounds: THEME_BACKGROUND_PRESETS,
-              alphabet: ALPHABET,
-              game: {
-                musicOn: true,
-                timerOn: true,
-                timerSec: 45,
-                timeLeft: 45,
-                triesMax: 5,
-                triesLeft: 5,
-                audioList: [
-                  { name: 'Ghost Stories', url: 'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' },
-                  { name: 'The Unsolved Mystery', url: 'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' },
-                  { name: 'Dark Shadows', url: 'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' }
-                ],
-                audioIdx: 0,
-                proverb: null,
-                guessed: {},
-                status: 'idle',
-                revealSolution: false,
-                feedback: null
-              }
-            }
-          };
-        }
+        function buildInitialState(){ var prefs=loadPrefs() || {}; var lang=prefs.lang || 'ar'; var theme=prefs.theme || 'dark'; return { env:{ lang:lang, dir: lang==='ar'? 'rtl':'ltr', theme: theme }, i18n:{ strings: JSON.parse(JSON.stringify(STRINGS)) }, data:{ activeTab:'readmeBase', docs: (function(){ var store=M.readme||{}; function esc(s){return String(s||'');} return { base: { ar: esc(store.base && store.base.ar), en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '') }, tec: { ar: esc(store.tec && store.tec.ar), en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '') } }; })(), counter:0, logicGame:{ sequence:[], options:[], answer:null, feedback:null, explain:null, selected:null }, settingsOpen:false, themePrefs: (prefs.themePrefs || { fontScale: 100, background: 'nebula' }), backgrounds: THEME_BACKGROUND_PRESETS, alphabet: ALPHABET, game: { musicOn:true, timerOn:true, timerSec:45, timeLeft:45, triesMax:5, triesLeft:5, audioList:[ { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' }, { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' }, { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' } ], audioIdx:0, proverb:null, guessed:{}, status:'idle', revealSolution:false, feedback:null } } }; }
 
         var state = buildInitialState();
         window.__INDEX_STATE__ = state;
-        window.__INDEX_ASSETS = {
-          strings: STRINGS,
-          soundEffects: SOUND_EFFECTS,
-          proverbs: PROVERBS,
-          logicGenerators: LOGIC_GENERATORS,
-          alphabet: ALPHABET,
-          backgrounds: THEME_BACKGROUND_PRESETS,
-          defaultThemePrefs: DEFAULT_THEME_PREFS
-        };
+        window.__INDEX_ASSETS = { strings: STRINGS, soundEffects: SOUND_EFFECTS, proverbs: PROVERBS, alphabet: ALPHABET, backgrounds: THEME_BACKGROUND_PRESETS };
 
-        var activeTimer = null;
+        var activeTimer=null;
+        function stopTimer(){ if(activeTimer){ window.clearInterval(activeTimer); activeTimer=null; } }
+        function tickTimer(ctx){ var current=ctx.getState(); var game=current.data && current.data.game; if(!game || !game.timerOn || game.status!=='running'){ stopTimer(); return; } ctx.setState(function(prev){ var next=JSON.parse(JSON.stringify(prev||{})); var g=next.data.game; if(!g.timerOn || g.status!=='running') return prev; var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1; g.timeLeft=Math.max(0,nextTime); if(g.timeLeft<=0){ g.status='lost'; g.revealSolution=true; g.feedback={ type:'lose', sound: SOUND_EFFECTS.lose }; stopTimer(); } return next; }); window.setTimeout(function(){ window.__INDEX_STATE__ = ctx.getState(); },0); }
+        window.__INDEX_RUNTIME = { applyEnvironment: applyEnvironment, applyThemePrefs: applyThemePrefs, persistPrefs: persistPrefs, startTimer: function(ctx){ stopTimer(); activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000); }, stopTimer: stopTimer };
 
-        function stopTimer() {
-          if (activeTimer) {
-            window.clearInterval(activeTimer);
-            activeTimer = null;
-          }
-        }
+        applyEnvironment(state); persistPrefs(state);
 
-        function tickTimer(ctx) {
-          var current = ctx.getState();
-          var game = current.data && current.data.game;
-          if (!game || !game.timerOn || game.status !== 'running') {
-            stopTimer();
-            return;
-          }
-          ctx.setState(function (prev) {
-            var next = JSON.parse(JSON.stringify(prev || {}));
-            var g = next.data.game;
-            if (!g.timerOn || g.status !== 'running') return prev;
-            var nextTime = (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec) - 1;
-            g.timeLeft = Math.max(0, nextTime);
-            if (g.timeLeft <= 0) {
-              g.status = 'lost';
-              g.revealSolution = true;
-              g.feedback = { type: 'lose', sound: SOUND_EFFECTS.lose };
-              stopTimer();
-            }
-            return next;
-          });
-          window.setTimeout(function () {
-            window.__INDEX_STATE__ = ctx.getState();
-          }, 0);
-        }
-
-        window.__INDEX_RUNTIME = {
-          applyEnvironment: applyEnvironment,
-          applyThemePrefs: applyThemePrefs,
-          persistPrefs: persistPrefs,
-          startTimer: function (ctx) {
-            stopTimer();
-            activeTimer = window.setInterval(function () {
-              tickTimer(ctx);
-            }, 1000);
-          },
-          stopTimer: stopTimer
-        };
-
-        applyEnvironment(state);
-        persistPrefs(state);
-
-        var database = {
-          head: { title: STRINGS['app.title'].ar },
-          env: state.env,
-          i18n: state.i18n,
-          data: state.data,
-          templates: [{ id: 'mishkah-index' }]
-        };
-
+        var database = { head: { title: STRINGS['app.title'].ar }, env: state.env, i18n: state.i18n, data: state.data, templates: [{ id: 'mishkah-index' }] };
         var start = M.HTMLxAgent.make(database);
-        if (start && typeof start.catch === 'function') {
-          start.catch(function (error) {
-            console.error('Failed to start Mishkah HTMLx index:', error);
-          });
-        }
+        if (start && typeof start.catch === 'function') start.catch(function (error) { console.error('Failed to start Mishkah HTMLx index:', error); });
       })(window);
     </script>
-
   </body>
 </html>
