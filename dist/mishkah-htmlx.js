@@ -1069,6 +1069,111 @@
     return map;
   }
 
+  function splitTopLevelList(src) {
+    var text = String(src || '');
+    var out = [];
+    var buffer = '';
+    var levelParen = 0;
+    var levelBrace = 0;
+    var levelBracket = 0;
+    var inString = false;
+    var stringChar = '';
+    for (var i = 0; i < text.length; i += 1) {
+      var ch = text.charAt(i);
+      var prev = i > 0 ? text.charAt(i - 1) : '';
+      if (inString) {
+        buffer += ch;
+        if (ch === stringChar && prev !== '\\') {
+          inString = false;
+          stringChar = '';
+        }
+        continue;
+      }
+      if (ch === '\'' || ch === '"' || ch === '`') {
+        inString = true;
+        stringChar = ch;
+        buffer += ch;
+        continue;
+      }
+      if (ch === '(') {
+        levelParen += 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === ')') {
+        levelParen -= 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === '{') {
+        levelBrace += 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === '}') {
+        levelBrace -= 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === '[') {
+        levelBracket += 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === ']') {
+        levelBracket -= 1;
+        buffer += ch;
+        continue;
+      }
+      if (ch === ',' && levelParen === 0 && levelBrace === 0 && levelBracket === 0) {
+        var term = buffer.trim();
+        if (term) out.push(term);
+        buffer = '';
+        continue;
+      }
+      buffer += ch;
+    }
+    var last = buffer.trim();
+    if (last) out.push(last);
+    return out;
+  }
+
+  function parseFunctionArrays(source) {
+    var locals = Object.create(null);
+    if (!source) return locals;
+    var re = /(var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*\[([\s\S]*?)\];/g;
+    var match;
+    while ((match = re.exec(source))) {
+      var name = match[2];
+      var inner = match[3] || '';
+      var terms = splitTopLevelList(inner);
+      var arr = [];
+      for (var i = 0; i < terms.length; i += 1) {
+        var term = terms[i].trim();
+        if (!term) continue;
+        if (/^function\b/.test(term)) {
+          try {
+            var fn = new Function('return (' + term + ')')();
+            if (typeof fn === 'function') arr.push(fn);
+          } catch (error) {
+            console.warn('HTMLx: تجاهل دالة غير صالحة داخل', name, '—', error);
+          }
+        } else {
+          console.warn('HTMLx: عنصر غير مدعوم داخل', name, '→', term.slice(0, 40));
+        }
+      }
+      locals[name] = arr;
+    }
+    return locals;
+  }
+
+  function parseScriptArtifacts(source) {
+    return {
+      functions: parseFunctions(source),
+      locals: parseFunctionArrays(source)
+    };
+  }
+
   function instantiateFunctionMap(defs) {
     var names = Object.keys(defs || {});
     if (!names.length) return {};
@@ -1274,6 +1379,8 @@
             args.push(event);
           } else if (arg === 'ctx') {
             args.push(ctx);
+          } else if (arg === 'locals') {
+            args.push(localsBag);
           } else {
             args.push(
               evaluateExpression(arg, {
@@ -1382,15 +1489,19 @@
     grouped.forEach(function (entry) {
       collectEvents(entry, events);
     });
-    var scriptFns = parseFunctions(parts.scriptSource || '');
+    var scriptArtifacts = parseScriptArtifacts(parts.scriptSource || '');
+    var scriptFns = scriptArtifacts.functions;
+    var scriptLocals = scriptArtifacts.locals;
     var runtimeFns = instantiateFunctionMap(scriptFns);
     var orders = synthesizeOrders(parts.namespace, events, scriptFns, runtimeFns, useScope ? tplId : null);
 
     var compiledChildren = grouped.map(function (child) { return compileNode(child); });
+    var hasTemplateLocals = scriptLocals && Object.keys(scriptLocals).length > 0;
     var render = function (scope) {
+      var activeScope = hasTemplateLocals ? createLocalScope(scope, scriptLocals) : scope;
       var pieces = [];
       for (var i = 0; i < compiledChildren.length; i += 1) {
-        var out = compiledChildren[i](scope);
+        var out = compiledChildren[i](activeScope);
         if (Array.isArray(out)) {
           for (var j = 0; j < out.length; j += 1) {
             if (out[j] != null && out[j] !== false) pieces.push(out[j]);
