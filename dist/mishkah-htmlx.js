@@ -213,6 +213,50 @@
     return parts.join(' ').trim();
   }
 
+  function __mkTransDynamic(db) {
+    var host = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : global || {};
+    var M = (host && host.Mishkah) || (this && this.Mishkah) || {};
+    var U = (M && M.utils) || {};
+    var build = U.lang && typeof U.lang.buildLangTables === 'function'
+      ? U.lang.buildLangTables
+      : function (dict) {
+          var t = {};
+          if (!dict || typeof dict !== 'object') return t;
+          var keys = Object.keys(dict);
+          for (var i = 0; i < keys.length; i += 1) {
+            var k = keys[i];
+            var row = dict[k];
+            if (!row || typeof row !== 'object') continue;
+            var Ls = Object.keys(row);
+            for (var j = 0; j < Ls.length; j += 1) {
+              var L = Ls[j];
+              (t[L] || (t[L] = {}))[k] = row[L];
+            }
+          }
+          return t;
+        };
+
+    var raw = (db && db.i18n && (db.i18n.dict || db.i18n.strings || db.i18n)) || {};
+    var dict = raw && raw.dict ? raw.dict : raw;
+    var tables = build(dict);
+
+    function interpolate(text, vars) {
+      if (!vars || typeof vars !== 'object') return String(text);
+      return String(text).replace(/\{(\w+)\}/g, function (m, k) {
+        return Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m;
+      });
+    }
+
+    return function trans(key, vars) {
+      var fb = (db && db.i18n && db.i18n.fallback) || 'en';
+      var lang = (db && db.env && db.env.lang) || (db && db.i18n && db.i18n.lang) || fb;
+      var v = tables[lang] && tables[lang][key];
+      if (v == null || v === '') v = tables[fb] && tables[fb][key];
+      if (v == null || v === '') v = key;
+      return interpolate(v, vars);
+    };
+  }
+
   function createExpressionEvaluator() {
     var cache = Object.create(null);
     return function evaluate(code, scope) {
@@ -227,12 +271,17 @@
           'UI',
           'D',
           'locals',
+          'trans',
+          't',
+          'TL',
           '__code',
           'with (locals || Object.create(null)) { with (state || {}) { return eval(__code); } }'
         );
       }
       try {
-        return cache[source](scope.state, scope.ctx, scope.db, scope.M, scope.UI, scope.D, scope.locals, source);
+        var _db = scope && (scope.db || scope.state) || {};
+        var __T = __mkTransDynamic(_db);
+        return cache[source](scope.state, scope.ctx, scope.db, scope.M, scope.UI, scope.D, scope.locals, __T, __T, __T, source);
       } catch (error) {
         console.error('HTMLx expression error:', source, error);
         return undefined;
@@ -1132,6 +1181,14 @@
       stop: function () {
         if (context && typeof context.stop === 'function') {
           context.stop();
+        }
+      },
+      trans: function (key, vars) {
+        try {
+          var db = this.getState();
+          return __mkTransDynamic(db)(key, vars);
+        } catch (_e) {
+          return String(key);
         }
       }
     };
