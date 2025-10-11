@@ -142,7 +142,7 @@
     var mount = template.getAttribute('data-mount') || null;
     var fragment = cloneTemplateContent(template);
     var styles = '';
-    var scripts = '';
+    var scripts = [];
     var children = [];
 
     var child = fragment.firstChild;
@@ -150,9 +150,10 @@
       var next = child.nextSibling;
       if (child.nodeType === 1 && child.tagName.toLowerCase() === 'style' && !styles) {
         styles = child.textContent || '';
-      } else if (child.nodeType === 1 && child.tagName.toLowerCase() === 'script' && !scripts) {
-        scripts = child.textContent || '';
       } else {
+        if (child.nodeType === 1 && child.tagName.toLowerCase() === 'script') {
+          scripts.push(child.textContent || '');
+        }
         children.push(child);
       }
       child = next;
@@ -168,7 +169,7 @@
       mount: mount,
       fragment: cleanFragment,
       styleSource: styles,
-      scriptSource: scripts
+      scriptSource: scripts.join('\n')
     };
   }
 
@@ -605,7 +606,10 @@
     var childIndex = 0;
     while (childNode) {
       var analyzed = analyzeNode(childNode, nextPath + '.' + childIndex, namespace, warnings);
-      if (analyzed) descriptor.children.push(analyzed);
+      if (analyzed) {
+        analyzed.parent = descriptor;
+        descriptor.children.push(analyzed);
+      }
       childIndex += 1;
       childNode = childNode.nextSibling;
     }
@@ -745,9 +749,9 @@
     };
   }
 
-  function compileChildren(children) {
+  function compileChildren(children, ctx) {
     var compiled = children.map(function (child) {
-      return compileNode(child);
+      return compileNode(child, ctx);
     });
     return function (scope) {
       var rendered = [];
@@ -778,7 +782,61 @@
     };
   }
 
-  function compileNode(node) {
+  function normalizeScopeTokens(value) {
+    if (!value) return [];
+    if (typeof value === 'string') {
+      return value.split(/\s+/).filter(function (token) { return !!token; });
+    }
+    if (Array.isArray(value)) {
+      var text = '';
+      for (var i = 0; i < value.length; i += 1) {
+        var part = value[i];
+        if (!part) continue;
+        if (part.type === 'text') {
+          text += part.value;
+        } else {
+          return [];
+        }
+      }
+      return text.split(/\s+/).filter(function (token) { return !!token; });
+    }
+    return [String(value)];
+  }
+
+  function collectScopeTokensFromAttrs(attrs) {
+    if (!attrs) return [];
+    var tokens = [];
+    var scopeTokens = normalizeScopeTokens(attrs['data-m-scope']);
+    for (var i = 0; i < scopeTokens.length; i += 1) {
+      var token = scopeTokens[i];
+      if (token && token !== 'soft' && tokens.indexOf(token) === -1) tokens.push(token);
+    }
+    var idTokens = normalizeScopeTokens(attrs.id);
+    for (var j = 0; j < idTokens.length; j += 1) {
+      var idToken = idTokens[j];
+      if (idToken && tokens.indexOf(idToken) === -1) tokens.push(idToken);
+    }
+    return tokens;
+  }
+
+  function collectScopedLocals(tokens, scopedLocalsMap) {
+    if (!tokens || !tokens.length || !scopedLocalsMap) return null;
+    var merged = {};
+    var count = 0;
+    for (var i = 0; i < tokens.length; i += 1) {
+      var key = tokens[i];
+      var source = scopedLocalsMap[key];
+      if (!source) continue;
+      for (var name in source) {
+        if (!Object.prototype.hasOwnProperty.call(source, name)) continue;
+        merged[name] = source[name];
+        count += 1;
+      }
+    }
+    return count ? merged : null;
+  }
+
+  function compileNode(node, ctx) {
     if (!node) return function () { return null; };
     if (node.type === 'text' || node.type === 'dynamic-text') {
       var textFn = compileTextNode(node);
@@ -788,7 +846,7 @@
     }
     if (node.type === 'if-chain') {
       var compiledChain = node.chain.map(function (entry) {
-        return { test: entry.test, render: compileNode(entry.node) };
+        return { test: entry.test, render: compileNode(entry.node, ctx) };
       });
       return function (scope) {
         for (var i = 0; i < compiledChain.length; i += 1) {
@@ -801,7 +859,7 @@
       };
     }
     if (node.xFor) {
-      var bodyFn = compileNode(Object.assign({}, node, { xFor: null }));
+      var bodyFn = compileNode(Object.assign({}, node, { xFor: null }), ctx);
       var loop = node.xFor;
       return function (scope) {
         var list = evaluateExpression(loop.expr, scope);
@@ -821,21 +879,25 @@
       };
     }
 
-    var renderChildren = compileChildren(groupConditionals(node.children));
+    var renderChildren = compileChildren(groupConditionals(node.children), ctx);
     var resolveAttrs = compileAttrs(node.attrs);
     var resolveKey = node.key ? compileAttrValue(node.key) : null;
+    var scopeTokens = collectScopeTokensFromAttrs(node.attrs);
+    var localAugment = collectScopedLocals(scopeTokens, ctx && ctx.scopedLocals);
+    var hasLocalAugment = localAugment && Object.keys(localAugment).length > 0;
 
     return function (scope) {
-      var attrs = resolveAttrs(scope) || {};
+      var activeScope = hasLocalAugment ? createLocalScope(scope, localAugment) : scope;
+      var attrs = resolveAttrs(activeScope) || {};
       if (resolveKey) {
-        var keyValue = resolveKey(scope);
+        var keyValue = resolveKey(activeScope);
         if (keyValue != null && keyValue !== '') {
           attrs.key = keyValue;
         }
       }
-      var kids = renderChildren(scope);
+      var kids = renderChildren(activeScope);
       if (node.events && node.events.length) {
-        var runtimeId = registerRuntimeLocals(scope.locals);
+        var runtimeId = registerRuntimeLocals(activeScope.locals);
         if (runtimeId) {
           if (attrs['data-m-runtime']) {
             attrs['data-m-runtime'] = String(attrs['data-m-runtime']) + ' ' + runtimeId;
@@ -845,7 +907,7 @@
         }
       }
       if (node.type === 'component') {
-        var componentFactory = scope.UI[node.component];
+        var componentFactory = activeScope.UI[node.component];
         if (typeof componentFactory !== 'function') {
           console.warn('E_COMPONENT_NOT_FOUND: component', node.component, 'غير متوفر.');
           return null;
@@ -860,7 +922,7 @@
       }
       var family = node.family;
       var atom = node.atom;
-      var atoms = scope.D[family] || {};
+      var atoms = activeScope.D[family] || {};
       var factory = atoms[atom];
       if (typeof factory !== 'function') {
         console.warn('E_ATOM_MISMATCH: atom', family + '.' + atom, 'غير متوفر في DSL.');
@@ -1174,6 +1236,170 @@
     };
   }
 
+  function isEventAttributeName(name) {
+    if (!name) return false;
+    var lower = String(name).toLowerCase();
+    if (lower.indexOf('on') === 0) return true;
+    if (lower === 'x-on') return true;
+    if (lower.indexOf('x-on:') === 0) return true;
+    if (lower.indexOf('data-m-on') === 0) return true;
+    return false;
+  }
+
+  function pickHandlerNamesFromAttr(value) {
+    var out = [];
+    var text = String(value || '');
+    var match = text.match(/(^|[\s;])([A-Za-z_$][\w$]*)\s*\(/);
+    if (match && match[2]) out.push(match[2]);
+    return out;
+  }
+
+  function nearestSiblingScripts(element, scriptInfos) {
+    if (!element || !scriptInfos || !scriptInfos.length) return [];
+
+    function findInfo(node) {
+      for (var i = 0; i < scriptInfos.length; i += 1) {
+        if (scriptInfos[i].element === node) return scriptInfos[i];
+      }
+      return null;
+    }
+
+    function collect(direction) {
+      var current = element;
+      var list = [];
+      while (current) {
+        current = direction > 0 ? current.nextSibling : current.previousSibling;
+        if (!current) break;
+        if (current.nodeType === 3) {
+          if (/\S/.test(current.nodeValue || '')) break;
+          continue;
+        }
+        if (current.nodeType !== 1) break;
+        if (current.tagName && current.tagName.toLowerCase() === 'script') {
+          var info = findInfo(current);
+          if (info && !info.owner) list.push(info);
+          continue;
+        }
+        break;
+      }
+      return list;
+    }
+
+    var after = collect(1);
+    if (after && after.length) return after;
+    var before = collect(-1);
+    return before || [];
+  }
+
+  function attachDynamicScopes(fragment, scriptInfos, bundle) {
+    if (!fragment || typeof fragment.querySelectorAll !== 'function') return;
+    var elements = fragment.querySelectorAll('*');
+    if (!elements || !elements.length) return;
+    var autoCounter = 0;
+
+    for (var i = 0; i < elements.length; i += 1) {
+      var el = elements[i];
+      if (!el || el.tagName && el.tagName.toLowerCase() === 'script') continue;
+      var explicitScope = el.getAttribute('data-m-scope');
+      var explicitId = el.getAttribute('id');
+      if (explicitScope || explicitId) continue;
+
+      var attrs = el.attributes || [];
+      var needed = [];
+      for (var j = 0; j < attrs.length; j += 1) {
+        var attr = attrs[j];
+        if (!attr || !isEventAttributeName(attr.name)) continue;
+        var names = pickHandlerNamesFromAttr(attr.value);
+        for (var k = 0; k < names.length; k += 1) {
+          if (needed.indexOf(names[k]) === -1) needed.push(names[k]);
+        }
+      }
+      if (!needed.length) continue;
+
+      var siblingScripts = nearestSiblingScripts(el, scriptInfos);
+      if (!siblingScripts || !siblingScripts.length) continue;
+
+      var combinedFns = {};
+      var combinedLocals = {};
+      var matched = false;
+      for (var s = 0; s < siblingScripts.length; s += 1) {
+        var info = siblingScripts[s];
+        if (!info || info.owner) continue;
+        var fns = info.fns || {};
+        for (var name in fns) {
+          if (!Object.prototype.hasOwnProperty.call(fns, name)) continue;
+          combinedFns[name] = fns[name];
+        }
+        var locals = info.locals || {};
+        for (var key in locals) {
+          if (!Object.prototype.hasOwnProperty.call(locals, key)) continue;
+          combinedLocals[key] = locals[key];
+        }
+      }
+      for (var n = 0; n < needed.length; n += 1) {
+        if (combinedFns[needed[n]]) {
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) continue;
+
+      var scopeId = 'autoS' + (++autoCounter);
+      el.setAttribute('data-m-scope', scopeId);
+      if (!bundle.scoped[scopeId]) bundle.scoped[scopeId] = { fns: {}, locals: {} };
+      Object.assign(bundle.scoped[scopeId].fns, combinedFns);
+      Object.assign(bundle.scoped[scopeId].locals, combinedLocals);
+    }
+  }
+
+  function collectTemplateScriptsWithDynamic(templateEl, fragment) {
+    var bundle = { global: { fns: {}, locals: {} }, scoped: {} };
+    if (!fragment) return bundle;
+
+    var scriptInfos = [];
+    if (typeof fragment.querySelectorAll === 'function') {
+      var scripts = fragment.querySelectorAll('script');
+      for (var i = 0; i < scripts.length; i += 1) {
+        var scriptEl = scripts[i];
+        if (!scriptEl) continue;
+        var code = scriptEl.textContent || scriptEl.innerText || '';
+        var artifacts = parseScriptArtifacts(code);
+        var owner = (scriptEl.getAttribute('data-for') || '').trim();
+        var info = {
+          element: scriptEl,
+          owner: owner || null,
+          fns: artifacts.functions || {},
+          locals: artifacts.locals || {}
+        };
+        scriptInfos.push(info);
+        if (info.owner) {
+          if (!bundle.scoped[info.owner]) bundle.scoped[info.owner] = { fns: {}, locals: {} };
+          Object.assign(bundle.scoped[info.owner].fns, info.fns);
+          Object.assign(bundle.scoped[info.owner].locals, info.locals);
+        } else {
+          Object.assign(bundle.global.fns, info.fns);
+          Object.assign(bundle.global.locals, info.locals);
+        }
+      }
+    }
+
+    attachDynamicScopes(fragment, scriptInfos, bundle);
+
+    if (templateEl && templateEl.ownerDocument) {
+      try {
+        var doc = templateEl.ownerDocument;
+        var wrap = doc.createElement('template');
+        wrap.innerHTML = '';
+        wrap.content.appendChild(fragment.cloneNode(true));
+        templateEl.innerHTML = wrap.innerHTML;
+      } catch (err) {
+        console.warn('HTMLx: failed to refresh template innerHTML after dynamic scopes:', err);
+      }
+    }
+
+    return bundle;
+  }
+
   function instantiateFunctionMap(defs) {
     var names = Object.keys(defs || {});
     if (!names.length) return {};
@@ -1309,13 +1535,48 @@
     return namespace + ':' + eventExpr.handler;
   }
 
-  function synthesizeOrders(namespace, events, scriptFns, runtimeFns, scopeKey) {
+  function collectScopeChain(owner) {
+    var chain = [];
+    var current = owner;
+    while (current) {
+      var tokens = collectScopeTokensFromAttrs(current.attrs || {});
+      for (var i = 0; i < tokens.length; i += 1) {
+        var token = tokens[i];
+        if (token && chain.indexOf(token) === -1) chain.push(token);
+      }
+      current = current.parent || null;
+    }
+    return chain;
+  }
+
+  function resolveHandlerArtifacts(handlerName, owner, scriptBundle, runtimeMaps) {
+    if (!handlerName) return { def: null, runtime: null };
+    var scoped = scriptBundle && scriptBundle.scoped ? scriptBundle.scoped : {};
+    var runtimeScoped = runtimeMaps && runtimeMaps.scoped ? runtimeMaps.scoped : {};
+    var scopeChain = collectScopeChain(owner);
+    for (var i = 0; i < scopeChain.length; i += 1) {
+      var scopeId = scopeChain[i];
+      var entry = scoped[scopeId];
+      if (!entry || !entry.fns || !entry.fns[handlerName]) continue;
+      var runtimeFn = runtimeScoped[scopeId] ? runtimeScoped[scopeId][handlerName] : null;
+      return { def: entry.fns[handlerName], runtime: runtimeFn };
+    }
+    var globalDefs = scriptBundle && scriptBundle.global ? scriptBundle.global.fns : null;
+    var runtimeGlobal = runtimeMaps && runtimeMaps.global ? runtimeMaps.global : null;
+    if (globalDefs && globalDefs[handlerName]) {
+      return { def: globalDefs[handlerName], runtime: runtimeGlobal ? runtimeGlobal[handlerName] : null };
+    }
+    return { def: null, runtime: null };
+  }
+
+  function synthesizeOrders(namespace, events, scriptBundle, runtimeMaps, scopeKey) {
     var orders = {};
     events.forEach(function (event) {
       var baseKey = createOrderKey(namespace, event.value);
       var parsed = parseEventExpression(event.value);
-      var handlerDef = parsed && parsed.handler ? scriptFns[parsed.handler] : null;
-      var runtimeFn = parsed && parsed.handler && runtimeFns ? runtimeFns[parsed.handler] : null;
+      var resolved = parsed && parsed.handler ? resolveHandlerArtifacts(parsed.handler, event.owner, scriptBundle, runtimeMaps) : { def: null, runtime: null };
+      var handlerDef = resolved.def;
+      var runtimeFn = resolved.runtime;
       var signature = [
         namespace || '',
         event && event.name ? event.name : '',
@@ -1432,6 +1693,7 @@
 
   function compileTemplate(template, options) {
     var parts = extractTemplateParts(template);
+    var scriptBundle = collectTemplateScriptsWithDynamic(template, parts.fragment);
     var tplSource = template.outerHTML || template.innerHTML || '';
     var tplId = 'tpl:' + (U.hash32 ? U.hash32(tplSource) : simpleHash32(tplSource));
     var fenceMode = (options && options.fence) || 'hard';
@@ -1489,13 +1751,22 @@
     grouped.forEach(function (entry) {
       collectEvents(entry, events);
     });
-    var scriptArtifacts = parseScriptArtifacts(parts.scriptSource || '');
-    var scriptFns = scriptArtifacts.functions;
-    var scriptLocals = scriptArtifacts.locals;
-    var runtimeFns = instantiateFunctionMap(scriptFns);
-    var orders = synthesizeOrders(parts.namespace, events, scriptFns, runtimeFns, useScope ? tplId : null);
+    var scriptLocals = scriptBundle && scriptBundle.global ? scriptBundle.global.locals : {};
+    var runtimeGlobal = instantiateFunctionMap(scriptBundle && scriptBundle.global ? scriptBundle.global.fns : {});
+    var runtimeScoped = {};
+    var scopedLocalsMap = {};
+    if (scriptBundle && scriptBundle.scoped) {
+      for (var scopeId in scriptBundle.scoped) {
+        if (!Object.prototype.hasOwnProperty.call(scriptBundle.scoped, scopeId)) continue;
+        var scopedEntry = scriptBundle.scoped[scopeId] || {};
+        runtimeScoped[scopeId] = instantiateFunctionMap(scopedEntry.fns || {});
+        scopedLocalsMap[scopeId] = scopedEntry.locals || {};
+      }
+    }
+    var orders = synthesizeOrders(parts.namespace, events, scriptBundle, { global: runtimeGlobal, scoped: runtimeScoped }, useScope ? tplId : null);
 
-    var compiledChildren = grouped.map(function (child) { return compileNode(child); });
+    var compileCtx = { scopedLocals: scopedLocalsMap };
+    var compiledChildren = grouped.map(function (child) { return compileNode(child, compileCtx); });
     var hasTemplateLocals = scriptLocals && Object.keys(scriptLocals).length > 0;
     var render = function (scope) {
       var activeScope = hasTemplateLocals ? createLocalScope(scope, scriptLocals) : scope;
