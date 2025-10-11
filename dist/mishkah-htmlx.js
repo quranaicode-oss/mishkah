@@ -1509,7 +1509,21 @@
     var templates = Array.from(root.querySelectorAll('template'));
     var compiled = templates.map(compileTemplate);
     deriveMounts(compiled, { root: root });
-    var app = Mishkah.app.createApp(db, {});
+    var legacyOrders = null;
+    if (db && db.orders) {
+      legacyOrders = db.orders;
+      if (!options || !options.orders) {
+        console.warn('HTMLx: تمرير الأوامر عبر db.orders متوقف. استخدم options.orders بدلاً من ذلك.');
+      }
+    }
+
+    var sanitizedDb = db;
+    if (db && Object.prototype.hasOwnProperty.call(db, 'orders')) {
+      sanitizedDb = Object.assign({}, db);
+      delete sanitizedDb.orders;
+    }
+
+    var app = Mishkah.app.createApp(sanitizedDb, {});
 
     db.head = db.head || {};
     db.head.styles = mergeStyles(db.head.styles, compiled);
@@ -1542,8 +1556,13 @@
     });
 
     var generatedOrders = mergeOrders(compiled.map(function (entry) { return entry.orders; }));
+    var providedOrders = mergeOrders([
+      (options && options.orders) || {},
+      legacyOrders || {}
+    ]);
     var mergedOrders = mergeOrders([
       generatedOrders,
+      providedOrders,
       (envResult && envResult.orders) || {},
       (Mishkah.UI && Mishkah.UI.orders) || {}
     ]);

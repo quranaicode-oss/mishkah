@@ -1295,6 +1295,7 @@
         }
 
         var helpers = window.__INDEX = window.__INDEX || {};
+        helpers.orders = helpers.orders || {};
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
 
         function exposeHelper(name, fn) {
@@ -2162,14 +2163,18 @@
         applyEnvironment(state);
         persistPrefs(state);
 
-        var start = M.HTMLxAgent.make({
-          head: { title: 'مشكاة — تجربة HTMLx' },
-          env: state.env,
-          i18n: state.i18n,
-          data: state.data,
-          orders: {},
-          templates: [{ id: 'mishkah-index' }]
-        });
+        var start = M.HTMLxAgent.make(
+          {
+            head: { title: 'مشكاة — تجربة HTMLx' },
+            env: state.env,
+            i18n: state.i18n,
+            data: state.data,
+            templates: [{ id: 'mishkah-index' }]
+          },
+          {
+            orders: helpers.orders || {}
+          }
+        );
 
         if (start && typeof start.catch === 'function') {
           start.catch(function (error) {
