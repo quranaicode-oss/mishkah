@@ -411,6 +411,7 @@
         display: grid;
         gap: 1.5rem;
       }
+
       .puzzle-row {
         display: flex;
         flex-wrap: wrap;
@@ -522,20 +523,19 @@
       }
 
       .settings-body {
-        max-width: 720px;
-        width: 100%;
+        width: min(420px, 100%);
         background: var(--panel-glass);
-        border: 1px solid var(--panel-border);
-        border-radius: 1.75rem;
-        padding: 2rem;
-        box-shadow: var(--panel-shadow);
+        border-radius: 1.6rem;
+        padding: 1.75rem;
         display: grid;
         gap: 1.25rem;
+        border: 1px solid var(--panel-border);
+        box-shadow: var(--panel-shadow);
       }
 
       .settings-body h3 {
         margin: 0;
-        font-size: 1.2rem;
+        font-size: 1.25rem;
       }
 
       .settings-grid {
@@ -544,36 +544,26 @@
       }
 
       .settings-grid label {
-        display: flex;
-        flex-direction: column;
+        display: grid;
         gap: 0.4rem;
         font-size: 0.95rem;
       }
 
       .settings-grid input[type="range"],
-      .settings-grid input[type="number"],
       .settings-grid select {
         width: 100%;
       }
 
-      .settings-grid input,
-      .settings-grid select {
-        border-radius: 0.85rem;
-        border: 1px solid var(--border);
-        background: var(--surface-1);
-        padding: 0.45rem 0.75rem;
-        color: inherit;
-        font: inherit;
-      }
-
       .settings-actions {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         gap: 0.75rem;
       }
 
-      .hidden {
-        display: none !important;
+      select,
+      input,
+      button {
+        font-family: inherit;
       }
     </style>
   </head>
@@ -581,279 +571,266 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
-      <style>
-        :host {
-          display: block;
-        }
-      </style>
-
       <div class="page-shell">
-        <header class="header app-card">
-          <div class="header-inner">
-            <div class="intro">
-              <h1>{translate(state, 'app.title')}</h1>
-              <p>{translate(state, 'header.subtitle')}</p>
-            </div>
-
-            <div class="status-strip" x-if="state.data.activeTab === 'game'">
-              <div class="status-block">
-                <span>⏳ {translate(state, 'game.timeLabel')}</span>
-                <strong>{formatTimeLeft(state.data.game)}</strong>
+        <div class="app-card">
+          <header class="header">
+            <div class="header-inner">
+              <div>
+                <h1>{trans('app.title')}</h1>
+                <p>{trans('header.subtitle')}</p>
               </div>
-              <div class="status-block">
-                <span>❤️ {translate(state, 'game.tries')}</span>
-                <div class="hearts-row">
-                  <span
-                    x-for="i in range(state.data.game.triesMax)"
-                    key="i"
-                    class="{ i < state.data.game.triesLeft ? '' : 'opacity-45' }"
-                    >{i < state.data.game.triesLeft ? '❤️' : '💔'}</span
-                  >
+              <div class="status-strip">
+                <div class="status-block">
+                  <strong>{trans('game.tries')}</strong>
+                  <span>{state.data.game.triesLeft} / {state.data.game.triesMax}</span>
                 </div>
-              </div>
-              <div class="status-block">
-                <span>🎯 {translate(state, 'game.statusLabel')}</span>
-                <strong>{translate(state, 'game.status.' + state.data.game.status)}</strong>
-              </div>
-            </div>
-
-            <div class="controls">
-              <div class="segmented">
-                <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">
-                  🌞 {translate(state, 'header.theme.light')}
-                </button>
-                <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">
-                  🌙 {translate(state, 'header.theme.dark')}
-                </button>
-              </div>
-              <div class="segmented">
-                <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">
-                  ع {translate(state, 'header.lang.ar')}
-                </button>
-                <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">
-                  EN {translate(state, 'header.lang.en')}
-                </button>
-              </div>
-              <button class="button secondary" onclick="toggleSettings(ctx)">
-                ⚙️ {translate(state, 'settings.open')}
-              </button>
-              <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">
-                {state.data.game.status === 'running'
-                  ? translate(state, 'game.new')
-                  : translate(state, 'game.start')}
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <div class="layout">
-          <aside class="sidebar">
-            <div class="app-card sidebar-card">
-              <h2>{translate(state, 'nav.menu')}</h2>
-              <div class="nav-list">
-                <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)">
-                  {translate(state, 'nav.readmeBase')}
-                  <span class="hint">{translate(state, 'doc.base.lead')}</span>
-                </button>
-                <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)">
-                  {translate(state, 'nav.readmeTec')}
-                  <span class="hint">{translate(state, 'doc.tec.lead')}</span>
-                </button>
-                <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)">
-                  {translate(state, 'nav.counter')}
-                  <span class="hint">{translate(state, 'counter.lead')}</span>
-                </button>
-                <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)">
-                  {translate(state, 'nav.logic')}
-                  <span class="hint">{translate(state, 'logic.lead')}</span>
-                </button>
-                <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)">
-                  {translate(state, 'nav.game')}
-                  <span class="hint">{translate(state, 'game.lead')}</span>
-                </button>
-              </div>
-            </div>
-          </aside>
-
-          <div class="main-column">
-            <section class="panel" x-if="state.data.activeTab === 'readmeBase'">
-              <header>
-                <h2>{translate(state, 'nav.readmeBase')}</h2>
-                <p>{translate(state, 'doc.language.hint')}</p>
-              </header>
-              <article class="md-prose" x-html="state.data.docs.base[state.env.lang]"></article>
-            </section>
-
-            <section class="panel" x-if="state.data.activeTab === 'readmeTec'">
-              <header>
-                <h2>{translate(state, 'nav.readmeTec')}</h2>
-                <p>{translate(state, 'doc.language.hint')}</p>
-              </header>
-              <article class="md-prose" x-html="state.data.docs.tec[state.env.lang]"></article>
-            </section>
-
-            <section class="panel" x-if="state.data.activeTab === 'counter'">
-              <header>
-                <h2>{translate(state, 'counter.title')}</h2>
-                <p>{translate(state, 'counter.lead')}</p>
-              </header>
-              <div class="counter-view">
-                <button class="button secondary" onclick="updateCounter(-1, ctx)">−</button>
-                <div class="counter-display">{state.data.counter}</div>
-                <button class="button" onclick="updateCounter(+1, ctx)">+</button>
-                <button class="button secondary" onclick="resetCounter(ctx)" data-m-once>
-                  {translate(state, 'counter.reset')}
-                </button>
-              </div>
-            </section>
-
-            <section class="panel" x-if="state.data.activeTab === 'logic'">
-              <header>
-                <h2>{translate(state, 'logic.title')}</h2>
-                <p>{translate(state, 'logic.subtitle')}</p>
-              </header>
-              <div class="logic-sequence">
-                <div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div>
-                <div class="term">?</div>
-              </div>
-              <div class="logic-options">
-                <button
-                  x-for="option in state.data.logicGame.options"
-                  key="option"
-                  class="{logicOptionClass(option, state.data.logicGame)}"
-                  onclick="chooseLogic(option, ctx)"
-                >
-                  {option}
-                </button>
-              </div>
-              <div class="game-feedback" x-if="state.data.logicGame.feedback">
-                <div class="card">
-                  <strong>{logicFeedbackTitle(state)}</strong>
-                  <p>{logicFeedbackMessage(state)}</p>
+                <div class="status-block">
+                  <strong>{trans('game.timeLabel')}</strong>
+                  <span>{formatTimeLeft(state.data.game)}</span>
                 </div>
-              </div>
-              <div class="controls" style="margin-top: 1.5rem;">
-                <button class="button" onclick="startLogic(ctx)">
-                  {translate(state, state.data.logicGame.sequence.length ? 'logic.newChallenge' : 'logic.start')}
-                </button>
-              </div>
-            </section>
-
-            <section class="panel" x-if="state.data.activeTab === 'game'">
-              <header>
-                <h2>{translate(state, 'game.title')}</h2>
-                <p>{translate(state, 'game.subtitle')}</p>
-              </header>
-              <div class="game-board">
-                <div class="puzzle-row">
-                  <div
-                    class="{tileClass(ch, state.data.game)}"
-                    x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []"
-                    key="idx"
-                  >
-                    {tileContent(ch, state.data.game)}
+                <div class="status-block">
+                  <strong>{trans('game.statusLabel')}</strong>
+                  <span>{trans('game.status.' + state.data.game.status)}</span>
+                </div>
+                <div class="controls">
+                  <div class="segmented">
+                    <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">
+                      {trans('header.theme.light')}
+                    </button>
+                    <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">
+                      {trans('header.theme.dark')}
+                    </button>
                   </div>
-                </div>
-                <div class="letters-grid">
-                  <button
-                    x-for="letter in state.data.alphabet"
-                    key="letter"
-                    class="{letterClass(letter, state.data.game)}"
-                    onclick="chooseLetter(letter, ctx)"
-                  >
-                    {letter}
+                  <div class="segmented">
+                    <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">
+                      {trans('header.lang.ar')}
+                    </button>
+                    <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">
+                      {trans('header.lang.en')}
+                    </button>
+                  </div>
+                  <button class="button secondary" onclick="toggleSettings(ctx)">
+                    {trans('settings.open')}
+                  </button>
+                  <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">
+                    🎮 {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}
                   </button>
                 </div>
-                <div class="game-controls">
-                  <div class="control-row">
-                    <span class="toggle">
-                      <input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" />
-                      <span>
-                        {state.data.game.musicOn
-                          ? translate(state, 'game.musicOn')
-                          : translate(state, 'game.musicOff')}
-                      </span>
-                    </span>
-                    <select onchange="selectTrack(event, ctx)">
-                      <option
-                        x-for="track, idx in state.data.game.audioList"
-                        key="track.url"
-                        value="{idx}"
-                        selected="{idx === state.data.game.audioIdx ? 'selected' : null}"
-                      >
-                        {track.name}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="control-row">
-                    <span class="toggle">
-                      <input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" />
-                      <span>
-                        {state.data.game.timerOn
-                          ? translate(state, 'game.timerOn')
-                          : translate(state, 'game.timerOff')}
-                      </span>
-                    </span>
-                    <label>
-                      {translate(state, 'game.timerSeconds')}
-                      <input type="number" min="5" max="300" value="{state.data.game.timerSec}" onchange="setTimerSeconds(event, ctx)" />
-                    </label>
+              </div>
+            </div>
+          </header>
+
+          <div class="layout">
+            <aside class="sidebar">
+              <div class="sidebar-card">
+                <h2>{trans('nav.menu')}</h2>
+                <div class="nav-list">
+                  <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)">
+                    <span>{trans('nav.readmeBase')}</span>
+                    <span class="hint">{trans('doc.base.lead')}</span>
+                  </button>
+                  <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)">
+                    <span>{trans('nav.readmeTec')}</span>
+                    <span class="hint">{trans('doc.tec.lead')}</span>
+                  </button>
+                  <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)">
+                    <span>{trans('nav.counter')}</span>
+                    <span class="hint">{trans('counter.lead')}</span>
+                  </button>
+                  <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)">
+                    <span>{trans('nav.logic')}</span>
+                    <span class="hint">{trans('logic.lead')}</span>
+                  </button>
+                  <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)">
+                    <span>{trans('nav.game')}</span>
+                    <span class="hint">{trans('game.lead')}</span>
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            <div class="main-column">
+              <section class="panel" x-if="state.data.activeTab === 'readmeBase'">
+                <header>
+                  <h2>{trans('nav.readmeBase')}</h2>
+                  <p>{trans('doc.language.hint')}</p>
+                </header>
+                <article class="md-prose" x-html="state.data.docs.base[state.env.lang]"></article>
+              </section>
+
+              <section class="panel" x-if="state.data.activeTab === 'readmeTec'">
+                <header>
+                  <h2>{trans('nav.readmeTec')}</h2>
+                  <p>{trans('doc.language.hint')}</p>
+                </header>
+                <article class="md-prose" x-html="state.data.docs.tec[state.env.lang]"></article>
+              </section>
+
+              <section class="panel" x-if="state.data.activeTab === 'counter'">
+                <header>
+                  <h2>{trans('counter.title')}</h2>
+                  <p>{trans('counter.lead')}</p>
+                </header>
+                <div class="counter-view">
+                  <button class="button secondary" onclick="updateCounter(-1, ctx)">−</button>
+                  <div class="counter-display">{state.data.counter}</div>
+                  <button class="button" onclick="updateCounter(+1, ctx)">+</button>
+                  <button class="button secondary" onclick="resetCounter(ctx)" data-m-once>
+                    {trans('counter.reset')}
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel" x-if="state.data.activeTab === 'logic'">
+                <header>
+                  <h2>{trans('logic.title')}</h2>
+                  <p>{trans('logic.subtitle')}</p>
+                </header>
+                <div class="logic-sequence">
+                  <div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div>
+                  <div class="term">?</div>
+                </div>
+                <div class="logic-options">
+                  <button
+                    x-for="option in state.data.logicGame.options"
+                    key="option"
+                    class="{logicOptionClass(option, state.data.logicGame)}"
+                    onclick="chooseLogic(option, ctx)"
+                  >
+                    {option}
+                  </button>
+                </div>
+                <div class="game-feedback" x-if="state.data.logicGame.feedback">
+                  <div class="card">
+                    <strong>{logicFeedbackTitle(state)}</strong>
+                    <p>{logicFeedbackMessage(state)}</p>
                   </div>
                 </div>
-                <div class="game-feedback">
-                  <div class="card" x-if="state.data.game.feedback">
-                    <strong>{gameFeedbackTitle(state)}</strong>
-                    <p>{gameFeedbackMessage(state)}</p>
-                  </div>
-                  <div class="card" x-if="state.data.game.proverb">
-                    <strong>💡 {translate(state, 'game.hintTitle')}</strong>
-                    <p>{state.data.game.proverb.hint}</p>
-                  </div>
-                  <div class="card" x-if="state.data.game.revealSolution && state.data.game.proverb">
-                    <strong>📜 {translate(state, 'game.solution')}</strong>
-                    <p>{translate(state, 'game.explanation')}: {state.data.game.proverb.explanation}</p>
-                    <p>{translate(state, 'game.lesson')}: {state.data.game.proverb.lesson}</p>
-                    <p class="hint">{translate(state, 'game.source')}: {state.data.game.proverb.source}</p>
-                  </div>
+                <div class="controls" style="margin-top: 1.5rem;">
+                  <button class="button" onclick="startLogic(ctx)">
+                    {state.data.logicGame.sequence.length ? trans('logic.newChallenge') : trans('logic.start')}
+                  </button>
                 </div>
-                <audio
-                  class="hidden"
-                  x-if="state.data.game.musicOn && state.data.game.status === 'running'"
-                  src="{state.data.game.audioList[state.data.game.audioIdx].url}"
-                  autoplay
-                  loop
-                ></audio>
-                <audio
-                  class="hidden"
-                  x-if="state.data.game.feedback && state.data.game.feedback.sound"
-                  src="{state.data.game.feedback.sound}"
-                  autoplay
-                ></audio>
-              </div>
-              <div class="controls" style="margin-top: 1.5rem;">
-                <button class="button" onclick="startGame(ctx)">
-                  {state.data.game.status === 'running'
-                    ? translate(state, 'game.new')
-                    : translate(state, 'game.start')}
-                </button>
-                <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">
-                  {translate(state, 'game.reveal')}
-                </button>
-              </div>
-            </section>
+              </section>
+
+              <section class="panel" x-if="state.data.activeTab === 'game'">
+                <header>
+                  <h2>{trans('game.title')}</h2>
+                  <p>{trans('game.subtitle')}</p>
+                </header>
+                <div class="game-board">
+                  <div class="puzzle-row">
+                    <div
+                      class="{tileClass(ch, state.data.game)}"
+                      x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []"
+                      key="idx"
+                    >
+                      {tileContent(ch, state.data.game)}
+                    </div>
+                  </div>
+                  <div class="letters-grid">
+                    <button
+                      x-for="letter in state.data.alphabet"
+                      key="letter"
+                      class="{letterClass(letter, state.data.game)}"
+                      onclick="chooseLetter(letter, ctx)"
+                    >
+                      {letter}
+                    </button>
+                  </div>
+                  <div class="game-controls">
+                    <div class="control-row">
+                      <span class="toggle">
+                        <input type="checkbox" onclick="toggleMusic(event, ctx)" checked="{state.data.game.musicOn ? 'checked' : null}" />
+                        <span>
+                          {state.data.game.musicOn ? trans('game.musicOn') : trans('game.musicOff')}
+                        </span>
+                      </span>
+                      <select onchange="selectTrack(event, ctx)">
+                        <option
+                          x-for="track, idx in state.data.game.audioList"
+                          key="track.url"
+                          value="{idx}"
+                          selected="{idx === state.data.game.audioIdx ? 'selected' : null}"
+                        >
+                          {track.name}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="control-row">
+                      <span class="toggle">
+                        <input type="checkbox" onclick="toggleTimer(event, ctx)" checked="{state.data.game.timerOn ? 'checked' : null}" />
+                        <span>
+                          {state.data.game.timerOn ? trans('game.timerOn') : trans('game.timerOff')}
+                        </span>
+                      </span>
+                      <label>
+                        {trans('game.timerSeconds')}
+                        <input type="number" min="5" max="300" value="{state.data.game.timerSec}" onchange="setTimerSeconds(event, ctx)" />
+                      </label>
+                      <div class="status-block" style="margin-inline-start: auto;">
+                        <strong>❤️</strong>
+                        <div class="hearts-row">
+                          <span x-for="i in range(state.data.game.triesMax)" key="i">
+                            {i < state.data.game.triesLeft ? '❤️' : '🤍'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="game-feedback">
+                    <div class="card" x-if="state.data.game.feedback">
+                      <strong>{gameFeedbackTitle(state)}</strong>
+                      <p>{gameFeedbackMessage(state)}</p>
+                    </div>
+                    <div class="card" x-if="state.data.game.proverb">
+                      <strong>💡 {trans('game.hintTitle')}</strong>
+                      <p>{state.data.game.proverb.hint}</p>
+                    </div>
+                    <div class="card" x-if="state.data.game.revealSolution && state.data.game.proverb">
+                      <strong>📜 {trans('game.solution')}</strong>
+                      <p>{trans('game.explanation')}: {state.data.game.proverb.explanation}</p>
+                      <p>{trans('game.lesson')}: {state.data.game.proverb.lesson}</p>
+                      <p class="hint">{trans('game.source')}: {state.data.game.proverb.source}</p>
+                    </div>
+                  </div>
+                  <audio
+                    class="hidden"
+                    x-if="state.data.game.musicOn && state.data.game.status === 'running'"
+                    src="{state.data.game.audioList[state.data.game.audioIdx].url}"
+                    autoplay
+                    loop
+                  ></audio>
+                  <audio
+                    class="hidden"
+                    x-if="state.data.game.feedback && state.data.game.feedback.sound"
+                    src="{state.data.game.feedback.sound}"
+                    autoplay
+                  ></audio>
+                </div>
+                <div class="controls" style="margin-top: 1.5rem;">
+                  <button class="button" onclick="startGame(ctx)">
+                    {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}
+                  </button>
+                  <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">
+                    {trans('game.reveal')}
+                  </button>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
 
         <div class="settings-modal" x-if="state.data.settingsOpen" onclick="closeSettings(event, ctx)">
           <div class="settings-body" onclick="event.stopPropagation()">
-            <h3>{translate(state, 'settings.title')}</h3>
+            <h3>{trans('settings.title')}</h3>
             <div class="settings-grid">
               <label>
-                {translate(state, 'settings.fontLabel')} ({state.data.themePrefs.fontScale}%)
+                {trans('settings.fontLabel')} ({state.data.themePrefs.fontScale}%)
                 <input type="range" min="85" max="130" step="5" value="{state.data.themePrefs.fontScale}" onchange="setFontScale(event, ctx)" />
               </label>
               <label>
-                {translate(state, 'settings.background')}
+                {trans('settings.background')}
                 <select onchange="setBackgroundPreset(event, ctx)">
                   <option
                     x-for="preset in state.data.backgrounds"
@@ -868,10 +845,10 @@
             </div>
             <div class="settings-actions">
               <button class="button secondary" onclick="resetThemePrefs(ctx)">
-                {translate(state, 'settings.reset')}
+                {trans('settings.reset')}
               </button>
               <button class="button" onclick="toggleSettings(ctx)">
-                {translate(state, 'settings.close')}
+                {trans('settings.close')}
               </button>
             </div>
           </div>
@@ -879,17 +856,47 @@
       </div>
 
       <script>
-        function getHelpers() {
-          return window.__INDEX || {};
+        function assets() {
+          return window.__INDEX_ASSETS || {};
+        }
+
+        function runtime() {
+          return window.__INDEX_RUNTIME || {};
         }
 
         function cloneState(prev) {
           return JSON.parse(JSON.stringify(prev || {}));
         }
 
-        function translate(state, key) {
-          var helpers = getHelpers();
-          var dict = helpers.STRINGS || {};
+        function rememberState(ctx) {
+          if (!ctx) return;
+          try {
+            window.__INDEX_STATE__ = ctx.getState();
+          } catch (err) {
+            console.warn('failed to capture state', err);
+          }
+        }
+
+        function commit(ctx, mutate, after) {
+          if (!ctx) return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            if (typeof mutate === 'function') {
+              mutate(next, prev || {});
+            }
+            return next;
+          });
+          window.setTimeout(function () {
+            rememberState(ctx);
+            if (typeof after === 'function') {
+              after(ctx.getState(), ctx);
+            }
+          }, 0);
+        }
+
+        function trans(key) {
+          var state = window.__INDEX_STATE__ || {};
+          var dict = (state.i18n && state.i18n.strings) || assets().strings || {};
           var entry = dict[key];
           if (!entry) return key;
           var lang = (state.env && state.env.lang) || 'ar';
@@ -922,7 +929,7 @@
           var type = game.feedback.type === 'correct' ? 'correct' : 'wrong';
           var key = type === 'correct' ? 'logic.feedback.correct' : 'logic.feedback.wrong';
           var emoji = type === 'correct' ? '✅ ' : '⚠️ ';
-          return emoji + translate(state, key);
+          return emoji + trans(key);
         }
 
         function logicFeedbackMessage(state) {
@@ -942,25 +949,26 @@
           return '';
         }
 
+        function normalizeLetter(ch) {
+          return String(ch || '').replace(/[أإآ]/g, 'ا');
+        }
+
         function tileClass(ch, game) {
           if (ch === ' ') return 'puzzle-tile space';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+          var norm = normalizeLetter(ch);
           var revealed = game && game.guessed && game.guessed[norm];
           return 'puzzle-tile' + (revealed ? ' revealed' : '');
         }
 
         function tileContent(ch, game) {
           if (ch === ' ') return '';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(ch) : ch;
+          var norm = normalizeLetter(ch);
           return game && game.guessed && game.guessed[norm] ? ch : '•';
         }
 
         function letterClass(letter, game) {
           if (!game) return '';
-          var helpers = getHelpers();
-          var norm = helpers.normLetter ? helpers.normLetter(letter) : letter;
+          var norm = normalizeLetter(letter);
           return game.guessed && game.guessed[norm] ? 'used' : '';
         }
 
@@ -977,7 +985,7 @@
           var type = game.feedback.type;
           var emoji = emojiMap[type] || '✨';
           var key = keyMap[type] || 'game.feedback.correct';
-          return emoji + ' ' + translate(state, key);
+          return emoji + ' ' + trans(key);
         }
 
         function gameFeedbackMessage(state) {
@@ -990,78 +998,81 @@
             lose: 'game.feedback.lose'
           };
           var key = keyMap[game.feedback.type] || 'game.feedback.correct';
-          return translate(state, key);
+          return trans(key);
         }
 
         function switchTab(tab, ctx) {
           if (!ctx) return;
           ctx.set('data.activeTab', tab);
+          rememberState(ctx);
         }
 
         function setTheme(theme, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             next.env.theme = theme;
-            return next;
+          }, function (state, context) {
+            var env = runtime();
+            if (env.applyEnvironment) env.applyEnvironment(state);
+            if (env.persistPrefs) env.persistPrefs(state);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
         }
 
         function setLanguage(lang, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             next.env.lang = lang;
             next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            return next;
+          }, function (state) {
+            var env = runtime();
+            if (env.applyEnvironment) env.applyEnvironment(state);
+            if (env.persistPrefs) env.persistPrefs(state);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
         }
 
         function toggleSettings(ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             next.data.settingsOpen = !next.data.settingsOpen;
-            return next;
           });
         }
 
         function updateCounter(delta, ctx) {
-          if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             var value = typeof next.data.counter === 'number' ? next.data.counter : 0;
             next.data.counter = value + delta;
-            return next;
           });
         }
 
         function resetCounter(ctx) {
           if (!ctx) return;
           ctx.set('data.counter', 0);
+          rememberState(ctx);
+        }
+
+        function randomBetween(min, max) {
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function shuffle(arr) {
+          var copy = arr.slice();
+          for (var i = copy.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = copy[i];
+            copy[i] = copy[j];
+            copy[j] = tmp;
+          }
+          return copy;
+        }
+
+        function buildLogicChallenge() {
+          var list = assets().logicGenerators || [];
+          if (!list.length) return null;
+          var generator = list[Math.floor(Math.random() * list.length)];
+          return generator({ randomBetween: randomBetween, shuffle: shuffle });
         }
 
         function startLogic(ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          var generators = helpers.LOGIC_GENERATORS || [];
-          if (!generators.length) return;
-          var generator = generators[Math.floor(Math.random() * generators.length)];
-          var challenge = generator(helpers);
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          var challenge = buildLogicChallenge();
+          if (!ctx || !challenge) return;
+          commit(ctx, function (next) {
             var logic = next.data.logicGame;
             logic.sequence = challenge.sequence;
             logic.options = challenge.options;
@@ -1069,35 +1080,37 @@
             logic.feedback = null;
             logic.explain = challenge.message;
             logic.selected = null;
-            return next;
           });
         }
 
         function chooseLogic(option, ctx) {
           if (!ctx) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             var logic = next.data.logicGame;
-            if (!Array.isArray(logic.options) || !logic.options.length) return prev;
-            if (logic.feedback && logic.feedback.type === 'correct') return prev;
+            if (!Array.isArray(logic.options) || !logic.options.length) return;
+            if (logic.feedback && logic.feedback.type === 'correct') return;
             var isCorrect = option === logic.answer;
             logic.selected = option;
-            logic.feedback = {
-              type: isCorrect ? 'correct' : 'wrong',
-              message: logic.explain
-            };
-            return next;
+            logic.feedback = { type: isCorrect ? 'correct' : 'wrong', message: logic.explain };
+          });
+        }
+
+        function isSolved(game) {
+          if (!game || !game.proverb) return false;
+          var text = game.proverb.t || '';
+          return text.split('').every(function (ch) {
+            return ch === ' ' || game.guessed[normalizeLetter(ch)];
           });
         }
 
         function startGame(ctx) {
           if (!ctx) return;
-          var helpers = getHelpers();
-          if (helpers.clearTimer) helpers.clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          var store = assets();
+          var runtimeEnv = runtime();
+          if (runtimeEnv.stopTimer) runtimeEnv.stopTimer();
+          commit(ctx, function (next) {
             var game = next.data.game;
-            var list = helpers.PROVERBS || [];
+            var list = store.proverbs || [];
             var proverb = list.length ? list[Math.floor(Math.random() * list.length)] : null;
             game.proverb = proverb;
             game.guessed = {};
@@ -1106,52 +1119,52 @@
             game.revealSolution = false;
             game.feedback = null;
             game.timeLeft = game.timerOn ? game.timerSec : 0;
-            return next;
-          });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyEnvironment) helpers.applyEnvironment(state);
-            if (state.data.game.timerOn && state.data.game.status === 'running' && helpers.startTimer) {
-              helpers.startTimer(ctx);
+          }, function (state, context) {
+            var env = runtime();
+            if (env.applyEnvironment) env.applyEnvironment(state);
+            if (state.data.game.timerOn && state.data.game.status === 'running' && env.startTimer) {
+              env.startTimer(context);
             }
-          }, 0);
+          });
         }
 
         function chooseLetter(letter, ctx) {
           if (!ctx) return;
-          var helpers = getHelpers();
-          var normValue = helpers.normLetter ? helpers.normLetter(letter) : letter;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          var sounds = assets().soundEffects || {};
+          commit(ctx, function (next) {
             var game = next.data.game;
-            if (!game || game.status !== 'running') return prev;
-            if (game.guessed[normValue]) return prev;
+            if (!game || game.status !== 'running') return;
+            var normValue = normalizeLetter(letter);
+            if (game.guessed[normValue]) return;
             game.guessed[normValue] = true;
             var proverb = game.proverb;
             var hasLetter = proverb && proverb.t.split('').some(function (ch) {
-              return (helpers.normLetter ? helpers.normLetter(ch) : ch) === normValue;
+              return normalizeLetter(ch) === normValue;
             });
-            var sounds = helpers.SOUND_EFFECTS || {};
             if (!hasLetter) {
               game.triesLeft = Math.max(0, game.triesLeft - 1);
               game.feedback = { type: 'wrong', sound: sounds.wrong || '' };
             } else {
               game.feedback = { type: 'correct', sound: sounds.correct || '' };
             }
-            if (helpers.checkSolved && helpers.checkSolved(game)) {
+            if (isSolved(game)) {
               game.status = 'won';
               game.revealSolution = true;
               game.feedback = { type: 'win', sound: sounds.win || '' };
-              game.timeLeft = game.timerOn ? game.timeLeft : 0;
-              if (helpers.clearTimer) helpers.clearTimer();
+              if (game.timerOn) {
+                game.timeLeft = typeof game.timeLeft === 'number' ? game.timeLeft : game.timerSec;
+              }
             } else if (game.triesLeft <= 0) {
               game.status = 'lost';
               game.revealSolution = true;
               game.feedback = { type: 'lose', sound: sounds.lose || '' };
-              if (helpers.clearTimer) helpers.clearTimer();
             }
-            return next;
+          }, function (state) {
+            var env = runtime();
+            var game = state.data.game;
+            if (game.status !== 'running' && env.stopTimer) {
+              env.stopTimer();
+            }
           });
         }
 
@@ -1159,41 +1172,36 @@
           if (!ctx) return;
           var checked = !!(event && event.target && event.target.checked);
           ctx.set('data.game.musicOn', checked);
+          rememberState(ctx);
         }
 
         function selectTrack(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var idx = parseInt(event.target.value, 10);
           if (!Number.isFinite(idx)) idx = 0;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             var list = next.data.game.audioList || [];
             next.data.game.audioIdx = Math.max(0, Math.min(idx, list.length - 1));
-            return next;
           });
         }
 
         function toggleTimer(event, ctx) {
           if (!ctx || !event || !event.target) return;
-          var helpers = getHelpers();
           var checked = !!event.target.checked;
-          if (helpers.clearTimer) helpers.clearTimer();
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          var env = runtime();
+          if (env.stopTimer) env.stopTimer();
+          commit(ctx, function (next) {
             var game = next.data.game;
             game.timerOn = checked;
             game.timeLeft = checked ? game.timerSec : 0;
             if (!checked && game.status === 'running') {
               game.status = 'idle';
             }
-            return next;
-          });
-          window.setTimeout(function () {
-            var state = ctx.getState();
-            if (state.data.game.status === 'running' && state.data.game.timerOn && helpers.startTimer) {
-              helpers.startTimer(ctx);
+          }, function (state, context) {
+            if (state.data.game.status === 'running' && state.data.game.timerOn && runtime().startTimer) {
+              runtime().startTimer(context);
             }
-          }, 0);
+          });
         }
 
         function setTimerSeconds(event, ctx) {
@@ -1201,20 +1209,19 @@
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
           value = Math.min(300, Math.max(5, value));
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             var game = next.data.game;
             game.timerSec = value;
             if (game.timerOn) {
               game.timeLeft = value;
             }
-            return next;
           });
         }
 
         function revealSolution(ctx) {
           if (!ctx) return;
           ctx.set('data.game.revealSolution', true);
+          rememberState(ctx);
         }
 
         function closeSettings(event, ctx) {
@@ -1223,62 +1230,45 @@
             return;
           }
           ctx.set('data.settingsOpen', false);
+          rememberState(ctx);
         }
 
         function setFontScale(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var value = parseInt(event.target.value, 10);
           if (!Number.isFinite(value)) return;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             next.data.themePrefs.fontScale = value;
-            return next;
+          }, function (state) {
+            var env = runtime();
+            if (env.applyThemePrefs) env.applyThemePrefs(state);
+            if (env.persistPrefs) env.persistPrefs(state);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
         }
 
         function setBackgroundPreset(event, ctx) {
           if (!ctx || !event || !event.target) return;
           var id = event.target.value;
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          commit(ctx, function (next) {
             next.data.themePrefs.background = id;
-            return next;
+          }, function (state) {
+            var env = runtime();
+            if (env.applyThemePrefs) env.applyThemePrefs(state);
+            if (env.persistPrefs) env.persistPrefs(state);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
         }
 
         function resetThemePrefs(ctx) {
-          if (!ctx) return;
-          var helpers = getHelpers();
-          var defaults = helpers.defaultThemePrefs ? helpers.defaultThemePrefs() : { fontScale: 100, background: 'nebula' };
-          ctx.setState(function (prev) {
-            var next = cloneState(prev);
+          var defaults = (assets().defaultThemePrefs && assets().defaultThemePrefs()) || { fontScale: 100, background: 'nebula' };
+          commit(ctx, function (next) {
             next.data.themePrefs = defaults;
-            return next;
+          }, function (state) {
+            var env = runtime();
+            if (env.applyThemePrefs) env.applyThemePrefs(state);
+            if (env.persistPrefs) env.persistPrefs(state);
           });
-          window.setTimeout(function () {
-            var helpers = getHelpers();
-            var state = ctx.getState();
-            if (helpers.applyThemePrefs) helpers.applyThemePrefs(state);
-            if (helpers.persistPrefs) helpers.persistPrefs(state);
-          }, 0);
         }
-		
-		
       </script>
-    
-      
     </template>
 
     <script src="./mishkah-utils.js"></script>
@@ -1296,34 +1286,7 @@
           return;
         }
 
-        var helpers = window.__INDEX = window.__INDEX || {};
-        helpers.orders = helpers.orders || {};
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
-
-        function exposeHelper(name, fn) {
-          helpers[name] = fn;
-          window[name] = fn;
-          return fn;
-        }
-
-        var getHelpers = exposeHelper('getHelpers', function getHelpers() {
-          return window.__INDEX || {};
-        });
-
-        var cloneState = exposeHelper('cloneState', function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev || {}));
-        });
-
-        var translate = exposeHelper('translate', function translate(state, key) {
-          if (!key) return '';
-          var helpers = getHelpers();
-          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
-          var entry = dict[key];
-          if (!entry) return key;
-          var lang = (state && state.env && state.env.lang) || 'ar';
-          return entry[lang] || entry.ar || entry.en || key;
-        });
-
 
         var STRINGS = {
           'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
@@ -1385,7 +1348,7 @@
           'game.explanation': { ar: 'الشرح', en: 'Explanation' },
           'game.lesson': { ar: 'العبرة', en: 'Lesson' },
           'game.source': { ar: 'المصدر', en: 'Source' },
-          'game.feedback.correct': { ar: 'أحسنت! حرف صحيح.', en: 'Great! Correct letter.' },
+          'game.feedback.correct': { ar: 'أحسنت! رف صحيح.', en: 'Great! Correct letter.' },
           'game.feedback.wrong': { ar: 'هذه المحاولة لم تصب الهدف.', en: 'That guess missed the mark.' },
           'game.feedback.win': { ar: 'إبداع! اكتملت الحكمة.', en: 'Brilliant! Wisdom unveiled.' },
           'game.feedback.lose': { ar: 'انتهت المحاولات، لا بأس أن تكشف الحكمة.', en: 'No tries left, time to reveal the wisdom.' },
@@ -1397,7 +1360,6 @@
           'settings.reset': { ar: 'إعادة الافتراضي', en: 'Reset defaults' },
           'settings.close': { ar: 'تم', en: 'Done' }
         };
-        helpers.STRINGS = STRINGS;
 
         var SOUND_EFFECTS = {
           correct: 'https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3',
@@ -1405,7 +1367,6 @@
           win: 'https://assets.mixkit.co/sfx/preview/mixkit-small-crowd-cheer-and-applause-518.mp3',
           lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
         };
-        helpers.SOUND_EFFECTS = SOUND_EFFECTS;
 
         var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length
           ? window.PROVERBS.slice()
@@ -1419,12 +1380,10 @@
               { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
               { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
             ];
-        helpers.PROVERBS = PROVERBS;
 
         function randomBetween(min, max) {
           return Math.floor(Math.random() * (max - min + 1)) + min;
         }
-        helpers.randomBetween = randomBetween;
 
         function shuffle(arr) {
           var copy = arr.slice();
@@ -1436,25 +1395,10 @@
           }
           return copy;
         }
-        helpers.shuffle = shuffle;
-
-        function normLetter(ch) {
-          return String(ch || '').replace(/[أإآ]/g, 'ا');
-        }
-        helpers.normLetter = normLetter;
-
-        function checkSolved(game) {
-          if (!game || !game.proverb) return false;
-          return game.proverb.t.split('').every(function (ch) {
-            return ch === ' ' || game.guessed[normLetter(ch)];
-          });
-        }
-        helpers.checkSolved = checkSolved;
 
         function defaultThemePrefs() {
           return { fontScale: 100, background: 'nebula' };
         }
-        helpers.defaultThemePrefs = defaultThemePrefs;
 
         var THEME_BACKGROUND_PRESETS = [
           {
@@ -1486,10 +1430,8 @@
             }
           }
         ];
-        helpers.BACKGROUNDS = THEME_BACKGROUND_PRESETS;
 
         var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
-        helpers.ALPHABET = ALPHABET;
 
         var LOGIC_GENERATORS = [
           function arithmetic(h) {
@@ -1562,99 +1504,12 @@
             };
           }
         ];
-        helpers.LOGIC_GENERATORS = LOGIC_GENERATORS;
-
-        var activeTimer = null;
-        function clearTimer() {
-          if (activeTimer) {
-            window.clearInterval(activeTimer);
-            activeTimer = null;
-          }
-        }
-        helpers.clearTimer = clearTimer;
-
-        function tickTimer(ctx) {
-          var state = ctx.getState();
-          var game = state.data && state.data.game;
-          if (!game || !game.timerOn || game.status !== 'running') {
-            clearTimer();
-            return;
-          }
-          ctx.setState(function (prev) {
-            var next = JSON.parse(JSON.stringify(prev || {}));
-            var g = next.data.game;
-            if (!g.timerOn || g.status !== 'running') return prev;
-            var nextTime = typeof g.timeLeft === 'number' ? g.timeLeft - 1 : g.timerSec - 1;
-            g.timeLeft = Math.max(0, nextTime);
-            if (g.timeLeft <= 0) {
-              g.status = 'lost';
-              g.revealSolution = true;
-              g.feedback = { type: 'lose', sound: SOUND_EFFECTS.lose };
-              clearTimer();
-            }
-            return next;
-          });
-        }
-        helpers.tickTimer = tickTimer;
-
-        helpers.startTimer = function (ctx) {
-          clearTimer();
-          activeTimer = window.setInterval(function () {
-            tickTimer(ctx);
-          }, 1000);
-        };
-
-        function applyThemePrefs(state) {
-          var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
-          var scale = prefs.fontScale || 100;
-          document.documentElement.style.setProperty('--user-font-scale', String(scale));
-          var preset = THEME_BACKGROUND_PRESETS.find(function (p) { return p.id === prefs.background; }) || THEME_BACKGROUND_PRESETS[0];
-          if (preset) {
-            var theme = state.env.theme === 'dark' ? preset.dark : preset.light;
-            document.documentElement.style.setProperty('--page-gradient', theme.gradient);
-            document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1);
-            document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2);
-          }
-        }
-        helpers.applyThemePrefs = applyThemePrefs;
-
-        function applyEnvironment(state) {
-          document.documentElement.lang = state.env.lang || 'ar';
-          document.documentElement.dir = state.env.dir || (state.env.lang === 'ar' ? 'rtl' : 'ltr');
-          document.documentElement.classList.toggle('dark', state.env.theme === 'dark');
-          applyThemePrefs(state);
-        }
-        helpers.applyEnvironment = applyEnvironment;
-
-        function persistPrefs(state) {
-          try {
-            var payload = {
-              theme: state.env.theme,
-              lang: state.env.lang,
-              dir: state.env.dir,
-              themePrefs: state.data.themePrefs
-            };
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-          } catch (err) {
-            console.warn('Failed to persist preferences', err);
-          }
-        }
-        helpers.persistPrefs = persistPrefs;
-
-        function loadPrefs() {
-          try {
-            var raw = window.localStorage.getItem(STORAGE_KEY);
-            if (!raw) return null;
-            return JSON.parse(raw);
-          } catch (err) {
-            console.warn('Failed to read preferences', err);
-            return null;
-          }
-        }
-        helpers.loadPrefs = loadPrefs;
 
         function escapeHtml(text) {
-          return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
         }
 
         function inlineMarkdown(text) {
@@ -1727,7 +1582,6 @@
           if (inCode) html.push('<pre><code>' + escapeHtml(codeBuffer.join('\n')) + '</code></pre>');
           return html.join('\n');
         }
-        helpers.simpleMarkdownToHtml = simpleMarkdownToHtml;
 
         function prepareDocs() {
           var store = M.readme || {};
@@ -1740,16 +1594,59 @@
             tec: { ar: simpleMarkdownToHtml(tecAr), en: simpleMarkdownToHtml(tecEn) }
           };
         }
-        helpers.prepareDocs = prepareDocs;
+
+        function loadPrefs() {
+          try {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw);
+          } catch (err) {
+            console.warn('Failed to read preferences', err);
+            return null;
+          }
+        }
+
+        function persistPrefs(state) {
+          try {
+            var payload = {
+              theme: state.env.theme,
+              lang: state.env.lang,
+              dir: state.env.dir,
+              themePrefs: state.data.themePrefs
+            };
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          } catch (err) {
+            console.warn('Failed to persist preferences', err);
+          }
+        }
+
+        function applyThemePrefs(state) {
+          var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
+          var scale = prefs.fontScale || 100;
+          document.documentElement.style.setProperty('--user-font-scale', String(scale));
+          var preset = THEME_BACKGROUND_PRESETS.find(function (p) { return p.id === prefs.background; }) || THEME_BACKGROUND_PRESETS[0];
+          if (preset) {
+            var theme = state.env.theme === 'dark' ? preset.dark : preset.light;
+            document.documentElement.style.setProperty('--page-gradient', theme.gradient);
+            document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1);
+            document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2);
+          }
+        }
+
+        function applyEnvironment(state) {
+          document.documentElement.lang = state.env.lang || 'ar';
+          document.documentElement.dir = state.env.dir || (state.env.lang === 'ar' ? 'rtl' : 'ltr');
+          document.documentElement.classList.toggle('dark', state.env.theme === 'dark');
+          applyThemePrefs(state);
+        }
 
         function buildInitialState() {
           var prefs = loadPrefs() || {};
           var lang = prefs.lang || 'ar';
           var theme = prefs.theme || 'dark';
-          var strings = helpers.STRINGS || STRINGS;
           return {
             env: { lang: lang, dir: lang === 'ar' ? 'rtl' : 'ltr', theme: theme },
-            i18n: { strings: JSON.parse(JSON.stringify(strings || {})) },
+            i18n: { strings: JSON.parse(JSON.stringify(STRINGS)) },
             data: {
               activeTab: 'readmeBase',
               docs: prepareDocs(),
@@ -1781,24 +1678,79 @@
             }
           };
         }
-        helpers.buildInitialState = buildInitialState;
 
         var state = buildInitialState();
+        window.__INDEX_STATE__ = state;
+        window.__INDEX_ASSETS = {
+          strings: STRINGS,
+          soundEffects: SOUND_EFFECTS,
+          proverbs: PROVERBS,
+          logicGenerators: LOGIC_GENERATORS,
+          alphabet: ALPHABET,
+          backgrounds: THEME_BACKGROUND_PRESETS,
+          defaultThemePrefs: defaultThemePrefs
+        };
+
+        var activeTimer = null;
+
+        function stopTimer() {
+          if (activeTimer) {
+            window.clearInterval(activeTimer);
+            activeTimer = null;
+          }
+        }
+
+        function tickTimer(ctx) {
+          var current = ctx.getState();
+          var game = current.data && current.data.game;
+          if (!game || !game.timerOn || game.status !== 'running') {
+            stopTimer();
+            return;
+          }
+          ctx.setState(function (prev) {
+            var next = JSON.parse(JSON.stringify(prev || {}));
+            var g = next.data.game;
+            if (!g.timerOn || g.status !== 'running') return prev;
+            var nextTime = (typeof g.timeLeft === 'number' ? g.timeLeft : g.timerSec) - 1;
+            g.timeLeft = Math.max(0, nextTime);
+            if (g.timeLeft <= 0) {
+              g.status = 'lost';
+              g.revealSolution = true;
+              g.feedback = { type: 'lose', sound: SOUND_EFFECTS.lose };
+              stopTimer();
+            }
+            return next;
+          });
+          window.setTimeout(function () {
+            window.__INDEX_STATE__ = ctx.getState();
+          }, 0);
+        }
+
+        window.__INDEX_RUNTIME = {
+          applyEnvironment: applyEnvironment,
+          applyThemePrefs: applyThemePrefs,
+          persistPrefs: persistPrefs,
+          startTimer: function (ctx) {
+            stopTimer();
+            activeTimer = window.setInterval(function () {
+              tickTimer(ctx);
+            }, 1000);
+          },
+          stopTimer: stopTimer
+        };
+
         applyEnvironment(state);
         persistPrefs(state);
-let db = {
-            head: { title: 'مشكاة — تجربة HTMLx' },
-            env: state.env,
-            i18n: state.i18n,
-            data: state.data,
-            templates: [{ id: 'mishkah-index' }]
-          }
-		  let gn_orders={
-            orders: helpers.orders || {}
-          }
-		  
-        var start = M.HTMLxAgent.make(db);
 
+        var database = {
+          head: { title: STRINGS['app.title'].ar },
+          env: state.env,
+          i18n: state.i18n,
+          data: state.data,
+          templates: [{ id: 'mishkah-index' }]
+        };
+
+        var start = M.HTMLxAgent.make(database);
         if (start && typeof start.catch === 'function') {
           start.catch(function (error) {
             console.error('Failed to start Mishkah HTMLx index:', error);
