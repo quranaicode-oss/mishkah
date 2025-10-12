@@ -99,7 +99,7 @@
       .brand p {
         margin: 0;
         font-size: 0.95rem;
-        color: var(--muted);
+        
       }
     </style>
   </head>
@@ -149,7 +149,7 @@
           font-weight: 600;
           font-family: inherit;
           cursor: pointer;
-          color: var(--muted);
+          
           background: transparent;
           transition: background-color 0.18s ease, color 0.18s ease;
         }
@@ -193,7 +193,7 @@
 
         header p {
           margin: 0;
-          color: var(--muted);
+          
           font-size: 0.95rem;
         }
 
@@ -232,7 +232,7 @@
 
         button.primary {
           background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-          color: var(--accent-fg);
+          
           box-shadow: 0 18px 45px -22px rgba(37, 99, 235, 0.45);
         }
 
@@ -256,7 +256,7 @@
           margin: 0;
           text-align: center;
           font-size: 0.9rem;
-          color: var(--muted);
+          
         }
       </style>
 
@@ -373,10 +373,12 @@
         }
 
         function increment(event, ctx) {
-          updateCounter(ctx, 1);
+	console.log(ctx.get('data') )
+	updateCounter(ctx, 1);
         }
 
         function decrement(event, ctx) {
+			console.log(ctx.get('data') )
           updateCounter(ctx, -1);
         }
 
@@ -385,6 +387,7 @@
         }
 
         function toggleTheme(event, ctx) {
+	
           var env = readEnv(ctx);
           var nextTheme = env.theme === 'dark' ? 'light' : 'dark';
           ctx.set('env.theme', nextTheme);
@@ -415,32 +418,7 @@
           return;
         }
 
-        function readTemplateEnv() {
-          var tpl = document.getElementById('counter-htmx-demo');
-          if (!tpl || !tpl.content) return null;
-          var envNode = tpl.content.querySelector('script[data-m-env]');
-          if (!envNode) return null;
-          try {
-            return JSON.parse(envNode.textContent.trim() || '{}');
-          } catch (_err) {
-            return null;
-          }
-        }
-
-        var initialEnv = readTemplateEnv();
-        if (initialEnv) {
-          var apply = typeof applyEnvironment === 'function' ? applyEnvironment : function (env) {
-            if (!env) return;
-            var lang = env.lang || 'ar';
-            var dir = env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
-            var theme = env.theme || 'light';
-            document.documentElement.lang = lang;
-            document.documentElement.dir = dir;
-            document.documentElement.classList.toggle('dark', theme === 'dark');
-          };
-          apply(initialEnv);
-        }
-
+       
         var start = M.HTMLxAgent.make({ mount: '#app' });
 
         Promise.resolve(start).catch(function (error) {
