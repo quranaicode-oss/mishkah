@@ -1,0 +1,2207 @@
+@using System.Data
+@using System.IO
+
+@{
+    ViewBag.Title = "MAS ERP";
+    Layout = "~/Views/ERP2/_Layout.cshtml";
+
+    string docsPath = Path.Combine(HttpRuntime.AppDomainAppPath, "Docs");
+    string fid = DBHelper.GetPar("fid", Request);
+    string dpath = DBHelper.GetPar("p", Request);
+    if (!string.IsNullOrEmpty(dpath))
+    {
+        docsPath = Path.Combine(docsPath, dpath);
+    }
+
+    string[] directories = Directory.Exists(docsPath) ? Directory.GetDirectories(docsPath) : new string[0];
+
+    string userLang = Request.Cookies["UserLang"]?.Value ?? "ar";
+    Dictionary<string, string> t = new Dictionary<string, string>();
+
+    if (userLang.ToLower() == "en")
+    {
+        t["fileManagementSystem"] = "Documents Management System";
+        t["fileInfo"] = "File Info";
+        t["fileData"] = "File Data";
+        t["editFile"] = "File Settings";
+        t["listTab"] = "Archive File List";
+        t["selectFileInfo"] = "Select a file to view its information.";
+        t["selectFileData"] = "Select a file to view its data.";
+        t["selectFileEdit"] = "Select a file to edit its information.";
+        t["selectFileList"] = "Select a file to show the archive list.";
+        t["topRec"] = "Number of Records";
+        t["recordFrom"] = "From Date";
+        t["recordTo"] = "To Date";
+        t["refresh"] = "Refresh";
+        t["errorLoading"] = "An error occurred while loading data.";
+        t["fileName"] = "File Name";
+        t["date"] = "Date";
+        t["documentNumber"] = "Document Number";
+        t["userEmail"] = "User Email";
+        t["options"] = "Options";
+        t["view"] = "View";
+        t["upload"] = "Upload";
+        t["download"] = "Download";
+        t["edit"] = "Edit";
+        t["delete"] = "Delete";
+        t["print"] = "Print";
+        t["confirmDelete"] = "Are you sure you want to delete?";
+        t["newRecord"] = "New Record";
+        t["modalTitle"] = "Document Details";
+        t["code"] = "Code";
+        t["sectionName"] = "Section Name";
+        t["sectionNotes"] = "Section Notes";
+        t["documentType"] = "Document Type";
+        t["documentCode"] = "Document Code";
+        t["fullCode"] = "Full Code";
+        t["documentDescription"] = "Document Description";
+        t["language"] = "Language";
+        t["filePath"] = "File Path";
+        t["fileExtension"] = "File Extension";
+        t["documentStatus"] = "Document Status";
+        t["documentStatusNotes"] = "Document Status Notes";
+        t["startDate"] = "Start Date";
+        t["showdata"] = "Add Data";
+        t["docInfoEdit"] = "Edit Document Information";
+        t["docInfoData"] = "Document Information";
+        t["close"] = "Close";
+        t["errorNotFound"] = "Document data not found.";
+        t["errorProcessing"] = "An error occurred while processing the request.";
+        t["jsonSaved"] = "JSON file has been saved.";
+        t["new"] = "New";
+        t["first"] = "First";
+        t["last"] = "Last";
+        t["prev"] = "Previous";
+        t["next"] = "Next";
+        t["searchByDocNumber"] = "Search by Document Number";
+        t["duplicate"] = "Duplicate";
+        t["documentCreateDate"] = "Document Creation Date";
+        t["notes"] = "Notes";
+        t["loading"] = "Loading...";
+        t["save"] = "Save";
+        t["downloadPdf"] = "Download PDF";
+    }
+    else
+    {
+        t["fileManagementSystem"] = "نظام إدارة الملفات";
+        t["fileInfo"] = "معلومات المستند";
+        t["fileData"] = "بيانات المستند";
+        t["editFile"] = "إعدادات المستند";
+        t["listTab"] = "قائمة أرشيف المستندات";
+        t["selectFileInfo"] = "اختر مستنداً لعرض معلوماته.";
+        t["selectFileData"] = "اختر مستنداً لعرض بياناته.";
+        t["selectFileEdit"] = "اختر مستنداً لتعديل معلوماته.";
+        t["selectFileList"] = "اختر مستنداً لعرض قائمة الأرشيف";
+        t["topRec"] = "عدد السجلات";
+        t["recordFrom"] = "من تاريخ";
+        t["recordTo"] = "إلى تاريخ";
+        t["refresh"] = "تحديث";
+        t["errorLoading"] = "حدث خطأ أثناء تحميل البيانات.";
+        t["fileName"] = "اسم المستند";
+        t["date"] = "التاريخ";
+        t["documentNumber"] = "رقم المستند";
+        t["userEmail"] = "البريد الإلكتروني للمستخدم";
+        t["options"] = "الخيارات";
+        t["view"] = "عرض";
+        t["upload"] = "رفع";
+        t["download"] = "تحميل";
+        t["edit"] = "تعديل";
+        t["delete"] = "حذف";
+        t["print"] = "طباعة";
+        t["confirmDelete"] = "هل أنت متأكد أنك تريد الحذف؟";
+        t["newRecord"] = "سجل جديد";
+        t["modalTitle"] = "تفاصيل المستند";
+        t["code"] = "الكود";
+        t["sectionName"] = "اسم القسم";
+        t["sectionNotes"] = "ملاحظات القسم";
+        t["documentType"] = "نوع المستند";
+        t["documentCode"] = "رمز المستند";
+        t["fullCode"] = "الكود الكامل";
+        t["documentDescription"] = "وصف المستند";
+        t["language"] = "اللغة";
+        t["filePath"] = "مسار المستند";
+        t["fileExtension"] = "امتداد المستند";
+        t["documentStatus"] = "حالة المستند";
+        t["documentStatusNotes"] = "ملاحظات حالة المستند";
+        t["startDate"] = "تاريخ البدء";
+        t["showdata"] = "إضافة بيانات";
+        t["docInfoEdit"] = "تعديل معلومات المستند";
+        t["docInfoData"] = "معلومات المستند";
+        t["close"] = "إغلاق";
+        t["errorNotFound"] = "لم يتم العثور على بيانات المستند.";
+        t["errorProcessing"] = "حدث خطأ أثناء معالجة الطلب.";
+        t["jsonSaved"] = "تم حفظ ملف JSON.";
+        t["new"] = "جديد";
+        t["first"] = "الأول";
+        t["last"] = "الأخير";
+        t["prev"] = "السابق";
+        t["next"] = "التالي";
+        t["searchByDocNumber"] = "البحث برقم المستند";
+        t["duplicate"] = "تكرار";
+        t["documentCreateDate"] = "تاريخ إنشاء المستند";
+        t["notes"] = "ملاحظات";
+        t["loading"] = "جاري التحميل...";
+        t["save"] = "حفظ";
+        t["downloadPdf"] = "تحميل PDF";
+    }
+}
+
+<style>
+    /* Estilos para el sistema de gestión de archivos */
+
+    /* === Estilos para las tablas === */
+    #docListContent {
+        margin-top: 15px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+        #docListContent table, .modern-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            font-size: 14px;
+        }
+
+    body.dark-version #docListContent table,
+    body.dark-version .modern-table table {
+        background-color: #1e1e1e;
+        color: #f0f0f0;
+    }
+
+    #docListContent thead, .modern-table thead {
+        background-color: #007aff;
+    }
+
+    #docListContent th, .modern-table th {
+        color: white;
+        font-weight: 600;
+        text-align: start;
+        padding: 12px 15px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    #docListContent tbody tr, .modern-table tbody tr {
+        border-bottom: 1px solid #eaeaea;
+        transition: background-color 0.2s ease;
+    }
+
+    body.dark-version #docListContent tbody tr,
+    body.dark-version .modern-table tbody tr {
+        border-bottom: 1px solid #333;
+    }
+
+    #docListContent tbody tr:hover {
+        background-color: #f0f7ff;
+    }
+
+    body.dark-version #docListContent tbody tr:hover {
+        background-color: #2a3344;
+    }
+
+    #docListContent td {
+        padding: 12px 15px;
+        color: #bd9e9e;
+        vertical-align: middle;
+    }
+
+    body.dark-version #docListContent td {
+        color: #00000;
+    }
+
+    .modern-table td {
+        padding: 12px 15px;
+        vertical-align: middle;
+    }
+
+    body.dark-version .modern-table td {
+        color: #00000;
+    }
+
+    /* === Estilos para botones de acción === */
+    #docListContent .btn, .modern-table .btn {
+        padding: 6px;
+        margin: 0 3px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        background: transparent;
+        border: none;
+    }
+
+        #docListContent .btn:hover, .modern-table .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+    #docListContent .view-attached:hover {
+        color: #28a745;
+    }
+
+    #docListContent .download-file:hover {
+        color: #007bff;
+    }
+
+    #docListContent .edit-file:hover {
+        color: #fd7e14;
+    }
+
+    #docListContent .print-file:hover {
+        color: #6610f2;
+    }
+
+    #docListContent .pdf-download:hover {
+        color: #dc3545;
+    }
+
+    /* === تصميم المجلدات التفاعلي والحديث === */
+    .folder-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 25px; /* زيادة المسافة بين العناصر */
+        justify-content: center; /* توسيط المجلدات في الصفحة */
+        padding: 20px;
+    }
+
+    .folder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 160px;
+        height: 140px;
+        cursor: pointer;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 12px;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        text-align: center;
+    }
+
+        .folder a {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+    .folder-icon {
+        font-size: 48px;
+        transition: transform 0.3s ease;
+        margin-bottom: 10px;
+    }
+
+    .folder-name {
+        font-size: 14px;
+        font-weight: 600;
+        padding: 0 5px;
+    }
+
+    /* --- تأثيرات المرور (Hover) --- */
+    .folder:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+    }
+
+        .folder:hover .folder-icon {
+            transform: scale(1.1);
+        }
+
+
+    /* === الوضع الليلي (Dark Mode) === */
+    body.dark-version .folder {
+        background-color: #343a40;
+        border-color: #495057;
+    }
+
+    body.dark-version .folder-name {
+        color: #f8f9fa;
+    }
+
+    body.dark-version .folder:hover {
+        background-color: #495057;
+    }
+
+    .file-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: flex-start;
+        padding: 20px;
+    }
+
+    .file {
+        display: flex;
+        align-items: center;
+        border: 1px solid #00000;
+        padding: 12px;
+        width: 250px;
+        border-radius: 6px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+        background-color: white;
+    }
+
+    body.dark-version .file {
+        border: 1px solid #444;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+        background-color: #2a2a2a;
+    }
+
+    .file i {
+        font-size: 24px;
+        margin-right: 15px;
+        color: #007aff;
+    }
+
+    body.dark-version .file i {
+        color: #4da3ff;
+    }
+
+    .file:hover {
+        transform: scale(1.03);
+        box-shadow: 4px 4px 15px rgba(0, 122, 255, 0.2);
+        border-color: #007aff;
+    }
+
+    body.dark-version .file:hover {
+        box-shadow: 4px 4px 15px rgba(0, 122, 255, 0.3);
+        border-color: #4da3ff;
+    }
+
+    .file-name {
+        font-size: 14px;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    body.dark-version .file-name {
+        color: #ffffff;
+    }
+
+    /* === Estilos para pestañas === */
+    .tabs-container {
+        margin: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    body.dark-version .tabs-container {
+        border-bottom: 1px solid #444;
+    }
+
+    .tab {
+        display: inline-block;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-weight: bold;
+        border-radius: 5px 5px 0 0;
+        transition: background-color 0.2s, color 0.2s;
+    }
+
+        .tab.active {
+            border-bottom: 3px solid #007aff;
+            color: #007aff;
+            background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+        }
+
+    body.dark-version .tab.active {
+        /* background: linear-gradient(to bottom, #2a2a2a, #222222);
+        color: #4da3ff;*/
+        border-bottom: 3px solid #4da3ff;
+    }
+
+    .tab:hover {
+        background-color: #f0f0f0;
+    }
+
+    body.dark-version .tab:hover {
+        background-color: #333333;
+    }
+
+    .tab-content {
+        padding: 20px;
+        display: none;
+    }
+
+        .tab-content.active {
+            display: block;
+        }
+
+    /* === Estilos para contenido del documento === */
+    #documentContent {
+        background-color: white;
+        color: black;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow: auto;
+    }
+
+    body.dark-version #documentContent {
+        /*  background-color: #2a2a2a;
+        color: white; */
+        color: black;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    #documentContent table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+        color: black;
+        margin: 15px 0;
+    }
+
+    body.dark-version #documentContent table {
+        /*  background-color: #2a2a2a;
+        color: white;*/
+        color: black;
+    }
+
+    #documentContent table,
+    #documentContent th,
+    #documentContent td {
+        border: 1px solid #b5a1a1;
+    }
+
+    body.dark-version #documentContent table,
+    body.dark-version #documentContent th,
+    body.dark-version #documentContent td {
+        border: 1px solid #b5a1a1;
+    }
+
+    #documentContent th,
+    #documentContent td {
+        padding: 10px;
+        text-align: left;
+    }
+
+    #documentContent th {
+        background-color: #007aff;
+        color: white;
+    }
+
+    body.dark-version #documentContent th {
+        background-color: #0056b3;
+    }
+
+    #documentContent td input {
+        width: 100%;
+        border: none;
+        background-color: transparent;
+    }
+    /* === تحسينات لعرض المستندات (نسخة معدلة) === */
+
+    /* 1. إضافة شريط تمرير للحاوية الرئيسية للمستند */
+    .tab-content-container {
+        overflow-x: auto; /* إضافة شريط تمرير أفقي فقط عند الحاجة */
+        padding-bottom: 15px; /* مسافة بسيطة أسفل المحتوى لتجميل شكل شريط التمرير */
+    }
+
+    #documentContent {
+        background-color: white;
+        color: black;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        /* لن نضع overflow هنا، بل في الحاوية الأعلى */
+    }
+
+        /* 2. تعديل الجداول والخلايا */
+        #documentContent table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #documentContent td {
+            border: 1px solid #b5a1a1;
+            padding: 8px;
+            min-width: 45px; /* حد أدنى للعرض، يمكنك تعديل القيمة حسب الحاجة */
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        /* 3. تحسين مظهر العناصر القابلة للتعديل */
+        #documentContent .editable-cell,
+        #documentContent .editable-paragraph {
+            min-height: 20px;
+            padding: 5px;
+            outline: none;
+            transition: background-color 0.2s;
+        }
+
+            #documentContent .editable-cell:focus,
+            #documentContent .editable-paragraph:focus {
+                background-color: #f0f7ff;
+            }
+
+    body.dark-version #documentContent td input {
+        /* color: white;*/
+    }
+
+    /* === Estilos para la toolbar === */
+    .toolbar {
+        display: inline-flex;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 8px 15px;
+        border: 1px solid #00000;
+        border-radius: 10px;
+        background-color: #f8f9fa;
+    }
+
+    body.dark-version .toolbar {
+        border: 1px solid #444;
+        background-color: #222;
+    }
+
+    .toolbar-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        margin-right: 12px;
+        position: relative;
+        color: #555;
+        padding: 5px;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    body.dark-version .toolbar-button {
+        color: #ccc;
+    }
+
+    .toolbar-button i {
+        font-size: 20px;
+    }
+
+    .toolbar-button:hover {
+        background-color: rgba(0, 122, 255, 0.1);
+        color: #007aff;
+    }
+
+    body.dark-version .toolbar-button:hover {
+        background-color: rgba(77, 163, 255, 0.2);
+        color: #4da3ff;
+    }
+
+    /* === Estilos para modales === */
+    .modal-content {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    body.dark-version .modal-content {
+        /*  background-color: #2a2a2a;
+        color: white;*/
+        color: black;
+        border: 1px solid #444;
+    }
+
+    .modal-header {
+        background-color: #007aff;
+        color: white;
+        border-bottom: none;
+    }
+
+    body.dark-version .modal-header {
+        background-color: #0056b3;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        border-top: none;
+        padding: 15px 20px;
+    }
+
+    /* === Estilos para formularios === */
+    .form-control {
+        border-radius: 6px;
+        border: 1px solid #00000;
+        padding: 8px 12px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    body.dark-version .form-control {
+        background-color: #333;
+        border-color: #444;
+        color: white;
+    }
+
+    .form-control:focus {
+        border-color: #007aff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 122, 255, 0.25);
+    }
+
+    body.dark-version .form-control:focus {
+        border-color: #4da3ff;
+        box-shadow: 0 0 0 0.2rem rgba(77, 163, 255, 0.25);
+    }
+
+    /* === Estilos para botones === */
+    .btn-primary {
+        background-color: #007aff;
+        border-color: #007aff;
+    }
+
+        .btn-primary:hover {
+            background-color: #0062cc;
+            border-color: #0062cc;
+        }
+
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    /* === Estilos específicos para documentos === */
+    .document-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+        .document-header h2 {
+            text-align: center;
+            width: 100%;
+            font-size: 25px;
+            margin: 20px 100px 30px 100px;
+            border-bottom: 1px solid;
+            padding-bottom: 10px;
+        }
+
+    body.dark-version .document-header h2 {
+        border-bottom-color: #444;
+    }
+
+    .record-title {
+        font-weight: bold;
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+
+        .record-title.text-danger {
+            color: #dc3545 !important;
+        }
+
+    /* === Tarjeta para los formularios === */
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+
+    body.dark-version .card {
+        /*  background-color: #2a2a2a; */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+        background-color: #007aff;
+        color: white;
+        border-bottom: none;
+        padding: 15px;
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+
+    /* === Estilos para el botón nuevo DOCX === */
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        transition: background-color 0.2s, transform 0.2s;
+    }
+
+        .btn-success:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+    /* === Estado de carga === */
+    #docListLoading, .loading-icon {
+        text-align: center;
+        padding: 20px;
+        color: #007aff;
+    }
+
+    body.dark-version #docListLoading,
+    body.dark-version .loading-icon {
+        color: #4da3ff;
+    }
+
+    /* === Mensaje cuando no hay contenido === */
+    #docListContent:empty::after {
+        content: 'لا توجد مستندات متاحة';
+        display: block;
+        text-ali * * * * * * * * gn: center;
+        padding: 30px;
+        color: #6c757d;
+        font-style: italic;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    body.dark-version #docListContent:empty::after {
+        background-color: #222;
+        color: #aaa;
+    }
+
+    /* Fix para carpetas en modo oscuro */
+    body.dark-version .folder-container .form-control {
+        background-color: #fff !important;
+        color: #000 !important;
+        text-align * * * * * * * * * * * * * * : center;
+    }
+
+    /* === Nuevo botón DOCX === */
+    .docx-new-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 20px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 1000;
+    }
+
+        .docx-new-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            background-color: #218838;
+        }
+
+        .docx-new-btn i {
+            font-size: 18px;
+        }
+</style>
+
+<div class="header-icon">
+    <a href="../../ERP2/Doc">
+        <i class="fa fa-arrow-left"></i>
+    </a>
+    <h6>@t["fileManagementSystem"]</h6>
+</div>
+
+<h5>@dpath</h5>
+<hr />
+<div class="header-icon">
+    <a href="../../ERP2/Doc">
+        <i class="fa fa-arrow-left"></i>
+    </a>
+    <h6>@t["fileManagementSystem"]</h6>
+</div>
+
+<!-- Add New Docx Modal -->
+<div class="modal fade" id="addNewDocxModal" tabindex="-1" role="dialog" aria-labelledby="addNewDocxModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addNewDocxModalLabel">Add New Docx</h5>
+                <button type="button" class="close" data-dismiss="modal" onclick="$('#addNewDocxModal').modal('hide')" aria-label="@t["close"]">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newFileUpload">Select Docx File:</label>
+                    <input type="file" id="newFileUpload" accept=".docx" class="form-control" />
+                </div>
+                <button id="uploadNewDocxButton" class="btn btn-primary">@t["upload"]</button>
+                <div id="uploadNewDocxStatus" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="$('#addNewDocxModal').modal('hide')">@t["close"]</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="folder-container">
+    @foreach (string directory in directories)
+    {
+        string folderName = Path.GetFileName(directory);
+        if (!string.IsNullOrWhiteSpace(folderName) && folderName.ToLower().Trim() != "forms")
+        {
+            string[] folderParts = folderName.Split('-');
+            string sort = folderParts[0].Trim();
+            string dcname = folderParts.Length > 1 ? folderParts[1].Trim() : string.Empty;
+
+            if (int.TryParse(sort, out int sortnum))
+            {
+                string[] dcnameWords = dcname.Split(' ');
+                string shortCode = string.Join("&", dcnameWords.Select(w => w.Substring(0, 1).ToUpper()));
+
+                if (shortCode.Length == 1 && dcnameWords.Length == 1)
+                {
+                    shortCode = dcname.Substring(0, 3).ToUpper();
+                }
+
+                DBHelper.Exceutsql($"exec DC_Departments_insert N'{dcname}',N'{folderName}',N'{shortCode}',{sortnum},'{DBHelper.CompId()}','{fid}'");
+            }
+        }
+    }
+
+    @{
+        DataTable dtDocs = DBHelper.gettabel($"select DDd.ID, DDd.Department_name, DDd.Department_name_lang, DDd.Docs_path, DDd.code, DDd.short_code, DDd.sort, DDd.notes, DDd.lang, DDd.icon,DDd.icon_color, DDd.color, DDd.begin_date, DDd.company_id from Dc_Departments_data('{DBHelper.UserLang("")}','{DBHelper.CompId()}','{fid}') DDd");
+
+        foreach (DataRow rw in dtDocs.Rows)
+        {
+            string Department_name_lang = rw["Department_name_lang"].ToString();
+            string Department_name = rw["Department_name"].ToString();
+            string short_code = rw["short_code"].ToString();
+
+            string sort = rw["sort"].ToString();
+            string icon = rw["icon"].ToString();
+            string icon_color = rw["icon_color"].ToString();
+
+            string Docs_path = rw["Docs_path"].ToString();
+            string curid = rw["ID"].ToString();
+
+            string href = $"{Request.Url.Scheme}://{Request.Url.Host}/ERP2/Doc?p={System.Web.HttpUtility.UrlEncode(Docs_path)}&fid={curid}";
+            string divhtml = "<div class=\"folder-icon\">\r\n    <i class=\"fa fa-folder\"></i>\r\n</div>";
+            if (icon != "")
+            {
+                divhtml = "<div class=\"folder-icon\">\r\n    <i style='color:" + icon_color + "' class=\"fa " + icon + "\"></i>\r\n</div>";
+            }
+            <div class="folder">
+                <a href="@href">
+                    @Html.Raw(divhtml)
+                    <div class="folder-name">
+                        @sort - (@short_code) @{
+                            if (DBHelper.UserLang("") == "ar")
+                            {
+                                <span> @Department_name_lang</span>
+                            }
+                            else
+                            {
+                                <span>@Department_name </span>
+
+                            }
+                        }
+                    </div>
+                </a>
+            </div>
+        }
+    }
+
+    @{
+        string FormsdocsPath = Path.Combine(docsPath, "Forms");
+        string[] files = Directory.Exists(FormsdocsPath) ? Directory.GetFiles(FormsdocsPath) : new string[0];
+
+        if (files.Length > 0)
+        {
+            <div class="row">
+                <hr />
+                <br />
+                <h2>Files @files.Length</h2>
+                <div class="tabs-container">
+                    <div class="tab active" data-tab="tab-info">@t["fileInfo"]</div>
+                    <div class="tab" data-tab="tab-edit">@t["editFile"]</div>
+                    <div class="tab" data-tab="tab-data">@t["fileData"]</div>
+                    <div class="tab" data-tab="tab-docList">@t["listTab"]</div>
+                </div>
+                <div class="tab-content-container">
+                    <div id="tab-info" class="tab-content active">
+                        <p>@t["selectFileInfo"]</p>
+
+
+                    </div>
+                    <div id="tab-edit" class="tab-content">
+                        <p>@t["selectFileEdit"]</p>
+                    </div>
+                    <div id="tab-data" class="tab-content">
+
+                        <p>@t["selectFileData"]</p>
+                    </div>
+                    <div id="tab-docList" class="tab-content">
+
+                        <div class="doclist-filters container card p-4 mb-4">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label for="topRec" class="form-label">@t["topRec"]: </label>
+                                    <input type="number" id="topRec" value="10" min="1" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="recordFrom" class="form-label"> @t["recordFrom"]:</label>
+                                    <input type="date" id="recordFrom" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="recordTo" class="form-label">@t["recordTo"]: </label>
+                                    <input type="date" id="recordTo" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <button id="refreshDocList" class="btn btn-primary w-100 mb-0">@t["refresh"]</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="docListContent" class="container"></div>
+                        <div class="loading-icon" id="docListLoading"><i class="fa fa-spinner fa-spin"></i></div>
+                    </div>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="fileSearchInput" placeholder="Search files...">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                <div class="file-container">
+                    @foreach (string file in files)
+                    {
+                        string fileName = "";
+                        string fileFullPath = "";
+                        string filpath = "";
+                        DataTable dtFile = null;
+                        string slins = "";
+                        try
+                        {
+                            fileName = Path.GetFileName(file);
+                            fileFullPath = Path.GetFullPath(file);
+                            filpath = fileFullPath.Replace(HttpRuntime.AppDomainAppPath, "");
+                            slins = $"DC_insert N'{fileName}' ,N'{filpath}' ,'{fid}','{DBHelper.CompId()}'";
+                            dtFile = DBHelper.Gettabel(SqlProtect.procedstring(slins), DBHelper.accesstokenwrite);
+
+                            string docid = dtFile.Rows[0]["ID"].ToString();
+                            <div class="file">
+                                <i class="fa fa-file"></i>
+                                <span data-docid="@docid" data-filpath="@filpath" class="file-name">@fileName</span>
+                            </div>
+                        }
+                        catch (Exception ex)
+                        {
+                            string tbjson = "";
+                            try
+                            {
+                                tbjson = Newtonsoft.Json.JsonConvert.SerializeObject(dtFile);
+                            }
+                            catch (Exception exx)
+                            {
+
+                            }
+                            <div class="file">
+                                <i class="fa fa-file"></i>
+                                <span data-filpath="@filpath" class="file-name">@t["errorLoading"] </span>
+                            </div>
+                            <script>
+                                console.log("slins", `@slins.Replace("\\","\\\\")`);
+                                console.log("filpath", `@filpath.Replace("\\", "\\\\")`);
+                                console.log("tbjson", `@tbjson.Replace("\\", "\\\\")`);
+                                console.log("ex.Message", `@ex.Message`);
+
+                            </script>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Attachment Modal -->
+
+<div class="modal fade" id="attachmentModal" role="dialog">
+    <div class="modal-dialog modal-lg" style="max-width:1200px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" onclick="$('#attachmentModal').modal('hide')" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">attached files</h4>
+            </div>
+            <div class="modal-body">
+                <iframe id="attachmentIframe" src="" style="width:100%; height:700px;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" onclick="$('#attachmentModal').modal('hide')">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    .loader-overlay {
+    position: fixed; /* لتغطية الشاشة بالكامل */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* خلفية سوداء شبه شفافة */
+    z-index: 9999; /* لضمان ظهوره فوق كل العناصر */
+    display: none; /* يكون مخفيًا بشكل افتراضي */
+    justify-content: center;
+    align-items: center;
+}
+
+.loader-spinner {
+    border: 8px solid #f3f3f3; /* رمادي فاتح */
+    border-top: 8px solid #007bff; /* أزرق */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+<div id="global-loader" class="loader-overlay">
+    <div class="loader-spinner"></div>
+</div>
+<script>
+function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function getCookie(cname) {
+    let name = cname + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+    let ca = decodedCookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+    }
+    return "";
+}
+
+function getpar(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name) || '';
+}
+
+const userLang = getCookie("UserLang") || 'ar';
+const t = {
+    'modalTitle': '@t["modalTitle"]', 'code': '@t["code"]', 'sectionName': '@t["sectionName"]', 'sectionNotes': '@t["sectionNotes"]', 'documentType': '@t["documentType"]', 'documentCode': '@t["documentCode"]', 'fullCode': '@t["fullCode"]', 'documentDescription': '@t["documentDescription"]', 'language': '@t["language"]', 'fileName': '@t["fileName"]', 'filePath': '@t["filePath"]', 'fileExtension': '@t["fileExtension"]', 'documentStatus': '@t["documentStatus"]', 'documentStatusNotes': '@t["documentStatusNotes"]', 'startDate': '@t["startDate"]', 'download': '@t["download"]', 'showdata': '@t["showdata"]', 'docInfoEdit': "@t["docInfoEdit"]", 'docInfoData': "@t["docInfoData"]", 'close': '@t["close"]', 'errorNotFound': '@t["errorNotFound"]', 'errorLoading': '@t["errorLoading"]', 'fileInfo': '@t["fileInfo"]', 'fileData': '@t["fileData"]', 'editFile': '@t["editFile"]', 'listTab': '@t["listTab"]', 'selectFileInfo': '@t["selectFileInfo"]', 'selectFileData': '@t["selectFileData"]', 'selectFileEdit': '@t["selectFileEdit"]', 'selectFileList': '@t["selectFileList"]', 'save': '@t["save"]', 'errorProcessing': '@t["errorProcessing"]', 'jsonSaved': '@t["jsonSaved"]', 'new': '@t["new"]', 'first': '@t["first"]', 'last': '@t["last"]', 'prev': '@t["prev"]', 'next': '@t["next"]', 'searchByDocNumber': '@t["searchByDocNumber"]', 'duplicate': '@t["duplicate"]', 'documentNumber': '@t["documentNumber"]', 'userEmail': '@t["userEmail"]', 'documentCreateDate': '@t["documentCreateDate"]', 'date': '@t["date"]', 'notes': '@t["notes"]', 'topRec': '@t["topRec"]', 'recordFrom': '@t["recordFrom"]', 'recordTo': '@t["recordTo"]', 'refresh': '@t["refresh"]', 'newRecord': '@t["newRecord"]', 'loading': '@t["loading"]', 'options': '@t["options"]', 'view': '@t["view"]', 'upload': '@t["upload"]', 'edit': '@t["edit"]', 'delete': '@t["delete"]', 'print': '@t["print"]', 'confirmDelete': '@t["confirmDelete"]', 'fileManagementSystem': '@t["fileManagementSystem"]', 'downloadPdf': '@t["downloadPdf"]'
+};
+
+var documentData = {};
+var currentFilePath = '';
+var docid = '';
+var isRequestInProgress = false;
+
+
+function showLoading(element = null, loadingText = ' جارِ التحميل...') {
+  if (element) {
+    element.setAttribute('data-original-content', element.innerHTML);
+    element.disabled = true;
+    element.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>${loadingText}`;
+  } else {
+    const globalLoader = document.getElementById('global-loader');
+    if (globalLoader) {
+      globalLoader.style.display = 'flex'; // إظهار شاشة التحميل
+    }
+  }
+}
+
+
+function hideLoading(element = null) {
+  if (element) {
+    const originalContent = element.getAttribute('data-original-content');
+    if (originalContent) {
+      element.innerHTML = originalContent;
+    }
+    element.disabled = false;
+  } else {
+    const globalLoader = document.getElementById('global-loader');
+    if (globalLoader) {
+      globalLoader.style.display = 'none'; // إخفاء شاشة التحميل
+    }
+  }
+}
+
+function displayDocumentElements() {
+    let docContent = '';
+    const elements = documentData?.json?.Elements || [];
+    const direction = documentData?.json?.Direction || 'ltr';
+    const docContainer = $('#documentContent');
+
+    docContainer.css('direction', direction);
+    docContainer.parent('div').find('#resetDocBtn').remove();
+
+    if (!elements.length) {
+        docContainer.html(`<p>${t.selectFileData}</p>`);
+        return;
+    }
+
+    elements.forEach((element, index) => {
+        if (!element || !element.Type) return;
+
+        let style = element.Formatting?.Alignment ? `text-align: ${element.Formatting.Alignment};` : '';
+        style += element.Formatting?.Direction ? ` direction: ${element.Formatting.Direction};` : '';
+
+        switch (element.Type) {
+            case "Paragraph":
+                let paragraphContent = '';
+                if (element.Content && Array.isArray(element.Content)) {
+                    element.Content.forEach(run => {
+
+                        let formatting = run.Formatting || {};
+                        let formattingValues = run.FormattingValues || {};
+                        let runStyle = '';
+                        if (formatting.Bold) runStyle += 'font-weight: bold;';
+                        if (formatting.Italic) runStyle += 'font-style: italic;';
+                        if (formatting.Underline) runStyle += 'text-decoration: underline;';
+                        if (formatting.Color && formattingValues.ColorValue) runStyle += `color: #${formattingValues.ColorValue??"000"};`;
+                        if (formatting.FontSize) runStyle += `font-size: ${parseInt(run.FontSize) / 2}pt;`;
+                        if (formatting.FontFamily) runStyle += `font-family: "${run.FontName}";`;
+                        if (formatting.Highlight && formattingValues.HighlightValue) runStyle += `background-color: #${formattingValues.HighlightValue};`;
+                        if (formatting.Shading && formattingValues.ShadingValue) runStyle += `background-color: #${formattingValues.ShadingValue};`;
+                        if (formatting.Shading && formattingValues.ShadingValue) runStyle += `background-color: #${run.ShadingValue};`;
+                        const text = (run.Text || '').replace(/ /g, '&nbsp;');
+                        if(text.replaceAll("","")!=""){
+                            paragraphContent += `<span style="${runStyle}">${text}</span>`;
+                        }
+
+                    });
+                }
+                docContent += `<div contenteditable="true" class="editable-paragraph" data-index="${index}" style="${style}">${paragraphContent || '&nbsp;'}</div>`;
+                break;
+
+            case "Table":
+                let styleTable = '';
+                    let tablebordersLeft=``;
+                    let tablebordersright=``;
+                    let tableborderstop=``;
+                    let tablebordersbottom=``;
+                    if (element.hasOwnProperty("Borders")) {
+                        tablebordersLeft=element?.Borders?.Left? `border-left-style: ${element?.Borders?.Left};border-left: ${element?.Borders?.Left};`:'';
+                        tablebordersright = element?.Borders?.Right ? `border-right-style: ${element?.Borders?.Right};border-right: ${element?.Borders?.Right};` : '';
+                        tableborderstop = element?.Borders?.Top ? `border-top-style: ${element?.Borders?.Top};border-top: ${element?.Borders?.Top};` : '';
+                        tablebordersbottom = element?.Borders?.Bottom ? `border-bottom-style: ${element?.Borders?.Bottom};border-bottom: ${element?.Borders?.Bottom};` : '';
+                        styleTable = tablebordersLeft+tablebordersright+tableborderstop+tablebordersbottom;
+                        styleTable += `direction: ${element?.Borders?.Direction};`;
+
+                    }
+                let tableHtml = `<table class="modern-table" data-index="${index}"  style="${styleTable}"><tbody>`;
+                if (element.Content && Array.isArray(element.Content)) {
+                    element.Content.forEach((row, rowIndex) => {
+                        let rowbordersLeft=``;
+                        let rowbordersright=``;
+                        let rowborderstop=``;
+                        let rowbordersbottom=``;
+                        style='';
+                        if (row.hasOwnProperty("Borders")) {
+                            rowbordersLeft=row?.Borders?.Left  && row?.Borders?.Top!='inherit'? `border-left-style: ${row?.Borders?.Left};border-left: ${row?.Borders?.Left};`:((row?.Borders?.Left && row?.Borders?.Left =='inherit') || row?.Borders?.Left==null?tablebordersLeft:'');
+                            rowbordersright=row?.Borders?.Right  && row?.Borders?.Top!='inherit'? `border-right-style: ${row?.Borders?.Right};border-right: ${row?.Borders?.Right};`:((row?.Borders?.Right && row?.Borders?.Right =='inherit') || row?.Borders?.Right==null?tablebordersright:'');
+                            rowborderstop=row?.Borders?.Top  && row?.Borders?.Top!='inherit'? `border-top-style: ${row?.Borders?.Top};border-top: ${row?.Borders?.Top};`:((row?.Borders?.Top && row?.Borders?.Top =='inherit') || row?.Borders?.Top==null ?tableborderstop:'')
+                            rowbordersbottom=row?.Borders?.Bottom  && row?.Borders?.Top!='inherit'? `border-bottom-style: ${row?.Borders?.Bottom};border-bottom: ${row?.Borders?.Bottom};`:((row?.Borders?.Bottom && row?.Borders?.Bottom =='inherit') || row?.Borders?.Bottom==null?tablebordersbottom:'');
+                            style = rowbordersLeft+rowbordersright+rowborderstop+rowbordersbottom;
+                        }
+                        tableHtml += `<tr style="${style==""?"border:inherit;":style}">`;
+                        row.Cells.forEach((cell, cellIndex) => {
+                            if (cell.VerticalMerge != 'Continue') {
+                                style = '';
+                                const colspan = cell.GridSpan > 1 ? ` colspan="${cell.GridSpan}"` : '';
+                                const rowspan = cell.rowSpan > 1 ? ` rowspan="${cell.rowSpan}"` : '';
+                                var bordersx=``;
+                                let mainbor="";
+                                    if (cell.Borders) {
+                                        cellbordersLeft=cell?.Borders?.Left  && cell?.Borders?.Top!='inherit'? `border-left-style: ${cell?.Borders?.Left};border-left: ${cell?.Borders?.Left};`:((cell?.Borders?.Left && cell?.Borders?.Left =='inherit') || cell?.Borders?.Left==null?rowbordersLeft:'');
+                                        cellbordersright=cell?.Borders?.Right  && cell?.Borders?.Top!='inherit'? `border-right-style: ${cell?.Borders?.Right};border-right: ${cell?.Borders?.Right};`:((cell?.Borders?.Right && cell?.Borders?.Right =='inherit') || cell?.Borders?.Right==null?rowbordersright:'');
+                                        cellborderstop=cell?.Borders?.Top  && cell?.Borders?.Top!='inherit'? `border-top-style: ${cell?.Borders?.Top};border-top: ${cell?.Borders?.Top};`:((cell?.Borders?.Top && cell?.Borders?.Top =='inherit') || cell?.Borders?.Top==null ?rowborderstop:'')
+                                        cellbordersbottom=cell?.Borders?.Bottom  && cell?.Borders?.Bottom!='inherit'? `border-bottom-style: ${cell?.Borders?.Bottom};border-bottom: ${cell?.Borders?.Bottom};`:((cell?.Borders?.Bottom && cell?.Borders?.Bottom =='inherit') || cell?.Borders?.Bottom==null?rowbordersbottom:'');
+                                        bordersx = cellbordersLeft+cellbordersright+cellborderstop+cellbordersbottom;
+
+
+                                    }
+                                let TdtableHtml = `<td ${colspan} ${rowspan} contenteditable="true" class="editable-cell " style="${style+bordersx};direction:${cell.Direction};text-align:${cell.Alignment};${mainbor}" data-row-index="${rowIndex}" data-cell-index="${cellIndex}">${cell.Content || ''}</td>`;
+                                if (cell.FormattedRuns && Array.isArray(cell.FormattedRuns)) {
+                                    cellContent='';
+                                    cell.FormattedRuns.forEach((run) => {
+                                        let text = run.Text?.replace(/ /g, '&nbsp;') || '';
+
+                                        style = '';
+                                        style += `color: #${run.Color??"000000"};`;
+
+                                        if (run.FontSize) style += `font-size: ${parseInt(run.FontSize) / 2}pt;`;
+
+                                        if (run.FontName) style += `font-family: '${run.FontName}';`;
+                                        //if(text=="") text = `</br>${text}`
+                                        if (run.Bold) style += `font-weight: bold;`;
+                                        if (run.Italic) style += `font-style: italic;`;
+                                        if (run.Underline) style += `text-decoration: underline;`;
+                                        style += `text-align:${run.Alignment??"start"};`;
+                                        if (cell.Borders) {if (cell.Borders.Background != null) style += `background: #${cell.Borders.Background};`;}
+                                        if(text.trim()!="") text = `<span   contentEditable="true" style="line-break:anywhere;${style}">${text}</span>`;
+                                        cellContent += text;
+                                    });
+
+
+                                    TdtableHtml = `<td ${colspan} ${rowspan} style="${style+bordersx};direction:${cell.Direction};text-align:${cell.Alignment};${mainbor}" contenteditable="true" class="editable-cell" data-row-index="${rowIndex}" data-cell-index="${cellIndex}">${cellContent || ''}</td>`;
+                                }
+                                tableHtml +=TdtableHtml;
+                            }
+                        });
+                        tableHtml += '</tr>';
+                    });
+                }
+                tableHtml += '</tbody></table>';
+                docContent += tableHtml;
+                break;
+
+            case "Checkbox":
+                const isChecked = element.IsChecked ? 'checked' : '';
+                docContent += `<div class="checkbox-container p-2" data-index="${index}"><input type="checkbox" id="checkbox-${index}" class="form-check-input editable-checkbox" ${isChecked} /><label class="form-check-label" for="checkbox-${index}">${element.Content || ''}</label></div>`;
+                break;
+
+            case "Image":
+                docContent += `<img src="${element.Content}" alt="Document Image" style="max-width:100%; height:auto;" />`;
+                break;
+        }
+    });
+
+    docContainer.html(docContent);
+    docContainer.parent('div').css("position", "relative").prepend(`<button class="btn btn-danger" id="resetDocBtn" onclick="resetDocBtnFun()" style="position: absolute; top:-20px; right:-20px; z-index: 10;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"></path><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"></path></svg></button>`);
+}
+
+function setupDocumentEventListeners() {
+    const docContainer = $('#documentContent');
+    docContainer.off().on('input', '.editable-paragraph', function () {
+        const index = $(this).data('index');
+        const newText = $(this).text();
+        const element = documentData.json.Elements[index];
+
+        if (element && element.Content && element.Content.length > 0) {
+            element.Content[0].Text = newText;
+            if (element.Content.length > 1) element.Content.splice(1);
+        } else if (element) {
+            element.Content = [{ Text: newText }];
+        }
+    }).on('input', '.editable-cell', function () {
+        const tableIndex = $(this).closest('table').data('index');
+        const rowIndex = $(this).data('row-index');
+        const cellIndex = $(this).data('cell-index');
+        const newValue = $(this).text();
+        documentData.json.Elements[tableIndex].Content[rowIndex].Cells[cellIndex].Content = newValue;
+    }).on('change', '.editable-checkbox', function () {
+        const index = $(this).closest('.checkbox-container').data('index');
+        const isChecked = $(this).is(':checked');
+        documentData.json.Elements[index].IsChecked = isChecked;
+    });
+}
+
+function initializeDocumentView(docId, filePath, recordIdToLoad) {
+    if (isRequestInProgress) return;
+    isRequestInProgress = true;
+    showLoading();
+
+    docid = docId;
+    currentFilePath = filePath;
+
+    $.when(
+        $.post("../../r/j", {
+            tb: "DC_Documents_info", tbtype: "view",
+            cols: "ID,document_name,code,full_code,file_path,document_description,lang,file_name,file_extension,Document_status_name",
+            parm: `('${docid}','${userLang}')`
+        }),
+        $.post("../../API/doc/read", { filePath: currentFilePath })
+    ).done(function(infoResponse, docResponse) {
+        const infoData = infoResponse[0][0];
+        const docData = docResponse[0];
+
+        if (infoData && infoData.ID) {
+            let fileInfoHtml = `<h3>${infoData.document_name || ''}</h3><p><strong>${t.fullCode}:</strong> ${infoData.full_code}</p><p><strong>${t.documentDescription}:</strong> ${infoData.document_description || ''}</p><p><strong>${t.filePath}:</strong> ${infoData.file_path}</p><div class="form-group"><label for="fileUploadTemplate">${t.upload} Template (docx):</label><input type="file" id="fileUploadTemplate" accept=".docx" class="form-control" /><button id="uploadTemplateButton" onclick="UpdateCurrentDocumnent()" class="btn btn-danger mt-2">${t.upload} <i class="fa fa-file-o"></i></button><div id="uploadTemplateStatus"></div><div id="progressBarContainer" style="margin-top: 10px; background: #ccc;"><div id="progressBar" style="width: 0%; background: green; color: white; text-align: center;">0%</div></div></div><button id="downloadButton" class="btn btn-success">${t.download} <i class="fa fa-download"></i></button><button id="viewFullObjectButton" class="btn btn-info">Show (Console) <i class="fa fa-terminal"></i></button>`;
+            $('#tab-info').html(fileInfoHtml);
+$(document).on('click', '#viewFullObjectButton', function () {
+        if (!currentFilePath) {
+            alert('الرجاء تحديد ملف أولاً.');
+            return;
+        }
+
+        console.log(`%c[INFO] جارِ طلب الكائن الكامل للملف: ${currentFilePath}`, 'color: blue; font-weight: bold;');
+
+        // إظهار أيقونة تحميل مؤقتة
+        const originalText = $(this).html();
+        $(this).html('جارِ التحميل... <i class="fa fa-spinner fa-spin"></i>').prop('disabled', true);
+
+        const url = `../../API/doc?id=fullObject&filePath=${encodeURIComponent(currentFilePath)}`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`فشل الطلب: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('%c[SUCCESS] تم استلام بنية المستند بنجاح:', 'color: green; font-weight: bold;');
+
+                    // طباعة الكائن في الـ console لسهولة التصفح
+                    console.dir(data.documentTree);
+
+                } else {
+                    throw new Error(data.message || 'حدث خطأ غير معروف في الـ API.');
+                }
+            })
+            .catch(error => {
+                console.error('%c[ERROR] حدث خطأ أثناء طلب الكائن الكامل:', 'color: red; font-weight: bold;', error);
+                alert(`فشل تحميل الكائن: ${error.message}`);
+            })
+            .finally(() => {
+                // إعادة الزر إلى حالته الأصلية
+                $('#viewFullObjectButton').html(originalText).prop('disabled', false);
+            });
+    });
+
+            $('#tab-info').on('click', '#downloadButton', function () {
+                let downloadUrl = '/' + encodeURIComponent(infoData.file_path.replace(/\\/g, '/'));
+                window.open(downloadUrl, '_blank');
+            });
+
+            let toolbarHtml = `<div class="container mt-2 text-center p-2 border rounded" style="direction: ltr;"><div class="toolbar"><button class="toolbar-button" id="newButton" title="${t.new}"><i class="fa fa-file-o"></i></button><button class="toolbar-button" id="saveDataButton" title="${t.save}"><i class="fa fa-save"></i></button><button class="toolbar-button" id="firstButton" title="${t.first}"><i class="fa fa-step-backward"></i></button><button class="toolbar-button" id="prevButton" title="${t.prev}"><i class="fa fa-backward"></i></button><button class="toolbar-button" id="nextButton" title="${t.next}"><i class="fa fa-forward"></i></button><button class="toolbar-button" id="lastButton" title="${t.last}"><i class="fa fa-step-forward"></i></button><input type="text" id="searchInput" placeholder="${t.searchByDocNumber}" class="form-control w-25 d-inline" /><button class="toolbar-button" id="duplicateButton" title="${t.duplicate}"><i class="fa fa-copy"></i></button><button class="toolbar-button" id="downloadDocButton" title="${t.download}"><i class="fa fa-download"></i></button><button class="toolbar-button" id="downloadPdfButton" title="${t.downloadPdf}"><i class="fa fa-file-pdf-o"></i></button><button class="toolbar-button" id="deleteButton" title="${t.delete}"><i class="fa fa-trash"></i></button><button class="toolbar-button" id="printButton" title="${t.print}"><i class="fa fa-print"></i></button><button class="toolbar-button" id="attachmentButton" title="Attachments"><i class="fa fa-paperclip"></i></button></div></div>`;
+
+            let headerHtml = `<div class="card shadow-sm">${toolbarHtml}<div class="card-header text-center bg-primary text-white"><h2 class="mb-0 record-title">${t.newRecord}</h2><small class="file_info_text">${infoData.document_name}-${infoData.full_code}</small></div><div class="card-body"><input type="hidden" id="recordID" value=""><input type="hidden" id="DC_docid" value="${docid}"><div class="row mb-3"><div class="col-md-2"><label class="form-label">${t.documentNumber}:</label><div id="documentNumber" class="fw-bold"></div></div><div class="col-md-2"><label class="form-label">${t.date}:</label><input type="date" id="recordDate" class="form-control"></div><div class="col-md-3"><label class="form-label">${t.userEmail}:</label><div id="userEmail" class="fw-bold">${getCookie("UserEmail")}</div></div><div class="col-md-3"><label class="form-label">${t.documentCreateDate}:</label><div id="documentCreateDate" class="fw-bold"></div></div></div><div class="row"><div class="col-md-12"><label class="form-label">${t.notes}:</label><textarea id="recordNotes" class="form-control" rows="2"></textarea></div></div><div class="row mt-3" id="DC_Documents_records_fields_issues"></div></div></div>`;
+
+            let docContentArea = `<div class="container mt-4 "><div id="documentContent" class="p-2"></div></div>`;
+
+
+            $('#tab-data').html(headerHtml + docContentArea);
+        }
+
+        if (docData.success) {
+            documentData = docData;
+            displayDocumentElements();
+            setupDocumentEventListeners();
+
+            if (recordIdToLoad) {
+                loadSavedRecord(recordIdToLoad);
+            } else {
+                 $("#recordID").val('');
+                 $("#recordDate").val(new Date().toISOString().split('T')[0]);
+                 $("#recordNotes").val('');
+                 $("#documentNumber").text('');
+                 $(".record-title").text(t.newRecord).css('color', 'red');
+            }
+        } else {
+            alert(docData.message || t.errorLoading);
+        }
+        let editIframe = `<iframe src="../../erp2/index?id=da25e35bd64e4840a139dff4306adaa1&tbh=DC_Documents&cname=ID&cid=${infoData.ID}&hidefrm=true" style="width:100%; height:700px;"></iframe>`;
+                    $('#tab-edit').html(editIframe);
+    }).fail(function () {
+        alert(t.errorLoading);
+    }).always(function () {
+        isRequestInProgress = false;
+        hideLoading();
+    });
+}
+
+function mergeTemplateWithData(templateElements, savedDataElements) {
+    if (!Array.isArray(templateElements) || !Array.isArray(savedDataElements)) {
+        console.error("Invalid input for merge function");
+        return templateElements; // إرجاع القالب الأصلي في حالة الخطأ
+    }
+
+    const mergedElements = templateElements.map((templateElement, i) => {
+        if (i < savedDataElements.length && templateElement.ID === savedDataElements[i].ID) {
+            const savedElement = savedDataElements[i];
+
+            if (templateElement.Type === "Paragraph" && savedElement.Type === "Paragraph") {
+                const newText = savedElement.Content || '';
+                templateElement.Content = [{ Text: newText, Formatting: {}, FormattingValues: {} }];
+            }
+            else if (templateElement.Type === "Table" && savedElement.Type === "Table") {
+                templateElement.Content.forEach((templateRow, j) => {
+                    if (j < savedElement.Content.length) {
+                        const savedRow = savedElement.Content[j];
+                        templateRow.Cells.forEach((templateCell, k) => {
+                            if (k < savedRow.Cells.length) {
+                                const savedCell = savedRow.Cells[k];
+                                const newCellText = savedCell.Content || '';
+
+                                templateCell.Content = newCellText;
+
+                                if (templateCell.FormattedRuns && templateCell.FormattedRuns.length > 0) {
+                                    templateCell.FormattedRuns[0].Text = newCellText;
+                                    if (templateCell.FormattedRuns.length > 1) {
+                                        templateCell.FormattedRuns.splice(1);
+                                    }
+                                } else {
+                                    templateCell.FormattedRuns = [{ Text: newCellText }];
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        }
+        return templateElement;
+    });
+
+    return mergedElements;
+}
+async function loadSavedRecord_old(recordID) {
+    showLoading();
+    try {
+        const response = await fetch(`/api/db/mo?action=get_document&db_name=unifood&collection=docs&document_id=${recordID}`);
+        if (!response.ok) throw new Error('Record not found');
+
+        const data = await response.json();
+
+        if(!data || !data.ID) throw new Error('Invalid record data');
+
+        $("#recordID").val(data.ID);
+        $("#recordDate").val(new Date(data.Document_date).toISOString().split('T')[0]);
+        $("#recordNotes").val(data.notes);
+        $("#documentNumber").text(data.document_file_serial);
+        $(".record-title").text(data.document_name).css('color', 'black');
+
+        if (data.documentElements && data.documentElements.Elements) {
+            documentData.json.Elements = mapDocElements(data.documentElements);
+            displayDocumentElements();
+        }
+    } catch (error) {
+        console.error("Error fetching document record:", error);
+        alert(t.errorNotFound);
+    } finally {
+        hideLoading();
+    }
+}
+function loadSavedRecord(recordID) {
+    if (isRequestInProgress) {
+        isRequestInProgress = true;
+        showLoading();
+    }
+
+
+    $.when(
+        $.post("../../API/doc/read", { filePath: currentFilePath }),
+
+        fetch(`/api/db/mo?action=get_document&db_name=unifood&collection=docs&document_id=${recordID}`).then(res => {
+            if (!res.ok) throw new Error('Record not found');
+            return res.json();
+        })
+    ).done(function(templateResponse, savedDataResponse) {
+
+        const templateData = templateResponse[0];
+        const savedData = savedDataResponse;
+
+        if (!templateData.success) {
+            alert("Failed to load document template.");
+            return;
+        }
+
+        $("#recordID").val(savedData.ID);
+        $("#recordDate").val(new Date(savedData.Document_date).toISOString().split('T')[0]);
+        $("#recordNotes").val(savedData.notes);
+        $("#documentNumber").text(savedData.document_file_serial);
+        $(".record-title").text(savedData.document_name).css('color', 'black');
+
+        const fullTemplateElements = templateData.json.Elements;
+        const savedContentElements = savedData.documentElements;
+
+        const finalMergedElements = mergeTemplateWithData(fullTemplateElements, savedContentElements);
+
+        documentData.json.Elements = finalMergedElements;
+
+        displayDocumentElements();
+
+    }).fail(function(err) {
+        console.error("Error loading document data:", err);
+        alert(t.errorNotFound);
+    }).always(function() {
+        isRequestInProgress = false;
+        hideLoading();
+    });
+}
+function resetDocBtnFun() {
+    $.post("../../API/doc/read", { filePath: currentFilePath }, function (response) {
+        if(response.success) {
+            documentData = response;
+            displayDocumentElements();
+        }
+    });
+}
+
+function loadDocList() {
+    if (isRequestInProgress || !docid) return;
+    isRequestInProgress = true;
+    showLoading();
+    $('#refreshDocList').prop('disabled', true);
+    $.post("../../r/j", {
+        tb: "DC_Documents_records_list", tbtype: "view",
+        cols: "ID,document_name,document_file_serial,Document_date,Email",
+        parm: `('${docid}',${$("#topRec").val()},'${$("#recordFrom").val()}','${$("#recordTo").val()}')`
+    }).done(function (data) {
+        let tableHtml = `<table class="modern-table"><thead><tr><th>${t.fileName}</th><th>${t.date}</th><th>${t.documentNumber}</th><th>${t.userEmail}</th><th>${t.options}</th></tr></thead><tbody>`;
+        data.forEach(doc => {
+            tableHtml += `<tr><td>${doc.document_name}</td><td>${new Date(doc.Document_date).toLocaleDateString()}</td><td>${doc.document_file_serial}</td><td>${doc.Email}</td><td><button class="btn edit-file" data-id="${doc.ID}" data-docid="${docid}" title="${t.edit}"><i class="fa fa-eye"></i></button></td></tr>`;
+        });
+        tableHtml += '</tbody></table>';
+        $('#docListContent').html(tableHtml);
+    }).fail(() => alert(t.errorLoading)).always(() => {
+        hideLoading();
+        $('#refreshDocList').prop('disabled', false);
+        isRequestInProgress = false;
+    });
+}
+
+function DC_field_issue_add(element){
+    var field_value=$(`#DC_Documents_records_fields_issues #${$(element).data("tableid")} #${$(element).data("field_selector")}`).val();
+    var record_related_id=$(element).data("id");
+    var word_filed_name=$(`#DC_Documents_records_fields_issues #${$(element).data("tableid")} #DC_field_word_filed_name`).val();
+    if(field_value=="" || field_value == null){
+        swal(`Please fill the ${$(element).data("field_selector").replace('DC_field_','').replaceAll('_',' ')}`);
+        return;
+    }
+    if(word_filed_name=="" || word_filed_name == null){
+        swal(`Please fill the word filed name`);
+        return;
+    }
+    $.post("../../erp/proced", { id:"DC_Documents_records_fields_issues_add '"+$("#recordID").val()+"','"+record_related_id+"',N'"+field_value+"','"+getCookie("UserID")+"','"+getCookie("CompId")+"',N'"+word_filed_name+"'"  },
+        function (data) {
+            if(Number(data)>0){
+                $(`#DC_Documents_records_fields_issues #${$(element).data("tableid")} #${$(element).data("field_selector")}`).val('');
+                DC_field_issue_get();
+            }else{
+                swal(`error ${data}`);
+            }
+    });
+}
+
+function DC_field_issue_get(){
+    $.post("../../r/j", { tb: "DC_Documents_records_fields_issues_get", tbtype: "view",cols:"sort,ID,field_name,html_element_tag_name,input_type,field_value,word_filed_name",parm:"('"+$("#recordID").val()+"')" },
+        function (data) {
+            data.forEach(e => {
+                $(`#DC_Documents_records_fields_issues #${e.field_name.trim().replaceAll(' ','_')} tbody`).empty();
+            });
+            data.forEach(e=>{
+                $(`#DC_Documents_records_fields_issues #${e.field_name.trim().replaceAll(' ','_')} tbody`)
+                .append(`<tr><td>${e.word_filed_name}</td><td>${e.field_value}</td></tr>`);
+            })
+        });
+}
+
+function mapDocElements(element){
+    var documentElementsMaped=element;
+    $.each(documentElementsMaped, function(index, e) {
+        if (e.Type == "Table") {
+            e.Borders=documentElements[index]?.Borders;
+            $.each(e.Content, function(i, d) {
+                d.Borders=documentElements[index]?.Content[i]?.Borders;
+                $.each(d.Cells, function(j, c) {
+                    if(documentElements[index]?.Content[i]?.hasOwnProperty("Cells"))
+                    {
+                        c.Borders=documentElements[index]?.Content[i]?.Cells[j]?.Borders;
+                        c.FormattedRuns=documentElements[index]?.Content[i]?.Cells[j]?.FormattedRuns;
+                    }
+                });
+            });
+        }
+        if (e.Type == "Paragraph") {
+            e.Formatting=documentElements[index]?.Formatting;
+            $.each(e.Content, function(i, d) {
+                d.FormattingValues=documentElements[index]?.Content[i]?.FormattingValues;
+                d.Formatting=documentElements[index]?.Content[i]?.Formatting;
+            });
+        }
+    });
+    return documentElementsMaped;
+}
+
+function uploadFile(file, filePath) {
+    const progressBarContainer = document.getElementById("progressBarContainer");
+    const progressBar = document.getElementById("progressBar");
+    const status = document.getElementById("uploadTemplateStatus");
+    const formData = new FormData();
+    formData.append("uploadedFile", file);
+
+    const xhr = new XMLHttpRequest();
+    progressBarContainer.style.background="#ccc";
+    progressBar.style.background="green";
+
+    xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            progressBar.style.width = percentComplete + "%";
+            progressBar.textContent = percentComplete + "%";
+        }
+    });
+
+    xhr.addEventListener("load", () => {
+        if (xhr.status === 200) {
+            status.textContent = "تم رفع الملف بنجاح!";
+            status.style.color = "green";
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            status.textContent = "حدث خطأ أثناء الرفع. الحالة: " + xhr.status;
+            status.style.color = "red";
+        }
+    });
+
+    xhr.addEventListener("error", () => {
+        status.textContent = "فشل الرفع. تحقق من اتصالك بالشبكة.";
+        status.style.color = "red";
+    });
+
+    const url = `/API/doc?id=upload&filePath=${encodeURIComponent(filePath)}`;
+    xhr.open("POST", url, true);
+    xhr.send(formData);
+}
+
+function UpdateCurrentDocumnent(){
+    const fileInput = document.getElementById("fileUploadTemplate");
+    const file = fileInput.files[0];
+    if (!file) {
+        alert("الرجاء اختيار ملف أولاً.");
+        return;
+    }
+    uploadFile(file, currentFilePath);
+}
+
+
+$(document).ready(function () {
+    let today = new Date().toISOString().substr(0, 10);
+    let thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().substr(0, 10);
+    $('#recordFrom').val(thirtyDaysAgo);
+    $('#recordTo').val(today);
+
+    setupDocumentEventListeners();
+
+    $('.tab').click(function () {
+        const tabId = $(this).data('tab');
+        $('.tab, .tab-content').removeClass('active');
+        $(this).addClass('active');
+        $('#' + tabId).addClass('active');
+        if (tabId === 'tab-docList' && docid) {
+            loadDocList();
+        }
+    });
+
+    $(".file").click(function () {
+        const clickedDocId = $(this).find("span").data("docid");
+        const clickedFilePath = $(this).find("span").data("filpath");
+        initializeDocumentView(clickedDocId, clickedFilePath, null);
+        $('.tab[data-tab="tab-data"]').click();
+    });
+
+    $(document).on('click', '.edit-file', function () {
+        let recordId = $(this).data('id');
+        let docId = $(this).data('docid');
+        initializeDocumentView(docId, currentFilePath, recordId);
+        $('.tab[data-tab="tab-data"]').click();
+    });
+
+    $(document).on('click', '#newButton', function(){
+        if(docid && currentFilePath) {
+            initializeDocumentView(docid, currentFilePath, null);
+        }
+    });
+    function simplifyJSon(jsonElement){
+        return  jsonElement.json.Elements.map(element => {
+                if (element.Type === "Paragraph") {
+                    return {
+                        ID: element.ID,
+                        Type: element.Type,
+                        Content: element.Content
+                    };
+                } else if (element.Type === "Table") {
+                    const simplifiedRows = element.Content.map(row => {
+                        const simplifiedCells = row.Cells.map(cell => {
+                            return {
+                                Content: cell.Content
+                            };
+                        });
+                        return { Cells: simplifiedCells };
+                    });
+                    return {
+                        ID: element.ID,
+                        Type: element.Type,
+                        Content: simplifiedRows
+                    };
+                }
+                return element;
+            });
+    }
+    $(document).on('click', '#saveDataButton', function () {
+        if (isRequestInProgress || !docid) return;
+        isRequestInProgress = true;
+        showLoading();
+
+        let recordID = $("#recordID").val();
+        if (!recordID) { recordID = uuid(); $("#recordID").val(recordID); }
+
+        const procQuery = `DC_Documents_records_insert '${recordID}','${docid}','${$("#recordDate").val()}','${$("#recordNotes").val()}','${getCookie("CompId")}','${getCookie("UserBranshID")}','${getCookie("UserID")}'`;
+
+        $.post("../../erp/procedq", { id: procQuery }, function (data) {
+            let docData = data[0];
+            $('#documentContent .editable-paragraph').each(function () {
+                const index = $(this).data('index');
+                const newText = $(this).text();
+                if (documentData.json.Elements[index]) {
+                    documentData.json.Elements[index].Content = newText;
+                }
+            });
+
+            $('#documentContent .editable-cell').each(function () {
+                const tableIndex = $(this).closest('table').data('index');
+                const rowIndex = $(this).data('row-index');
+                const cellIndex = $(this).data('cell-index');
+                const newValue = $(this).text();
+                if (documentData.json.Elements[tableIndex]) {
+                    documentData.json.Elements[tableIndex].Content[rowIndex].Cells[cellIndex].Content = newValue;
+                }
+            });
+
+
+            const simplifiedElements =simplifyJSon(documentData) ;
+
+            docData.documentElements = simplifiedElements;
+            const payload = { db_name: 'unifood', collection: 'docs', documents: [docData] };
+            fetch(`../../api/db/mo?action=save_documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(response => response.json()).then(saveResult => {
+                saveResult = saveResult[0];
+                if(saveResult.success) {
+                    alert(t.jsonSaved);
+                    $("#documentNumber").text(docData.document_file_serial);
+                    $(".record-title").text(docData.document_name).css('color', 'black');
+                } else {
+                    alert(t.errorProcessing);
+                }
+            }).catch(error => {
+                alert(t.errorProcessing);
+            }).finally(() => {
+                isRequestInProgress = false;
+                hideLoading();
+            });
+        }).fail(() => {
+            isRequestInProgress = false;
+            hideLoading();
+            alert(t.errorProcessing);
+        });
+    });
+
+    const createBlobAndDownload = (url, body, fileName) => {
+        showLoading();
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            body: $.param(body)
+        }).then(response => {
+            if(!response.ok) throw new Error('Network response was not ok.');
+            return response.blob();
+        }).then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        }).catch(err => alert(t.errorProcessing)).finally(() => hideLoading());
+    };
+
+    $(document).on('click', '#downloadDocButton, .download-file', function () {
+        let docData=documentData;
+        const simplifiedElements =simplifyJSon(docData) ;
+        docData.documentElements = simplifiedElements;
+        const recordid = $(this).hasClass('download-file') ? $(this).data('recordid') : $("#recordID").val();
+        const body = { jsonInput: JSON.stringify(docData.json.Elements), docid: docid, recordid: recordid, filepath: currentFilePath };
+        createBlobAndDownload('../../API/doc/write', body, 'document.docx');
+    });
+
+    $(document).on('click', '#downloadPdfButton, .pdf-download', function () {
+        let docData=documentData;
+        const simplifiedElements =simplifyJSon(docData) ;
+        docData.documentElements = simplifiedElements;
+        const recordid = $(this).hasClass('pdf-download') ? $(this).data('recordid') : $("#recordID").val();
+        const body = { jsonInput: JSON.stringify(docData.json.Elements), docid: docid, recordid: recordid, filepath: currentFilePath };
+        createBlobAndDownload('../../API/doc/pdf', body, 'document.pdf');
+    });
+
+    $(document).on('click', '#printButton, .print-file', function () {
+        const recordid = $(this).hasClass('print-file') ? $(this).data('recordid') : $("#recordID").val();
+        let docData=documentData;
+        const simplifiedElements =simplifyJSon(docData) ;
+        docData.documentElements = simplifiedElements;
+        const body = { jsonInput: JSON.stringify(docData.json.Elements), docid: docid, recordid: recordid, filepath: currentFilePath };
+        fetch('../../API/doc/html', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            body: $.param(body)
+        }).then(res => res.text()).then(html => {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.onload = function() { printWindow.print(); };
+        });
+    });
+
+    $(document).on('click', '#deleteButton', function () {
+        if (!confirm(t.confirmDelete) || !$("#recordID").val()) return;
+        $.post("../../api/db/mo?action=delete_document", {
+            db_name: 'unifood',
+            collection: 'docs',
+            document_id: $("#recordID").val()
+        }, function(data){
+            if(data.success) {
+                alert("Deleted successfully");
+                initializeDocumentView(docid, currentFilePath, null);
+            } else {
+                alert(t.errorProcessing);
+            }
+        });
+    });
+
+    $(document).on('click', '#firstButton, #prevButton, #nextButton, #lastButton', function () {
+        let actionMap = {'firstButton': 'DC_Documents_records_first', 'prevButton': 'DC_Documents_records_previous', 'nextButton': 'DC_Documents_records_next', 'lastButton': 'DC_Documents_records_last'};
+        let tbName = actionMap[$(this).attr('id')];
+        let currentDocNumber = $("#documentNumber").text() || '0';
+        $.post("../../r/j", {
+            tb: tbName, tbtype: "view",
+            cols: "ID", parm: `('${docid}','${currentDocNumber}')`
+        }, data => {
+            if(data && data.length > 0) loadSavedRecord(data[0].ID);
+            else alert(t.errorNotFound);
+        });
+    });
+
+    $(document).on('click', '#duplicateButton', function () {
+        $("#recordID").val('');
+        $("#documentNumber").text('');
+        $(".record-title").text(t.newRecord).css('color', 'red');
+        $("#recordDate").val(new Date().toISOString().split('T')[0]);
+    });
+
+    $(document).on('click', '#attachmentButton, .view-attached', function () {
+        const recordId = $(this).hasClass('view-attached') ? $(this).data('recordid') : $("#recordID").val();
+        if (recordId) {
+            $('#attachmentIframe').attr('src', `../../erp2/index?id=da25e35bd64e4840a139dff4306adaa1&tbh=DC_Documents_records_attched&cname=record_id&cid=${recordId}&hidefrm=true`);
+            $('#attachmentModal').modal('show');
+        } else {
+            alert("you must save the Document First");
+        }
+    });
+    $(document).on('keydown', '#searchInput', function (event) {
+        if (event.keyCode == 13) {
+            if (isRequestInProgress) return;
+            isRequestInProgress = false;
+            showLoading();
+            let documentNumber = $(this).val();
+            $.post("../../r/j", {
+                tb: "DC_Documents_records_number",
+                tbtype: "view",
+                cols: "ID,document_name,Department_name,sections_name,file_path,Document_status_name,Document_number,Document_date,notes,Email,Branch_name,begin_date,company_id",
+                parm: `('${docid}','${documentNumber}')`
+            }, function (data) {
+                if (data && data.length > 0) {
+                    let record = data[0];
+                    // $("#recordID").val(record.ID);
+                    // $("#recordDate").val(new Date(record.Document_date).toISOString().split('T')[0]);
+                    // $("#recordNotes").val(record.notes);
+                    // $("#documentNumber").text(record.Document_number);
+                    // $(".record-title").text(record.document_name).css('color', 'bla
+                    loadSavedRecord(record.ID);
+                } else {
+                    alert(t.errorNotFound);
+                }
+                hideLoading();
+                isRequestInProgress = false;
+            }).fail(function () {
+                hideLoading();
+                isRequestInProgress = false;
+                alert(t.errorLoading);
+            });
+        }
+    });
+    $('#refreshDocList').click(function () {
+        loadDocList();
+    });
+
+    $('#addNewDocxButton').click(function () {
+        $('#addNewDocxModal').modal('show');
+    });
+
+    $('#uploadNewDocxButton').click(function () {
+        var fileInput = $('#newFileUpload')[0];
+        if (fileInput.files.length === 0) {
+            alert('Please select a file to upload.');
+            return;
+        }
+        var file = fileInput.files[0];
+        var formData = new FormData();
+        formData.append('file', file);
+        formData.append('p', '@dpath');
+        $.ajax({
+            url: '../../API/docsFileUpload',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function (response) {
+                if (response.success) {
+                     $('#addNewDocxModal').modal('hide');
+                     location.reload();
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function () {
+                alert(t.errorProcessing);
+            }
+        });
+    });
+
+    const fileElements = Array.from(document.querySelectorAll('.file-name')).map(span => ({
+        name: span.textContent.toLowerCase(),
+        parent: span.closest('.file')
+    }));
+
+    $('#fileSearchInput').on('input', function () {
+        const searchTerm = this.value.toLowerCase().trim();
+        fileElements.forEach(file => {
+            const isVisible = searchTerm === '' || file.name.includes(searchTerm);
+            $(file.parent).toggle(isVisible);
+        });
+    });
+
+    if (getpar("par_docid")!="") {
+        $.post("../../r/j", { tb: "DC_Documents_records_info", tbtype: "view", cols: "file_path,ID", parm: "('" + getpar("par_docid") + "')" }, function(data) {
+            if (data && data.length > 0) {
+                initializeDocumentView(data[0].ID, data[0].file_path, data[0].ID);
+            }
+        });
+    }
+});
+</script>
+<div class="row">
+    <div class="col-lg-2">
+        <button id="addNewDocxButton" class="btn btn-success ml-3">@t["new"] Docx <i class="fa fa-file"></i></button>
+
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        // فتح مودال إضافة مستند جديد عند النقر على الزر العام
+        $('#addNewDocxButton').click(function () {
+            $('#addNewDocxModal').modal('show');
+        });
+
+        // رفع القالب الحالي
+        $('#uploadTemplateButton').click(function () {
+            var fileInput = $('#fileUploadTemplate')[0];
+            if (fileInput.files.length === 0) {
+                alert('Please select a file to upload.');
+                return;
+            }
+
+            var file = fileInput.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('fid', '@fid');
+            formData.append('p', '@dpath');
+
+            // AJAX request to upload the template
+            $.ajax({
+                url: '../../API/docsFileUpload',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                beforeSend: function () {
+                    $('#uploadTemplateStatus').html('<span class="text-info">Uploading...</span>');
+                },
+                success: function (response) {
+                    if (response.success) {
+                        $('#uploadTemplateStatus').html('<span class="text-success">' + response.message + '</span>');
+                        // تحديث قائمة الملفات بدون إعادة تحميل الصفحة
+                        $('.file-container').load(location.href + ' .file-container > *');
+                    } else {
+                        $('#uploadTemplateStatus').html('<span class="text-danger">' + response.message + '</span>');
+                    }
+                },
+                error: function () {
+                    $('#uploadTemplateStatus').html('<span class="text-danger">@t["errorLoading"]</span>');
+                }
+            });
+        });
+
+        // رفع مستند جديد من المودال
+        $('#uploadNewDocxButton').click(function () {
+            var fileInput = $('#newFileUpload')[0];
+            if (fileInput.files.length === 0) {
+                alert('Please select a file to upload.');
+                return;
+            }
+
+            var file = fileInput.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('p', '@dpath');
+
+            // AJAX request to upload the new docx
+            $.ajax({
+                url: '../../API/docsFileUpload',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                beforeSend: function () {
+                    $('#uploadNewDocxStatus').html('<span class="text-info">Uploading...</span>');
+                },
+                success: function (response) {
+                    if (response.success) {
+                        $('#uploadNewDocxStatus').html('<span class="text-success">' + response.message + '</span>');
+                        // تحديث قائمة الملفات بدون إعادة تحميل الصفحة
+                        $('.file-container').load(location.href + ' .file-container > *');
+                        // إغلاق المودال بعد النجاح
+                        setTimeout(function () {
+                            $('#addNewDocxModal').modal('hide');
+                            $('#newFileUpload').val('');
+                            $('#uploadNewDocxStatus').html('');
+                        }, 1000);
+                    } else {
+                        $('#uploadNewDocxStatus').html('<span class="text-danger">' + response.message + '</span>');
+                    }
+                },
+                error: function () {
+                    $('#uploadNewDocxStatus').html('<span class="text-danger">@t["errorLoading"]</span>');
+                }
+            });
+        });
+
+        // باقي الكود الحالي...
+
+        // تحديث قائمة الملفات ديناميكيًا بعد رفع الملف
+        function refreshFileList() {
+            $.ajax({
+                url: '@Url.Action("GetFiles", "Documents")',
+                type: 'GET',
+                data: { fid: '@fid', p: '@dpath' },
+                success: function (response) {
+                    if (response.success) {
+                        var fileContainer = $('.file-container');
+                        fileContainer.empty();
+                        response.files.forEach(function (file) {
+                            fileContainer.append(`
+                                <div class="file">
+                                    <i class="fa fa-file"></i>
+                                    <span data-docid="${file.docid}" data-filpath="${file.filpath}" class="file-name">${file.fileName}</span>
+                                </div>
+                            `);
+                        });
+                    }
+                },
+                error: function () {
+                    alert('@t["errorLoading"]');
+                }
+            });
+        }
+    });
+</script>
+<script>
+    // Add this to your HTML:
+    // <div class="search-container">
+    //   <input type="text" id="fileSearchInput" placeholder="Search files...">
+    //   <div id="searchResults" class="search-results"></div>
+    // </div>
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get references to DOM elements
+        const searchInput = document.getElementById('fileSearchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        // Extract all files from the DOM
+        const fileElements = document.querySelectorAll('.file-name');
+        const files = Array.from(fileElements).map(span => ({
+            element: span,
+            name: span.textContent,
+            docId: span.getAttribute('data-docid'),
+            filePath: span.getAttribute('data-filpath'),
+            parent: span.closest('.file')
+        }));
+
+        // Initial display - show all files
+        displayFiles(files);
+
+        // Add event listener for search input
+        searchInput.addEventListener('input', function () {
+            const searchTerm = this.value.toLowerCase().trim();
+
+            if (!searchTerm) {
+                displayFiles(files); // Show all files when search is empty
+                return;
+            }
+
+            // Smart search functionality
+            const filteredFiles = files.filter(file => {
+                const lowerName = file.name.toLowerCase();
+
+                // Match by file code or any term
+                if (lowerName.includes(searchTerm)) return true;
+
+                // Split search terms and check if all parts match
+                const searchParts = searchTerm.split(/\s+/);
+                return searchParts.every(part => lowerName.includes(part));
+            });
+
+            displayFiles(filteredFiles);
+        });
+
+        // Function to display files in the search results
+        function displayFiles(filesToShow) {
+            // First, hide all files in the original container
+            files.forEach(file => {
+                if (file.parent) {
+                    file.parent.style.display = 'none';
+                }
+            });
+
+            // Then show only the matching files
+            filesToShow.forEach(file => {
+                if (file.parent) {
+                    file.parent.style.display = '';
+                }
+            });
+
+            // Optional: Show "no results" message
+            if (filesToShow.length === 0) {
+                const noResultsMsg = document.createElement('div');
+                noResultsMsg.textContent = 'No files found';
+                noResultsMsg.className = 'no-results';
+                searchResults.innerHTML = '';
+                searchResults.appendChild(noResultsMsg);
+            } else {
+                searchResults.innerHTML = '';
+            }
+        }
+    });
+
+</script>
