@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة — نقطة البيع HTMLx (الإصدار الثاني)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page-gradient: linear-gradient(165deg, #f6f7fb 0%, #e0e7ff 100%);
+        --page-overlay-1: radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.18), transparent 55%);
+        --page-overlay-2: radial-gradient(circle at 85% 80%, rgba(16, 185, 129, 0.18), transparent 55%);
+        --panel-bg: rgba(255, 255, 255, 0.78);
+        --panel-border: rgba(79, 70, 229, 0.14);
+        --panel-shadow: 0 30px 60px -32px rgba(15, 23, 42, 0.45);
+        --surface-1: rgba(255, 255, 255, 0.86);
+        --surface-2: rgba(244, 245, 255, 0.88);
+        --surface-3: rgba(236, 244, 255, 0.92);
+        --surface-soft: rgba(248, 250, 255, 0.65);
+        --border: rgba(148, 163, 184, 0.28);
+        --foreground: #0f172a;
+        --muted-foreground: rgba(51, 65, 85, 0.76);
+        --accent: #4f46e5;
+        --accent-foreground: #f8fafc;
+        --accent-soft: rgba(79, 70, 229, 0.12);
+        --positive: #16a34a;
+        --warning: #f97316;
+        --danger: #ef4444;
+        --font-body: 'Tajawal', 'Cairo', system-ui;
+      }
+      :root.dark {
+        --page-gradient: linear-gradient(155deg, #0f172a 0%, #1f2937 100%);
+        --page-overlay-1: radial-gradient(circle at 80% 25%, rgba(129, 140, 248, 0.24), transparent 60%);
+        --page-overlay-2: radial-gradient(circle at 10% 80%, rgba(16, 185, 129, 0.22), transparent 60%);
+        --panel-bg: rgba(15, 23, 42, 0.82);
+        --panel-border: rgba(129, 140, 248, 0.24);
+        --panel-shadow: 0 35px 70px -40px rgba(0, 0, 0, 0.8);
+        --surface-1: rgba(30, 41, 59, 0.88);
+        --surface-2: rgba(17, 24, 39, 0.88);
+        --surface-3: rgba(30, 41, 59, 0.78);
+        --surface-soft: rgba(51, 65, 85, 0.32);
+        --border: rgba(148, 163, 184, 0.35);
+        --foreground: #f8fafc;
+        --muted-foreground: rgba(203, 213, 225, 0.72);
+        --accent: #6366f1;
+        --accent-foreground: #111827;
+        --accent-soft: rgba(99, 102, 241, 0.24);
+        --positive: #22c55e;
+        --warning: #fb923c;
+        --danger: #f87171;
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-body);
+        background: var(--page-gradient);
+        color: var(--foreground);
+      }
+      .page-shell {
+        position: relative;
+        min-height: 100vh;
+        padding: 2rem 1.5rem 3rem;
+      }
+      .page-shell::before,
+      .page-shell::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+      }
+      .page-shell::before { background: var(--page-overlay-1); }
+      .page-shell::after { background: var(--page-overlay-2); }
+      .pos-card {
+        margin: 0 auto;
+        max-width: 1600px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 2rem;
+        box-shadow: var(--panel-shadow);
+        backdrop-filter: blur(22px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      header.pos-header {
+        padding: 1.75rem 2rem 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: center;
+      }
+      .brand-block {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 220px;
+      }
+      .brand-block h1 {
+        margin: 0;
+        font-size: clamp(1.6rem, 2.4vw, 2.35rem);
+      }
+      .brand-meta {
+        margin: 0;
+        color: var(--muted-foreground);
+        font-size: 0.95rem;
+      }
+      .shift-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        font-weight: 600;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface-1);
+        font-size: 0.9rem;
+      }
+      .chip.accent {
+        border-color: transparent;
+        background: var(--accent);
+        color: var(--accent-foreground);
+      }
+      .chip.positive { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 35%, transparent); }
+      .chip.soft { background: var(--surface-soft); }
+      .pos-header-actions {
+        margin-inline-start: auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.25rem;
+      }
+      .segmented button {
+        border: none;
+        background: transparent;
+        padding: 0.55rem 1.25rem;
+        border-radius: 999px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .segmented button.active {
+        background: var(--accent);
+        color: var(--accent-foreground);
+        box-shadow: 0 18px 40px -24px rgba(79, 70, 229, 0.6);
+      }
+      .action-button {
+        border: 1px solid transparent;
+        border-radius: 1rem;
+        padding: 0.65rem 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--accent);
+        color: var(--accent-foreground);
+        box-shadow: 0 18px 46px -24px rgba(79, 70, 229, 0.65);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      .action-button.secondary {
+        background: transparent;
+        color: var(--foreground);
+        border-color: var(--border);
+        box-shadow: none;
+      }
+      .action-button:hover { transform: translateY(-2px); }
+      .pos-layout {
+        display: grid;
+        gap: 1.5rem;
+        padding: 0 2rem 2rem;
+      }
+      @media (min-width: 1280px) {
+        .pos-layout {
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+          align-items: stretch;
+        }
+      }
+      .menu-column,
+      .summary-column {
+        background: var(--surface-1);
+        border: 1px solid var(--panel-border);
+        border-radius: 1.75rem;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        box-shadow: 0 25px 60px -35px rgba(15, 23, 42, 0.35);
+      }
+      .menu-header,
+      .summary-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+      }
+      .menu-header h2,
+      .summary-header h2 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+      .menu-categories {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+      .category-button {
+        display: grid;
+        gap: 0.35rem;
+        padding: 0.75rem 1rem;
+        border-radius: 1.2rem;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        text-align: start;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--muted-foreground);
+        transition: border 0.2s ease, transform 0.2s ease, background 0.2s ease;
+      }
+      .category-button.active {
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+        background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+        color: var(--foreground);
+        box-shadow: 0 20px 40px -30px rgba(79, 70, 229, 0.45);
+      }
+      .category-button:hover { transform: translateY(-2px); }
+      .menu-grid {
+        display: grid;
+        gap: 1rem;
+      }
+      @media (min-width: 768px) {
+        .menu-grid {
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        }
+      }
+      .menu-card {
+        display: grid;
+        gap: 0.75rem;
+        padding: 1.1rem;
+        border-radius: 1.4rem;
+        background: var(--surface-3);
+        border: 1px solid var(--panel-border);
+        box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.35);
+        transition: transform 0.2s ease;
+      }
+      .menu-card:hover { transform: translateY(-3px); }
+      .menu-card h3 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .menu-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--muted-foreground);
+      }
+      .tag-row {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .tag {
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .menu-card footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .price {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+      .menu-card button {
+        border: none;
+        padding: 0.55rem 1.1rem;
+        border-radius: 0.9rem;
+        background: var(--accent);
+        color: var(--accent-foreground);
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .menu-card button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 40px -24px rgba(79, 70, 229, 0.55);
+      }
+      .cart-items {
+        display: grid;
+        gap: 0.9rem;
+        max-height: 360px;
+        overflow-y: auto;
+        padding-inline-end: 0.3rem;
+      }
+      .cart-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+        border-radius: 1.2rem;
+        background: var(--surface-2);
+        border: 1px solid var(--panel-border);
+      }
+      .qty-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.6rem;
+        border-radius: 0.9rem;
+        border: 1px solid var(--border);
+        background: var(--surface-soft);
+      }
+      .qty-box button {
+        border: none;
+        background: transparent;
+        font-size: 1.1rem;
+        cursor: pointer;
+        color: var(--accent);
+      }
+      .cart-row strong { font-size: 1.05rem; }
+      .cart-row small { color: var(--muted-foreground); }
+      .row-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        align-items: flex-end;
+      }
+      .row-actions button {
+        border: none;
+        background: transparent;
+        color: var(--muted-foreground);
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+      .summary-block {
+        padding: 1rem 1.2rem;
+        border-radius: 1.2rem;
+        background: var(--surface-2);
+        border: 1px solid var(--panel-border);
+        display: grid;
+        gap: 0.65rem;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+      }
+      .summary-row.total {
+        font-size: 1.15rem;
+      }
+      textarea.order-note {
+        width: 100%;
+        min-height: 90px;
+        border-radius: 1.1rem;
+        border: 1px solid var(--border);
+        padding: 0.9rem 1rem;
+        font-family: inherit;
+        background: var(--surface-soft);
+      }
+      .summary-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .summary-actions button {
+        width: 100%;
+        border: none;
+        border-radius: 1.1rem;
+        padding: 0.75rem 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .summary-actions .primary {
+        background: var(--accent);
+        color: var(--accent-foreground);
+        box-shadow: 0 20px 50px -28px rgba(79, 70, 229, 0.65);
+      }
+      .summary-actions .ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--foreground);
+      }
+      .timeline {
+        display: grid;
+        gap: 0.6rem;
+      }
+      .timeline-entry {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        font-size: 0.9rem;
+      }
+      .timeline-entry span.icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        font-size: 1rem;
+      }
+      .payment-modal {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(12px);
+        z-index: 50;
+      }
+      .payment-sheet {
+        width: min(520px, 100%);
+        background: var(--panel-bg);
+        border-radius: 1.8rem;
+        padding: 1.75rem;
+        border: 1px solid var(--panel-border);
+        box-shadow: var(--panel-shadow);
+        display: grid;
+        gap: 1.25rem;
+      }
+      .payment-methods {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .method-card {
+        border: 1px solid var(--border);
+        border-radius: 1.2rem;
+        padding: 0.85rem 1rem;
+        background: var(--surface-1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: border 0.2s ease, background 0.2s ease;
+      }
+      .method-card.active {
+        border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+        background: color-mix(in srgb, var(--accent) 16%, var(--surface-1));
+        color: var(--foreground);
+        box-shadow: 0 22px 46px -30px rgba(79, 70, 229, 0.45);
+      }
+      .payment-sheet footer {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .payment-sheet footer button {
+        flex: 1 1 180px;
+        border-radius: 1rem;
+        padding: 0.75rem 1.1rem;
+        border: none;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .payment-sheet footer .confirm {
+        background: var(--accent);
+        color: var(--accent-foreground);
+      }
+      .payment-sheet footer .cancel {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--foreground);
+      }
+      .empty-state {
+        padding: 2rem;
+        border-radius: 1.4rem;
+        border: 1px dashed var(--border);
+        text-align: center;
+        color: var(--muted-foreground);
+        background: var(--surface-soft);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="mishkah-pos-htmlx">
+      <script type="application/json" data-m-env>
+        {
+          "theme": "dark",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "posHtmlx": true
+          }
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="head">
+        {
+          "title": "مشكاة — نظام نقطة البيع HTMLx"
+        }
+      </script>
+
+      <div class="page-shell">
+        <div class="pos-card">
+          <script type="application/json" data-m-data data-m-path="data.order">
+            {
+              "reference": "ORD-4827",
+              "location": "حديقة الملك سلمان",
+              "shift": "الصباح",
+              "server": "سارة المنصوري",
+              "table": "A-12",
+              "guests": 2,
+              "type": "dine-in"
+            }
+          </script>
+
+          <header class="pos-header">
+            <div class="brand-block">
+              <h1>{trans('pos.brandTitle')}</h1>
+              <p class="brand-meta">{trans('pos.brandSubtitle')}</p>
+              <div class="shift-info">
+                <span class="chip accent">{trans('pos.session.id')} • {state.data.order.reference}</span>
+                <span class="chip soft">{trans('pos.session.location')} • {state.data.order.location}</span>
+              </div>
+            </div>
+            <div class="shift-info">
+              <span class="chip">🕒 {trans('pos.session.shift')} • {state.data.order.shift}</span>
+              <span class="chip">👩‍🍳 {trans('pos.session.server')} • {state.data.order.server}</span>
+              <span class="chip">🪑 {trans('pos.session.table')} • {state.data.order.table}</span>
+              <span class="chip">🧑‍🤝‍🧑 {trans('pos.session.guests')} • {state.data.order.guests}</span>
+            </div>
+            <div class="pos-header-actions">
+              <div class="segmented">
+                <button class="{state.data.order.type === 'dine-in' ? 'active' : ''}" onclick="setServiceType('dine-in', ctx)">{trans('pos.service.dineIn')}</button>
+                <button class="{state.data.order.type === 'takeaway' ? 'active' : ''}" onclick="setServiceType('takeaway', ctx)">{trans('pos.service.takeaway')}</button>
+                <button class="{state.data.order.type === 'delivery' ? 'active' : ''}" onclick="setServiceType('delivery', ctx)">{trans('pos.service.delivery')}</button>
+              </div>
+              <button class="action-button secondary" onclick="adjustGuests(-1, ctx)">−</button>
+              <button class="action-button secondary" onclick="adjustGuests(+1, ctx)">+</button>
+              <button class="action-button" onclick="togglePaymentModal(true, ctx)">{trans('pos.actions.checkout')}</button>
+            </div>
+          </header>
+
+          <script>
+            function cloneState(prev){ return JSON.parse(JSON.stringify(prev || {})); }
+            function rememberState(ctx){ try { window.__POS_STATE__ = ctx.getState(); } catch (_) {}
+            }
+            function ensureRuntime(){
+              var runtime = window.__POS_RUNTIME__ = window.__POS_RUNTIME__ || {};
+              if (typeof runtime.applyEnvironment !== 'function') {
+                runtime.applyEnvironment = function(state){
+                  var lang = (state.env && state.env.lang) || 'ar';
+                  document.documentElement.lang = lang;
+                  document.documentElement.dir = (state.env && state.env.dir) || (lang === 'ar' ? 'rtl' : 'ltr');
+                  document.documentElement.classList.toggle('dark', state.env && state.env.theme === 'dark');
+                };
+              }
+              if (typeof runtime.persistPrefs !== 'function') {
+                runtime.persistPrefs = function(state){
+                  try {
+                    window.localStorage.setItem('mishkah:pos:v2:prefs', JSON.stringify({ theme: state.env && state.env.theme }));
+                  } catch (_) {}
+                };
+              }
+              return runtime;
+            }
+            function runtime(){ return ensureRuntime(); }
+            function commit(ctx, mutate, after){
+              if(!ctx) return;
+              ctx.setState(function(prev){
+                var next = cloneState(prev);
+                if(typeof mutate === 'function'){ mutate(next, prev || {}); }
+                return next;
+              });
+              window.setTimeout(function(){
+                rememberState(ctx);
+                if(typeof after === 'function') after(ctx.getState(), ctx);
+              }, 0);
+            }
+            function formatCurrency(amount, state){
+              var currency = (state.data && state.data.currency) || { symbol: '﷼', fraction: 2 };
+              var value = (Number(amount) || 0).toFixed(currency.fraction || 2);
+              return currency.position === 'before' ? currency.symbol + ' ' + value : value + ' ' + currency.symbol;
+            }
+            function findMenuItem(state, itemId){
+              var menu = (state.data && state.data.menu) || [];
+              for(var i=0;i<menu.length;i++){
+                var items = (menu[i] && menu[i].items) || [];
+                for(var j=0;j<items.length;j++){
+                  if(items[j] && items[j].id === itemId){ return items[j]; }
+                }
+              }
+              return null;
+            }
+            function computeTotals(cart){
+              cart = cart || {};
+              var items = cart.items || [];
+              var subtotal = items.reduce(function(sum, item){
+                var qty = Number(item && item.qty) || 0;
+                var price = Number(item && item.price) || 0;
+                return sum + qty * price;
+              }, 0);
+              var discount = 0;
+              if(cart.discount && cart.discount.value){
+                if(cart.discount.type === 'percent'){
+                  discount = subtotal * (Number(cart.discount.value) || 0) / 100;
+                } else {
+                  discount = Number(cart.discount.value) || 0;
+                }
+              }
+              discount = Math.min(discount, subtotal);
+              var service = subtotal * (Number(cart.serviceRate) || 0);
+              var taxable = subtotal - discount + service;
+              var tax = taxable * (Number(cart.taxRate) || 0);
+              var total = taxable + tax;
+              return {
+                subtotal: subtotal,
+                discount: discount,
+                service: service,
+                tax: tax,
+                total: total
+              };
+            }
+          </script>
+
+          <div class="pos-layout">
+            <div class="menu-column">
+              <div class="menu-header">
+                <h2>{trans('pos.menu.title')}</h2>
+                <p class="brand-meta">{trans('pos.menu.hint')}</p>
+              </div>
+
+              <script type="application/json" data-m-data data-m-path="i18n.strings">
+                {
+                  "pos.brandTitle": { "ar": "مقهى مشكاة", "en": "Mishkah Café" },
+                  "pos.brandSubtitle": { "ar": "لوحة تشغيل نقطة البيع المتكاملة للفرع", "en": "Integrated POS control board" },
+                  "pos.session.id": { "ar": "رمز الطلب", "en": "Order ID" },
+                  "pos.session.location": { "ar": "الموقع", "en": "Location" },
+                  "pos.session.shift": { "ar": "نوبة", "en": "Shift" },
+                  "pos.session.server": { "ar": "المضيف", "en": "Host" },
+                  "pos.session.table": { "ar": "الطاولة", "en": "Table" },
+                  "pos.session.guests": { "ar": "ضيوف", "en": "Guests" },
+                  "pos.service.dineIn": { "ar": "صالة", "en": "Dine-in" },
+                  "pos.service.takeaway": { "ar": "سفري", "en": "Takeaway" },
+                  "pos.service.delivery": { "ar": "توصيل", "en": "Delivery" },
+                  "pos.actions.checkout": { "ar": "إتمام الطلب", "en": "Checkout" },
+                  "pos.menu.title": { "ar": "قائمة المنتجات", "en": "Product menu" },
+                  "pos.menu.hint": { "ar": "اختر الفئة المناسبة ثم أضف المنتج مباشرة إلى السلة.", "en": "Pick a category then add the product directly to the cart." },
+                  "pos.menu.itemsCount": { "ar": "منتج", "en": "item" },
+                  "pos.menu.add": { "ar": "إضافة للسلة", "en": "Add to cart" },
+                  "pos.summary.title": { "ar": "ملخص الطلب", "en": "Order summary" },
+                  "pos.summary.hint": { "ar": "راجع العناصر، أضف ملاحظات الضيوف ثم أكمل الدفع.", "en": "Review the basket, capture guest notes, then proceed to payment." },
+                  "pos.summary.empty": { "ar": "لم يتم اختيار أي عنصر بعد.", "en": "No items selected yet." },
+                  "pos.summary.note": { "ar": "ملاحظات الضيوف", "en": "Guest notes" },
+                  "pos.summary.clear": { "ar": "مسح السلة", "en": "Clear basket" },
+                  "pos.summary.hold": { "ar": "تعليق الطلب", "en": "Park order" },
+                  "pos.summary.pay": { "ar": "متابعة للدفع", "en": "Continue to payment" },
+                  "pos.summary.subtotal": { "ar": "الإجمالي الفرعي", "en": "Subtotal" },
+                  "pos.summary.discount": { "ar": "الخصم", "en": "Discount" },
+                  "pos.summary.service": { "ar": "رسوم الخدمة", "en": "Service" },
+                  "pos.summary.tax": { "ar": "الضريبة", "en": "Tax" },
+                  "pos.summary.total": { "ar": "الإجمالي المستحق", "en": "Amount due" },
+                  "pos.timeline.title": { "ar": "خط سير التحضير", "en": "Preparation timeline" },
+                  "pos.timeline.created": { "ar": "تم إنشاء الطلب", "en": "Order created" },
+                  "pos.timeline.sent": { "ar": "تم إرسال الطلب للمطبخ", "en": "Sent to kitchen" },
+                  "pos.timeline.ready": { "ar": "أصناف جاهزة للتقديم", "en": "Ready to serve" },
+                  "pos.payments.title": { "ar": "اختر وسيلة الدفع", "en": "Select payment method" },
+                  "pos.payments.total": { "ar": "الإجمالي المستحق", "en": "Total due" },
+                  "pos.payments.reference": { "ar": "مرجع الطلب", "en": "Order reference" },
+                  "pos.payments.confirm": { "ar": "تأكيد الدفع", "en": "Confirm payment" },
+                  "pos.payments.cancel": { "ar": "إلغاء", "en": "Cancel" }
+                }
+              </script>
+
+              <script type="application/json" data-m-data data-m-path="data.menu">
+                [
+                  {
+                    "id": "coffee",
+                    "title": { "ar": "قهوة مختصة", "en": "Specialty Coffee" },
+                    "items": [
+                      {
+                        "id": "v60-ethiopia",
+                        "sku": "CF-210",
+                        "name": { "ar": "V60 إثيوبي", "en": "Ethiopian V60" },
+                        "description": { "ar": "تحميص خفيف مع توازن زهور الحمضيات.", "en": "Light roast with citrus blossom balance." },
+                        "price": 18,
+                        "tags": ["ساخن", "200 مل"]
+                      },
+                      {
+                        "id": "flat-white",
+                        "sku": "CF-118",
+                        "name": { "ar": "فلات وايت", "en": "Flat white" },
+                        "description": { "ar": "حليب مبخر مع جرعة مزدوجة.", "en": "Steamed milk over a double ristretto." },
+                        "price": 16,
+                        "tags": ["كلاسيكي", "حليب"]
+                      },
+                      {
+                        "id": "spanish-latte",
+                        "sku": "CF-142",
+                        "name": { "ar": "سبانيش لاتيه بارد", "en": "Spanish iced latte" },
+                        "description": { "ar": "حليب مكثف محلى مع نكهة الفانيلا.", "en": "Sweet condensed milk with vanilla." },
+                        "price": 19,
+                        "tags": ["بارد", "محلى"]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "breakfast",
+                    "title": { "ar": "إفطار وحلويات", "en": "Breakfast & pastry" },
+                    "items": [
+                      {
+                        "id": "avocado-toast",
+                        "sku": "BR-034",
+                        "name": { "ar": "توست الأفوكادو", "en": "Avocado toast" },
+                        "description": { "ar": "خبز الحبوب الكاملة مع بيض مسلوق.", "en": "Whole grain toast with soft boiled egg." },
+                        "price": 24,
+                        "tags": ["موسمي", "250 غ"]
+                      },
+                      {
+                        "id": "granola-bowl",
+                        "sku": "BR-041",
+                        "name": { "ar": "وعاء الجرانولا", "en": "Granola bowl" },
+                        "description": { "ar": "زبادي يوناني، عسل السدر، فواكه.", "en": "Greek yogurt, sidr honey, fresh fruit." },
+                        "price": 22,
+                        "tags": ["بارد", "طاقة"]
+                      },
+                      {
+                        "id": "cardamom-croissant",
+                        "sku": "BR-015",
+                        "name": { "ar": "كرواسون الهيل", "en": "Cardamom croissant" },
+                        "description": { "ar": "طبقات هشة محشوة بكريمة الفستق.", "en": "Flaky layers filled with pistachio crème." },
+                        "price": 14,
+                        "tags": ["طازج", "مخبوز"]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "retail",
+                    "title": { "ar": "بن وحزم", "en": "Retail & beans" },
+                    "items": [
+                      {
+                        "id": "beans-yemen",
+                        "sku": "RT-501",
+                        "name": { "ar": "بن يمني محمص 250غ", "en": "Yemeni beans 250g" },
+                        "description": { "ar": "تحميص متوسط مع ملاحظات شوكولاتة وتمور.", "en": "Medium roast with chocolate & dates notes." },
+                        "price": 48,
+                        "tags": ["تحميص بيت", "محاصيل خاصة"]
+                      },
+                      {
+                        "id": "coldbrew-kit",
+                        "sku": "RT-512",
+                        "name": { "ar": "عدة تحضير كولد برو", "en": "Cold brew kit" },
+                        "description": { "ar": "كيس ترشيح، ميزان، وتعليمات خطوة بخطوة.", "en": "Filter bag, scale, and step guide." },
+                        "price": 65,
+                        "tags": ["أدوات", "محدود"]
+                      }
+                    ]
+                  }
+                ]
+              </script>
+
+              <script type="application/json" data-m-data data-m-path="data.ui">
+                {
+                  "activeCategory": "coffee",
+                  "paymentModalOpen": false,
+                  "activePaymentMethod": "cash"
+                }
+              </script>
+
+              <nav class="menu-categories">
+                <button
+                  class="category-button {state.data.ui.activeCategory === category.id ? 'active' : ''}"
+                  x-for="category in state.data.menu"
+                  key="category.id"
+                  onclick="switchCategory(category.id, ctx)"
+                >
+                  <span>{category.title[state.env.lang] || category.title.ar}</span>
+                  <span class="brand-meta">{category.items.length} {trans('pos.menu.itemsCount')}</span>
+                </button>
+              </nav>
+
+              <section x-for="category in state.data.menu" key="category.id" x-if="category.id === state.data.ui.activeCategory">
+                <div class="menu-grid">
+                  <article class="menu-card" x-for="item in category.items" key="item.id">
+                    <header>
+                      <h3>{item.name[state.env.lang] || item.name.ar}</h3>
+                      <p>{item.description[state.env.lang] || item.description.ar}</p>
+                    </header>
+                    <div class="tag-row">
+                      <span class="tag" x-for="tag in item.tags" key="tag">{tag}</span>
+                    </div>
+                    <footer>
+                      <span class="price">{formatCurrency(item.price, state)}</span>
+                      <button onclick="addItemToCart(item.id, ctx)">{trans('pos.menu.add')}</button>
+                    </footer>
+                  </article>
+                </div>
+              </section>
+
+              <script>
+                function switchCategory(categoryId, ctx){
+                  commit(ctx, function(next){
+                    if(!next.data) next.data = {};
+                    if(!next.data.ui) next.data.ui = {};
+                    next.data.ui.activeCategory = categoryId;
+                  });
+                }
+                function addItemToCart(itemId, ctx){
+                  commit(ctx, function(next){
+                    var state = next;
+                    var item = findMenuItem(state, itemId);
+                    if(!item) return;
+                    var cart = (next.data.cart = next.data.cart || { items: [] });
+                    cart.items = cart.items || [];
+                    var existing = cart.items.find(function(row){ return row.id === item.id; });
+                    if(existing){
+                      existing.qty = (Number(existing.qty) || 0) + 1;
+                    } else {
+                      cart.items.push({
+                        id: item.id,
+                        sku: item.sku,
+                        name: item.name,
+                        price: item.price,
+                        qty: 1
+                      });
+                    }
+                  });
+                }
+              </script>
+            </div>
+
+            <div class="summary-column">
+              <div class="summary-header">
+                <h2>{trans('pos.summary.title')}</h2>
+                <p class="brand-meta">{trans('pos.summary.hint')}</p>
+              </div>
+
+              <script type="application/json" data-m-data data-m-path="data.cart">
+                {
+                  "items": [
+                    {
+                      "id": "flat-white",
+                      "sku": "CF-118",
+                      "name": { "ar": "فلات وايت", "en": "Flat white" },
+                      "price": 16,
+                      "qty": 2
+                    },
+                    {
+                      "id": "avocado-toast",
+                      "sku": "BR-034",
+                      "name": { "ar": "توست الأفوكادو", "en": "Avocado toast" },
+                      "price": 24,
+                      "qty": 1,
+                      "note": "بدون بصل"
+                    }
+                  ],
+                  "discount": { "type": "percent", "value": 10, "label": "نادي الصباح" },
+                  "serviceRate": 0.1,
+                  "taxRate": 0.15,
+                  "note": "ضيف رقم 2 يفضّل الحليب النباتي"
+                }
+              </script>
+
+              <script type="application/json" data-m-data data-m-path="data.currency">
+                {
+                  "symbol": "﷼",
+                  "code": "SAR",
+                  "fraction": 2,
+                  "position": "after"
+                }
+              </script>
+
+              <div class="cart-items" x-if="state.data.cart && state.data.cart.items && state.data.cart.items.length">
+                <div class="cart-row" x-for="line in state.data.cart.items" key="line.id">
+                  <div class="qty-box">
+                    <button onclick="incrementLine(line.id, -1, ctx)">−</button>
+                    <span>{line.qty}</span>
+                    <button onclick="incrementLine(line.id, +1, ctx)">+</button>
+                  </div>
+                  <div>
+                    <strong>{line.name[state.env.lang] || line.name.ar}</strong>
+                    <small>{line.sku}</small>
+                    <div x-if="line.note"><small>📝 {line.note}</small></div>
+                  </div>
+                  <div class="row-actions">
+                    <span>{formatCurrency(line.price * line.qty, state)}</span>
+                    <button onclick="removeLine(line.id, ctx)">حذف</button>
+                  </div>
+                </div>
+              </div>
+              <div class="empty-state" x-if="!state.data.cart || !state.data.cart.items || state.data.cart.items.length === 0">
+                {trans('pos.summary.empty')}
+              </div>
+
+              <div class="summary-block">
+                <div class="summary-row"><span>{trans('pos.summary.subtotal')}</span><span>{formatCurrency(computeTotals(state.data.cart).subtotal, state)}</span></div>
+                <div class="summary-row"><span>{trans('pos.summary.discount')}</span><span>{state.data.cart.discount && state.data.cart.discount.label ? state.data.cart.discount.label + ' • ' : ''}{formatCurrency(computeTotals(state.data.cart).discount, state)}</span></div>
+                <div class="summary-row"><span>{trans('pos.summary.service')}</span><span>{formatCurrency(computeTotals(state.data.cart).service, state)}</span></div>
+                <div class="summary-row"><span>{trans('pos.summary.tax')}</span><span>{formatCurrency(computeTotals(state.data.cart).tax, state)}</span></div>
+                <div class="summary-row total"><span>{trans('pos.summary.total')}</span><span>{formatCurrency(computeTotals(state.data.cart).total, state)}</span></div>
+              </div>
+
+              <label>
+                <span class="brand-meta">{trans('pos.summary.note')}</span>
+                <textarea class="order-note" oninput="updateOrderNote(event, ctx)">{state.data.cart.note || ''}</textarea>
+              </label>
+
+              <div class="summary-actions">
+                <button class="ghost" onclick="clearCart(ctx)">{trans('pos.summary.clear')}</button>
+                <button class="ghost" onclick="togglePaymentModal(true, ctx)">{trans('pos.summary.pay')}</button>
+                <button class="primary" onclick="togglePaymentModal(true, ctx)">{trans('pos.actions.checkout')}</button>
+              </div>
+
+              <section>
+                <h3>{trans('pos.timeline.title')}</h3>
+                <div class="timeline">
+                  <div class="timeline-entry"><span class="icon">🕘</span><div><strong>{trans('pos.timeline.created')}</strong><div class="brand-meta">08:17 صباحًا • بواسطة {state.data.order.server}</div></div></div>
+                  <div class="timeline-entry"><span class="icon">👨‍🍳</span><div><strong>{trans('pos.timeline.sent')}</strong><div class="brand-meta">08:19 صباحًا • 4 أصناف قيد التحضير</div></div></div>
+                  <div class="timeline-entry"><span class="icon">✅</span><div><strong>{trans('pos.timeline.ready')}</strong><div class="brand-meta">08:24 صباحًا • المشروبات جاهزة</div></div></div>
+                </div>
+              </section>
+
+              <script>
+                function incrementLine(lineId, delta, ctx){
+                  commit(ctx, function(next){
+                    var cart = next.data && next.data.cart;
+                    if(!cart || !Array.isArray(cart.items)) return;
+                    cart.items = cart.items.filter(function(item){
+                      if(!item || item.id !== lineId) return true;
+                      var nextQty = (Number(item.qty) || 0) + delta;
+                      if(nextQty <= 0) return false;
+                      item.qty = nextQty;
+                      return true;
+                    });
+                  });
+                }
+                function removeLine(lineId, ctx){
+                  commit(ctx, function(next){
+                    var cart = next.data && next.data.cart;
+                    if(!cart || !Array.isArray(cart.items)) return;
+                    cart.items = cart.items.filter(function(item){ return item && item.id !== lineId; });
+                  });
+                }
+                function updateOrderNote(event, ctx){
+                  var value = event && event.target ? event.target.value : '';
+                  commit(ctx, function(next){
+                    if(!next.data) next.data = {};
+                    if(!next.data.cart) next.data.cart = { items: [] };
+                    next.data.cart.note = value;
+                  });
+                }
+                function clearCart(ctx){
+                  commit(ctx, function(next){
+                    if(!next.data) next.data = {};
+                    next.data.cart = next.data.cart || {};
+                    next.data.cart.items = [];
+                  });
+                }
+                function adjustGuests(delta, ctx){
+                  commit(ctx, function(next){
+                    if(!next.data) next.data = {};
+                    if(!next.data.order) next.data.order = {};
+                    var current = Number(next.data.order.guests) || 0;
+                    next.data.order.guests = Math.max(1, current + delta);
+                  });
+                }
+              </script>
+            </div>
+          </div>
+
+          <section class="payment-modal" x-if="state.data.ui && state.data.ui.paymentModalOpen" onclick="closePaymentModal(event, ctx)">
+            <div class="payment-sheet" onclick="event.stopPropagation()">
+              <header>
+                <h3>{trans('pos.payments.title')}</h3>
+                <p class="brand-meta">{trans('pos.payments.reference')} • {state.data.order.reference}</p>
+              </header>
+
+              <script type="application/json" data-m-data data-m-path="data.payments">
+                {
+                  "methods": [
+                    { "id": "cash", "label": { "ar": "نقدي", "en": "Cash" }, "hint": { "ar": "استلام في الكاشير", "en": "Collect at cashier" } },
+                    { "id": "card", "label": { "ar": "بطاقة مدى", "en": "Debit card" }, "hint": { "ar": "جهاز نقطة البيع", "en": "POS terminal" } },
+                    { "id": "applepay", "label": { "ar": "آبل باي", "en": "Apple Pay" }, "hint": { "ar": "مدفوعات بدون تلامس", "en": "Contactless" } }
+                  ]
+                }
+              </script>
+
+              <div class="summary-block">
+                <div class="summary-row"><span>{trans('pos.payments.total')}</span><span>{formatCurrency(computeTotals(state.data.cart).total, state)}</span></div>
+              </div>
+
+              <div class="payment-methods">
+                <div
+                  class="method-card {state.data.ui.activePaymentMethod === method.id ? 'active' : ''}"
+                  x-for="method in state.data.payments.methods"
+                  key="method.id"
+                  onclick="selectPaymentMethod(method.id, ctx)"
+                >
+                  <div>
+                    <strong>{method.label[state.env.lang] || method.label.ar}</strong>
+                    <div class="brand-meta">{method.hint[state.env.lang] || method.hint.ar}</div>
+                  </div>
+                  <span>{state.data.ui.activePaymentMethod === method.id ? '✓' : ''}</span>
+                </div>
+              </div>
+
+              <footer>
+                <button class="cancel" onclick="togglePaymentModal(false, ctx)">{trans('pos.payments.cancel')}</button>
+                <button class="confirm" onclick="completePayment(ctx)">{trans('pos.payments.confirm')}</button>
+              </footer>
+            </div>
+          </section>
+
+          <script>
+            function setServiceType(type, ctx){
+              commit(ctx, function(next){
+                if(!next.data) next.data = {};
+                if(!next.data.order) next.data.order = {};
+                next.data.order.type = type;
+              });
+            }
+            function togglePaymentModal(open, ctx){
+              commit(ctx, function(next){
+                if(!next.data) next.data = {};
+                if(!next.data.ui) next.data.ui = {};
+                next.data.ui.paymentModalOpen = !!open;
+              });
+            }
+            function closePaymentModal(event, ctx){
+              if(event && event.target && event.currentTarget && event.target !== event.currentTarget) return;
+              togglePaymentModal(false, ctx);
+            }
+            function selectPaymentMethod(methodId, ctx){
+              commit(ctx, function(next){
+                if(!next.data) next.data = {};
+                if(!next.data.ui) next.data.ui = {};
+                next.data.ui.activePaymentMethod = methodId;
+              });
+            }
+            function completePayment(ctx){
+              commit(ctx, function(next){
+                if(!next.data) next.data = {};
+                if(!next.data.cart) next.data.cart = {};
+                next.data.cart.items = [];
+                next.data.cart.note = '';
+                if(next.data.ui) next.data.ui.paymentModalOpen = false;
+              }, function(state){
+                var env = runtime();
+                if(env && typeof env.persistPrefs === 'function') env.persistPrefs(state);
+              });
+            }
+          </script>
+
+          <script>
+            document.addEventListener('DOMContentLoaded', function(){
+              var env = runtime();
+              env.applyEnvironment(window.__POS_STATE__ || {});
+            });
+          </script>
+        </div>
+      </div>
+    </template>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./dist/mishkah-htmlx.js"></script>
+
+    <script>
+      (function (window) {
+        'use strict';
+        var M = window.Mishkah;
+        if (!M || !M.HTMLxAgent) {
+          console.error('Mishkah HTMLx agent is required.');
+          return;
+        }
+        var start = M.HTMLxAgent.make({ templateId: 'mishkah-pos-htmlx' });
+        Promise.resolve(start).catch(function (error) {
+          console.error('Failed to start Mishkah POS HTMLx:', error);
+        });
+      })(window);
+    </script>
+  </body>
+</html>
