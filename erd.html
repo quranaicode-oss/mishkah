@@ -143,7 +143,8 @@
     }
     .json-tree-viewer {
       padding: 0;
-      overflow: hidden;
+      overflow: auto;
+      max-height: 24rem;
     }
     .json-tree-viewer[data-json-ready='true'] .json-tree-fallback {
       display: none;
@@ -172,17 +173,20 @@
       padding: 0.75rem 1rem 1rem;
       display: flex;
       flex-direction: column;
+      align-items: stretch;
       gap: 0.35rem;
       font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "SFMono-Regular", ui-monospace, monospace;
       font-size: 0.82rem;
       line-height: 1.6;
       direction: ltr;
+      width: 100%;
     }
     .json-tree-node {
       display: flex;
       align-items: flex-start;
       gap: 0.45rem;
       color: color-mix(in srgb, var(--card-foreground) 92%, transparent);
+      width: 100%;
     }
     .json-tree-node--branch {
       font-weight: 500;
