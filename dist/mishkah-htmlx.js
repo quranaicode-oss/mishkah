@@ -304,38 +304,60 @@
 
   function parseAjaxMapScript(scriptEl, templateEl) {
     var contextLabel = describeTemplate(templateEl);
+    var ownerAttr = scriptEl && typeof scriptEl.getAttribute === 'function'
+      ? (scriptEl.getAttribute('data-for') || scriptEl.getAttribute('data-owner') || scriptEl.getAttribute('data-m-owner') || '')
+      : '';
+    var owner = typeof ownerAttr === 'string' ? ownerAttr.trim() : '';
+    var locationLabel = owner ? contextLabel + ' › ' + owner : contextLabel;
+    var keyAttr = scriptEl && typeof scriptEl.getAttribute === 'function' ? scriptEl.getAttribute('data-m-ajax-map') : null;
+    var explicitKey = keyAttr != null ? String(keyAttr).trim() : '';
     var raw = (scriptEl && (scriptEl.textContent || scriptEl.innerText || '')) || '';
     var text = raw.trim();
+    var warnings = [];
+    var entries = {};
     if (!text) {
-      return { entries: {}, warnings: [] };
+      if (explicitKey) {
+        entries[explicitKey] = {};
+      }
+      return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
     }
     var data;
     try {
       data = JSON.parse(text);
     } catch (error) {
-      var message = 'HTMLx: data-m-ajax-map داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      var message = 'HTMLx: data-m-ajax-map داخل ' + locationLabel + ' ليس JSON صالحًا: ' + error.message;
       console.warn(message);
-      return { entries: {}, warnings: [message] };
+      warnings.push(message);
+      return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
+    }
+    if (explicitKey) {
+      if (!isPlainObject(data)) {
+        var singleMessage = 'HTMLx: data-m-ajax-map المفتاح ' + explicitKey + ' داخل ' + locationLabel + ' يجب أن يكون كائن JSON.';
+        console.warn(singleMessage);
+        warnings.push(singleMessage);
+        return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
+      }
+      entries[explicitKey] = cloneSerializableValue(data);
+      return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
     }
     if (!isPlainObject(data)) {
-      var typeMessage = 'HTMLx: data-m-ajax-map داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
+      var typeMessage = 'HTMLx: data-m-ajax-map داخل ' + locationLabel + ' يجب أن يكون كائن JSON.';
       console.warn(typeMessage);
-      return { entries: {}, warnings: [typeMessage] };
+      warnings.push(typeMessage);
+      return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
     }
-    var entries = {};
-    var warnings = [];
     for (var key in data) {
       if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
       var value = data[key];
       if (!isPlainObject(value)) {
-        var warn = 'HTMLx: data-m-ajax-map المفتاح ' + key + ' داخل ' + contextLabel + ' يجب أن يكون كائناً.';
+        var warn = 'HTMLx: data-m-ajax-map المفتاح ' + key + ' داخل ' + locationLabel + ' يجب أن يكون كائناً.';
         console.warn(warn);
         warnings.push(warn);
         continue;
       }
       entries[key] = cloneSerializableValue(value);
     }
-    return { entries: entries, warnings: warnings };
+    return { entries: entries, warnings: warnings, owner: owner || null, source: locationLabel };
   }
 
   function mergeAjaxConfig(base, patch) {
@@ -1866,9 +1888,15 @@
         }
         if (scriptEl.hasAttribute('data-m-ajax-map')) {
           var ajaxMap = parseAjaxMapScript(scriptEl, templateEl);
-          bundle.ajaxMaps.push({ entries: ajaxMap.entries, source: describeTemplate(templateEl) });
-          if (ajaxMap && ajaxMap.warnings && ajaxMap.warnings.length) {
-            bundle.warnings = bundle.warnings.concat(ajaxMap.warnings);
+          if (ajaxMap) {
+            bundle.ajaxMaps.push({
+              entries: ajaxMap.entries || {},
+              source: ajaxMap.source || describeTemplate(templateEl),
+              owner: ajaxMap.owner || null
+            });
+            if (ajaxMap.warnings && ajaxMap.warnings.length) {
+              bundle.warnings = bundle.warnings.concat(ajaxMap.warnings);
+            }
           }
           if (scriptEl.parentNode) {
             scriptEl.parentNode.removeChild(scriptEl);
@@ -2279,7 +2307,8 @@
           }
           ajaxRegistry[key] = {
             config: cloneSerializableValue(mapEntry.entries[key]),
-            source: mapEntry.source || describeTemplate(template)
+            source: mapEntry.source || describeTemplate(template),
+            owner: mapEntry.owner || null
           };
         }
       }
@@ -2841,7 +2870,8 @@
           }
           ajaxRegistry[key] = {
             config: cloneSerializableValue(compiledEntry.ajaxRegistry[key].config || {}),
-            source: compiledEntry.ajaxRegistry[key].source || templateLabel
+            source: compiledEntry.ajaxRegistry[key].source || templateLabel,
+            owner: compiledEntry.ajaxRegistry[key].owner || null
           };
         }
       }

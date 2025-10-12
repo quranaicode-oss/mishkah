@@ -38,17 +38,27 @@
 
 ### 4.1 إعلان الخريطة العامة
 
-- في أعلى القالب يوجد:
+- في أعلى القالب يوجد تعريف عام:
   ```html
   <script type="application/json" data-m-ajax-map>
     {
-      "docs.ajaxBase": { "url": "./docs/htmlx-ajax-demo.json", "responseType": "json", "mode": "merge" },
-      "docs.ajaxDigest": { "url": "./docs/htmlx-ajax-demo.json", "responseType": "json", "extract": "digest", "mode": "replace" }
+      "docs.ajaxBase": { "url": "./docs/htmlx-ajax-demo.json", "responseType": "json", "mode": "merge" }
     }
   </script>
   ```
-- هذا يعرّف أسماء مصادر Ajax المتاحة عالميًا داخل الصفحة.
-- المفتاح (`docs.ajaxBase`) هو ما ستستدعيه حقول البيانات لاحقًا عبر `data-m-ajax`.
+- ولأن المحرّك بات يدعم تقسيم الخرائط، يمكنك وضع مفاتيح إضافية قرب المكوّن الذي يستخدمها:
+  ```html
+  <script type="application/json" data-m-ajax-map="docs.ajaxDigest">
+    {
+      "url": "./docs/htmlx-ajax-demo.json",
+      "responseType": "json",
+      "extract": "digest",
+      "mode": "replace"
+    }
+  </script>
+  ```
+- الحالتان متكاملتان: الأولى تنشئ خريطة عامة، والثانية تُسجّل مفتاحًا واحدًا فقط معرّفًا عبر قيمة السمة `data-m-ajax-map`، مما يسهل ربطه منطقيًا بالعنصر الذي يعتمد عليه.
+- المفتاح (`docs.ajaxBase` أو `docs.ajaxDigest`) هو ما ستستدعيه حقول البيانات لاحقًا عبر `data-m-ajax`.
 
 ### 4.2 ربط البيانات بAjax
 
