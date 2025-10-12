@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTMLx Counter — Mishkah</title>
+    <meta name="description" content="مثال HTMLx مبسّط يوضح بناء عدّاد في منظومة مشكاة." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --font-base: 'Tajawal', system-ui;
+        --bg: radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.18), transparent 55%),
+          radial-gradient(circle at 80% 75%, rgba(14, 165, 233, 0.2), transparent 60%),
+          linear-gradient(135deg, #f5f7fb 0%, #edf3ff 45%, #e9f7ff 100%);
+        --fg: #0f172a;
+        --muted: rgba(15, 23, 42, 0.6);
+        --panel: rgba(255, 255, 255, 0.9);
+        --panel-border: rgba(99, 102, 241, 0.16);
+        --shadow: 0 32px 80px -40px rgba(15, 23, 42, 0.28);
+        --accent: #2563eb;
+        --accent-strong: #1d4ed8;
+        --accent-soft: rgba(37, 99, 235, 0.1);
+        --accent-fg: #f8fafc;
+        --outline: rgba(37, 99, 235, 0.18);
+        --surface: rgba(248, 250, 252, 0.9);
+        --toolbar: rgba(15, 23, 42, 0.04);
+        --toolbar-border: rgba(148, 163, 184, 0.35);
+      }
+
+      :root.dark {
+        --bg: radial-gradient(circle at 15% 25%, rgba(79, 70, 229, 0.22), transparent 65%),
+          radial-gradient(circle at 82% 80%, rgba(14, 165, 233, 0.22), transparent 60%),
+          linear-gradient(135deg, #0f172a 0%, #111827 55%, #1f2937 100%);
+        --fg: #f8fafc;
+        --muted: rgba(226, 232, 240, 0.68);
+        --panel: rgba(17, 24, 39, 0.9);
+        --panel-border: rgba(148, 163, 184, 0.2);
+        --shadow: 0 40px 90px -50px rgba(15, 23, 42, 0.75);
+        --accent: #60a5fa;
+        --accent-strong: #3b82f6;
+        --accent-soft: rgba(96, 165, 250, 0.14);
+        --accent-fg: #0f172a;
+        --outline: rgba(96, 165, 250, 0.25);
+        --surface: rgba(30, 41, 59, 0.78);
+        --toolbar: rgba(148, 163, 184, 0.08);
+        --toolbar-border: rgba(148, 163, 184, 0.2);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-base);
+        background: var(--bg);
+        color: var(--fg);
+        display: grid;
+        place-items: center;
+        padding: 2.5rem 1.5rem;
+      }
+
+      .page-shell {
+        display: grid;
+        gap: 2.5rem;
+        max-width: 520px;
+        width: min(100%, 520px);
+      }
+
+      .brand {
+        text-align: center;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: clamp(1.85rem, 3vw, 2.35rem);
+        font-weight: 700;
+      }
+
+      .brand p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="brand">
+        <h1>عداد HTMLx مصغّر</h1>
+        <p>تعرف على أبسط نمط للتعامل مع الحالة والأوامر داخل مشكاة.</p>
+      </section>
+      <div id="app"></div>
+    </main>
+
+    <template id="counter-htmx-demo">
+      <style>
+        :host {
+          display: block;
+        }
+
+        .counter-card {
+          background: var(--panel);
+          border-radius: 1.75rem;
+          border: 1px solid var(--panel-border);
+          padding: 2.25rem 2rem;
+          box-shadow: var(--shadow);
+          display: grid;
+          gap: 1.85rem;
+        }
+
+        .toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          border-radius: 999px;
+          background: var(--toolbar);
+          border: 1px solid var(--toolbar-border);
+        }
+
+        .toolbar button {
+          appearance: none;
+          border: none;
+          border-radius: 999px;
+          padding: 0.35rem 0.9rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          color: var(--fg);
+          background: transparent;
+          transition: background-color 0.18s ease, color 0.18s ease;
+        }
+
+        .toolbar button:hover,
+        .toolbar button:focus-visible {
+          background: var(--accent-soft);
+          color: var(--accent-strong);
+        }
+
+        .toolbar button:focus-visible {
+          outline: 2px solid var(--outline);
+          outline-offset: 2px;
+        }
+
+        header {
+          display: grid;
+          gap: 0.35rem;
+          justify-items: center;
+          text-align: center;
+        }
+
+        header span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.3rem 0.9rem;
+          border-radius: 999px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          background: var(--surface);
+          border: 1px solid var(--outline);
+        }
+
+        header h2 {
+          margin: 0;
+          font-size: clamp(1.6rem, 3vw, 2.1rem);
+          font-weight: 700;
+        }
+
+        header p {
+          margin: 0;
+          color: var(--muted);
+          font-size: 0.95rem;
+        }
+
+        .counter-display {
+          display: grid;
+          place-items: center;
+          padding: 1.75rem;
+          border-radius: 1.5rem;
+          border: 1px solid var(--panel-border);
+          background: linear-gradient(135deg, var(--accent-soft), rgba(37, 99, 235, 0.16));
+          font-size: clamp(2.2rem, 6vw, 3rem);
+          font-weight: 700;
+          color: var(--accent-strong);
+        }
+
+        .actions {
+          display: grid;
+          gap: 0.75rem;
+        }
+
+        @media (min-width: 480px) {
+          .actions {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        button {
+          border: none;
+          border-radius: 999px;
+          padding: 0.75rem 1.1rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.2s ease;
+        }
+
+        button.primary {
+          background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+          color: var(--accent-fg);
+          box-shadow: 0 18px 45px -22px rgba(37, 99, 235, 0.55);
+        }
+
+        button.secondary {
+          background: var(--surface);
+          color: var(--fg);
+          border: 1px solid var(--outline);
+          box-shadow: 0 14px 35px -26px rgba(15, 23, 42, 0.22);
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+        }
+
+        button:focus-visible {
+          outline: 3px solid var(--outline);
+          outline-offset: 3px;
+        }
+
+        .hint {
+          margin: 0;
+          text-align: center;
+          font-size: 0.9rem;
+          color: var(--muted);
+        }
+      </style>
+
+      <article class="counter-card">
+        <div class="toolbar">
+          <button onclick="toggleTheme(event, ctx)">
+            {state.env.theme === 'dark'
+              ? state.data.copy.actions.themeLight[state.env.lang]
+              : state.data.copy.actions.themeDark[state.env.lang]}
+          </button>
+          <button onclick="toggleLanguage(event, ctx)">
+            {state.data.copy.actions.language[state.env.lang]}
+          </button>
+        </div>
+
+        <header>
+          <span>{state.data.copy.badge[state.env.lang]}</span>
+          <h2>{state.data.copy.title[state.env.lang]}</h2>
+          <p>{state.data.copy.subtitle[state.env.lang]}</p>
+        </header>
+
+        <div class="counter-display">{state.data.counter.value}</div>
+
+        <div class="actions">
+          <button class="primary" onclick="increment(event, ctx)">
+            {state.data.copy.actions.increment[state.env.lang]}
+          </button>
+          <button class="secondary" onclick="reset(event, ctx)">
+            {state.data.copy.actions.reset[state.env.lang]}
+          </button>
+          <button class="secondary" onclick="decrement(event, ctx)">
+            {state.data.copy.actions.decrement[state.env.lang]}
+          </button>
+        </div>
+
+        <p class="hint">
+          {state.data.copy.hint[state.env.lang]}
+        </p>
+      </article>
+
+      <script>
+        function readEnv(ctx) {
+          var lang = ctx.get('env.lang') || 'ar';
+          var dir = ctx.get('env.dir') || (lang === 'ar' ? 'rtl' : 'ltr');
+          var theme = ctx.get('env.theme') || 'light';
+
+          return { lang: lang, dir: dir, theme: theme };
+        }
+
+        function applyEnvironment(env) {
+          if (!env) return;
+          var lang = env.lang || 'ar';
+          var dir = env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
+          var theme = env.theme || 'light';
+
+          document.documentElement.lang = lang;
+          document.documentElement.dir = dir;
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+        }
+
+        function updateCounter(ctx, delta) {
+          var current = ctx.get('data.counter.value') || 0;
+          ctx.set('data.counter.value', current + delta);
+        }
+
+        function increment(event, ctx) {
+          updateCounter(ctx, 1);
+        }
+
+        function decrement(event, ctx) {
+          updateCounter(ctx, -1);
+        }
+
+        function reset(event, ctx) {
+          ctx.set('data.counter.value', ctx.get('data.counter.initial'));
+        }
+
+        function toggleTheme(event, ctx) {
+          var env = readEnv(ctx);
+          var nextTheme = env.theme === 'dark' ? 'light' : 'dark';
+          ctx.set('env.theme', nextTheme);
+          applyEnvironment({ lang: env.lang, dir: env.dir, theme: nextTheme });
+        }
+
+        function toggleLanguage(event, ctx) {
+          var env = readEnv(ctx);
+          var nextLang = env.lang === 'ar' ? 'en' : 'ar';
+          var nextDir = nextLang === 'ar' ? 'rtl' : 'ltr';
+          ctx.set('env.lang', nextLang);
+          ctx.set('env.dir', nextDir);
+          applyEnvironment({ lang: nextLang, dir: nextDir, theme: env.theme });
+        }
+      </script>
+    </template>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-ui.js"></script>
+    <script src="./dist/mishkah-htmlx.js"></script>
+
+    <script>
+      (function () {
+        var M = window.Mishkah;
+        if (!M) {
+          console.error('Mishkah core is not available.');
+          return;
+        }
+
+        var database = {
+          head: { title: 'HTMLx Counter — Mishkah' },
+          env: { lang: 'ar', dir: 'rtl', theme: 'light' },
+          data: {
+            copy: {
+              badge: { ar: '🧪 خطوة أولى', en: '🧪 First step' },
+              title: { ar: 'القيمة الحالية', en: 'Current value' },
+              subtitle: {
+                ar: 'جرب الأزرار لتتعرف على تدفق HTMLx في مشكاة.',
+                en: 'Use the buttons to explore the HTMLx flow in Mishkah.'
+              },
+              hint: {
+                ar: 'يتولى HTMLx مزامنة الواجهة تلقائيًا — حدّث القيمة عبر ctx.set فقط.',
+                en: 'HTMLx keeps the UI in sync for you — simply update the value with ctx.set.'
+              },
+              actions: {
+                increment: { ar: '⬆️ زيادة', en: '⬆️ Increase' },
+                decrement: { ar: '⬇️ إنقاص', en: '⬇️ Decrease' },
+                reset: { ar: '🔄 إعادة الضبط', en: '🔄 Reset' },
+                themeDark: { ar: '🌙 تفعيل الوضع الليلي', en: '🌙 Enable dark theme' },
+                themeLight: { ar: '🌞 العودة للوضع الفاتح', en: '🌞 Back to light theme' },
+                language: { ar: 'English', en: 'العربية' }
+              }
+            },
+            counter: {
+              value: 0,
+              initial: 0
+            }
+          }
+        };
+
+        var start = M.HTMLxAgent.make(database, { mount: '#app' });
+
+        if (start && typeof start.catch === 'function') {
+          start.catch(function (error) {
+            console.error('Mishkah HTMLx bootstrap failed:', error);
+          });
+        }
+
+        if (database && database.env) {
+          document.documentElement.classList.toggle('dark', database.env.theme === 'dark');
+          document.documentElement.lang = database.env.lang || 'ar';
+          document.documentElement.dir = database.env.dir || (database.env.lang === 'ar' ? 'rtl' : 'ltr');
+        }
+      })();
+    </script>
+  </body>
+</html>
