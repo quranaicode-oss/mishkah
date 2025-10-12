@@ -123,6 +123,23 @@
       .ajax-digest-badge{display:inline-flex;align-items:center;justify-content:center;padding:.25rem .85rem;border-radius:999px;background:color-mix(in oklab, var(--primary) 22%, transparent);font-size:.8rem;font-weight:600}
       .ajax-empty{margin:0;color:var(--muted-foreground)}
       .ajax-sync{margin:0;color:var(--muted-foreground);font-size:.9rem}
+      .live-rates{display:grid;gap:1.25rem}
+      .live-rates-header{display:flex;flex-wrap:wrap;gap:1.25rem;align-items:flex-start;justify-content:space-between}
+      .live-rates-meta{display:flex;gap:1rem;align-items:center}
+      .live-rates-state{display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:1.1rem;background:var(--surface-1);box-shadow:var(--panel-shadow);font-size:1.45rem}
+      .live-rates-updated{margin:.15rem 0 0;font-size:.9rem;color:var(--muted-foreground)}
+      .live-rates-actions{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:flex-end}
+      .live-rates-base{display:grid;gap:.25rem;font-size:.9rem;color:var(--muted-foreground)}
+      .live-rates-base select{border-radius:.9rem;border:1px solid var(--panel-border);background:var(--surface-1);padding:.45rem .85rem;font-size:1rem;color:var(--foreground)}
+      .live-rates-grid{display:grid;border:1px solid var(--panel-border);border-radius:1.25rem;overflow:hidden;background:var(--surface-1);box-shadow:var(--panel-shadow)}
+      .live-rates-head,.live-rates-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;padding:.75rem 1rem;align-items:center}
+      .live-rates-head{font-weight:700;background:color-mix(in oklab, var(--primary) 12%, transparent)}
+      .live-rates-row:nth-child(even){background:color-mix(in oklab, var(--primary) 6%, transparent)}
+      .live-rates-row span:last-child{text-align:end;font-variant-numeric:tabular-nums}
+      .live-rates-empty,.live-rates-source{margin:0;font-size:.95rem;color:var(--muted-foreground)}
+      .live-rates-error{margin:0;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.12);padding:1rem 1.25rem;border-radius:1rem;color:#b91c1c;display:grid;gap:.35rem}
+      .live-rates-error strong{font-size:1rem;color:#dc2626}
+      .button[disabled]{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
       .game-board{display:grid;gap:1.5rem}
       .puzzle-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem}
       .puzzle-tile{width:var(--tile-size,3rem);height:var(--tile-size,3rem);border-radius:1.4rem;display:grid;place-items:center;background:var(--tile-bg);border:1px solid var(--tile-border);font-weight:600;font-size:1.2rem;box-shadow:0 18px 38px -28px rgba(15,23,42,.45)}
@@ -224,7 +241,7 @@
 
           <script>
             function formatTimeLeft(game){ if(!game || !game.timerOn) return '—'; var value=typeof game.timeLeft==='number'? game.timeLeft: game.timerSec; return value>=0? value: '—'; }
-            function switchTab(tab, ctx){ ctx.set('data.activeTab', tab); rememberState(ctx); }
+            function switchTab(tab, ctx){ ctx.set('data.activeTab', tab); rememberState(ctx); if(tab==='liveRates' && typeof refreshLiveRates==='function' && ctx && typeof ctx.getState==='function'){ try { var state=ctx.getState(); var live=state && state.data && state.data.liveRates; if(!live || live.status==='idle' || live.status==='error'){ window.setTimeout(function(){ refreshLiveRates(ctx); }, 0); } } catch(_err){} } }
             function setTheme(theme, ctx){ commit(ctx, function(next){ next.env.theme=theme; }, function(state){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(env.persistPrefs) env.persistPrefs(state); }); }
             function setLanguage(lang, ctx){ commit(ctx, function(next){ next.env.lang=lang; next.env.dir= lang==='ar'? 'rtl':'ltr'; }, function(state){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(env.persistPrefs) env.persistPrefs(state); }); }
             function toggleSettings(ctx){ commit(ctx, function(next){ next.data.settingsOpen=!next.data.settingsOpen; }); }
@@ -243,6 +260,7 @@
                     "nav.logic": { "ar": "تحدي المنطق", "en": "Logic Challenge" },
                     "nav.game": { "ar": "لعبة الأمثال", "en": "Proverbs Game" },
                     "nav.ajax": { "ar": "بيانات Ajax", "en": "Ajax Data" },
+                    "nav.liveRates": { "ar": "أسعار مباشرة", "en": "Live rates" },
                     "doc.base.lead": { "ar": "قراءة روحية لمعماريات مشكاة ومحركها.", "en": "A reflective tour through Mishkah's architecture." },
                     "doc.tec.lead": { "ar": "الملف التقني الذي يشرح تفاصيل النظام.", "en": "The technical dossier explaining the system." },
                     "doc.language.hint": { "ar": "بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.", "en": "Use the header switcher to view the document in Arabic or English." },
@@ -257,7 +275,24 @@
                     "ajax.resources.title": { "ar": "مراجع موثوقة", "en": "Helpful references" },
                     "ajax.digest.title": { "ar": "مصادر جاهزة للاستهلاك", "en": "Ready-made sources" },
                     "ajax.digest.syncedAt": { "ar": "آخر مزامنة:", "en": "Last sync:" },
-                    "ajax.digest.empty": { "ar": "لم تصل بيانات بعد — جرّب الإعلان عن مصدر Ajax.", "en": "No entries yet—try wiring a declarative Ajax source." }
+                    "ajax.digest.empty": { "ar": "لم تصل بيانات بعد — جرّب الإعلان عن مصدر Ajax.", "en": "No entries yet—try wiring a declarative Ajax source." },
+                    "liveRates.title": { "ar": "متابعة أسعار العملات", "en": "Live currency rates" },
+                    "liveRates.lead": { "ar": "أسعار فورية من خدمة عالمية مجانية.", "en": "Live prices from a free global service." },
+                    "liveRates.status.idle": { "ar": "جاهز للتحميل", "en": "Ready to load" },
+                    "liveRates.status.loading": { "ar": "جارٍ جلب البيانات...", "en": "Fetching data..." },
+                    "liveRates.status.ready": { "ar": "بيانات محدثة", "en": "Updated data" },
+                    "liveRates.status.error": { "ar": "تعذر تحميل البيانات", "en": "Unable to load data" },
+                    "liveRates.updatedLabel": { "ar": "آخر تحديث:", "en": "Last update:" },
+                    "liveRates.updated.pending": { "ar": "بإنتظار التحديث", "en": "Awaiting refresh" },
+                    "liveRates.refresh": { "ar": "تحديث الأسعار", "en": "Refresh rates" },
+                    "liveRates.refreshing": { "ar": "جارٍ التحديث...", "en": "Refreshing..." },
+                    "liveRates.base": { "ar": "العملة الأساسية", "en": "Base currency" },
+                    "liveRates.column.currency": { "ar": "العملة", "en": "Currency" },
+                    "liveRates.column.rate": { "ar": "السعر مقابل الأساس", "en": "Rate vs base" },
+                    "liveRates.empty": { "ar": "لم يتم تحميل الأسعار بعد.", "en": "Rates have not loaded yet." },
+                    "liveRates.source": { "ar": "المصدر:", "en": "Source:" },
+                    "liveRates.errorTitle": { "ar": "تعذر جلب الأسعار", "en": "Could not fetch rates" },
+                    "liveRates.errorFallback": { "ar": "تأكد من الاتصال بالإنترنت ثم أعد المحاولة.", "en": "Check the connection and try again." }
                   }
                 </script>
 
@@ -272,6 +307,7 @@
                   <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)"><span>{trans('nav.counter')}</span><span class="hint">{trans('counter.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)"><span>{trans('nav.logic')}</span><span class="hint">{trans('logic.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'ajax' ? 'active' : ''}" onclick="switchTab('ajax', ctx)"><span>{trans('nav.ajax')}</span><span class="hint">{trans('ajax.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'liveRates' ? 'active' : ''}" onclick="switchTab('liveRates', ctx)"><span>{trans('nav.liveRates')}</span><span class="hint">{trans('liveRates.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)"><span>{trans('nav.game')}</span><span class="hint">{trans('game.lead')}</span></button>
                 </div>
               </div>
@@ -282,6 +318,21 @@
                 {
                   "base": { "ar": "", "en": "" },
                   "tec": { "ar": "", "en": "" }
+                }
+              </script>
+
+              <script type="application/json" data-m-data data-m-path="data.liveRates">
+                {
+                  "status": "idle",
+                  "base": "USD",
+                  "availableBases": ["USD", "EUR", "GBP", "SAR", "AED", "EGP"],
+                  "currencies": ["EUR", "GBP", "SAR", "AED", "EGP"],
+                  "rates": [],
+                  "updatedAt": null,
+                  "fetchedAt": null,
+                  "error": null,
+                  "source": null,
+                  "lastErrorAt": null
                 }
               </script>
 
@@ -433,15 +484,63 @@
                     </div>
                     <p class="ajax-empty" x-if="!state.data.ajaxDigest.items || !state.data.ajaxDigest.items.length">{trans('ajax.digest.empty')}</p>
                   </div>
+              </div>
+            </section>
+
+            <script>
+              function digestSyncLabel(digest){ if(!digest || !digest.lastSync) return '—'; try { var dt=new Date(digest.lastSync); if(Number.isNaN(dt.getTime())) return digest.lastSync; return dt.toLocaleString(); } catch(_err){ return digest.lastSync; } }
+              function digestItemTitle(item, ctx){ if(!item) return ''; var state=ctx.getState(); var lang=(state && state.env && state.env.lang)||'ar'; if(item.title && typeof item.title==='object'){ return item.title[lang] || item.title.ar || item.title.en || ''; } return item.title || ''; }
+            </script>
+
+            <section class="panel" x-if="state.data.activeTab === 'liveRates'">
+              <header><h2>{trans('liveRates.title')}</h2><p>{trans('liveRates.lead')}</p></header>
+              <div class="live-rates">
+                <div class="live-rates-header">
+                  <div class="live-rates-meta">
+                    <span class="live-rates-state">{liveRatesStatusIcon(state.data.liveRates)}</span>
+                    <div>
+                      <strong>{liveRatesStatusText(state.data.liveRates, ctx)}</strong>
+                      <p class="live-rates-updated">{trans('liveRates.updatedLabel')} <span>{liveRatesUpdatedLabel(state.data.liveRates, ctx)}</span></p>
+                    </div>
+                  </div>
+                  <div class="live-rates-actions">
+                    <label class="live-rates-base">
+                      <span>{trans('liveRates.base')}</span>
+                      <select onchange="changeLiveRatesBase(event, ctx)">
+                        <option x-for="code in state.data.liveRates.availableBases" key="code" value="{code}" selected="{code === state.data.liveRates.base ? 'selected' : null}">{code}</option>
+                      </select>
+                    </label>
+                    <button class="button" onclick="refreshLiveRates(ctx)" disabled="{state.data.liveRates.status === 'loading' ? 'disabled' : null}">
+                      {state.data.liveRates.status === 'loading' ? trans('liveRates.refreshing') : '🔄 ' + trans('liveRates.refresh')}
+                    </button>
+                  </div>
                 </div>
-              </section>
+                <div class="live-rates-error" x-if="state.data.liveRates.status === 'error'">
+                  <strong>{trans('liveRates.errorTitle')}</strong>
+                  <p>{state.data.liveRates.error || trans('liveRates.errorFallback')}</p>
+                </div>
+                <div class="live-rates-grid" x-if="state.data.liveRates.rates && state.data.liveRates.rates.length">
+                  <div class="live-rates-head"><span>{trans('liveRates.column.currency')}</span><span>{trans('liveRates.column.rate')}</span></div>
+                  <div class="live-rates-row" x-for="entry in state.data.liveRates.rates" key="entry.code"><span>{entry.code}</span><span>{formatLiveRate(entry.value)}</span></div>
+                </div>
+                <p class="live-rates-empty" x-if="!state.data.liveRates.rates || !state.data.liveRates.rates.length">{trans('liveRates.empty')}</p>
+                <p class="live-rates-source" x-if="state.data.liveRates.source && state.data.liveRates.source.url">{trans('liveRates.source')} <a href="{state.data.liveRates.source.url}" target="_blank" rel="noreferrer">{state.data.liveRates.source.label || state.data.liveRates.source.url}</a></p>
+              </div>
+            </section>
 
-              <script>
-                function digestSyncLabel(digest){ if(!digest || !digest.lastSync) return '—'; try { var dt=new Date(digest.lastSync); if(Number.isNaN(dt.getTime())) return digest.lastSync; return dt.toLocaleString(); } catch(_err){ return digest.lastSync; } }
-                function digestItemTitle(item, ctx){ if(!item) return ''; var state=ctx.getState(); var lang=(state && state.env && state.env.lang)||'ar'; if(item.title && typeof item.title==='object'){ return item.title[lang] || item.title.ar || item.title.en || ''; } return item.title || ''; }
-              </script>
+            <script>
+              function liveRatesStatusIcon(live){ if(!live) return '🕒'; if(live.status==='ready') return '🌐'; if(live.status==='error') return '⚠️'; if(live.status==='loading') return '⏳'; return '🕒'; }
+              function liveRatesStatusText(live, ctx){ var status=(live && live.status) || 'idle'; var key='liveRates.status.' + status; return ctx && typeof ctx.trans==='function'? ctx.trans(key): key; }
+              function liveRatesUpdatedLabel(live, ctx){ var translator=ctx && typeof ctx.trans==='function'? ctx.trans: function(key){ return key; }; if(!live) return '—'; if(live.status==='loading') return translator('liveRates.updated.pending'); var iso=live.updatedAt || live.fetchedAt; if(!iso) return translator('liveRates.updated.pending'); try { var dt=new Date(iso); if(Number.isNaN(dt.getTime())) throw new Error('invalid'); var utils=(window.Mishkah && window.Mishkah.utils) || {}; var Time=utils.Time; if(Time && typeof Time.fmt==='function'){ return Time.fmt(dt, { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' }); } return dt.toLocaleString(); } catch(_err){ return typeof iso==='string'? iso: translator('liveRates.updated.pending'); } }
+              function formatLiveRate(value){ var num=Number(value); if(!Number.isFinite(num)) return '—'; return num.toFixed(3); }
+              function changeLiveRatesBase(event, ctx){ var nextBase=event && event.target && event.target.value; if(!nextBase || !ctx) return; commit(ctx, function(next){ next.data=next.data||{}; next.data.liveRates=next.data.liveRates||{}; next.data.liveRates.base=String(nextBase).toUpperCase(); }, function(){ refreshLiveRates(ctx); }); }
+              function refreshLiveRates(ctx){ if(!ctx || typeof ctx.getState!=='function') return; var host=window.Mishkah || {}; var utils=host.utils || {}; var Net=utils && utils.Net; if(!Net || typeof Net.ajax!=='function'){ commit(ctx, function(next){ next.data=next.data||{}; next.data.liveRates=next.data.liveRates||{}; next.data.liveRates.status='error'; next.data.liveRates.error='Networking utility unavailable.'; next.data.liveRates.lastErrorAt=(utils && utils.Time && typeof utils.Time.ts==='function')? utils.Time.ts(): new Date().toISOString(); }); return; } var state=ctx.getState(); var store=(state && state.data && state.data.liveRates) || {}; var base=store.base || 'USD'; var targets=Array.isArray(store.currencies)? store.currencies.slice(): []; var symbols=targets.filter(function(code){ return code && code !== base; }); commit(ctx, function(next){ next.data=next.data||{}; next.data.liveRates=next.data.liveRates||{}; next.data.liveRates.status='loading'; next.data.liveRates.error=null; }); var query={ base: base }; if(symbols.length){ query.symbols=symbols.join(','); }
+                Net.ajax('https://api.exchangerate.host/latest', { query: query, timeout: 10000, responseType: 'json' }).then(function(payload){ if(payload && payload.success===false){ var msg=(payload.error && (payload.error.type || payload.error.info)) || 'Request failed'; throw new Error(msg); } commit(ctx, function(next){ next.data=next.data||{}; next.data.liveRates=next.data.liveRates||{}; var live=next.data.liveRates; live.status='ready'; live.error=null; var effectiveBase=(payload && payload.base) || base; live.base=effectiveBase; var Time=utils && utils.Time; var toIso=function(raw){ if(!raw) return null; var candidate=new Date(raw); if(Number.isNaN(candidate.getTime())) return null; return candidate.toISOString(); }; var updatedIso=null; if(payload && payload.time_last_update_utc){ updatedIso=toIso(payload.time_last_update_utc); } if(!updatedIso && payload && payload.date){ updatedIso=toIso(payload.date + 'T00:00:00Z'); }
+                  var nowIso=(Time && typeof Time.ts==='function')? Time.ts(): new Date().toISOString(); live.updatedAt=updatedIso || nowIso; live.fetchedAt=nowIso; var ratesObj=(payload && payload.rates && typeof payload.rates==='object')? payload.rates: {}; var codes=Array.isArray(live.currencies)? live.currencies.slice(): []; if(codes.indexOf(effectiveBase)===-1){ codes.unshift(effectiveBase); }
+                  var entries=codes.map(function(code){ if(!code) return null; var upper=String(code).toUpperCase(); var val=upper===effectiveBase? 1: ratesObj[upper]; var num=typeof val==='number'? val: Number(val); return { code: upper, value: Number.isFinite(num)? num: null }; }).filter(function(entry){ return entry && entry.code; }); entries.sort(function(a,b){ return a.code.localeCompare(b.code); }); live.rates=entries; live.source={ label: 'exchangerate.host', url: 'https://exchangerate.host' }; live.lastErrorAt=null; }); }).catch(function(error){ commit(ctx, function(next){ next.data=next.data||{}; next.data.liveRates=next.data.liveRates||{}; next.data.liveRates.status='error'; next.data.liveRates.error=(error && error.message) || 'Unable to load live rates.'; var Time=utils && utils.Time; next.data.liveRates.lastErrorAt=(Time && typeof Time.ts==='function')? Time.ts(): new Date().toISOString(); }); }); }
+            </script>
 
-              <section class="panel" x-if="state.data.activeTab === 'game'">
+            <section class="panel" x-if="state.data.activeTab === 'game'">
                 <script type="application/json" data-m-data data-m-path="i18n.strings">
                   {
                     "game.title": { "ar": "لعبة الأمثال والحكم", "en": "Proverbs & Wisdom Game" },
@@ -802,6 +901,14 @@
           var state = ctx.getState();
           if(runtimeGlobals.applyEnvironment) runtimeGlobals.applyEnvironment(state);
           if(runtimeGlobals.persistPrefs) runtimeGlobals.persistPrefs(state);
+          if(typeof refreshLiveRates==='function'){
+            try {
+              var live=state && state.data && state.data.liveRates;
+              if(!live || live.status==='idle'){
+                window.setTimeout(function(){ refreshLiveRates(ctx); }, 0);
+              }
+            } catch(_err){}
+          }
         }
 
         function tickTimer(ctx){
