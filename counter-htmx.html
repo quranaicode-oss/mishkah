@@ -149,7 +149,7 @@
           font-weight: 600;
           font-family: inherit;
           cursor: pointer;
-          color: var(--fg);
+          color: var(--muted);
           background: transparent;
           transition: background-color 0.18s ease, color 0.18s ease;
         }
@@ -233,7 +233,7 @@
         button.primary {
           background: linear-gradient(135deg, var(--accent), var(--accent-strong));
           color: var(--accent-fg);
-          box-shadow: 0 18px 45px -22px rgba(37, 99, 235, 0.55);
+          box-shadow: 0 18px 45px -22px rgba(37, 99, 235, 0.45);
         }
 
         button.secondary {
@@ -260,8 +260,40 @@
         }
       </style>
 
+      <script type="application/json" data-m-env>
+        {
+          "theme": "light",
+          "lang": "ar",
+          "dir": "rtl"
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="head">
+        {
+          "title": "HTMLx Counter — Mishkah"
+        }
+      </script>
+
       <article class="counter-card">
+        <script type="application/json" data-m-data data-m-path="data.counter">
+          {
+            "value": 0,
+            "initial": 0
+          }
+        </script>
+
         <div class="toolbar">
+          <script type="application/json" data-m-data data-m-path="data.copy.actions">
+            {
+              "increment": { "ar": "⬆️ زيادة", "en": "⬆️ Increase" },
+              "decrement": { "ar": "⬇️ إنقاص", "en": "⬇️ Decrease" },
+              "reset": { "ar": "🔄 إعادة الضبط", "en": "🔄 Reset" },
+              "themeDark": { "ar": "🌙 تفعيل الوضع الليلي", "en": "🌙 Enable dark theme" },
+              "themeLight": { "ar": "🌞 العودة للوضع الفاتح", "en": "🌞 Back to light theme" },
+              "language": { "ar": "English", "en": "العربية" }
+            }
+          </script>
+
           <button onclick="toggleTheme(event, ctx)">
             {state.env.theme === 'dark'
               ? state.data.copy.actions.themeLight[state.env.lang]
@@ -273,9 +305,20 @@
         </div>
 
         <header>
-          <span>{state.data.copy.badge[state.env.lang]}</span>
-          <h2>{state.data.copy.title[state.env.lang]}</h2>
-          <p>{state.data.copy.subtitle[state.env.lang]}</p>
+          <script type="application/json" data-m-data data-m-path="data.copy.header">
+            {
+              "badge": { "ar": "🧪 خطوة أولى", "en": "🧪 First step" },
+              "title": { "ar": "القيمة الحالية", "en": "Current value" },
+              "subtitle": {
+                "ar": "جرب الأزرار لتتعرف على تدفق HTMLx في مشكاة.",
+                "en": "Use the buttons to explore the HTMLx flow in Mishkah."
+              }
+            }
+          </script>
+
+          <span>{state.data.copy.header.badge[state.env.lang]}</span>
+          <h2>{state.data.copy.header.title[state.env.lang]}</h2>
+          <p>{state.data.copy.header.subtitle[state.env.lang]}</p>
         </header>
 
         <div class="counter-display">{state.data.counter.value}</div>
@@ -293,6 +336,13 @@
         </div>
 
         <p class="hint">
+          <script type="application/json" data-m-data data-m-path="data.copy.hint">
+            {
+              "ar": "يتولى HTMLx مزامنة الواجهة تلقائيًا — حدّث القيمة عبر ctx.set فقط.",
+              "en": "HTMLx keeps the UI in sync for you — simply update the value with ctx.set."
+            }
+          </script>
+
           {state.data.copy.hint[state.env.lang]}
         </p>
       </article>
@@ -360,55 +410,42 @@
     <script>
       (function () {
         var M = window.Mishkah;
-        if (!M) {
+        if (!M || !M.HTMLxAgent) {
           console.error('Mishkah core is not available.');
           return;
         }
 
-        var database = {
-          head: { title: 'HTMLx Counter — Mishkah' },
-          env: { lang: 'ar', dir: 'rtl', theme: 'light' },
-          data: {
-            copy: {
-              badge: { ar: '🧪 خطوة أولى', en: '🧪 First step' },
-              title: { ar: 'القيمة الحالية', en: 'Current value' },
-              subtitle: {
-                ar: 'جرب الأزرار لتتعرف على تدفق HTMLx في مشكاة.',
-                en: 'Use the buttons to explore the HTMLx flow in Mishkah.'
-              },
-              hint: {
-                ar: 'يتولى HTMLx مزامنة الواجهة تلقائيًا — حدّث القيمة عبر ctx.set فقط.',
-                en: 'HTMLx keeps the UI in sync for you — simply update the value with ctx.set.'
-              },
-              actions: {
-                increment: { ar: '⬆️ زيادة', en: '⬆️ Increase' },
-                decrement: { ar: '⬇️ إنقاص', en: '⬇️ Decrease' },
-                reset: { ar: '🔄 إعادة الضبط', en: '🔄 Reset' },
-                themeDark: { ar: '🌙 تفعيل الوضع الليلي', en: '🌙 Enable dark theme' },
-                themeLight: { ar: '🌞 العودة للوضع الفاتح', en: '🌞 Back to light theme' },
-                language: { ar: 'English', en: 'العربية' }
-              }
-            },
-            counter: {
-              value: 0,
-              initial: 0
-            }
+        function readTemplateEnv() {
+          var tpl = document.getElementById('counter-htmx-demo');
+          if (!tpl || !tpl.content) return null;
+          var envNode = tpl.content.querySelector('script[data-m-env]');
+          if (!envNode) return null;
+          try {
+            return JSON.parse(envNode.textContent.trim() || '{}');
+          } catch (_err) {
+            return null;
           }
-        };
-
-        var start = M.HTMLxAgent.make(database, { mount: '#app' });
-
-        if (start && typeof start.catch === 'function') {
-          start.catch(function (error) {
-            console.error('Mishkah HTMLx bootstrap failed:', error);
-          });
         }
 
-        if (database && database.env) {
-          document.documentElement.classList.toggle('dark', database.env.theme === 'dark');
-          document.documentElement.lang = database.env.lang || 'ar';
-          document.documentElement.dir = database.env.dir || (database.env.lang === 'ar' ? 'rtl' : 'ltr');
+        var initialEnv = readTemplateEnv();
+        if (initialEnv) {
+          var apply = typeof applyEnvironment === 'function' ? applyEnvironment : function (env) {
+            if (!env) return;
+            var lang = env.lang || 'ar';
+            var dir = env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
+            var theme = env.theme || 'light';
+            document.documentElement.lang = lang;
+            document.documentElement.dir = dir;
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+          };
+          apply(initialEnv);
         }
+
+        var start = M.HTMLxAgent.make({ mount: '#app' });
+
+        Promise.resolve(start).catch(function (error) {
+          console.error('Mishkah HTMLx bootstrap failed:', error);
+        });
       })();
     </script>
   </body>
