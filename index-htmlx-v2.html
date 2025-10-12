@@ -103,6 +103,23 @@
       .logic-options button:hover{transform:translateY(-2px)}
       .logic-options button.correct{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.2)}
       .logic-options button.wrong{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.2)}
+      .ajax-layout{display:grid;gap:1.5rem}
+      @media (min-width:1024px){.ajax-layout{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}}
+      .ajax-card{background:var(--surface-2);border:1px solid var(--panel-border);border-radius:1.5rem;padding:1.5rem;display:grid;gap:1.25rem;box-shadow:var(--panel-shadow)}
+      .ajax-card h3{margin:0;font-size:1.1rem}
+      .ajax-status{display:flex;gap:1rem;align-items:flex-start}
+      .ajax-state{display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;border-radius:999px;background:var(--surface-1);box-shadow:var(--panel-shadow);font-size:1.35rem}
+      .ajax-steps ol{margin:0;padding-inline-start:1.5rem;display:grid;gap:.75rem}
+      .ajax-steps li{background:var(--surface-1);border:1px solid var(--panel-border);border-radius:1rem;padding:1rem;box-shadow:var(--panel-shadow)}
+      .ajax-steps li strong{display:block;margin-bottom:.35rem}
+      .ajax-resources ul{margin:0;padding:0;list-style:none;display:grid;gap:.6rem}
+      .ajax-resources a{text-decoration:none;font-weight:600;color:var(--primary)}
+      .ajax-resources a:hover{text-decoration:underline}
+      .ajax-digest-list{display:grid;gap:.75rem}
+      .ajax-digest-item{padding:1rem;border-radius:1rem;background:var(--surface-1);border:1px solid var(--panel-border);display:flex;justify-content:space-between;align-items:center;gap:.75rem}
+      .ajax-digest-badge{display:inline-flex;align-items:center;justify-content:center;padding:.25rem .85rem;border-radius:999px;background:color-mix(in oklab, var(--primary) 22%, transparent);font-size:.8rem;font-weight:600}
+      .ajax-empty{margin:0;color:var(--muted-foreground)}
+      .ajax-sync{margin:0;color:var(--muted-foreground);font-size:.9rem}
       .game-board{display:grid;gap:1.5rem}
       .puzzle-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem}
       .puzzle-tile{width:var(--tile-size,3rem);height:var(--tile-size,3rem);border-radius:1.4rem;display:grid;place-items:center;background:var(--tile-bg);border:1px solid var(--tile-border);font-weight:600;font-size:1.2rem;box-shadow:0 18px 38px -28px rgba(15,23,42,.45)}
@@ -139,6 +156,22 @@
           "dir": "rtl",
           "flags": {
             "htmlxExperiment": true
+          }
+        }
+      </script>
+
+      <script type="application/json" data-m-ajax-map>
+        {
+          "docs.ajaxBase": {
+            "url": "./docs/htmlx-ajax-demo.json",
+            "responseType": "json",
+            "mode": "merge"
+          },
+          "docs.ajaxDigest": {
+            "url": "./docs/htmlx-ajax-demo.json",
+            "responseType": "json",
+            "extract": "digest",
+            "mode": "replace"
           }
         }
       </script>
@@ -222,12 +255,22 @@
                     "nav.counter": { "ar": "العداد التفاعلي", "en": "Interactive Counter" },
                     "nav.logic": { "ar": "تحدي المنطق", "en": "Logic Challenge" },
                     "nav.game": { "ar": "لعبة الأمثال", "en": "Proverbs Game" },
+                    "nav.ajax": { "ar": "بيانات Ajax", "en": "Ajax Data" },
                     "doc.base.lead": { "ar": "قراءة روحية لمعماريات مشكاة ومحركها.", "en": "A reflective tour through Mishkah's architecture." },
                     "doc.tec.lead": { "ar": "الملف التقني الذي يشرح تفاصيل النظام.", "en": "The technical dossier explaining the system." },
                     "doc.language.hint": { "ar": "بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.", "en": "Use the header switcher to view the document in Arabic or English." },
                     "counter.lead": { "ar": "مثال يوضح استخدام أوامر HTMLx للتحديث.", "en": "An example that shows HTMLx driven updates." },
                     "logic.lead": { "ar": "حل متتاليات رقمية بأسلوب ممتع.", "en": "Solve number sequences in a playful way." },
-                    "game.lead": { "ar": "لعبة تفاعلية للتعرّف على الأمثال.", "en": "An interactive game to rediscover proverbs." }
+                    "game.lead": { "ar": "لعبة تفاعلية للتعرّف على الأمثال.", "en": "An interactive game to rediscover proverbs." },
+                    "ajax.lead": { "ar": "عرض لكيفية مزج data-m-ajax مع data-m-path بسهولة.", "en": "Showcases how data-m-ajax plugs into data-m-path effortlessly." },
+                    "ajax.title": { "ar": "واجهات البيانات الحية", "en": "Live data interfaces" },
+                    "ajax.subtitle": { "ar": "عرّف خريطة Ajax عامة ثم أوصلها بحقول البيانات داخل القالب.", "en": "Declare a global Ajax map and hook it into your data blocks." },
+                    "ajax.summary.title": { "ar": "لماذا الخرائط المعلنة؟", "en": "Why declarative maps?" },
+                    "ajax.steps.title": { "ar": "خطوات التشغيل", "en": "Execution steps" },
+                    "ajax.resources.title": { "ar": "مراجع موثوقة", "en": "Helpful references" },
+                    "ajax.digest.title": { "ar": "مصادر جاهزة للاستهلاك", "en": "Ready-made sources" },
+                    "ajax.digest.syncedAt": { "ar": "آخر مزامنة:", "en": "Last sync:" },
+                    "ajax.digest.empty": { "ar": "لم تصل بيانات بعد — جرّب الإعلان عن مصدر Ajax.", "en": "No entries yet—try wiring a declarative Ajax source." }
                   }
                 </script>
 
@@ -241,6 +284,7 @@
                   <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)"><span>{trans('nav.readmeTec')}</span><span class="hint">{trans('doc.tec.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'counter' ? 'active' : ''}" onclick="switchTab('counter', ctx)"><span>{trans('nav.counter')}</span><span class="hint">{trans('counter.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'logic' ? 'active' : ''}" onclick="switchTab('logic', ctx)"><span>{trans('nav.logic')}</span><span class="hint">{trans('logic.lead')}</span></button>
+                  <button class="nav-button {state.data.activeTab === 'ajax' ? 'active' : ''}" onclick="switchTab('ajax', ctx)"><span>{trans('nav.ajax')}</span><span class="hint">{trans('ajax.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'game' ? 'active' : ''}" onclick="switchTab('game', ctx)"><span>{trans('nav.game')}</span><span class="hint">{trans('game.lead')}</span></button>
                 </div>
               </div>
@@ -337,6 +381,68 @@
                 function buildLogicChallenge(locals){ var pool=logicGenerators(locals); if(!Array.isArray(pool) || !pool.length) return null; var pick=pool[Math.floor(Math.random()*pool.length)]; if(typeof pick!=='function') return null; return pick({ randomBetween: randomBetween, shuffle: shuffle }); }
                 function startLogic(ctx, locals){ var challenge=buildLogicChallenge(locals); if(!ctx || !challenge) return; commit(ctx, function(next){ var logic=next.data.logicGame; logic.sequence=challenge.sequence; logic.options=challenge.options; logic.answer=challenge.answer; logic.feedback=null; logic.explain=challenge.message; logic.selected=null; }); }
                 function chooseLogic(option, ctx){ commit(ctx, function(next){ var logic=next.data.logicGame; if(!Array.isArray(logic.options)||!logic.options.length) return; if(logic.feedback && logic.feedback.type==='correct') return; var isCorrect= option===logic.answer; logic.selected=option; logic.feedback={ type: isCorrect? 'correct':'wrong', message: logic.explain }; }); }
+              </script>
+
+              <section class="panel" x-if="state.data.activeTab === 'ajax'">
+                <script type="application/json" data-m-data data-m-path="data.ajaxDemo" data-m-ajax="docs.ajaxBase" data-m-ajax-merge='{"extract":"guide.{{env.lang}}","mode":"replace"}'>
+                  {
+                    "status": "loading",
+                    "summary": "نحضّر المحتوى...",
+                    "steps": [],
+                    "resources": []
+                  }
+                </script>
+
+                <script type="application/json" data-m-data data-m-path="data.ajaxDigest" data-m-ajax="docs.ajaxDigest">
+                  {
+                    "lastSync": "—",
+                    "items": []
+                  }
+                </script>
+
+                <header><h2>{trans('ajax.title')}</h2><p>{trans('ajax.subtitle')}</p></header>
+                <div class="ajax-layout">
+                  <div class="ajax-card">
+                    <div class="ajax-status">
+                      <span class="ajax-state">{state.data.ajaxDemo.status === 'ready' ? '✅' : '⏳'}</span>
+                      <div>
+                        <strong>{trans('ajax.summary.title')}</strong>
+                        <p>{state.data.ajaxDemo.summary || ''}</p>
+                      </div>
+                    </div>
+                    <div class="ajax-steps" x-if="state.data.ajaxDemo.steps && state.data.ajaxDemo.steps.length">
+                      <h3>{trans('ajax.steps.title')}</h3>
+                      <ol>
+                        <li x-for="step, idx in state.data.ajaxDemo.steps" key="idx">
+                          <strong>{step.title}</strong>
+                          <p>{step.body}</p>
+                        </li>
+                      </ol>
+                    </div>
+                    <div class="ajax-resources" x-if="state.data.ajaxDemo.resources && state.data.ajaxDemo.resources.length">
+                      <h3>{trans('ajax.resources.title')}</h3>
+                      <ul>
+                        <li x-for="link in state.data.ajaxDemo.resources" key="link.url"><a href="{link.url}" target="_blank" rel="noreferrer">{link.label}</a></li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="ajax-card">
+                    <h3>{trans('ajax.digest.title')}</h3>
+                    <p class="ajax-sync">{trans('ajax.digest.syncedAt')} <strong>{digestSyncLabel(state.data.ajaxDigest)}</strong></p>
+                    <div class="ajax-digest-list" x-if="state.data.ajaxDigest.items && state.data.ajaxDigest.items.length">
+                      <div class="ajax-digest-item" x-for="item in state.data.ajaxDigest.items" key="item.id || item.title">
+                        <strong>{digestItemTitle(item, ctx)}</strong>
+                        <span class="ajax-digest-badge" x-if="item.badge">{item.badge}</span>
+                      </div>
+                    </div>
+                    <p class="ajax-empty" x-if="!state.data.ajaxDigest.items || !state.data.ajaxDigest.items.length">{trans('ajax.digest.empty')}</p>
+                  </div>
+                </div>
+              </section>
+
+              <script>
+                function digestSyncLabel(digest){ if(!digest || !digest.lastSync) return '—'; try { var dt=new Date(digest.lastSync); if(Number.isNaN(dt.getTime())) return digest.lastSync; return dt.toLocaleString(); } catch(_err){ return digest.lastSync; } }
+                function digestItemTitle(item, ctx){ if(!item) return ''; var state=ctx.getState(); var lang=(state && state.env && state.env.lang)||'ar'; if(item.title && typeof item.title==='object'){ return item.title[lang] || item.title.ar || item.title.en || ''; } return item.title || ''; }
               </script>
 
               <section class="panel" x-if="state.data.activeTab === 'game'">
