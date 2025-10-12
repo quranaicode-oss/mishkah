@@ -205,6 +205,273 @@
     return value;
   }
 
+  function parseJsonAttributeValue(raw, contextLabel, attrName) {
+    var text = String(raw || '').trim();
+    if (!text) return { data: null };
+    try {
+      var parsed = JSON.parse(text);
+      return { data: parsed };
+    } catch (error) {
+      var message = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      console.warn(message);
+      return { error: message };
+    }
+  }
+
+  function parseAjaxDescriptor(scriptEl, templateEl) {
+    var contextLabel = describeTemplate(templateEl);
+    var descriptor = null;
+    var warnings = [];
+    if (!scriptEl || typeof scriptEl.getAttribute !== 'function') {
+      return { descriptor: null, warnings: warnings };
+    }
+    var ajaxAttr = scriptEl.getAttribute('data-m-ajax');
+    if (ajaxAttr != null) {
+      descriptor = descriptor || {};
+      var trimmed = String(ajaxAttr).trim();
+      if (trimmed && (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[')) {
+        var inlineResult = parseJsonAttributeValue(trimmed, contextLabel, 'data-m-ajax');
+        if (inlineResult && inlineResult.data && isPlainObject(inlineResult.data)) {
+          descriptor.inline = inlineResult.data;
+        } else if (inlineResult && inlineResult.data == null) {
+          descriptor.inline = {};
+        } else if (inlineResult && inlineResult.error) {
+          warnings.push(inlineResult.error);
+        }
+      } else if (trimmed) {
+        descriptor.ref = trimmed;
+      }
+    }
+    var mergeAttr = scriptEl.getAttribute('data-m-ajax-merge');
+    if (mergeAttr != null) {
+      descriptor = descriptor || {};
+      var mergeResult = parseJsonAttributeValue(mergeAttr, contextLabel, 'data-m-ajax-merge');
+      if (mergeResult && mergeResult.data && isPlainObject(mergeResult.data)) {
+        descriptor.overrides = mergeResult.data;
+      } else if (mergeResult && mergeResult.data == null) {
+        descriptor.overrides = {};
+      } else if (mergeResult && mergeResult.error) {
+        warnings.push(mergeResult.error);
+      }
+    }
+    var varsAttr = scriptEl.getAttribute('data-m-ajax-vars');
+    if (varsAttr != null) {
+      descriptor = descriptor || {};
+      var varsResult = parseJsonAttributeValue(varsAttr, contextLabel, 'data-m-ajax-vars');
+      if (varsResult && varsResult.data && isPlainObject(varsResult.data)) {
+        descriptor.vars = varsResult.data;
+      } else if (varsResult && varsResult.data == null) {
+        descriptor.vars = {};
+      } else if (varsResult && varsResult.error) {
+        warnings.push(varsResult.error);
+      }
+    }
+    var modeAttr = scriptEl.getAttribute('data-m-ajax-mode');
+    if (modeAttr != null) {
+      descriptor = descriptor || {};
+      descriptor.mode = String(modeAttr).trim().toLowerCase();
+    }
+    var responseAttr = scriptEl.getAttribute('data-m-ajax-response');
+    if (responseAttr != null) {
+      descriptor = descriptor || {};
+      descriptor.responseType = String(responseAttr).trim();
+    }
+    var extractAttr = scriptEl.getAttribute('data-m-ajax-extract') || scriptEl.getAttribute('data-m-ajax-path') || scriptEl.getAttribute('data-m-ajax-response-path');
+    if (extractAttr != null) {
+      descriptor = descriptor || {};
+      descriptor.responsePath = String(extractAttr).trim();
+    }
+    var assignAttr = scriptEl.getAttribute('data-m-ajax-assign');
+    if (assignAttr != null) {
+      descriptor = descriptor || {};
+      descriptor.assign = String(assignAttr).trim();
+    }
+    if (scriptEl.hasAttribute('data-m-ajax-auto')) {
+      descriptor = descriptor || {};
+      var autoAttr = scriptEl.getAttribute('data-m-ajax-auto');
+      if (autoAttr == null || autoAttr === '') {
+        descriptor.auto = false;
+      } else {
+        descriptor.auto = !(String(autoAttr).trim().toLowerCase() === 'false');
+      }
+    }
+    if (descriptor && descriptor.mode === '') delete descriptor.mode;
+    if (descriptor && descriptor.responseType === '') delete descriptor.responseType;
+    if (descriptor && descriptor.responsePath === '') delete descriptor.responsePath;
+    if (descriptor && descriptor.assign === '') delete descriptor.assign;
+    return { descriptor: descriptor, warnings: warnings };
+  }
+
+  function parseAjaxMapScript(scriptEl, templateEl) {
+    var contextLabel = describeTemplate(templateEl);
+    var raw = (scriptEl && (scriptEl.textContent || scriptEl.innerText || '')) || '';
+    var text = raw.trim();
+    if (!text) {
+      return { entries: {}, warnings: [] };
+    }
+    var data;
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      var message = 'HTMLx: data-m-ajax-map داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      console.warn(message);
+      return { entries: {}, warnings: [message] };
+    }
+    if (!isPlainObject(data)) {
+      var typeMessage = 'HTMLx: data-m-ajax-map داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
+      console.warn(typeMessage);
+      return { entries: {}, warnings: [typeMessage] };
+    }
+    var entries = {};
+    var warnings = [];
+    for (var key in data) {
+      if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
+      var value = data[key];
+      if (!isPlainObject(value)) {
+        var warn = 'HTMLx: data-m-ajax-map المفتاح ' + key + ' داخل ' + contextLabel + ' يجب أن يكون كائناً.';
+        console.warn(warn);
+        warnings.push(warn);
+        continue;
+      }
+      entries[key] = cloneSerializableValue(value);
+    }
+    return { entries: entries, warnings: warnings };
+  }
+
+  function mergeAjaxConfig(base, patch) {
+    var result = isPlainObject(base) ? cloneSerializableValue(base) : {};
+    if (!patch || typeof patch !== 'object') return result;
+    for (var key in patch) {
+      if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
+      var value = patch[key];
+      if (isPlainObject(value)) {
+        var current = isPlainObject(result[key]) ? result[key] : {};
+        result[key] = mergeAjaxConfig(current, value);
+        continue;
+      }
+      if (Array.isArray(value)) {
+        result[key] = value.map(function (item) { return cloneSerializableValue(item); });
+        continue;
+      }
+      result[key] = value;
+    }
+    return result;
+  }
+
+  function splitPathSegments(path) {
+    if (!path) return [];
+    var normalized = String(path).replace(/\[(\d+)\]/g, '.$1');
+    return normalized.split('.').map(function (part) { return part.trim(); }).filter(function (part) { return part.length; });
+  }
+
+  function isNumericKey(key) {
+    return /^\d+$/.test(key);
+  }
+
+  function getBySegments(source, segments) {
+    if (!segments || !segments.length) return source;
+    var cursor = source;
+    for (var i = 0; i < segments.length; i += 1) {
+      if (cursor == null) return undefined;
+      var key = segments[i];
+      if (Array.isArray(cursor) && isNumericKey(key)) {
+        cursor = cursor[parseInt(key, 10)];
+      } else {
+        cursor = cursor[key];
+      }
+    }
+    return cursor;
+  }
+
+  function setBySegments(target, segments, value) {
+    if (!target || !segments || !segments.length) return;
+    var cursor = target;
+    for (var i = 0; i < segments.length - 1; i += 1) {
+      var key = segments[i];
+      var next = cursor[key];
+      if (!next || (typeof next !== 'object')) {
+        var nextKey = segments[i + 1];
+        if (Array.isArray(cursor) && isNumericKey(key)) {
+          next = {};
+          cursor[parseInt(key, 10)] = next;
+        } else if (isNumericKey(nextKey)) {
+          next = [];
+          cursor[key] = next;
+        } else {
+          next = {};
+          cursor[key] = next;
+        }
+      }
+      cursor = next;
+    }
+    var lastKey = segments[segments.length - 1];
+    if (Array.isArray(cursor) && isNumericKey(lastKey)) {
+      cursor[parseInt(lastKey, 10)] = value;
+    } else {
+      cursor[lastKey] = value;
+    }
+  }
+
+  function resolvePlaceholderString(str, context) {
+    if (typeof str !== 'string') return str;
+    var exactMatch = str.match(/^\s*\{\{([^}]+)\}\}\s*$/);
+    var resolver = function (token) {
+      var path = token.trim();
+      if (!path) return '';
+      var source = context.db;
+      if (path.indexOf('vars.') === 0) {
+        source = context.vars;
+        path = path.slice(5);
+      } else if (path.indexOf('params.') === 0) {
+        source = context.params;
+        path = path.slice(7);
+      } else if (path.indexOf('env.') === 0) {
+        source = context.db && context.db.env;
+        path = path.slice(4);
+      } else if (path.indexOf('data.') === 0) {
+        source = context.db && context.db.data;
+        path = path.slice(5);
+      } else if (path.indexOf('i18n.') === 0) {
+        source = context.db && context.db.i18n;
+        path = path.slice(5);
+      } else if (path.indexOf('head.') === 0) {
+        source = context.db && context.db.head;
+        path = path.slice(5);
+      }
+      if (path === '') return source;
+      var segments = splitPathSegments(path);
+      var resolved = getBySegments(source, segments);
+      return resolved == null ? '' : resolved;
+    };
+    if (exactMatch) {
+      return resolver(exactMatch[1]);
+    }
+    return str.replace(/\{\{([^}]+)\}\}/g, function (_, token) {
+      var resolved = resolver(token);
+      if (resolved == null) return '';
+      if (typeof resolved === 'object') return JSON.stringify(resolved);
+      return String(resolved);
+    });
+  }
+
+  function applyPlaceholders(value, context) {
+    if (Array.isArray(value)) {
+      return value.map(function (item) { return applyPlaceholders(item, context); });
+    }
+    if (isPlainObject(value)) {
+      var out = {};
+      for (var key in value) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+        out[key] = applyPlaceholders(value[key], context);
+      }
+      return out;
+    }
+    if (typeof value === 'string') {
+      return resolvePlaceholderString(value, context);
+    }
+    return value;
+  }
+
   function ensureSerializableEnv(value, path, issues, seen) {
     if (!issues) issues = [];
     if (!seen) seen = [];
@@ -285,8 +552,12 @@
     }
     var raw = (scriptEl && (scriptEl.textContent || scriptEl.innerText || '')) || '';
     var text = raw.trim();
+    var baseResult = { path: rawPath, segments: segments, data: {}, source: contextLabel };
     if (!text) {
-      return { path: rawPath, segments: segments, data: {}, source: contextLabel };
+      var emptyAjax = parseAjaxDescriptor(scriptEl, templateEl);
+      if (emptyAjax && emptyAjax.descriptor) baseResult.ajax = emptyAjax.descriptor;
+      if (emptyAjax && emptyAjax.warnings && emptyAjax.warnings.length) baseResult.warnings = emptyAjax.warnings.slice();
+      return baseResult;
     }
     var data = null;
     try {
@@ -307,7 +578,20 @@
       console.warn(issuesMessage);
       return { error: issuesMessage };
     }
-    return { path: rawPath, segments: segments, data: cloneSerializableValue(data), source: contextLabel };
+    var ajaxInfo = parseAjaxDescriptor(scriptEl, templateEl);
+    var result = {
+      path: rawPath,
+      segments: segments,
+      data: cloneSerializableValue(data),
+      source: contextLabel
+    };
+    if (ajaxInfo && ajaxInfo.descriptor) {
+      result.ajax = ajaxInfo.descriptor;
+    }
+    if (ajaxInfo && ajaxInfo.warnings && ajaxInfo.warnings.length) {
+      result.warnings = ajaxInfo.warnings.slice();
+    }
+    return result;
   }
 
   function collectDataKeys(value, basePath, seen, duplicates) {
@@ -1559,7 +1843,7 @@
   }
 
   function collectTemplateScriptsWithDynamic(templateEl, fragment) {
-    var bundle = { global: { fns: {}, locals: {} }, scoped: {}, env: [], data: [], warnings: [] };
+    var bundle = { global: { fns: {}, locals: {} }, scoped: {}, env: [], data: [], ajaxMaps: [], warnings: [] };
     if (!fragment) return bundle;
 
     var scriptInfos = [];
@@ -1580,10 +1864,24 @@
           }
           continue;
         }
+        if (scriptEl.hasAttribute('data-m-ajax-map')) {
+          var ajaxMap = parseAjaxMapScript(scriptEl, templateEl);
+          bundle.ajaxMaps.push({ entries: ajaxMap.entries, source: describeTemplate(templateEl) });
+          if (ajaxMap && ajaxMap.warnings && ajaxMap.warnings.length) {
+            bundle.warnings = bundle.warnings.concat(ajaxMap.warnings);
+          }
+          if (scriptEl.parentNode) {
+            scriptEl.parentNode.removeChild(scriptEl);
+          }
+          continue;
+        }
         if (scriptEl.hasAttribute('data-m-data')) {
           var dataResult = parseDataScriptElement(scriptEl, templateEl);
           if (dataResult && dataResult.data != null) {
             bundle.data.push(dataResult);
+            if (dataResult.warnings && dataResult.warnings.length) {
+              bundle.warnings = bundle.warnings.concat(dataResult.warnings);
+            }
           } else if (dataResult && dataResult.error) {
             bundle.warnings.push(dataResult.error);
           }
@@ -1943,15 +2241,49 @@
       if (!Object.keys(envPatch).length) envPatch = null;
     }
     var dataFeeds = null;
+    var ajaxDirectives = null;
     if (scriptBundle && scriptBundle.data && scriptBundle.data.length) {
       dataFeeds = scriptBundle.data.map(function (entry) {
         return {
           path: entry.path,
           segments: entry.segments ? entry.segments.slice() : entry.path.split('.'),
           data: cloneSerializableValue(entry.data || {}),
-          source: entry.source
+          source: entry.source,
+          ajax: entry.ajax ? cloneSerializableValue(entry.ajax) : null
         };
       });
+      ajaxDirectives = [];
+      for (var df = 0; df < scriptBundle.data.length; df += 1) {
+        var dataEntry = scriptBundle.data[df];
+        if (!dataEntry || !dataEntry.ajax) continue;
+        ajaxDirectives.push({
+          path: dataEntry.path,
+          segments: dataEntry.segments ? dataEntry.segments.slice() : dataEntry.path.split('.'),
+          ajax: cloneSerializableValue(dataEntry.ajax),
+          source: dataEntry.source
+        });
+      }
+      if (!ajaxDirectives.length) ajaxDirectives = null;
+    }
+    var ajaxRegistry = null;
+    if (scriptBundle && scriptBundle.ajaxMaps && scriptBundle.ajaxMaps.length) {
+      ajaxRegistry = {};
+      for (var am = 0; am < scriptBundle.ajaxMaps.length; am += 1) {
+        var mapEntry = scriptBundle.ajaxMaps[am];
+        if (!mapEntry || !mapEntry.entries) continue;
+        for (var key in mapEntry.entries) {
+          if (!Object.prototype.hasOwnProperty.call(mapEntry.entries, key)) continue;
+          if (ajaxRegistry[key]) {
+            warnings.push('HTMLx: data-m-ajax-map تكرار المفتاح \'' + key + '\' داخل ' + (mapEntry.source || describeTemplate(template)) + '.');
+            continue;
+          }
+          ajaxRegistry[key] = {
+            config: cloneSerializableValue(mapEntry.entries[key]),
+            source: mapEntry.source || describeTemplate(template)
+          };
+        }
+      }
+      if (!Object.keys(ajaxRegistry).length) ajaxRegistry = null;
     }
     var tplSource = template.outerHTML || template.innerHTML || '';
     var tplId = 'tpl:' + (U.hash32 ? U.hash32(tplSource) : simpleHash32(tplSource));
@@ -2071,6 +2403,8 @@
       databasePatch: databasePatch,
       envPatch: envPatch,
       dataFeeds: dataFeeds,
+      ajaxRegistry: ajaxRegistry,
+      ajaxDirectives: ajaxDirectives,
       bootstrapFns: bootstrapFns,
       initFns: initFns,
       warnings: warnings,
@@ -2253,6 +2587,234 @@
     }
   }
 
+  function buildAjaxTaskConfig(task, registry) {
+    if (!task || !task.ajax) return null;
+    var descriptor = isPlainObject(task.ajax) ? task.ajax : {};
+    var config = {};
+    if (descriptor.ref) {
+      if (!registry || !registry[descriptor.ref]) {
+        console.warn('HTMLx: data-m-ajax المرجع \'' + descriptor.ref + '\' غير معرّف داخل ' + (task.source || 'template') + '.');
+      } else {
+        config = mergeAjaxConfig(config, registry[descriptor.ref].config || {});
+      }
+    }
+    if (descriptor.inline && isPlainObject(descriptor.inline)) {
+      config = mergeAjaxConfig(config, descriptor.inline);
+    }
+    if (descriptor.config && isPlainObject(descriptor.config)) {
+      config = mergeAjaxConfig(config, descriptor.config);
+    }
+    if (descriptor.overrides && isPlainObject(descriptor.overrides)) {
+      config = mergeAjaxConfig(config, descriptor.overrides);
+    }
+    var mode = descriptor.mode || config.mode || 'merge';
+    var responseType = descriptor.responseType || config.responseType || null;
+    var responsePath = descriptor.responsePath || config.responsePath || config.extract || null;
+    var assignPath = descriptor.assign || config.assign || null;
+    var fallbackMode = descriptor.fallbackMode || config.fallbackMode || null;
+    var auto = descriptor.auto;
+    if (auto == null && Object.prototype.hasOwnProperty.call(config, 'auto')) {
+      auto = config.auto;
+    }
+    var localVars = {};
+    if (config.vars && typeof config.vars === 'object') {
+      localVars = mergeAjaxConfig(localVars, config.vars);
+    }
+    if (descriptor.vars && typeof descriptor.vars === 'object') {
+      localVars = mergeAjaxConfig(localVars, descriptor.vars);
+    }
+    var request = mergeAjaxConfig({}, config);
+    delete request.mode;
+    delete request.responseType;
+    delete request.responsePath;
+    delete request.extract;
+    delete request.assign;
+    delete request.vars;
+    delete request.fallbackMode;
+    delete request.auto;
+    if (responseType) request.responseType = responseType;
+    if (!request.url) {
+      return { error: 'missing-url', ref: descriptor.ref || null, source: task.source || null };
+    }
+    return {
+      request: request,
+      mode: typeof mode === 'string' ? mode.toLowerCase() : 'merge',
+      responsePath: responsePath || null,
+      assign: assignPath || null,
+      vars: localVars,
+      auto: auto,
+      fallbackMode: fallbackMode || null,
+      ref: descriptor.ref || null,
+      source: task.source || null
+    };
+  }
+
+  async function sendAjaxRequest(request) {
+    var url = request && request.url ? String(request.url) : '';
+    if (!url) throw new Error('data-m-ajax يتطلب عنوان URL صالحًا.');
+    var net = Mishkah.utils && Mishkah.utils.Net && typeof Mishkah.utils.Net.ajax === 'function' ? Mishkah.utils.Net.ajax : null;
+    var options = mergeAjaxConfig({}, request);
+    delete options.url;
+    if (net) {
+      return net(url, options);
+    }
+    if (typeof fetch !== 'function') {
+      throw new Error('Fetch API غير متاحة.');
+    }
+    var query = options.query;
+    var fullUrl = url;
+    if (query && typeof query === 'object') {
+      var usp = new URLSearchParams();
+      for (var key in query) {
+        if (!Object.prototype.hasOwnProperty.call(query, key)) continue;
+        var value = query[key];
+        if (value == null) continue;
+        if (Array.isArray(value)) {
+          for (var i = 0; i < value.length; i += 1) {
+            usp.append(key, String(value[i]));
+          }
+        } else {
+          usp.append(key, String(value));
+        }
+      }
+      if (usp.toString()) {
+        fullUrl = fullUrl + (fullUrl.indexOf('?') === -1 ? '?' : '&') + usp.toString();
+      }
+    }
+    var headers = mergeAjaxConfig({}, options.headers || {});
+    var method = (options.method || 'GET').toUpperCase();
+    var body = options.body;
+    var fetchOptions = { method: method, headers: headers };
+    if (options.withCredentials) {
+      fetchOptions.credentials = 'include';
+    }
+    if (body != null) {
+      var hasContentType = headers['Content-Type'] || headers['content-type'];
+      if (typeof body === 'object' && !(body instanceof Blob) && !(body instanceof FormData) && !Array.isArray(body)) {
+        if (!hasContentType) {
+          headers['Content-Type'] = 'application/json';
+        }
+        fetchOptions.body = JSON.stringify(body);
+      } else {
+        fetchOptions.body = body;
+      }
+    }
+    var responseType = options.responseType || 'json';
+    var response = await fetch(fullUrl, fetchOptions);
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ' ' + (response.statusText || ''));
+    }
+    if (responseType === 'json') return response.json();
+    if (responseType === 'text') return response.text();
+    if (responseType === 'blob') return response.blob();
+    if (responseType === 'arrayBuffer') return response.arrayBuffer();
+    if (responseType === 'formData') return response.formData();
+    var contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (contentType.indexOf('application/json') !== -1) return response.json();
+    if (contentType.indexOf('text/') !== -1) return response.text();
+    return response.blob();
+  }
+
+  function applyAjaxResult(db, task, payload, mode, assignPath) {
+    if (!task || !task.segments || !task.segments.length) return;
+    var segments = task.segments.slice();
+    var cursor = db;
+    for (var i = 0; i < segments.length - 1; i += 1) {
+      var key = segments[i];
+      var next = cursor[key];
+      if (!next || typeof next !== 'object') {
+        next = {};
+        cursor[key] = next;
+      }
+      cursor = next;
+    }
+    var lastKey = segments[segments.length - 1];
+    var current = cursor[lastKey];
+    if (assignPath) {
+      var assignSegments = splitPathSegments(assignPath);
+      var base = isPlainObject(current) ? cloneSerializableValue(current) : {};
+      setBySegments(base, assignSegments, payload);
+      cursor[lastKey] = base;
+      return;
+    }
+    if (mode === 'append' && Array.isArray(current) && Array.isArray(payload)) {
+      cursor[lastKey] = current.concat(payload);
+      return;
+    }
+    if (mode === 'merge' && isPlainObject(payload)) {
+      var existing = isPlainObject(current) ? cloneSerializableValue(current) : {};
+      cursor[lastKey] = mergeEnvTarget(existing, payload);
+      return;
+    }
+    cursor[lastKey] = payload;
+  }
+
+  async function executeAjaxTasks(tasks, registry, db, options) {
+    if (!tasks || !tasks.length) return;
+    var ajaxOptions = (options && options.ajax) || {};
+    var globalVars = ajaxOptions.vars || ajaxOptions.variables || options && options.ajaxVars || {};
+    var globalParams = ajaxOptions.params || options && options.ajaxParams || globalVars;
+    var globalHeaders = ajaxOptions.headers && typeof ajaxOptions.headers === 'object' ? ajaxOptions.headers : null;
+    var globalQuery = ajaxOptions.query && typeof ajaxOptions.query === 'object' ? ajaxOptions.query : null;
+    var baseURL = ajaxOptions.baseURL || ajaxOptions.baseUrl || null;
+    var activeTasks = [];
+    for (var i = 0; i < tasks.length; i += 1) {
+      var task = tasks[i];
+      if (!task || !task.ajax) continue;
+      var config = buildAjaxTaskConfig(task, registry);
+      if (!config) continue;
+      if (config.error === 'missing-url') {
+        console.warn('HTMLx: data-m-ajax بدون عنوان URL داخل ' + (config.source || task.source || 'template') + '.');
+        continue;
+      }
+      if (config.auto === false) {
+        continue;
+      }
+      activeTasks.push({ task: task, config: config });
+    }
+    if (!activeTasks.length) return;
+    await Promise.all(activeTasks.map(function (entry) {
+      return (async function () {
+        var task = entry.task;
+        var config = entry.config;
+        var contextVars = mergeAjaxConfig({}, globalVars || {});
+        if (config.vars && typeof config.vars === 'object') {
+          contextVars = mergeAjaxConfig(contextVars, config.vars);
+        }
+        var contextParams = mergeAjaxConfig({}, globalParams || {});
+        var placeholderContext = { db: db, vars: contextVars, params: contextParams };
+        var request = applyPlaceholders(config.request, placeholderContext);
+        if (!request || !request.url) {
+          console.warn('HTMLx: data-m-ajax بدون عنوان URL صالح داخل ' + (task.source || 'template') + '.');
+          return;
+        }
+        if (baseURL && typeof request.url === 'string' && !/^([a-z]+:)?\/\//i.test(request.url)) {
+          request.url = String(baseURL).replace(/\/$/, '') + '/' + String(request.url).replace(/^\//, '');
+        }
+        if (globalHeaders) {
+          request.headers = mergeAjaxConfig(globalHeaders, request.headers || {});
+        }
+        if (globalQuery) {
+          request.query = mergeAjaxConfig(globalQuery, request.query || {});
+        }
+        var resolvedResponsePath = config.responsePath ? resolvePlaceholderString(String(config.responsePath), placeholderContext) : null;
+        var resolvedAssignPath = config.assign ? resolvePlaceholderString(String(config.assign), placeholderContext) : null;
+        try {
+          var payload = await sendAjaxRequest(request);
+          if (resolvedResponsePath) {
+            var responseSegments = splitPathSegments(resolvedResponsePath);
+            payload = getBySegments(payload, responseSegments);
+          }
+          if (payload === undefined) return;
+          var value = (isPlainObject(payload) || Array.isArray(payload)) ? cloneSerializableValue(payload) : payload;
+          applyAjaxResult(db, task, value, config.mode || 'merge', resolvedAssignPath);
+        } catch (error) {
+          console.warn('HTMLx: فشل طلب data-m-ajax داخل ' + (task.source || 'template') + ':', error);
+        }
+      })();
+    }));
+  }
+
   async function createApp(db, options) {
     if (db == null) db = {};
     if (typeof db !== 'object') {
@@ -2264,6 +2826,40 @@
     }
     var templates = Array.from(root.querySelectorAll('template'));
     var compiled = templates.map(compileTemplate);
+    var ajaxRegistry = {};
+    var ajaxDirectives = [];
+    for (var ri = 0; ri < compiled.length; ri += 1) {
+      var compiledEntry = compiled[ri];
+      if (!compiledEntry) continue;
+      var templateLabel = compiledEntry.element ? describeTemplate(compiledEntry.element) : (compiledEntry.namespace ? 'template[' + compiledEntry.namespace + ']' : 'template');
+      if (compiledEntry.ajaxRegistry) {
+        for (var key in compiledEntry.ajaxRegistry) {
+          if (!Object.prototype.hasOwnProperty.call(compiledEntry.ajaxRegistry, key)) continue;
+          if (ajaxRegistry[key]) {
+            console.warn('HTMLx: data-m-ajax-map تكرار المفتاح \'' + key + '\' بين ' + (ajaxRegistry[key].source || 'template') + ' و ' + (compiledEntry.ajaxRegistry[key].source || templateLabel) + '.');
+            continue;
+          }
+          ajaxRegistry[key] = {
+            config: cloneSerializableValue(compiledEntry.ajaxRegistry[key].config || {}),
+            source: compiledEntry.ajaxRegistry[key].source || templateLabel
+          };
+        }
+      }
+      if (compiledEntry.ajaxDirectives && compiledEntry.ajaxDirectives.length) {
+        for (var dj = 0; dj < compiledEntry.ajaxDirectives.length; dj += 1) {
+          var directive = compiledEntry.ajaxDirectives[dj];
+          if (!directive || !directive.ajax) continue;
+          ajaxDirectives.push({
+            path: directive.path,
+            segments: directive.segments ? directive.segments.slice() : (directive.path ? directive.path.split('.') : []),
+            ajax: cloneSerializableValue(directive.ajax),
+            source: directive.source || templateLabel
+          });
+        }
+      }
+    }
+    if (!Object.keys(ajaxRegistry).length) ajaxRegistry = null;
+    if (!ajaxDirectives.length) ajaxDirectives = [];
     db = isPlainObject(db) ? db : Object.assign({}, db);
     db.head = normalizeDatabaseSection(db.head);
     db.env = normalizeDatabaseSection(db.env);
@@ -2306,6 +2902,9 @@
       for (var ai = 0; ai < templateDataFeeds.length; ai += 1) {
         applyDataFeed(db, templateDataFeeds[ai]);
       }
+    }
+    if (ajaxDirectives && ajaxDirectives.length) {
+      await executeAjaxTasks(ajaxDirectives, ajaxRegistry, db, options || {});
     }
     var lifecycle = { bootstrap: [], init: [] };
     for (var bi = 0; bi < compiled.length; bi += 1) {
