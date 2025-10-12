@@ -69,6 +69,14 @@
         padding: 2.5rem 1.5rem;
       }
 
+      html:not(.dark) body {
+        color: #0f172a;
+      }
+
+      html.dark body {
+        color: #f8fafc;
+      }
+
       .page-shell {
         display: grid;
         gap: 2.5rem;
@@ -118,6 +126,7 @@
           box-shadow: var(--shadow);
           display: grid;
           gap: 1.85rem;
+          color: var(--fg);
         }
 
         .toolbar {
@@ -179,6 +188,7 @@
           margin: 0;
           font-size: clamp(1.6rem, 3vw, 2.1rem);
           font-weight: 700;
+          color: var(--fg);
         }
 
         header p {
