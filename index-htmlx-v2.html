@@ -523,7 +523,7 @@
 
             <script>
         // ====== وظائف محلية مشتركة داخل template ======
-        function runtime(){ return window.__INDEX_RUNTIME || {}; }
+        function runtime(){ return ensureRuntimeGlobals(); }
         function cloneState(prev){ return JSON.parse(JSON.stringify(prev || {})); }
         function rememberState(ctx){ try{ window.__INDEX_STATE__ = ctx.getState(); }catch(_){} }
         function commit(ctx, mutate, after){ if(!ctx) return; ctx.setState(function(prev){ var next = cloneState(prev); if(typeof mutate==='function'){ mutate(next, prev||{}); } return next; }); window.setTimeout(function(){ rememberState(ctx); if(typeof after==='function'){ after(ctx.getState(), ctx); } },0); }
@@ -532,17 +532,19 @@
         function defaultThemePrefs(){ return { fontScale: 100, background: 'nebula' }; }
         function range(count){ var len=Math.max(0, Number(count)||0), out=[]; for(var i=0;i<len;i++) out.push(i); return out; }
 
-        (function(){
+        function ensureRuntimeGlobals(){
           var runtimeGlobals = window.__INDEX_RUNTIME = window.__INDEX_RUNTIME || {};
           var STORAGE_KEY = runtimeGlobals.storageKey || 'mishkah:htmlx:index:prefs';
           runtimeGlobals.storageKey = STORAGE_KEY;
 
-          runtimeGlobals.persistPrefs = function(state){
-            try{
-              var payload={ theme: state.env.theme, lang: state.env.lang, dir: state.env.dir, themePrefs: state.data.themePrefs };
-              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-            }catch(_){ }
-          };
+          if (typeof runtimeGlobals.persistPrefs !== 'function') {
+            runtimeGlobals.persistPrefs = function(state){
+              try{
+                var payload={ theme: state.env && state.env.theme, lang: state.env && state.env.lang, dir: state.env && state.env.dir, themePrefs: state.data && state.data.themePrefs };
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+              }catch(_){ }
+            };
+          }
 
           runtimeGlobals.applyThemePrefs = function(state){
             var prefs=(state.data && state.data.themePrefs) || defaultThemePrefs();
@@ -551,7 +553,7 @@
             var presets = (state.data && state.data.backgrounds) || [];
             var fallback = presets[0] || { light:{}, dark:{} };
             var preset = presets.find(function(p){ return p && p.id===prefs.background; }) || fallback;
-            var palette = state.env.theme==='dark'? (preset && preset.dark) : (preset && preset.light);
+            var palette = state.env && state.env.theme==='dark'? (preset && preset.dark) : (preset && preset.light);
             if(palette){
               if(palette.gradient) document.documentElement.style.setProperty('--page-gradient', palette.gradient);
               if(palette.overlay1) document.documentElement.style.setProperty('--page-overlay-1', palette.overlay1);
@@ -560,36 +562,12 @@
           };
 
           runtimeGlobals.applyEnvironment = function(state){
-            document.documentElement.lang = state.env.lang || 'ar';
-            document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr');
-            document.documentElement.classList.toggle('dark', state.env.theme==='dark');
+            var lang=(state.env && state.env.lang) || 'ar';
+            document.documentElement.lang = lang;
+            document.documentElement.dir = (state.env && state.env.dir) || (lang==='ar' ? 'rtl':'ltr');
+            document.documentElement.classList.toggle('dark', !!(state.env && state.env.theme==='dark'));
             runtimeGlobals.applyThemePrefs(state);
           };
-
-          function tickTimer(ctx){
-            var current=ctx.getState();
-            var game=current.data && current.data.game;
-            if(!game || !game.timerOn || game.status!=='running'){
-              runtimeGlobals.stopTimer();
-              return;
-            }
-            ctx.setState(function(prev){
-              var next=cloneState(prev||{});
-              var g=next.data.game;
-              if(!g.timerOn || g.status!=='running') return prev;
-              var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1;
-              g.timeLeft=Math.max(0,nextTime);
-              if(g.timeLeft<=0){
-                g.status='lost';
-                g.revealSolution=true;
-                var effects=(next.data && next.data.game && next.data.game.soundEffects)||{};
-                g.feedback={ type:'lose', sound: effects.lose };
-                runtimeGlobals.stopTimer();
-              }
-              return next;
-            });
-            window.setTimeout(function(){ rememberState(ctx); },0);
-          }
 
           runtimeGlobals.stopTimer = function(){
             if(runtimeGlobals._activeTimer){
@@ -602,7 +580,138 @@
             runtimeGlobals.stopTimer();
             runtimeGlobals._activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000);
           };
-        })();
+
+          return runtimeGlobals;
+        }
+
+        function readStoredPrefs(storageKey){
+          if(!storageKey) return {};
+          try{
+            var raw=window.localStorage.getItem(storageKey);
+            if(!raw) return {};
+            var parsed=JSON.parse(raw);
+            return parsed && typeof parsed==='object'? parsed: {};
+          }catch(_){ return {}; }
+        }
+
+        function extractDocs(){
+          var host=window.Mishkah || {};
+          var source=host.readme || {};
+          function esc(value){ return String(value || ''); }
+          return {
+            base: {
+              ar: esc(source.base && source.base.ar),
+              en: esc((source.base && source.base.en) || (source.base && source.base.ar) || '')
+            },
+            tec: {
+              ar: esc(source.tec && source.tec.ar),
+              en: esc((source.tec && source.tec.en) || (source.tec && source.tec.ar) || '')
+            }
+          };
+        }
+
+        function collectExternalProverbs(){
+          var list = window.PROVERBS;
+          if(!Array.isArray(list) || !list.length) return null;
+          return list.map(function(item){
+            if(item && typeof item==='object'){
+              var copy={};
+              for(var key in item){
+                if(Object.prototype.hasOwnProperty.call(item, key)) copy[key]=item[key];
+              }
+              return copy;
+            }
+            return item;
+          });
+        }
+
+        function mergeStoredPreferences(database, stored){
+          if(!database || typeof database!=='object' || !stored || typeof stored!=='object') return;
+          database.env = database.env && typeof database.env==='object'? database.env: {};
+          var env = database.env;
+          if(stored.lang){
+            env.lang=stored.lang;
+            env.dir=stored.dir || (stored.lang==='ar'? 'rtl':'ltr');
+          }
+          if(stored.dir){
+            env.dir=stored.dir;
+          }
+          if(stored.theme){
+            env.theme=stored.theme;
+          }
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          if(stored.themePrefs && typeof stored.themePrefs==='object'){
+            var base = database.data.themePrefs && typeof database.data.themePrefs==='object'? database.data.themePrefs: defaultThemePrefs();
+            database.data.themePrefs = Object.assign({}, base, stored.themePrefs);
+          }
+        }
+
+        function mergeDocs(database, docs){
+          if(!database || typeof database!=='object' || !docs) return;
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          database.data.docs = docs;
+        }
+
+        function mergeExternalProverbs(database, list){
+          if(!database || typeof database!=='object' || !Array.isArray(list) || !list.length) return;
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          database.data.game = database.data.game && typeof database.data.game==='object'? database.data.game: {};
+          database.data.game.proverbs = list.slice();
+        }
+
+        function applySnapshotEnvironment(snapshot){
+          var runtimeGlobals = ensureRuntimeGlobals();
+          if(runtimeGlobals.applyEnvironment) runtimeGlobals.applyEnvironment(snapshot);
+        }
+
+        function __bootstrap__(database){
+          if(!database || typeof database!=='object') return;
+          var runtimeGlobals = ensureRuntimeGlobals();
+          var stored = readStoredPrefs(runtimeGlobals.storageKey);
+          mergeStoredPreferences(database, stored);
+          mergeDocs(database, extractDocs());
+          mergeExternalProverbs(database, collectExternalProverbs());
+          var snapshot = { env: database.env || {}, data: database.data || {} };
+          applySnapshotEnvironment(snapshot);
+          if(runtimeGlobals.persistPrefs) runtimeGlobals.persistPrefs(snapshot);
+          window.__INDEX_STATE__ = {};
+        }
+
+        function __init__(ctx){
+          var runtimeGlobals = ensureRuntimeGlobals();
+          if(!ctx || typeof ctx.getState!=='function') return;
+          rememberState(ctx);
+          var state = ctx.getState();
+          if(runtimeGlobals.applyEnvironment) runtimeGlobals.applyEnvironment(state);
+          if(runtimeGlobals.persistPrefs) runtimeGlobals.persistPrefs(state);
+        }
+
+        function tickTimer(ctx){
+          if(!ctx || typeof ctx.getState!=='function') return;
+          var runtimeGlobals = ensureRuntimeGlobals();
+          var current=ctx.getState();
+          var game=current.data && current.data.game;
+          if(!game || !game.timerOn || game.status!=='running'){
+            runtimeGlobals.stopTimer();
+            return;
+          }
+          ctx.setState(function(prev){
+            var next=cloneState(prev||{});
+            var g=next.data.game;
+            if(!g.timerOn || g.status!=='running') return prev;
+            var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1;
+            g.timeLeft=Math.max(0,nextTime);
+            if(g.timeLeft<=0){
+              g.status='lost';
+              g.revealSolution=true;
+              var effects=(next.data && next.data.game && next.data.game.soundEffects)||{};
+              g.feedback={ type:'lose', sound: effects.lose };
+              runtimeGlobals.stopTimer();
+            }
+            return next;
+          });
+          window.setTimeout(function(){ rememberState(ctx); },0);
+        }
       </script>
     </template>
 
@@ -618,88 +727,7 @@
         var M = window.Mishkah;
         if (!M || !M.HTMLxAgent) { console.error('Mishkah HTMLx agent is required.'); return; }
 
-        var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
-        var runtimeGlobals = window.__INDEX_RUNTIME = window.__INDEX_RUNTIME || {};
-        runtimeGlobals.storageKey = STORAGE_KEY;
-
-        function readStoredPrefs() {
-          try {
-            var raw = window.localStorage.getItem(STORAGE_KEY);
-            if (!raw) return {};
-            var parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? parsed : {};
-          } catch (_) {
-            return {};
-          }
-        }
-
-        function extractDocs() {
-          var source = M.readme || {};
-          function esc(value) { return String(value || ''); }
-          return {
-            base: {
-              ar: esc(source.base && source.base.ar),
-              en: esc((source.base && source.base.en) || (source.base && source.base.ar) || '')
-            },
-            tec: {
-              ar: esc(source.tec && source.tec.ar),
-              en: esc((source.tec && source.tec.en) || (source.tec && source.tec.ar) || '')
-            }
-          };
-        }
-
-        var storedPrefs = readStoredPrefs();
-        var lang = storedPrefs.lang || 'ar';
-        var theme = storedPrefs.theme || 'dark';
-        var themePrefs = storedPrefs.themePrefs && typeof storedPrefs.themePrefs === 'object'
-          ? storedPrefs.themePrefs
-          : null;
-        var externalProverbs = Array.isArray(window.PROVERBS) && window.PROVERBS.length
-          ? window.PROVERBS.slice()
-          : null;
-        var docs = extractDocs();
-
-        document.documentElement.lang = lang;
-        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-
-        window.__INDEX_STATE__ = {};
-
-        var database = {
-          head: {},
-          env: { lang: lang, dir: lang === 'ar' ? 'rtl' : 'ltr', theme: theme },
-          i18n: {},
-          data: {},
-          templates: [{ id: 'mishkah-index' }]
-        };
-
-        var initHooks = [
-          function (ctx) {
-            if (!ctx || typeof ctx.setState !== 'function') return;
-            ctx.setState(function (prev) {
-              var next = JSON.parse(JSON.stringify(prev || {}));
-              next.data = next.data || {};
-              next.data.docs = docs;
-              if (themePrefs) {
-                next.data.themePrefs = Object.assign({}, next.data.themePrefs || {}, themePrefs);
-              }
-              if (externalProverbs) {
-                next.data.game = next.data.game || {};
-                next.data.game.proverbs = externalProverbs.slice();
-              }
-              return next;
-            });
-            try {
-              window.__INDEX_STATE__ = ctx.getState();
-            } catch (_) {}
-            var runtime = window.__INDEX_RUNTIME || {};
-            var state = ctx.getState();
-            if (runtime.applyEnvironment) runtime.applyEnvironment(state);
-            if (runtime.persistPrefs) runtime.persistPrefs(state);
-          }
-        ];
-
-        var start = M.HTMLxAgent.make(database, { init: initHooks });
+        var start = M.HTMLxAgent.make();
         Promise.resolve(start).catch(function (error) {
           console.error('Failed to start Mishkah HTMLx index:', error);
         });

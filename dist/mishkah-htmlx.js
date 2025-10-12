@@ -2013,6 +2013,16 @@
       collectEvents(entry, events);
     });
     var runtimeGlobal = instantiateFunctionMap(scriptBundle && scriptBundle.global ? scriptBundle.global.fns : {});
+    var bootstrapFns = [];
+    var initFns = [];
+    if (runtimeGlobal && typeof runtimeGlobal.__bootstrap__ === 'function') {
+      bootstrapFns.push(runtimeGlobal.__bootstrap__);
+      delete runtimeGlobal.__bootstrap__;
+    }
+    if (runtimeGlobal && typeof runtimeGlobal.__init__ === 'function') {
+      initFns.push(runtimeGlobal.__init__);
+      delete runtimeGlobal.__init__;
+    }
     var scriptLocals = mergeFunctionLocals(
       scriptBundle && scriptBundle.global ? scriptBundle.global.locals : {},
       runtimeGlobal
@@ -2061,6 +2071,8 @@
       databasePatch: databasePatch,
       envPatch: envPatch,
       dataFeeds: dataFeeds,
+      bootstrapFns: bootstrapFns,
+      initFns: initFns,
       warnings: warnings,
       element: template
     };
@@ -2203,8 +2215,47 @@
     return dsl.Containers.Div({ attrs: attrs }, children);
   }
 
+  function normalizeDatabaseSection(source) {
+    return isPlainObject(source) ? source : {};
+  }
+
+  function lifecycleContext(entry, stage) {
+    return {
+      template: entry || null,
+      stage: stage,
+      Mishkah: Mishkah,
+      global: global
+    };
+  }
+
+  async function runLifecycle(sequence, payload, stage, extra) {
+    if (!sequence || !sequence.length) return;
+    for (var i = 0; i < sequence.length; i += 1) {
+      var item = sequence[i];
+      if (!item || typeof item.fn !== 'function') continue;
+      var helpers = lifecycleContext(item.template, stage);
+      if (extra) {
+        for (var key in extra) {
+          if (Object.prototype.hasOwnProperty.call(extra, key)) {
+            helpers[key] = extra[key];
+          }
+        }
+      }
+      try {
+        var result = item.fn(payload, helpers);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      } catch (error) {
+        var label = item.template && item.template.element ? describeTemplate(item.template.element) : 'template';
+        console.warn('HTMLx: ' + stage + ' فشل داخل ' + label + ':', error);
+      }
+    }
+  }
+
   async function createApp(db, options) {
-    if (!db || typeof db !== 'object') {
+    if (db == null) db = {};
+    if (typeof db !== 'object') {
       throw new Error('Mishkah.app.make يتطلب كائن قاعدة بيانات صالح.');
     }
     var root = (options && options.root) || global.document || null;
@@ -2213,6 +2264,12 @@
     }
     var templates = Array.from(root.querySelectorAll('template'));
     var compiled = templates.map(compileTemplate);
+    db = isPlainObject(db) ? db : Object.assign({}, db);
+    db.head = normalizeDatabaseSection(db.head);
+    db.env = normalizeDatabaseSection(db.env);
+    db.i18n = normalizeDatabaseSection(db.i18n);
+    db.data = normalizeDatabaseSection(db.data);
+    db.templates = Array.isArray(db.templates) ? db.templates.slice() : [];
     var templateEnv = null;
     for (var ci = 0; ci < compiled.length; ci += 1) {
       var entry = compiled[ci];
@@ -2250,7 +2307,33 @@
         applyDataFeed(db, templateDataFeeds[ai]);
       }
     }
+    var lifecycle = { bootstrap: [], init: [] };
+    for (var bi = 0; bi < compiled.length; bi += 1) {
+      var compiledEntry = compiled[bi];
+      if (!compiledEntry) continue;
+      if (compiledEntry.bootstrapFns && compiledEntry.bootstrapFns.length) {
+        compiledEntry.bootstrapFns.forEach(function (fn) {
+          lifecycle.bootstrap.push({ fn: fn, template: compiledEntry });
+        });
+      }
+      if (compiledEntry.initFns && compiledEntry.initFns.length) {
+        compiledEntry.initFns.forEach(function (fn) {
+          lifecycle.init.push({ fn: fn, template: compiledEntry });
+        });
+      }
+    }
+    await runLifecycle(lifecycle.bootstrap, db, 'bootstrap');
     deriveMounts(compiled, { root: root });
+    for (var ti = 0; ti < compiled.length; ti += 1) {
+      var tpl = compiled[ti];
+      if (!tpl || !tpl.namespace) continue;
+      var exists = db.templates.some(function (entry) {
+        return entry && entry.id === tpl.namespace;
+      });
+      if (!exists) {
+        db.templates.push({ id: tpl.namespace, mount: tpl.mount });
+      }
+    }
     var legacyOrders = null;
     if (db && db.orders) {
       legacyOrders = db.orders;
@@ -2312,6 +2395,15 @@
 
     var mountTarget = (options && options.mount) || '#app';
     app.mount(mountTarget);
+
+    await runLifecycle(lifecycle.init, app, 'init', { app: app });
+    var optionInits = ensureArray(options && options.init);
+    if (optionInits.length) {
+      var optionSequence = optionInits.map(function (fn) {
+        return { fn: fn, template: null };
+      });
+      await runLifecycle(optionSequence, app, 'init', { app: app });
+    }
 
     return { app: app, compiled: compiled, renderers: rendererList };
   }
