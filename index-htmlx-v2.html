@@ -132,6 +132,17 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
+      <script type="application/json" data-m-env>
+        {
+          "theme": "dark",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "htmlxExperiment": true
+          }
+        }
+      </script>
+
       <div class="page-shell">
         <div class="app-card">
           <header class="header">
@@ -152,6 +163,10 @@
                 <div class="status-block">
                   <strong>{trans('game.statusLabel')}</strong>
                   <span>{trans('game.status.' + state.data.game.status)}</span>
+                </div>
+                <div class="status-block" x-if="state.env.flags && state.env.flags.htmlxExperiment">
+                  <strong>🧪 HTMLx</strong>
+                  <span>{state.env.lang === 'ar' ? 'تجريبي' : 'Experimental'}</span>
                 </div>
                 <div class="controls">
                   <div class="segmented">
@@ -430,7 +445,7 @@
         function applyThemePrefs(state){ var prefs=(state.data && state.data.themePrefs) || { fontScale: 100, background: 'nebula' }; var scale=prefs.fontScale || 100; document.documentElement.style.setProperty('--user-font-scale', String(scale)); var preset = THEME_BACKGROUND_PRESETS.find(function(p){ return p.id===prefs.background; }) || THEME_BACKGROUND_PRESETS[0]; if(preset){ var theme = state.env.theme==='dark'? preset.dark: preset.light; document.documentElement.style.setProperty('--page-gradient', theme.gradient); document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1); document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2); } }
         function applyEnvironment(state){ document.documentElement.lang = state.env.lang || 'ar'; document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr'); document.documentElement.classList.toggle('dark', state.env.theme==='dark'); applyThemePrefs(state); }
 
-        function buildInitialState(){ var prefs=loadPrefs() || {}; var lang=prefs.lang || 'ar'; var theme=prefs.theme || 'dark'; return { env:{ lang:lang, dir: lang==='ar'? 'rtl':'ltr', theme: theme }, i18n:{ strings: JSON.parse(JSON.stringify(STRINGS)) }, data:{ activeTab:'readmeBase', docs: (function(){ var store=M.readme||{}; function esc(s){return String(s||'');} return { base: { ar: esc(store.base && store.base.ar), en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '') }, tec: { ar: esc(store.tec && store.tec.ar), en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '') } }; })(), counter:0, logicGame:{ sequence:[], options:[], answer:null, feedback:null, explain:null, selected:null }, settingsOpen:false, themePrefs: (prefs.themePrefs || { fontScale: 100, background: 'nebula' }), backgrounds: THEME_BACKGROUND_PRESETS, alphabet: ALPHABET, game: { musicOn:true, timerOn:true, timerSec:45, timeLeft:45, triesMax:5, triesLeft:5, audioList:[ { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' }, { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' }, { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' } ], audioIdx:0, proverb:null, guessed:{}, status:'idle', revealSolution:false, feedback:null } } }; }
+        function buildInitialState(){ var prefs=loadPrefs() || {}; var lang=prefs.lang || 'ar'; var theme=prefs.theme || 'dark'; return { env:{ lang:lang, dir: lang==='ar'? 'rtl':'ltr', theme: theme, flags:{ htmlxExperiment:true } }, i18n:{ strings: JSON.parse(JSON.stringify(STRINGS)) }, data:{ activeTab:'readmeBase', docs: (function(){ var store=M.readme||{}; function esc(s){return String(s||'');} return { base: { ar: esc(store.base && store.base.ar), en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '') }, tec: { ar: esc(store.tec && store.tec.ar), en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '') } }; })(), counter:0, logicGame:{ sequence:[], options:[], answer:null, feedback:null, explain:null, selected:null }, settingsOpen:false, themePrefs: (prefs.themePrefs || { fontScale: 100, background: 'nebula' }), backgrounds: THEME_BACKGROUND_PRESETS, alphabet: ALPHABET, game: { musicOn:true, timerOn:true, timerSec:45, timeLeft:45, triesMax:5, triesLeft:5, audioList:[ { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' }, { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' }, { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' } ], audioIdx:0, proverb:null, guessed:{}, status:'idle', revealSolution:false, feedback:null } } }; }
 
         var state = buildInitialState();
         window.__INDEX_STATE__ = state;
