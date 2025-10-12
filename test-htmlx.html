@@ -157,38 +157,56 @@
       </comp-card>
 
       <script>
-        function applyCounterDelta(ctx, delta) {
+        function increment(event, ctx) {
           ctx.setState(function (prev) {
             var base = prev || {};
             var data = base.data || {};
             var counter = data.counter || {};
             var now = new Date();
+            var delta = +1;
             var entry = {
               id: 'h-' + now.getTime(),
-              label: delta > 0 ? 'زيادة' : 'نقصان',
+              label: 'زيادة',
               delta: delta,
               time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
               hot: Math.abs(delta) >= 5
             };
             var history = Array.isArray(counter.history) ? counter.history : [];
-            var nextHistory = [entry].concat(history).slice(0, 6);
             return Object.assign({}, base, {
               data: Object.assign({}, data, {
                 counter: Object.assign({}, counter, {
                   value: (typeof counter.value === 'number' ? counter.value : 0) + delta,
-                  history: nextHistory
+                  history: [entry].concat(history).slice(0, 6)
                 })
               })
             });
           });
         }
 
-        function increment(event, ctx) {
-          applyCounterDelta(ctx, +1);
-        }
-
         function decrement(event, ctx) {
-          applyCounterDelta(ctx, -1);
+          ctx.setState(function (prev) {
+            var base = prev || {};
+            var data = base.data || {};
+            var counter = data.counter || {};
+            var now = new Date();
+            var delta = -1;
+            var entry = {
+              id: 'h-' + now.getTime(),
+              label: 'نقصان',
+              delta: delta,
+              time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+              hot: Math.abs(delta) >= 5
+            };
+            var history = Array.isArray(counter.history) ? counter.history : [];
+            return Object.assign({}, base, {
+              data: Object.assign({}, data, {
+                counter: Object.assign({}, counter, {
+                  value: (typeof counter.value === 'number' ? counter.value : 0) + delta,
+                  history: [entry].concat(history).slice(0, 6)
+                })
+              })
+            });
+          });
         }
 
         function reset(event, ctx) {
