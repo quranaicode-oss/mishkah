@@ -132,6 +132,35 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
+      <script type="application/json" data-m-env>
+        {
+          "theme": "dark",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "htmlxExperiment": true
+          }
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="head">
+        {
+          "title": "مشكاة — تجربة HTMLx"
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="i18n.strings">
+        {
+          "app.title": { "ar": "مشكاة — تجربة HTMLx", "en": "Mishkah — HTMLx Experience" },
+          "header.subtitle": { "ar": "نموذج مبسط يعرض التبويبات، العدادات، وتحديات Mishkah دون لغة DSL.", "en": "A lightweight showcase of tabs, counters, and Mishkah challenges without the legacy DSL." },
+          "header.theme.light": { "ar": "نهاري", "en": "Light" },
+          "header.theme.dark": { "ar": "ليلي", "en": "Dark" },
+          "header.lang.ar": { "ar": "العربية", "en": "Arabic" },
+          "header.lang.en": { "ar": "الإنجليزية", "en": "English" },
+          "settings.open": { "ar": "التخصيص", "en": "Customize" }
+        }
+      </script>
+
       <div class="page-shell">
         <div class="app-card">
           <header class="header">
@@ -152,6 +181,10 @@
                 <div class="status-block">
                   <strong>{trans('game.statusLabel')}</strong>
                   <span>{trans('game.status.' + state.data.game.status)}</span>
+                </div>
+                <div class="status-block" x-if="state.env.flags && state.env.flags.htmlxExperiment">
+                  <strong>🧪 HTMLx</strong>
+                  <span>{state.env.lang === 'ar' ? 'تجريبي' : 'Experimental'}</span>
                 </div>
                 <div class="controls">
                   <div class="segmented">
@@ -181,6 +214,28 @@
             <aside class="sidebar">
               <div class="sidebar-card">
                 <h2>{trans('nav.menu')}</h2>
+                <script type="application/json" data-m-data data-m-path="i18n.strings">
+                  {
+                    "nav.menu": { "ar": "التصفّح", "en": "Navigation" },
+                    "nav.readmeBase": { "ar": "الرحلة المعمارية", "en": "Architectural Journey" },
+                    "nav.readmeTec": { "ar": "الدليل التقني", "en": "Technical Guide" },
+                    "nav.counter": { "ar": "العداد التفاعلي", "en": "Interactive Counter" },
+                    "nav.logic": { "ar": "تحدي المنطق", "en": "Logic Challenge" },
+                    "nav.game": { "ar": "لعبة الأمثال", "en": "Proverbs Game" },
+                    "doc.base.lead": { "ar": "قراءة روحية لمعماريات مشكاة ومحركها.", "en": "A reflective tour through Mishkah's architecture." },
+                    "doc.tec.lead": { "ar": "الملف التقني الذي يشرح تفاصيل النظام.", "en": "The technical dossier explaining the system." },
+                    "doc.language.hint": { "ar": "بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.", "en": "Use the header switcher to view the document in Arabic or English." },
+                    "counter.lead": { "ar": "مثال يوضح استخدام أوامر HTMLx للتحديث.", "en": "An example that shows HTMLx driven updates." },
+                    "logic.lead": { "ar": "حل متتاليات رقمية بأسلوب ممتع.", "en": "Solve number sequences in a playful way." },
+                    "game.lead": { "ar": "لعبة تفاعلية للتعرّف على الأمثال.", "en": "An interactive game to rediscover proverbs." }
+                  }
+                </script>
+
+                <script type="application/json" data-m-data data-m-path="data">
+                  {
+                    "activeTab": "readmeBase"
+                  }
+                </script>
                 <div class="nav-list">
                   <button class="nav-button {state.data.activeTab === 'readmeBase' ? 'active' : ''}" onclick="switchTab('readmeBase', ctx)"><span>{trans('nav.readmeBase')}</span><span class="hint">{trans('doc.base.lead')}</span></button>
                   <button class="nav-button {state.data.activeTab === 'readmeTec' ? 'active' : ''}" onclick="switchTab('readmeTec', ctx)"><span>{trans('nav.readmeTec')}</span><span class="hint">{trans('doc.tec.lead')}</span></button>
@@ -192,6 +247,13 @@
             </aside>
 
             <div class="main-column">
+              <script type="application/json" data-m-data data-m-path="data.docs">
+                {
+                  "base": { "ar": "", "en": "" },
+                  "tec": { "ar": "", "en": "" }
+                }
+              </script>
+
               <section class="panel" x-if="state.data.activeTab === 'readmeBase'">
                 <header><h2>{trans('nav.readmeBase')}</h2><p>{trans('doc.language.hint')}</p></header>
                 <article class="md-prose" x-html="state.data.docs.base[state.env.lang]"></article>
@@ -203,6 +265,18 @@
               </section>
 
               <section class="panel" x-if="state.data.activeTab === 'counter'">
+                <script type="application/json" data-m-data data-m-path="i18n.strings">
+                  {
+                    "counter.title": { "ar": "عداد بسيط", "en": "Simple Counter" },
+                    "counter.reset": { "ar": "إعادة الضبط", "en": "Reset" }
+                  }
+                </script>
+
+                <script type="application/json" data-m-data data-m-path="data">
+                  {
+                    "counter": 0
+                  }
+                </script>
                 <header><h2>{trans('counter.title')}</h2><p>{trans('counter.lead')}</p></header>
                 <div class="counter-view">
                   <button class="button secondary" onclick="updateCounter(-1, ctx)">−</button>
@@ -218,6 +292,27 @@
               </script>
 
               <section class="panel" x-if="state.data.activeTab === 'logic'">
+                <script type="application/json" data-m-data data-m-path="i18n.strings">
+                  {
+                    "logic.title": { "ar": "تحدي الذكاء الاستقرائي", "en": "Pattern Logic Trainer" },
+                    "logic.subtitle": { "ar": "استكشف المتتاليات وصقل مهارة اكتشاف النمط.", "en": "Explore sequences and sharpen your pattern sense." },
+                    "logic.start": { "ar": "ابدأ التحدي", "en": "Start challenge" },
+                    "logic.newChallenge": { "ar": "تحدٍ جديد", "en": "New challenge" },
+                    "logic.feedback.correct": { "ar": "إجابة صحيحة! منطقك حاضر.", "en": "Great choice! Your reasoning is sharp." },
+                    "logic.feedback.wrong": { "ar": "ليست الإجابة الصحيحة، حاول مرة أخرى.", "en": "Not quite right, try once more." }
+                  }
+                </script>
+
+                <script type="application/json" data-m-data data-m-path="data.logicGame">
+                  {
+                    "sequence": [],
+                    "options": [],
+                    "answer": null,
+                    "feedback": null,
+                    "explain": null,
+                    "selected": null
+                  }
+                </script>
                 <header><h2>{trans('logic.title')}</h2><p>{trans('logic.subtitle')}</p></header>
                 <div class="logic-sequence"><div class="term" x-for="term, idx in state.data.logicGame.sequence" key="idx">{term}</div><div class="term">?</div></div>
                 <div class="logic-options">
@@ -245,6 +340,72 @@
               </script>
 
               <section class="panel" x-if="state.data.activeTab === 'game'">
+                <script type="application/json" data-m-data data-m-path="i18n.strings">
+                  {
+                    "game.title": { "ar": "لعبة الأمثال والحكم", "en": "Proverbs & Wisdom Game" },
+                    "game.subtitle": { "ar": "اكتشف الحكمة بحروف عربية وتحديات ذكية.", "en": "Unveil wisdom through Arabic letters and smart challenges." },
+                    "game.timeLabel": { "ar": "الوقت المتبقي", "en": "Time left" },
+                    "game.tries": { "ar": "المحاولات", "en": "Tries" },
+                    "game.statusLabel": { "ar": "الحالة", "en": "Status" },
+                    "game.status.idle": { "ar": "جاهزة", "en": "Ready" },
+                    "game.status.running": { "ar": "قيد اللعب", "en": "Running" },
+                    "game.status.won": { "ar": "انتصار", "en": "Victory" },
+                    "game.status.lost": { "ar": "خسارة", "en": "Defeat" },
+                    "game.start": { "ar": "ابدأ اللعبة", "en": "Start game" },
+                    "game.new": { "ar": "مثل جديد", "en": "New proverb" },
+                    "game.musicOn": { "ar": "الموسيقى مفعّلة", "en": "Music on" },
+                    "game.musicOff": { "ar": "الموسيقى متوقفة", "en": "Music off" },
+                    "game.timerOn": { "ar": "المؤقت نشط", "en": "Timer on" },
+                    "game.timerOff": { "ar": "المؤقت متوقف", "en": "Timer off" },
+                    "game.timerSeconds": { "ar": "عدد الثواني", "en": "Seconds" },
+                    "game.hintTitle": { "ar": "التلميح التعليمي", "en": "Educational hint" },
+                    "game.solution": { "ar": "الحل الكامل", "en": "Full solution" },
+                    "game.explanation": { "ar": "الشرح", "en": "Explanation" },
+                    "game.lesson": { "ar": "العبرة", "en": "Lesson" },
+                    "game.source": { "ar": "المصدر", "en": "Source" },
+                    "game.feedback.correct": { "ar": "أحسنت! رف صحيح.", "en": "Great! Correct letter." },
+                    "game.feedback.wrong": { "ar": "هذه المحاولة لم تصب الهدف.", "en": "That guess missed the mark." },
+                    "game.feedback.win": { "ar": "إبداع! اكتملت الحكمة.", "en": "Brilliant! Wisdom unveiled." },
+                    "game.feedback.lose": { "ar": "انتهت المحاولات، لا بأس أن تكشف الحكمة.", "en": "No tries left, time to reveal the wisdom." },
+                    "game.reveal": { "ar": "اكتشف الحكمة", "en": "Reveal wisdom" }
+                  }
+                </script>
+
+                <script type="application/json" data-m-data data-m-path="data">
+                  {
+                    "alphabet": ["ا","ب","ت","ث","ج","ح","خ","د","ذ","ر","ز","س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ك","ل","م","ن","و","ه","ة","ء","ي","ى"],
+                    "game": {
+                      "musicOn": true,
+                      "timerOn": true,
+                      "timerSec": 45,
+                      "timeLeft": 45,
+                      "triesMax": 5,
+                      "triesLeft": 5,
+                      "audioList": [
+                        { "name": "Ghost Stories", "url": "https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3" },
+                        { "name": "The Unsolved Mystery", "url": "https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3" },
+                        { "name": "Dark Shadows", "url": "https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3" }
+                      ],
+                      "audioIdx": 0,
+                      "proverb": null,
+                      "guessed": {},
+                      "status": "idle",
+                      "revealSolution": false,
+                      "feedback": null,
+                      "proverbs": [
+                        { "t": "رجع بخفي حنين", "hint": "يُقال لمن عاد بلا نتيجة.", "explanation": "تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.", "lesson": "التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.", "source": "مثل عربي قديم" },
+                        { "t": "خير الكلام ما قل ودل", "hint": "يتعلق بفصاحة التعبير.", "explanation": "يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.", "lesson": "الإيجاز الواضح يبني تواصلاً أقوى.", "source": "حكمة عربية قديمة" },
+                        { "t": "الصبر مفتاح الفرج", "hint": "يدعو للتريث.", "explanation": "يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.", "lesson": "الهدوء والثبات يمنحان رؤية أوضح.", "source": "حكمة روحانية" }
+                      ],
+                      "soundEffects": {
+                        "correct": "https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3",
+                        "wrong": "https://assets.mixkit.co/sfx/preview/mixkit-failure-arcade-alert-notification-240.mp3",
+                        "win": "https://assets.mixkit.co/sfx/preview/mixkit-small-crowd-cheer-and-applause-518.mp3",
+                        "lose": "https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3"
+                      }
+                    }
+                  }
+                </script>
                 <header><h2>{trans('game.title')}</h2><p>{trans('game.subtitle')}</p></header>
                 <div class="game-board">
                   <div class="puzzle-row"><div class="{tileClass(ch, state.data.game)}" x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []" key="idx">{tileContent(ch, state.data.game)}</div></div>
@@ -282,8 +443,8 @@
                 function gameFeedbackTitle(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.game; if(!game || !game.feedback) return ''; var emojiMap={correct:'✅',wrong:'⚠️',win:'🏆',lose:'💔'}; var keyMap={correct:'game.feedback.correct',wrong:'game.feedback.wrong',win:'game.feedback.win',lose:'game.feedback.lose'}; var type=game.feedback.type; var emoji=emojiMap[type]||'✨'; var key=keyMap[type]||'game.feedback.correct'; return emoji+' '+ctx.trans(key); }
                 function gameFeedbackMessage(ctx){ var state=ctx.getState(); var game=state && state.data && state.data.game; if(!game || !game.feedback) return ''; var keyMap={correct:'game.feedback.correct',wrong:'game.feedback.wrong',win:'game.feedback.win',lose:'game.feedback.lose'}; var key=keyMap[game.feedback.type]||'game.feedback.correct'; return ctx.trans(key); }
                 function isSolved(game){ if(!game || !game.proverb) return false; var text=game.proverb.t||''; return text.split('').every(function(ch){ return ch===' ' || game.guessed[normalizeLetter(ch)]; }); }
-                function startGame(ctx){ var store=assets(); var env=runtime(); if(env.stopTimer) env.stopTimer(); commit(ctx, function(next){ var game=next.data.game; var list=store.proverbs||[]; var proverb=list.length? list[Math.floor(Math.random()*list.length)]: null; game.proverb=proverb; game.guessed={}; game.triesLeft=game.triesMax; game.status='running'; game.revealSolution=false; game.feedback=null; game.timeLeft= game.timerOn ? game.timerSec: 0; }, function(state, context){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(state.data.game.timerOn && state.data.game.status==='running' && env.startTimer){ env.startTimer(context); } }); }
-                function chooseLetter(letter, ctx){ var sounds=assets().soundEffects || {}; commit(ctx, function(next){ var game=next.data.game; if(!game || game.status!=='running') return; var norm=normalizeLetter(letter); if(game.guessed[norm]) return; game.guessed[norm]=true; var hasLetter= game.proverb && game.proverb.t.split('').some(function(ch){ return normalizeLetter(ch)===norm; }); if(!hasLetter){ game.triesLeft=Math.max(0, game.triesLeft-1); game.feedback={ type:'wrong', sound: sounds.wrong || ''}; } else { game.feedback={ type:'correct', sound: sounds.correct || ''}; } if(isSolved(game)){ game.status='won'; game.revealSolution=true; game.feedback={ type:'win', sound: sounds.win || ''}; if(game.timerOn){ game.timeLeft= typeof game.timeLeft==='number'? game.timeLeft: game.timerSec; } } else if (game.triesLeft<=0){ game.status='lost'; game.revealSolution=true; game.feedback={ type:'lose', sound: sounds.lose || ''}; } }, function(state){ var env=runtime(); var game=state.data.game; if(game.status!=='running' && env.stopTimer){ env.stopTimer(); } }); }
+                function startGame(ctx){ var env=runtime(); if(env.stopTimer) env.stopTimer(); commit(ctx, function(next){ var game=next.data.game; if(!game) return; var list=Array.isArray(game.proverbs)? game.proverbs: []; var proverb=list.length? list[Math.floor(Math.random()*list.length)]: null; game.proverb=proverb; game.guessed={}; game.triesLeft=game.triesMax; game.status='running'; game.revealSolution=false; game.feedback=null; game.timeLeft= game.timerOn ? game.timerSec: 0; }, function(state, context){ var env=runtime(); if(env.applyEnvironment) env.applyEnvironment(state); if(state.data.game.timerOn && state.data.game.status==='running' && env.startTimer){ env.startTimer(context); } }); }
+                function chooseLetter(letter, ctx){ commit(ctx, function(next){ var game=next.data.game; if(!game || game.status!=='running') return; var sounds=game.soundEffects || {}; var norm=normalizeLetter(letter); if(game.guessed[norm]) return; game.guessed[norm]=true; var hasLetter= game.proverb && game.proverb.t.split('').some(function(ch){ return normalizeLetter(ch)===norm; }); if(!hasLetter){ game.triesLeft=Math.max(0, game.triesLeft-1); game.feedback={ type:'wrong', sound: sounds.wrong || ''}; } else { game.feedback={ type:'correct', sound: sounds.correct || ''}; } if(isSolved(game)){ game.status='won'; game.revealSolution=true; game.feedback={ type:'win', sound: sounds.win || ''}; if(game.timerOn){ game.timeLeft= typeof game.timeLeft==='number'? game.timeLeft: game.timerSec; } } else if (game.triesLeft<=0){ game.status='lost'; game.revealSolution=true; game.feedback={ type:'lose', sound: sounds.lose || ''}; } }, function(state){ var env=runtime(); var game=state.data.game; if(game.status!=='running' && env.stopTimer){ env.stopTimer(); } }); }
                 function toggleMusic(event, ctx){ var checked=!!(event && event.target && event.target.checked); ctx.set('data.game.musicOn', checked); rememberState(ctx); }
                 function selectTrack(event, ctx){ var idx=parseInt(event && event.target && event.target.value,10); if(!Number.isFinite(idx)) idx=0; commit(ctx, function(next){ var list=next.data.game.audioList||[]; next.data.game.audioIdx=Math.max(0, Math.min(idx, list.length-1)); }); }
                 function toggleTimer(event, ctx){ var checked=!!(event && event.target && event.target.checked); var env=runtime(); if(env.stopTimer) env.stopTimer(); commit(ctx, function(next){ var game=next.data.game; game.timerOn=checked; game.timeLeft= checked? game.timerSec: 0; if(!checked && game.status==='running'){ game.status='idle'; } }, function(state, context){ if(state.data.game.status==='running' && state.data.game.timerOn && runtime().startTimer){ runtime().startTimer(context); } }); }
@@ -297,6 +458,52 @@
 
         <div class="settings-modal" x-if="state.data.settingsOpen" onclick="closeSettings(event, ctx)">
           <div class="settings-body" onclick="event.stopPropagation()">
+            <script type="application/json" data-m-data data-m-path="i18n.strings">
+              {
+                "settings.title": { "ar": "إعدادات المظهر", "en": "Appearance settings" },
+                "settings.fontLabel": { "ar": "حجم الخط", "en": "Font scale" },
+                "settings.background": { "ar": "الخلفية", "en": "Background" },
+                "settings.reset": { "ar": "إعادة الافتراضي", "en": "Reset defaults" },
+                "settings.close": { "ar": "تم", "en": "Done" }
+              }
+            </script>
+
+            <script type="application/json" data-m-data data-m-path="data">
+              {
+                "settingsOpen": false,
+                "themePrefs": { "fontScale": 100, "background": "nebula" },
+                "backgrounds": [
+                  {
+                    "id": "nebula",
+                    "label": { "ar": "شفق بنفسجي", "en": "Violet nebula" },
+                    "light": {
+                      "gradient": "linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)",
+                      "overlay1": "radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)",
+                      "overlay2": "radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)"
+                    },
+                    "dark": {
+                      "gradient": "linear-gradient(160deg, #0d1224 0%, #111c3d 100%)",
+                      "overlay1": "radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)",
+                      "overlay2": "radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)"
+                    }
+                  },
+                  {
+                    "id": "sunset",
+                    "label": { "ar": "غروب ذهبي", "en": "Golden sunset" },
+                    "light": {
+                      "gradient": "linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)",
+                      "overlay1": "radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)",
+                      "overlay2": "radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)"
+                    },
+                    "dark": {
+                      "gradient": "linear-gradient(145deg, #1f172a 0%, #312e81 100%)",
+                      "overlay1": "radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)",
+                      "overlay2": "radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)"
+                    }
+                  }
+                ]
+              }
+            </script>
             <h3>{trans('settings.title')}</h3>
             <div class="settings-grid">
               <label>{trans('settings.fontLabel')} ({state.data.themePrefs.fontScale}%)<input type="range" min="85" max="130" step="5" value="{state.data.themePrefs.fontScale}" onchange="setFontScale(event, ctx)" /></label>
@@ -316,8 +523,7 @@
 
             <script>
         // ====== وظائف محلية مشتركة داخل template ======
-        function assets(){ return window.__INDEX_ASSETS || {}; }
-        function runtime(){ return window.__INDEX_RUNTIME || {}; }
+        function runtime(){ return ensureRuntimeGlobals(); }
         function cloneState(prev){ return JSON.parse(JSON.stringify(prev || {})); }
         function rememberState(ctx){ try{ window.__INDEX_STATE__ = ctx.getState(); }catch(_){} }
         function commit(ctx, mutate, after){ if(!ctx) return; ctx.setState(function(prev){ var next = cloneState(prev); if(typeof mutate==='function'){ mutate(next, prev||{}); } return next; }); window.setTimeout(function(){ rememberState(ctx); if(typeof after==='function'){ after(ctx.getState(), ctx); } },0); }
@@ -325,6 +531,187 @@
         function shuffle(arr){ var copy = arr.slice(); for(var i=copy.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=copy[i]; copy[i]=copy[j]; copy[j]=tmp; } return copy; }
         function defaultThemePrefs(){ return { fontScale: 100, background: 'nebula' }; }
         function range(count){ var len=Math.max(0, Number(count)||0), out=[]; for(var i=0;i<len;i++) out.push(i); return out; }
+
+        function ensureRuntimeGlobals(){
+          var runtimeGlobals = window.__INDEX_RUNTIME = window.__INDEX_RUNTIME || {};
+          var STORAGE_KEY = runtimeGlobals.storageKey || 'mishkah:htmlx:index:prefs';
+          runtimeGlobals.storageKey = STORAGE_KEY;
+
+          if (typeof runtimeGlobals.persistPrefs !== 'function') {
+            runtimeGlobals.persistPrefs = function(state){
+              try{
+                var payload={ theme: state.env && state.env.theme, lang: state.env && state.env.lang, dir: state.env && state.env.dir, themePrefs: state.data && state.data.themePrefs };
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+              }catch(_){ }
+            };
+          }
+
+          runtimeGlobals.applyThemePrefs = function(state){
+            var prefs=(state.data && state.data.themePrefs) || defaultThemePrefs();
+            var scale=prefs.fontScale || 100;
+            document.documentElement.style.setProperty('--user-font-scale', String(scale));
+            var presets = (state.data && state.data.backgrounds) || [];
+            var fallback = presets[0] || { light:{}, dark:{} };
+            var preset = presets.find(function(p){ return p && p.id===prefs.background; }) || fallback;
+            var palette = state.env && state.env.theme==='dark'? (preset && preset.dark) : (preset && preset.light);
+            if(palette){
+              if(palette.gradient) document.documentElement.style.setProperty('--page-gradient', palette.gradient);
+              if(palette.overlay1) document.documentElement.style.setProperty('--page-overlay-1', palette.overlay1);
+              if(palette.overlay2) document.documentElement.style.setProperty('--page-overlay-2', palette.overlay2);
+            }
+          };
+
+          runtimeGlobals.applyEnvironment = function(state){
+            var lang=(state.env && state.env.lang) || 'ar';
+            document.documentElement.lang = lang;
+            document.documentElement.dir = (state.env && state.env.dir) || (lang==='ar' ? 'rtl':'ltr');
+            document.documentElement.classList.toggle('dark', !!(state.env && state.env.theme==='dark'));
+            runtimeGlobals.applyThemePrefs(state);
+          };
+
+          runtimeGlobals.stopTimer = function(){
+            if(runtimeGlobals._activeTimer){
+              window.clearInterval(runtimeGlobals._activeTimer);
+              runtimeGlobals._activeTimer=null;
+            }
+          };
+
+          runtimeGlobals.startTimer = function(ctx){
+            runtimeGlobals.stopTimer();
+            runtimeGlobals._activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000);
+          };
+
+          return runtimeGlobals;
+        }
+
+        function readStoredPrefs(storageKey){
+          if(!storageKey) return {};
+          try{
+            var raw=window.localStorage.getItem(storageKey);
+            if(!raw) return {};
+            var parsed=JSON.parse(raw);
+            return parsed && typeof parsed==='object'? parsed: {};
+          }catch(_){ return {}; }
+        }
+
+        function extractDocs(){
+          var host=window.Mishkah || {};
+          var source=host.readme || {};
+          function esc(value){ return String(value || ''); }
+          return {
+            base: {
+              ar: esc(source.base && source.base.ar),
+              en: esc((source.base && source.base.en) || (source.base && source.base.ar) || '')
+            },
+            tec: {
+              ar: esc(source.tec && source.tec.ar),
+              en: esc((source.tec && source.tec.en) || (source.tec && source.tec.ar) || '')
+            }
+          };
+        }
+
+        function collectExternalProverbs(){
+          var list = window.PROVERBS;
+          if(!Array.isArray(list) || !list.length) return null;
+          return list.map(function(item){
+            if(item && typeof item==='object'){
+              var copy={};
+              for(var key in item){
+                if(Object.prototype.hasOwnProperty.call(item, key)) copy[key]=item[key];
+              }
+              return copy;
+            }
+            return item;
+          });
+        }
+
+        function mergeStoredPreferences(database, stored){
+          if(!database || typeof database!=='object' || !stored || typeof stored!=='object') return;
+          database.env = database.env && typeof database.env==='object'? database.env: {};
+          var env = database.env;
+          if(stored.lang){
+            env.lang=stored.lang;
+            env.dir=stored.dir || (stored.lang==='ar'? 'rtl':'ltr');
+          }
+          if(stored.dir){
+            env.dir=stored.dir;
+          }
+          if(stored.theme){
+            env.theme=stored.theme;
+          }
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          if(stored.themePrefs && typeof stored.themePrefs==='object'){
+            var base = database.data.themePrefs && typeof database.data.themePrefs==='object'? database.data.themePrefs: defaultThemePrefs();
+            database.data.themePrefs = Object.assign({}, base, stored.themePrefs);
+          }
+        }
+
+        function mergeDocs(database, docs){
+          if(!database || typeof database!=='object' || !docs) return;
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          database.data.docs = docs;
+        }
+
+        function mergeExternalProverbs(database, list){
+          if(!database || typeof database!=='object' || !Array.isArray(list) || !list.length) return;
+          database.data = database.data && typeof database.data==='object'? database.data: {};
+          database.data.game = database.data.game && typeof database.data.game==='object'? database.data.game: {};
+          database.data.game.proverbs = list.slice();
+        }
+
+        function applySnapshotEnvironment(snapshot){
+          var runtimeGlobals = ensureRuntimeGlobals();
+          if(runtimeGlobals.applyEnvironment) runtimeGlobals.applyEnvironment(snapshot);
+        }
+
+        function __bootstrap__(database){
+          if(!database || typeof database!=='object') return;
+          var runtimeGlobals = ensureRuntimeGlobals();
+          var stored = readStoredPrefs(runtimeGlobals.storageKey);
+          mergeStoredPreferences(database, stored);
+          mergeDocs(database, extractDocs());
+          mergeExternalProverbs(database, collectExternalProverbs());
+          var snapshot = { env: database.env || {}, data: database.data || {} };
+          applySnapshotEnvironment(snapshot);
+          if(runtimeGlobals.persistPrefs) runtimeGlobals.persistPrefs(snapshot);
+          window.__INDEX_STATE__ = {};
+        }
+
+        function __init__(ctx){
+          var runtimeGlobals = ensureRuntimeGlobals();
+          if(!ctx || typeof ctx.getState!=='function') return;
+          rememberState(ctx);
+          var state = ctx.getState();
+          if(runtimeGlobals.applyEnvironment) runtimeGlobals.applyEnvironment(state);
+          if(runtimeGlobals.persistPrefs) runtimeGlobals.persistPrefs(state);
+        }
+
+        function tickTimer(ctx){
+          if(!ctx || typeof ctx.getState!=='function') return;
+          var runtimeGlobals = ensureRuntimeGlobals();
+          var current=ctx.getState();
+          var game=current.data && current.data.game;
+          if(!game || !game.timerOn || game.status!=='running'){
+            runtimeGlobals.stopTimer();
+            return;
+          }
+          ctx.setState(function(prev){
+            var next=cloneState(prev||{});
+            var g=next.data.game;
+            if(!g.timerOn || g.status!=='running') return prev;
+            var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1;
+            g.timeLeft=Math.max(0,nextTime);
+            if(g.timeLeft<=0){
+              g.status='lost';
+              g.revealSolution=true;
+              var effects=(next.data && next.data.game && next.data.game.soundEffects)||{};
+              g.feedback={ type:'lose', sound: effects.lose };
+              runtimeGlobals.stopTimer();
+            }
+            return next;
+          });
+          window.setTimeout(function(){ rememberState(ctx); },0);
+        }
       </script>
     </template>
 
@@ -340,112 +727,10 @@
         var M = window.Mishkah;
         if (!M || !M.HTMLxAgent) { console.error('Mishkah HTMLx agent is required.'); return; }
 
-        var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
-
-        // ====== بيانات فقط (لا دوال تطبيقية هنا) ======
-        var STRINGS = {
-          'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
-          'header.subtitle': { ar: 'نموذج مبسط يعرض التبويبات، العدادات، وتحديات Mishkah دون لغة DSL.', en: 'A lightweight showcase of tabs, counters, and Mishkah challenges without the legacy DSL.' },
-          'header.theme.light': { ar: 'نهاري', en: 'Light' },
-          'header.theme.dark': { ar: 'ليلي', en: 'Dark' },
-          'header.lang.ar': { ar: 'العربية', en: 'Arabic' },
-          'header.lang.en': { ar: 'الإنجليزية', en: 'English' },
-          'nav.menu': { ar: 'التصفّح', en: 'Navigation' },
-          'nav.readmeBase': { ar: 'الرحلة المعمارية', en: 'Architectural Journey' },
-          'nav.readmeTec': { ar: 'الدليل التقني', en: 'Technical Guide' },
-          'nav.counter': { ar: 'العداد التفاعلي', en: 'Interactive Counter' },
-          'nav.logic': { ar: 'تحدي المنطق', en: 'Logic Challenge' },
-          'nav.game': { ar: 'لعبة الأمثال', en: 'Proverbs Game' },
-          'doc.base.lead': { ar: 'قراءة روحية لمعماريات مشكاة ومحركها.', en: "A reflective tour through Mishkah's architecture." },
-          'doc.tec.lead': { ar: 'الملف التقني الذي يشرح تفاصيل النظام.', en: 'The technical dossier explaining the system.' },
-          'doc.language.hint': { ar: 'بدّل اللغة من الأعلى لعرض الوثيقة بالعربية أو الإنجليزية.', en: 'Use the header switcher to view the document in Arabic or English.' },
-          'counter.title': { ar: 'عداد بسيط', en: 'Simple Counter' },
-          'counter.lead': { ar: 'مثال يوضح استخدام أوامر HTMLx للتحديث.', en: 'An example that shows HTMLx driven updates.' },
-          'counter.reset': { ar: 'إعادة الضبط', en: 'Reset' },
-          'logic.title': { ar: 'تحدي الذكاء الاستقرائي', en: 'Pattern Logic Trainer' },
-          'logic.subtitle': { ar: 'استكشف المتتاليات وصقل مهارة اكتشاف النمط.', en: 'Explore sequences and sharpen your pattern sense.' },
-          'logic.lead': { ar: 'حل متتاليات رقمية بأسلوب ممتع.', en: 'Solve number sequences in a playful way.' },
-          'logic.start': { ar: 'ابدأ التحدي', en: 'Start challenge' },
-          'logic.newChallenge': { ar: 'تحدٍ جديد', en: 'New challenge' },
-          'logic.feedback.correct': { ar: 'إجابة صحيحة! منطقك حاضر.', en: 'Great choice! Your reasoning is sharp.' },
-          'logic.feedback.wrong': { ar: 'ليست الإجابة الصحيحة، حاول مرة أخرى.', en: 'Not quite right, try once more.' },
-          'game.title': { ar: 'لعبة الأمثال والحكم', en: 'Proverbs & Wisdom Game' },
-          'game.subtitle': { ar: 'اكتشف الحكمة بحروف عربية وتحديات ذكية.', en: 'Unveil wisdom through Arabic letters and smart challenges.' },
-          'game.lead': { ar: 'لعبة تفاعلية للتعرّف على الأمثال.', en: 'An interactive game to rediscover proverbs.' },
-          'game.timeLabel': { ar: 'الوقت المتبقي', en: 'Time left' },
-          'game.tries': { ar: 'المحاولات', en: 'Tries' },
-          'game.statusLabel': { ar: 'الحالة', en: 'Status' },
-          'game.status.idle': { ar: 'جاهزة', en: 'Ready' },
-          'game.status.running': { ar: 'قيد اللعب', en: 'Running' },
-          'game.status.won': { ar: 'انتصار', en: 'Victory' },
-          'game.status.lost': { ar: 'خسارة', en: 'Defeat' },
-          'game.start': { ar: 'ابدأ اللعبة', en: 'Start game' },
-          'game.new': { ar: 'مثل جديد', en: 'New proverb' },
-          'game.musicOn': { ar: 'الموسيقى مفعّلة', en: 'Music on' },
-          'game.musicOff': { ar: 'الموسيقى متوقفة', en: 'Music off' },
-          'game.timerOn': { ar: 'المؤقت نشط', en: 'Timer on' },
-          'game.timerOff': { ar: 'المؤقت متوقف', en: 'Timer off' },
-          'game.timerSeconds': { ar: 'عدد الثواني', en: 'Seconds' },
-          'game.hintTitle': { ar: 'التلميح التعليمي', en: 'Educational hint' },
-          'game.solution': { ar: 'الحل الكامل', en: 'Full solution' },
-          'game.explanation': { ar: 'الشرح', en: 'Explanation' },
-          'game.lesson': { ar: 'العبرة', en: 'Lesson' },
-          'game.source': { ar: 'المصدر', en: 'Source' },
-          'game.feedback.correct': { ar: 'أحسنت! رف صحيح.', en: 'Great! Correct letter.' },
-          'game.feedback.wrong': { ar: 'هذه المحاولة لم تصب الهدف.', en: 'That guess missed the mark.' },
-          'game.feedback.win': { ar: 'إبداع! اكتملت الحكمة.', en: 'Brilliant! Wisdom unveiled.' },
-          'game.feedback.lose': { ar: 'انتهت المحاولات، لا بأس أن تكشف الحكمة.', en: 'No tries left, time to reveal the wisdom.' },
-          'game.reveal': { ar: 'اكتشف الحكمة', en: 'Reveal wisdom' },
-          'settings.open': { ar: 'التخصيص', en: 'Customize' },
-          'settings.title': { ar: 'إعدادات المظهر', en: 'Appearance settings' },
-          'settings.fontLabel': { ar: 'حجم الخط', en: 'Font scale' },
-          'settings.background': { ar: 'الخلفية', en: 'Background' },
-          'settings.reset': { ar: 'إعادة الافتراضي', en: 'Reset defaults' },
-          'settings.close': { ar: 'تم', en: 'Done' }
-        };
-
-        var SOUND_EFFECTS = {
-          correct: 'https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3',
-          wrong: 'https://assets.mixkit.co/sfx/preview/mixkit-failure-arcade-alert-notification-240.mp3',
-          win: 'https://assets.mixkit.co/sfx/preview/mixkit-small-crowd-cheer-and-applause-518.mp3',
-          lose: 'https://assets.mixkit.co/sfx/preview/mixkit-game-over-dark-2068.mp3'
-        };
-
-        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length ? window.PROVERBS.slice() : [
-          { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
-          { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
-          { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' }
-        ];
-
-        var THEME_BACKGROUND_PRESETS = [
-          { id: 'nebula', label: { ar: 'شفق بنفسجي', en: 'Violet nebula' }, light: { gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)', overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)', overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)' }, dark: { gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)', overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)', overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)' } },
-          { id: 'sunset', label: { ar: 'غروب ذهبي', en: 'Golden sunset' }, light: { gradient: 'linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)', overlay1: 'radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)', overlay2: 'radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)' }, dark: { gradient: 'linear-gradient(145deg, #1f172a 0%, #312e81 100%)', overlay1: 'radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)', overlay2: 'radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)' } }
-        ];
-
-        var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
-
-        // ====== Runtime بيئي (تأثيرات على DOM / تخزين) ======
-        function loadPrefs(){ try{ var raw=window.localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): null; }catch(_){ return null; } }
-        function persistPrefs(state){ try{ var payload={ theme: state.env.theme, lang: state.env.lang, dir: state.env.dir, themePrefs: state.data.themePrefs }; window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch(_){} }
-        function applyThemePrefs(state){ var prefs=(state.data && state.data.themePrefs) || { fontScale: 100, background: 'nebula' }; var scale=prefs.fontScale || 100; document.documentElement.style.setProperty('--user-font-scale', String(scale)); var preset = THEME_BACKGROUND_PRESETS.find(function(p){ return p.id===prefs.background; }) || THEME_BACKGROUND_PRESETS[0]; if(preset){ var theme = state.env.theme==='dark'? preset.dark: preset.light; document.documentElement.style.setProperty('--page-gradient', theme.gradient); document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1); document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2); } }
-        function applyEnvironment(state){ document.documentElement.lang = state.env.lang || 'ar'; document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr'); document.documentElement.classList.toggle('dark', state.env.theme==='dark'); applyThemePrefs(state); }
-
-        function buildInitialState(){ var prefs=loadPrefs() || {}; var lang=prefs.lang || 'ar'; var theme=prefs.theme || 'dark'; return { env:{ lang:lang, dir: lang==='ar'? 'rtl':'ltr', theme: theme }, i18n:{ strings: JSON.parse(JSON.stringify(STRINGS)) }, data:{ activeTab:'readmeBase', docs: (function(){ var store=M.readme||{}; function esc(s){return String(s||'');} return { base: { ar: esc(store.base && store.base.ar), en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '') }, tec: { ar: esc(store.tec && store.tec.ar), en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '') } }; })(), counter:0, logicGame:{ sequence:[], options:[], answer:null, feedback:null, explain:null, selected:null }, settingsOpen:false, themePrefs: (prefs.themePrefs || { fontScale: 100, background: 'nebula' }), backgrounds: THEME_BACKGROUND_PRESETS, alphabet: ALPHABET, game: { musicOn:true, timerOn:true, timerSec:45, timeLeft:45, triesMax:5, triesLeft:5, audioList:[ { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' }, { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' }, { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' } ], audioIdx:0, proverb:null, guessed:{}, status:'idle', revealSolution:false, feedback:null } } }; }
-
-        var state = buildInitialState();
-        window.__INDEX_STATE__ = state;
-        window.__INDEX_ASSETS = { strings: STRINGS, soundEffects: SOUND_EFFECTS, proverbs: PROVERBS, alphabet: ALPHABET, backgrounds: THEME_BACKGROUND_PRESETS };
-
-        var activeTimer=null;
-        function stopTimer(){ if(activeTimer){ window.clearInterval(activeTimer); activeTimer=null; } }
-        function tickTimer(ctx){ var current=ctx.getState(); var game=current.data && current.data.game; if(!game || !game.timerOn || game.status!=='running'){ stopTimer(); return; } ctx.setState(function(prev){ var next=JSON.parse(JSON.stringify(prev||{})); var g=next.data.game; if(!g.timerOn || g.status!=='running') return prev; var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1; g.timeLeft=Math.max(0,nextTime); if(g.timeLeft<=0){ g.status='lost'; g.revealSolution=true; g.feedback={ type:'lose', sound: SOUND_EFFECTS.lose }; stopTimer(); } return next; }); window.setTimeout(function(){ window.__INDEX_STATE__ = ctx.getState(); },0); }
-        window.__INDEX_RUNTIME = { applyEnvironment: applyEnvironment, applyThemePrefs: applyThemePrefs, persistPrefs: persistPrefs, startTimer: function(ctx){ stopTimer(); activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000); }, stopTimer: stopTimer };
-
-        applyEnvironment(state); persistPrefs(state);
-
-        var database = { head: { title: STRINGS['app.title'].ar }, env: state.env, i18n: state.i18n, data: state.data, templates: [{ id: 'mishkah-index' }] };
-        var start = M.HTMLxAgent.make(database);
-        if (start && typeof start.catch === 'function') start.catch(function (error) { console.error('Failed to start Mishkah HTMLx index:', error); });
+        var start = M.HTMLxAgent.make();
+        Promise.resolve(start).catch(function (error) {
+          console.error('Failed to start Mishkah HTMLx index:', error);
+        });
       })(window);
     </script>
   </body>

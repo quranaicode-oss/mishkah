@@ -173,6 +173,212 @@
     };
   }
 
+  function describeTemplate(template) {
+    if (!template || typeof template.getAttribute !== 'function') return 'template';
+    var ns = template.getAttribute('data-namespace');
+    if (ns) return 'template[' + ns + ']';
+    var id = template.getAttribute('id');
+    if (id) return 'template#' + id;
+    return 'template';
+  }
+
+  function isPlainObject(value) {
+    if (!value || typeof value !== 'object') return false;
+    var proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+  }
+
+  function cloneSerializableValue(value) {
+    if (Array.isArray(value)) {
+      return value.map(function (item) {
+        return cloneSerializableValue(item);
+      });
+    }
+    if (isPlainObject(value)) {
+      var out = {};
+      for (var key in value) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+        out[key] = cloneSerializableValue(value[key]);
+      }
+      return out;
+    }
+    return value;
+  }
+
+  function ensureSerializableEnv(value, path, issues, seen) {
+    if (!issues) issues = [];
+    if (!seen) seen = [];
+    if (value == null) return issues;
+    if (seen.indexOf(value) !== -1) return issues;
+    var type = typeof value;
+    if (type === 'function' || type === 'symbol' || type === 'undefined') {
+      issues.push(path + ' (' + type + ')');
+      return issues;
+    }
+    if (type === 'object') {
+      seen.push(value);
+      if (Array.isArray(value)) {
+        for (var i = 0; i < value.length; i += 1) {
+          ensureSerializableEnv(value[i], path + '[' + i + ']', issues, seen);
+        }
+        return issues;
+      }
+      if (!isPlainObject(value)) {
+        issues.push(path + ' (non-plain object)');
+        return issues;
+      }
+      for (var key in value) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+        ensureSerializableEnv(value[key], path + '.' + key, issues, seen);
+      }
+      return issues;
+    }
+    if (type === 'number' && !isFinite(value)) {
+      issues.push(path + ' (non-finite number)');
+    }
+    return issues;
+  }
+
+  function parseEnvScriptElement(scriptEl, templateEl) {
+    var contextLabel = describeTemplate(templateEl);
+    var raw = (scriptEl && (scriptEl.textContent || scriptEl.innerText || '')) || '';
+    var text = raw.trim();
+    if (!text) {
+      return { data: {} };
+    }
+    var data = null;
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      var message = 'HTMLx: data-m-env داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      console.warn(message);
+      return { error: message };
+    }
+    if (data == null || typeof data !== 'object' || Array.isArray(data)) {
+      var typeMessage = 'HTMLx: data-m-env داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
+      console.warn(typeMessage);
+      return { error: typeMessage };
+    }
+    var issues = ensureSerializableEnv(data, 'env', []);
+    if (issues.length) {
+      var issuesMessage = 'HTMLx: data-m-env داخل ' + contextLabel + ' يحتوي على قيم غير مدعومة: ' + issues.join(', ');
+      console.warn(issuesMessage);
+      return { error: issuesMessage };
+    }
+    return { data: data };
+  }
+
+  function parseDataScriptElement(scriptEl, templateEl) {
+    var contextLabel = describeTemplate(templateEl);
+    var pathAttr = (scriptEl && scriptEl.getAttribute && scriptEl.getAttribute('data-m-path')) || '';
+    var rawPath = String(pathAttr || '').trim();
+    if (!rawPath) {
+      var missingPathMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يتطلب تحديد data-m-path.';
+      console.warn(missingPathMessage);
+      return { error: missingPathMessage };
+    }
+    var segments = rawPath.split('.').map(function (part) { return part.trim(); }).filter(function (part) { return part.length; });
+    if (!segments.length) {
+      var invalidPathMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يحتوي مسارًا غير صالح: ' + rawPath;
+      console.warn(invalidPathMessage);
+      return { error: invalidPathMessage };
+    }
+    var raw = (scriptEl && (scriptEl.textContent || scriptEl.innerText || '')) || '';
+    var text = raw.trim();
+    if (!text) {
+      return { path: rawPath, segments: segments, data: {}, source: contextLabel };
+    }
+    var data = null;
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      var message = 'HTMLx: data-m-data داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      console.warn(message);
+      return { error: message };
+    }
+    if (!isPlainObject(data)) {
+      var typeMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
+      console.warn(typeMessage);
+      return { error: typeMessage };
+    }
+    var issues = ensureSerializableEnv(data, rawPath, []);
+    if (issues.length) {
+      var issuesMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يحتوي على قيم غير مدعومة: ' + issues.join(', ');
+      console.warn(issuesMessage);
+      return { error: issuesMessage };
+    }
+    return { path: rawPath, segments: segments, data: cloneSerializableValue(data), source: contextLabel };
+  }
+
+  function collectDataKeys(value, basePath, seen, duplicates) {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i += 1) {
+        var entry = value[i];
+        if (isPlainObject(entry)) {
+          collectDataKeys(entry, basePath + '[' + i + ']', seen, duplicates);
+        }
+      }
+      return;
+    }
+    var keys = Object.keys(value);
+    for (var j = 0; j < keys.length; j += 1) {
+      var key = keys[j];
+      var full = basePath ? basePath + '.' + key : key;
+      if (seen[full]) {
+        duplicates.push(full);
+      } else {
+        seen[full] = true;
+      }
+      collectDataKeys(value[key], full, seen, duplicates);
+    }
+  }
+
+  function applyDataFeed(db, feed) {
+    if (!feed || !feed.segments || !feed.segments.length) return;
+    if (!feed.data || !Object.keys(feed.data).length) return;
+    var segments = feed.segments;
+    var contextLabel = feed.source || 'template';
+    var cursor = db;
+    for (var i = 0; i < segments.length - 1; i += 1) {
+      var part = segments[i];
+      if (!part) continue;
+      var next = cursor[part];
+      if (next == null) {
+        next = {};
+        cursor[part] = next;
+      } else if (!isPlainObject(next)) {
+        console.warn('HTMLx: data-m-data داخل ' + contextLabel + ' تعذّر دمجه لأن ' + segments.slice(0, i + 1).join('.') + ' ليس كائنًا قابلاً للدمج.');
+        return;
+      }
+      cursor = next;
+    }
+    var finalKey = segments[segments.length - 1];
+    if (!finalKey) return;
+    var current = cursor[finalKey];
+    cursor[finalKey] = mergeEnvTarget(current, feed.data);
+  }
+
+  function mergeEnvTarget(target, patch) {
+    if (!patch || typeof patch !== 'object') return target;
+    if (!isPlainObject(target)) target = {};
+    for (var key in patch) {
+      if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
+      var value = patch[key];
+      if (isPlainObject(value)) {
+        var base = isPlainObject(target[key]) ? target[key] : {};
+        target[key] = mergeEnvTarget(base, value);
+        continue;
+      }
+      if (Array.isArray(value)) {
+        target[key] = cloneSerializableValue(value);
+        continue;
+      }
+      target[key] = value;
+    }
+    return target;
+  }
+
   function scopeCss(namespace, css, domSignature) {
     if (!css) return null;
     var scopeId = namespace + '-' + createHash(css + '|' + domSignature);
@@ -1353,7 +1559,7 @@
   }
 
   function collectTemplateScriptsWithDynamic(templateEl, fragment) {
-    var bundle = { global: { fns: {}, locals: {} }, scoped: {} };
+    var bundle = { global: { fns: {}, locals: {} }, scoped: {}, env: [], data: [], warnings: [] };
     if (!fragment) return bundle;
 
     var scriptInfos = [];
@@ -1362,6 +1568,30 @@
       for (var i = 0; i < scripts.length; i += 1) {
         var scriptEl = scripts[i];
         if (!scriptEl) continue;
+        if (scriptEl.hasAttribute('data-m-env')) {
+          var envResult = parseEnvScriptElement(scriptEl, templateEl);
+          if (envResult && envResult.data && Object.keys(envResult.data).length) {
+            bundle.env.push(cloneSerializableValue(envResult.data));
+          } else if (envResult && envResult.error) {
+            bundle.warnings.push(envResult.error);
+          }
+          if (scriptEl.parentNode) {
+            scriptEl.parentNode.removeChild(scriptEl);
+          }
+          continue;
+        }
+        if (scriptEl.hasAttribute('data-m-data')) {
+          var dataResult = parseDataScriptElement(scriptEl, templateEl);
+          if (dataResult && dataResult.data != null) {
+            bundle.data.push(dataResult);
+          } else if (dataResult && dataResult.error) {
+            bundle.warnings.push(dataResult.error);
+          }
+          if (scriptEl.parentNode) {
+            scriptEl.parentNode.removeChild(scriptEl);
+          }
+          continue;
+        }
         var code = scriptEl.textContent || scriptEl.innerText || '';
         var artifacts = parseScriptArtifacts(code);
         var owner = (scriptEl.getAttribute('data-for') || '').trim();
@@ -1704,6 +1934,25 @@
   function compileTemplate(template, options) {
     var parts = extractTemplateParts(template);
     var scriptBundle = collectTemplateScriptsWithDynamic(template, parts.fragment);
+    var envPatch = null;
+    if (scriptBundle && scriptBundle.env && scriptBundle.env.length) {
+      envPatch = {};
+      for (var ei = 0; ei < scriptBundle.env.length; ei += 1) {
+        mergeEnvTarget(envPatch, scriptBundle.env[ei]);
+      }
+      if (!Object.keys(envPatch).length) envPatch = null;
+    }
+    var dataFeeds = null;
+    if (scriptBundle && scriptBundle.data && scriptBundle.data.length) {
+      dataFeeds = scriptBundle.data.map(function (entry) {
+        return {
+          path: entry.path,
+          segments: entry.segments ? entry.segments.slice() : entry.path.split('.'),
+          data: cloneSerializableValue(entry.data || {}),
+          source: entry.source
+        };
+      });
+    }
     var tplSource = template.outerHTML || template.innerHTML || '';
     var tplId = 'tpl:' + (U.hash32 ? U.hash32(tplSource) : simpleHash32(tplSource));
     var fenceMode = (options && options.fence) || 'hard';
@@ -1724,7 +1973,9 @@
       if (tokens.indexOf(tplId) === -1) tokens.push(tplId);
       rootEl.setAttribute('data-m-key', tokens.join(' ').trim());
     }
-    var warnings = [];
+    var warnings = scriptBundle && scriptBundle.warnings && scriptBundle.warnings.length
+      ? scriptBundle.warnings.slice()
+      : [];
     var children = [];
     var node = parts.fragment.firstChild;
     var index = 0;
@@ -1762,6 +2013,16 @@
       collectEvents(entry, events);
     });
     var runtimeGlobal = instantiateFunctionMap(scriptBundle && scriptBundle.global ? scriptBundle.global.fns : {});
+    var bootstrapFns = [];
+    var initFns = [];
+    if (runtimeGlobal && typeof runtimeGlobal.__bootstrap__ === 'function') {
+      bootstrapFns.push(runtimeGlobal.__bootstrap__);
+      delete runtimeGlobal.__bootstrap__;
+    }
+    if (runtimeGlobal && typeof runtimeGlobal.__init__ === 'function') {
+      initFns.push(runtimeGlobal.__init__);
+      delete runtimeGlobal.__init__;
+    }
     var scriptLocals = mergeFunctionLocals(
       scriptBundle && scriptBundle.global ? scriptBundle.global.locals : {},
       runtimeGlobal
@@ -1808,6 +2069,10 @@
       render: render,
       orders: orders,
       databasePatch: databasePatch,
+      envPatch: envPatch,
+      dataFeeds: dataFeeds,
+      bootstrapFns: bootstrapFns,
+      initFns: initFns,
       warnings: warnings,
       element: template
     };
@@ -1950,8 +2215,47 @@
     return dsl.Containers.Div({ attrs: attrs }, children);
   }
 
+  function normalizeDatabaseSection(source) {
+    return isPlainObject(source) ? source : {};
+  }
+
+  function lifecycleContext(entry, stage) {
+    return {
+      template: entry || null,
+      stage: stage,
+      Mishkah: Mishkah,
+      global: global
+    };
+  }
+
+  async function runLifecycle(sequence, payload, stage, extra) {
+    if (!sequence || !sequence.length) return;
+    for (var i = 0; i < sequence.length; i += 1) {
+      var item = sequence[i];
+      if (!item || typeof item.fn !== 'function') continue;
+      var helpers = lifecycleContext(item.template, stage);
+      if (extra) {
+        for (var key in extra) {
+          if (Object.prototype.hasOwnProperty.call(extra, key)) {
+            helpers[key] = extra[key];
+          }
+        }
+      }
+      try {
+        var result = item.fn(payload, helpers);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      } catch (error) {
+        var label = item.template && item.template.element ? describeTemplate(item.template.element) : 'template';
+        console.warn('HTMLx: ' + stage + ' فشل داخل ' + label + ':', error);
+      }
+    }
+  }
+
   async function createApp(db, options) {
-    if (!db || typeof db !== 'object') {
+    if (db == null) db = {};
+    if (typeof db !== 'object') {
       throw new Error('Mishkah.app.make يتطلب كائن قاعدة بيانات صالح.');
     }
     var root = (options && options.root) || global.document || null;
@@ -1960,7 +2264,76 @@
     }
     var templates = Array.from(root.querySelectorAll('template'));
     var compiled = templates.map(compileTemplate);
+    db = isPlainObject(db) ? db : Object.assign({}, db);
+    db.head = normalizeDatabaseSection(db.head);
+    db.env = normalizeDatabaseSection(db.env);
+    db.i18n = normalizeDatabaseSection(db.i18n);
+    db.data = normalizeDatabaseSection(db.data);
+    db.templates = Array.isArray(db.templates) ? db.templates.slice() : [];
+    var templateEnv = null;
+    for (var ci = 0; ci < compiled.length; ci += 1) {
+      var entry = compiled[ci];
+      if (!entry || !entry.envPatch) continue;
+      if (!templateEnv) templateEnv = {};
+      mergeEnvTarget(templateEnv, entry.envPatch);
+    }
+    if (templateEnv && Object.keys(templateEnv).length) {
+      var mergedEnv = mergeEnvTarget({}, templateEnv);
+      if (db && db.env && typeof db.env === 'object') {
+        mergeEnvTarget(mergedEnv, db.env);
+      }
+      if (db) {
+        db.env = mergedEnv;
+      }
+    }
+    var templateDataFeeds = [];
+    for (var di = 0; di < compiled.length; di += 1) {
+      var dataEntry = compiled[di];
+      if (!dataEntry || !dataEntry.dataFeeds || !dataEntry.dataFeeds.length) continue;
+      templateDataFeeds = templateDataFeeds.concat(dataEntry.dataFeeds);
+    }
+    if (templateDataFeeds.length) {
+      var seenKeys = {};
+      var duplicates = [];
+      for (var si = 0; si < templateDataFeeds.length; si += 1) {
+        var feed = templateDataFeeds[si];
+        if (!feed || !feed.data) continue;
+        collectDataKeys(feed.data, feed.path, seenKeys, duplicates);
+      }
+      if (duplicates.length) {
+        console.warn('HTMLx: data-m-data تكرار في المفاتيح التالية: ' + duplicates.join(', '));
+      }
+      for (var ai = 0; ai < templateDataFeeds.length; ai += 1) {
+        applyDataFeed(db, templateDataFeeds[ai]);
+      }
+    }
+    var lifecycle = { bootstrap: [], init: [] };
+    for (var bi = 0; bi < compiled.length; bi += 1) {
+      var compiledEntry = compiled[bi];
+      if (!compiledEntry) continue;
+      if (compiledEntry.bootstrapFns && compiledEntry.bootstrapFns.length) {
+        compiledEntry.bootstrapFns.forEach(function (fn) {
+          lifecycle.bootstrap.push({ fn: fn, template: compiledEntry });
+        });
+      }
+      if (compiledEntry.initFns && compiledEntry.initFns.length) {
+        compiledEntry.initFns.forEach(function (fn) {
+          lifecycle.init.push({ fn: fn, template: compiledEntry });
+        });
+      }
+    }
+    await runLifecycle(lifecycle.bootstrap, db, 'bootstrap');
     deriveMounts(compiled, { root: root });
+    for (var ti = 0; ti < compiled.length; ti += 1) {
+      var tpl = compiled[ti];
+      if (!tpl || !tpl.namespace) continue;
+      var exists = db.templates.some(function (entry) {
+        return entry && entry.id === tpl.namespace;
+      });
+      if (!exists) {
+        db.templates.push({ id: tpl.namespace, mount: tpl.mount });
+      }
+    }
     var legacyOrders = null;
     if (db && db.orders) {
       legacyOrders = db.orders;
@@ -2022,6 +2395,15 @@
 
     var mountTarget = (options && options.mount) || '#app';
     app.mount(mountTarget);
+
+    await runLifecycle(lifecycle.init, app, 'init', { app: app });
+    var optionInits = ensureArray(options && options.init);
+    if (optionInits.length) {
+      var optionSequence = optionInits.map(function (fn) {
+        return { fn: fn, template: null };
+      });
+      await runLifecycle(optionSequence, app, 'init', { app: app });
+    }
 
     return { app: app, compiled: compiled, renderers: rendererList };
   }
