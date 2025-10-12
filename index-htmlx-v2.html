@@ -61,8 +61,11 @@
       .app-card{background:var(--panel-glass);backdrop-filter:blur(22px);border:1px solid var(--panel-border);border-radius:2rem;box-shadow:var(--panel-shadow);overflow:hidden}
       header.header{margin:0 auto 2rem;max-width:1500px}
       header.header .header-inner{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;padding:1.5rem}
+      header.header .header-text{display:grid;gap:.4rem;flex:1 1 320px;min-width:220px}
       header.header h1{margin:0;font-size:clamp(1.8rem,2.8vw,2.6rem)}
-      header.header p{margin:.4rem 0 0;font-size:.95rem;color:var(--muted-foreground)}
+      header.header p{margin:0;font-size:.95rem;color:var(--muted-foreground)}
+      .header-actions{margin-inline-start:auto;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:flex-end}
+      .header-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-1);color:var(--muted-foreground);font-weight:600}
       .status-strip{display:flex;flex-wrap:wrap;gap:1.25rem;padding:.75rem 1.25rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-1);box-shadow:0 18px 40px -28px rgba(79,70,229,.45)}
       .status-block{display:inline-flex;align-items:center;gap:.6rem;font-size:.95rem}
       .status-block strong{font-size:1.05rem}
@@ -129,6 +132,11 @@
       .letters-grid button{border:none;border-radius:.95rem;padding:.5rem 0;font-weight:600;background:var(--surface-1);cursor:pointer;box-shadow:var(--panel-shadow);transition:transform .15s ease, box-shadow .2s ease}
       .letters-grid button:hover{transform:translateY(-1px);box-shadow:var(--letters-hover)}
       .letters-grid button.used{opacity:.45;box-shadow:none;cursor:default}
+      .game-status-strip{display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem}
+      @media (min-width:768px){.game-status-strip{flex-direction:row;align-items:center}}
+      .game-status-strip .status-strip{flex:1 1 auto;min-width:240px}
+      .game-status-actions{display:flex;flex-wrap:wrap;gap:.75rem}
+      @media (min-width:768px){.game-status-actions{margin-inline-start:auto}}
       .game-controls{display:grid;gap:1rem}
       .game-controls .control-row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
       .toggle{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .85rem;border-radius:999px;border:1px solid var(--border);background:var(--surface-1)}
@@ -198,39 +206,24 @@
         <div class="app-card">
           <header class="header">
             <div class="header-inner">
-              <div>
+              <div class="header-text">
                 <h1>{trans('app.title')}</h1>
                 <p>{trans('header.subtitle')}</p>
               </div>
-              <div class="status-strip">
-                <div class="status-block">
-                  <strong>{trans('game.tries')}</strong>
-                  <span>{state.data.game.triesLeft} / {state.data.game.triesMax}</span>
-                </div>
-                <div class="status-block">
-                  <strong>{trans('game.timeLabel')}</strong>
-                  <span>{formatTimeLeft(state.data.game)}</span>
-                </div>
-                <div class="status-block">
-                  <strong>{trans('game.statusLabel')}</strong>
-                  <span>{trans('game.status.' + state.data.game.status)}</span>
-                </div>
-                <div class="status-block" x-if="state.env.flags && state.env.flags.htmlxExperiment">
-                  <strong>🧪 HTMLx</strong>
+              <div class="header-actions">
+                <div class="header-badge" x-if="state.env.flags && state.env.flags.htmlxExperiment">
+                  <span>🧪 HTMLx</span>
                   <span>{state.env.lang === 'ar' ? 'تجريبي' : 'Experimental'}</span>
                 </div>
-                <div class="controls">
-                  <div class="segmented">
-                    <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">{trans('header.theme.light')}</button>
-                    <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">{trans('header.theme.dark')}</button>
-                  </div>
-                  <div class="segmented">
-                    <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">{trans('header.lang.ar')}</button>
-                    <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">{trans('header.lang.en')}</button>
-                  </div>
-                  <button class="button secondary" onclick="toggleSettings(ctx)">{trans('settings.open')}</button>
-                  <button class="button" x-if="state.data.activeTab === 'game'" onclick="startGame(ctx)">🎮 {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}</button>
+                <div class="segmented">
+                  <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">{trans('header.theme.light')}</button>
+                  <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">{trans('header.theme.dark')}</button>
                 </div>
+                <div class="segmented">
+                  <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">{trans('header.lang.ar')}</button>
+                  <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">{trans('header.lang.en')}</button>
+                </div>
+                <button class="button secondary" onclick="toggleSettings(ctx)">{trans('settings.open')}</button>
               </div>
             </div>
           </header>
@@ -513,6 +506,26 @@
                   }
                 </script>
                 <header><h2>{trans('game.title')}</h2><p>{trans('game.subtitle')}</p></header>
+                <div class="game-status-strip">
+                  <div class="status-strip">
+                    <div class="status-block">
+                      <strong>{trans('game.tries')}</strong>
+                      <span>{state.data.game.triesLeft} / {state.data.game.triesMax}</span>
+                    </div>
+                    <div class="status-block">
+                      <strong>{trans('game.timeLabel')}</strong>
+                      <span>{formatTimeLeft(state.data.game)}</span>
+                    </div>
+                    <div class="status-block">
+                      <strong>{trans('game.statusLabel')}</strong>
+                      <span>{trans('game.status.' + state.data.game.status)}</span>
+                    </div>
+                  </div>
+                  <div class="game-status-actions">
+                    <button class="button" onclick="startGame(ctx)">🎮 {state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}</button>
+                    <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">{trans('game.reveal')}</button>
+                  </div>
+                </div>
                 <div class="game-board">
                   <div class="puzzle-row"><div class="{tileClass(ch, state.data.game)}" x-for="ch, idx in state.data.game.proverb ? state.data.game.proverb.t.split('') : []" key="idx">{tileContent(ch, state.data.game)}</div></div>
                   <div class="letters-grid"><button x-for="letter in state.data.alphabet" key="letter" class="{letterClass(letter, state.data.game)}" onclick="chooseLetter(letter, ctx)">{letter}</button></div>
@@ -534,10 +547,6 @@
                   </div>
                   <audio class="hidden" x-if="state.data.game.musicOn && state.data.game.status === 'running'" src="{state.data.game.audioList[state.data.game.audioIdx].url}" autoplay loop></audio>
                   <audio class="hidden" x-if="state.data.game.feedback && state.data.game.feedback.sound" src="{state.data.game.feedback.sound}" autoplay></audio>
-                </div>
-                <div class="controls" style="margin-top:1.5rem">
-                  <button class="button" onclick="startGame(ctx)">{state.data.game.status === 'running' ? trans('game.new') : trans('game.start')}</button>
-                  <button class="button secondary" x-if="state.data.game.status === 'lost'" onclick="revealSolution(ctx)">{trans('game.reveal')}</button>
                 </div>
               </section>
 
