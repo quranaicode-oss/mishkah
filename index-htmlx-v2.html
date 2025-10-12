@@ -132,6 +132,17 @@
     <div id="app"></div>
 
     <template id="mishkah-index">
+      <script type="application/json" data-m-env>
+        {
+          "theme": "dark",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "htmlxExperiment": true
+          }
+        }
+      </script>
+
       <div class="page-shell">
         <div class="app-card">
           <header class="header">
@@ -152,6 +163,10 @@
                 <div class="status-block">
                   <strong>{trans('game.statusLabel')}</strong>
                   <span>{trans('game.status.' + state.data.game.status)}</span>
+                </div>
+                <div class="status-block" x-if="state.env.flags && state.env.flags.htmlxExperiment">
+                  <strong>🧪 HTMLx</strong>
+                  <span>{state.env.lang === 'ar' ? 'تجريبي' : 'Experimental'}</span>
                 </div>
                 <div class="controls">
                   <div class="segmented">
@@ -325,6 +340,78 @@
         function shuffle(arr){ var copy = arr.slice(); for(var i=copy.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=copy[i]; copy[i]=copy[j]; copy[j]=tmp; } return copy; }
         function defaultThemePrefs(){ return { fontScale: 100, background: 'nebula' }; }
         function range(count){ var len=Math.max(0, Number(count)||0), out=[]; for(var i=0;i<len;i++) out.push(i); return out; }
+
+        (function(){
+          var runtimeGlobals = window.__INDEX_RUNTIME = window.__INDEX_RUNTIME || {};
+          var STORAGE_KEY = runtimeGlobals.storageKey || 'mishkah:htmlx:index:prefs';
+          runtimeGlobals.storageKey = STORAGE_KEY;
+
+          runtimeGlobals.persistPrefs = function(state){
+            try{
+              var payload={ theme: state.env.theme, lang: state.env.lang, dir: state.env.dir, themePrefs: state.data.themePrefs };
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            }catch(_){ }
+          };
+
+          runtimeGlobals.applyThemePrefs = function(state){
+            var prefs=(state.data && state.data.themePrefs) || defaultThemePrefs();
+            var scale=prefs.fontScale || 100;
+            document.documentElement.style.setProperty('--user-font-scale', String(scale));
+            var presets = assets().backgrounds || [];
+            var fallback = presets[0] || { light:{}, dark:{} };
+            var preset = presets.find(function(p){ return p && p.id===prefs.background; }) || fallback;
+            var palette = state.env.theme==='dark'? (preset && preset.dark) : (preset && preset.light);
+            if(palette){
+              if(palette.gradient) document.documentElement.style.setProperty('--page-gradient', palette.gradient);
+              if(palette.overlay1) document.documentElement.style.setProperty('--page-overlay-1', palette.overlay1);
+              if(palette.overlay2) document.documentElement.style.setProperty('--page-overlay-2', palette.overlay2);
+            }
+          };
+
+          runtimeGlobals.applyEnvironment = function(state){
+            document.documentElement.lang = state.env.lang || 'ar';
+            document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr');
+            document.documentElement.classList.toggle('dark', state.env.theme==='dark');
+            runtimeGlobals.applyThemePrefs(state);
+          };
+
+          function tickTimer(ctx){
+            var current=ctx.getState();
+            var game=current.data && current.data.game;
+            if(!game || !game.timerOn || game.status!=='running'){
+              runtimeGlobals.stopTimer();
+              return;
+            }
+            ctx.setState(function(prev){
+              var next=cloneState(prev||{});
+              var g=next.data.game;
+              if(!g.timerOn || g.status!=='running') return prev;
+              var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1;
+              g.timeLeft=Math.max(0,nextTime);
+              if(g.timeLeft<=0){
+                g.status='lost';
+                g.revealSolution=true;
+                var effects=(assets().soundEffects)||{};
+                g.feedback={ type:'lose', sound: effects.lose };
+                runtimeGlobals.stopTimer();
+              }
+              return next;
+            });
+            window.setTimeout(function(){ rememberState(ctx); },0);
+          }
+
+          runtimeGlobals.stopTimer = function(){
+            if(runtimeGlobals._activeTimer){
+              window.clearInterval(runtimeGlobals._activeTimer);
+              runtimeGlobals._activeTimer=null;
+            }
+          };
+
+          runtimeGlobals.startTimer = function(ctx){
+            runtimeGlobals.stopTimer();
+            runtimeGlobals._activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000);
+          };
+        })();
       </script>
     </template>
 
@@ -424,28 +511,88 @@
 
         var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
 
-        // ====== Runtime بيئي (تأثيرات على DOM / تخزين) ======
-        function loadPrefs(){ try{ var raw=window.localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): null; }catch(_){ return null; } }
-        function persistPrefs(state){ try{ var payload={ theme: state.env.theme, lang: state.env.lang, dir: state.env.dir, themePrefs: state.data.themePrefs }; window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch(_){} }
-        function applyThemePrefs(state){ var prefs=(state.data && state.data.themePrefs) || { fontScale: 100, background: 'nebula' }; var scale=prefs.fontScale || 100; document.documentElement.style.setProperty('--user-font-scale', String(scale)); var preset = THEME_BACKGROUND_PRESETS.find(function(p){ return p.id===prefs.background; }) || THEME_BACKGROUND_PRESETS[0]; if(preset){ var theme = state.env.theme==='dark'? preset.dark: preset.light; document.documentElement.style.setProperty('--page-gradient', theme.gradient); document.documentElement.style.setProperty('--page-overlay-1', theme.overlay1); document.documentElement.style.setProperty('--page-overlay-2', theme.overlay2); } }
-        function applyEnvironment(state){ document.documentElement.lang = state.env.lang || 'ar'; document.documentElement.dir = state.env.dir || (state.env.lang==='ar' ? 'rtl':'ltr'); document.documentElement.classList.toggle('dark', state.env.theme==='dark'); applyThemePrefs(state); }
+        var runtimeGlobals = window.__INDEX_RUNTIME = window.__INDEX_RUNTIME || {};
+        runtimeGlobals.storageKey = STORAGE_KEY;
 
-        function buildInitialState(){ var prefs=loadPrefs() || {}; var lang=prefs.lang || 'ar'; var theme=prefs.theme || 'dark'; return { env:{ lang:lang, dir: lang==='ar'? 'rtl':'ltr', theme: theme }, i18n:{ strings: JSON.parse(JSON.stringify(STRINGS)) }, data:{ activeTab:'readmeBase', docs: (function(){ var store=M.readme||{}; function esc(s){return String(s||'');} return { base: { ar: esc(store.base && store.base.ar), en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '') }, tec: { ar: esc(store.tec && store.tec.ar), en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '') } }; })(), counter:0, logicGame:{ sequence:[], options:[], answer:null, feedback:null, explain:null, selected:null }, settingsOpen:false, themePrefs: (prefs.themePrefs || { fontScale: 100, background: 'nebula' }), backgrounds: THEME_BACKGROUND_PRESETS, alphabet: ALPHABET, game: { musicOn:true, timerOn:true, timerSec:45, timeLeft:45, triesMax:5, triesLeft:5, audioList:[ { name:'Ghost Stories', url:'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' }, { name:'The Unsolved Mystery', url:'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' }, { name:'Dark Shadows', url:'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' } ], audioIdx:0, proverb:null, guessed:{}, status:'idle', revealSolution:false, feedback:null } } }; }
+        var storedPrefs = (function(){
+          var raw = null;
+          try { raw = window.localStorage.getItem(STORAGE_KEY); } catch(_){ raw = null; }
+          if(!raw) return null;
+          try { return JSON.parse(raw); } catch(_){ return null; }
+        })() || {};
 
-        var state = buildInitialState();
+        var lang = storedPrefs.lang || 'ar';
+        var theme = storedPrefs.theme || 'dark';
+        var themePrefs = (storedPrefs.themePrefs && typeof storedPrefs.themePrefs === 'object') ? storedPrefs.themePrefs : { fontScale: 100, background: 'nebula' };
+
+        var store = M.readme || {};
+        function esc(value){ return String(value || ''); }
+        var docs = {
+          base: {
+            ar: esc(store.base && store.base.ar),
+            en: esc((store.base && store.base.en) || (store.base && store.base.ar) || '')
+          },
+          tec: {
+            ar: esc(store.tec && store.tec.ar),
+            en: esc((store.tec && store.tec.en) || (store.tec && store.tec.ar) || '')
+          }
+        };
+
+        var state = {
+          env: { lang: lang, dir: lang==='ar' ? 'rtl' : 'ltr', theme: theme, flags: { htmlxExperiment: true } },
+          i18n: { strings: JSON.parse(JSON.stringify(STRINGS)) },
+          data: {
+            activeTab: 'readmeBase',
+            docs: docs,
+            counter: 0,
+            logicGame: { sequence: [], options: [], answer: null, feedback: null, explain: null, selected: null },
+            settingsOpen: false,
+            themePrefs: themePrefs,
+            backgrounds: THEME_BACKGROUND_PRESETS,
+            alphabet: ALPHABET,
+            game: {
+              musicOn: true,
+              timerOn: true,
+              timerSec: 45,
+              timeLeft: 45,
+              triesMax: 5,
+              triesLeft: 5,
+              audioList: [
+                { name: 'Ghost Stories', url: 'https://www.fesliyanstudios.com/musicfiles/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen/2020-10-26_-_Ghost_Stories_-_www.FesliyanStudios.com_Steve_Oxen.mp3' },
+                { name: 'The Unsolved Mystery', url: 'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3' },
+                { name: 'Dark Shadows', url: 'https://www.fesliyanstudios.com/musicfiles/2020-06-25_-_Dark_Shadows_-_www.FesliyanStudios.com_David_Fesliyan.mp3' }
+              ],
+              audioIdx: 0,
+              proverb: null,
+              guessed: {},
+              status: 'idle',
+              revealSolution: false,
+              feedback: null
+            }
+          }
+        };
         window.__INDEX_STATE__ = state;
         window.__INDEX_ASSETS = { strings: STRINGS, soundEffects: SOUND_EFFECTS, proverbs: PROVERBS, alphabet: ALPHABET, backgrounds: THEME_BACKGROUND_PRESETS };
 
-        var activeTimer=null;
-        function stopTimer(){ if(activeTimer){ window.clearInterval(activeTimer); activeTimer=null; } }
-        function tickTimer(ctx){ var current=ctx.getState(); var game=current.data && current.data.game; if(!game || !game.timerOn || game.status!=='running'){ stopTimer(); return; } ctx.setState(function(prev){ var next=JSON.parse(JSON.stringify(prev||{})); var g=next.data.game; if(!g.timerOn || g.status!=='running') return prev; var nextTime=(typeof g.timeLeft==='number'? g.timeLeft: g.timerSec) - 1; g.timeLeft=Math.max(0,nextTime); if(g.timeLeft<=0){ g.status='lost'; g.revealSolution=true; g.feedback={ type:'lose', sound: SOUND_EFFECTS.lose }; stopTimer(); } return next; }); window.setTimeout(function(){ window.__INDEX_STATE__ = ctx.getState(); },0); }
-        window.__INDEX_RUNTIME = { applyEnvironment: applyEnvironment, applyThemePrefs: applyThemePrefs, persistPrefs: persistPrefs, startTimer: function(ctx){ stopTimer(); activeTimer = window.setInterval(function(){ tickTimer(ctx); }, 1000); }, stopTimer: stopTimer };
-
-        applyEnvironment(state); persistPrefs(state);
-
         var database = { head: { title: STRINGS['app.title'].ar }, env: state.env, i18n: state.i18n, data: state.data, templates: [{ id: 'mishkah-index' }] };
-        var start = M.HTMLxAgent.make(database);
-        if (start && typeof start.catch === 'function') start.catch(function (error) { console.error('Failed to start Mishkah HTMLx index:', error); });
+        var initHooks = [
+          function(ctx){
+            var runtime = window.__INDEX_RUNTIME || {};
+            var current = ctx && typeof ctx.getState === 'function' ? ctx.getState() : state;
+            if(runtime.applyEnvironment) runtime.applyEnvironment(current);
+            if(runtime.persistPrefs) runtime.persistPrefs(current);
+          }
+        ];
+
+        var start = M.HTMLxAgent.make(database, { init: initHooks });
+        Promise.resolve(start).then(function(){
+          var runtime = window.__INDEX_RUNTIME || {};
+          var latest = window.__INDEX_STATE__ || state;
+          if(runtime.applyEnvironment) runtime.applyEnvironment(latest);
+          if(runtime.persistPrefs) runtime.persistPrefs(latest);
+        }).catch(function (error) {
+          console.error('Failed to start Mishkah HTMLx index:', error);
+        });
       })(window);
     </script>
   </body>
