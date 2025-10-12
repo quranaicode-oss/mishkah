@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTMLx Counter — Mishkah</title>
+    <meta name="description" content="مثال HTMLx مبسّط يوضح بناء عدّاد في منظومة مشكاة." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --font-base: 'Tajawal', system-ui;
+        --bg: radial-gradient(circle at 20% 20%, rgba(129, 140, 248, 0.28), transparent 55%),
+          radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.32), transparent 55%),
+          linear-gradient(135deg, #f6f8ff 0%, #eef2ff 45%, #e0f2fe 100%);
+        --fg: #0f172a;
+        --muted: rgba(15, 23, 42, 0.6);
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-border: rgba(99, 102, 241, 0.22);
+        --shadow: 0 35px 70px -40px rgba(15, 23, 42, 0.35);
+        --accent: #4f46e5;
+        --accent-strong: #4338ca;
+        --accent-fg: #f8fafc;
+        --outline: rgba(79, 70, 229, 0.16);
+        --surface: rgba(248, 250, 252, 0.82);
+      }
+
+      :root.dark {
+        --bg: radial-gradient(circle at 15% 25%, rgba(129, 140, 248, 0.24), transparent 60%),
+          radial-gradient(circle at 80% 75%, rgba(30, 144, 255, 0.2), transparent 60%),
+          linear-gradient(135deg, #0f172a 0%, #111827 55%, #1e293b 100%);
+        --fg: #f8fafc;
+        --muted: rgba(226, 232, 240, 0.68);
+        --panel: rgba(15, 23, 42, 0.82);
+        --panel-border: rgba(148, 163, 184, 0.28);
+        --shadow: 0 40px 85px -40px rgba(15, 23, 42, 0.6);
+        --accent: #818cf8;
+        --accent-strong: #6366f1;
+        --accent-fg: #0f172a;
+        --outline: rgba(129, 140, 248, 0.22);
+        --surface: rgba(30, 41, 59, 0.78);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-base);
+        background: var(--bg);
+        color: var(--fg);
+        display: grid;
+        place-items: center;
+        padding: 2.5rem 1.5rem;
+      }
+
+      .page-shell {
+        display: grid;
+        gap: 2rem;
+        max-width: 480px;
+        width: min(100%, 480px);
+      }
+
+      .brand {
+        text-align: center;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: clamp(1.85rem, 3vw, 2.35rem);
+        font-weight: 700;
+      }
+
+      .brand p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="brand">
+        <h1>عداد HTMLx مصغّر</h1>
+        <p>تعرف على أبسط نمط للتعامل مع الحالة والأوامر داخل مشكاة.</p>
+      </section>
+      <div id="app"></div>
+    </main>
+
+    <template id="counter-htmx-demo">
+      <style>
+        :host {
+          display: block;
+        }
+
+        .counter-card {
+          background: var(--panel);
+          border-radius: 1.75rem;
+          border: 1px solid var(--panel-border);
+          padding: 2.25rem 2rem;
+          box-shadow: var(--shadow);
+          display: grid;
+          gap: 1.75rem;
+        }
+
+        header {
+          display: grid;
+          gap: 0.35rem;
+          justify-items: center;
+          text-align: center;
+        }
+
+        header span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.3rem 0.9rem;
+          border-radius: 999px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          background: var(--surface);
+          border: 1px solid var(--outline);
+        }
+
+        header h2 {
+          margin: 0;
+          font-size: clamp(1.6rem, 3vw, 2.1rem);
+          font-weight: 700;
+        }
+
+        header p {
+          margin: 0;
+          color: var(--muted);
+          font-size: 0.95rem;
+        }
+
+        .counter-display {
+          display: grid;
+          place-items: center;
+          padding: 1.75rem;
+          border-radius: 1.5rem;
+          border: 1px solid var(--panel-border);
+          background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(129, 140, 248, 0.16));
+          font-size: clamp(2.2rem, 6vw, 3rem);
+          font-weight: 700;
+          color: var(--accent-strong);
+        }
+
+        .actions {
+          display: grid;
+          gap: 0.75rem;
+        }
+
+        @media (min-width: 480px) {
+          .actions {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        button {
+          border: none;
+          border-radius: 999px;
+          padding: 0.75rem 1.1rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.2s ease;
+        }
+
+        button.primary {
+          background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+          color: var(--accent-fg);
+          box-shadow: 0 18px 45px -22px rgba(79, 70, 229, 0.6);
+        }
+
+        button.secondary {
+          background: var(--surface);
+          color: var(--fg);
+          border: 1px solid var(--outline);
+          box-shadow: 0 14px 35px -26px rgba(15, 23, 42, 0.25);
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+        }
+
+        button:focus-visible {
+          outline: 3px solid var(--outline);
+          outline-offset: 3px;
+        }
+
+        .hint {
+          margin: 0;
+          text-align: center;
+          font-size: 0.9rem;
+          color: var(--muted);
+        }
+      </style>
+
+      <article class="counter-card">
+        <header>
+          <span>🧪 خطوة أولى</span>
+          <h2>{state.data.counter.label}</h2>
+          <p>{state.data.counter.caption}</p>
+        </header>
+
+        <div class="counter-display">{state.data.counter.value}</div>
+
+        <div class="actions">
+          <button class="primary" onclick="increment(event, ctx)">⬆️ زيادة</button>
+          <button class="secondary" onclick="reset(event, ctx)">🔄 إعادة الضبط</button>
+          <button class="secondary" onclick="decrement(event, ctx)">⬇️ إنقاص</button>
+        </div>
+
+        <p class="hint">
+          HTMLx يعتني بربط الحالة تلقائيًا — كل ما عليك هو تحديث القيمة عبر <code>ctx.set</code>.
+        </p>
+      </article>
+
+      <script>
+        function updateCounter(ctx, delta) {
+          var current = ctx.get('data.counter.value') || 0;
+          ctx.set('data.counter.value', current + delta);
+        }
+
+        function increment(event, ctx) {
+          updateCounter(ctx, 1);
+        }
+
+        function decrement(event, ctx) {
+          updateCounter(ctx, -1);
+        }
+
+        function reset(event, ctx) {
+          ctx.set('data.counter.value', ctx.get('data.counter.initial'));
+        }
+      </script>
+    </template>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-ui.js"></script>
+    <script src="./dist/mishkah-htmlx.js"></script>
+
+    <script>
+      (function () {
+        var M = window.Mishkah;
+        if (!M) {
+          console.error('Mishkah core is not available.');
+          return;
+        }
+
+        var database = {
+          head: { title: 'HTMLx Counter — Mishkah' },
+          env: { lang: 'ar', dir: 'rtl', theme: 'light' },
+          data: {
+            counter: {
+              label: 'القيمة الحالية',
+              caption: 'جرب الأزرار لتتعرف على تدفق HTMLx.',
+              value: 0,
+              initial: 0
+            }
+          }
+        };
+
+        var start = M.HTMLxAgent.make(database, { mount: '#app' });
+
+        if (start && typeof start.catch === 'function') {
+          start.catch(function (error) {
+            console.error('Mishkah HTMLx bootstrap failed:', error);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
