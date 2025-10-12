@@ -597,6 +597,27 @@
                 if(typeof after === 'function') after(ctx.getState(), ctx);
               }, 0);
             }
+            function getActiveCategory(state){
+              state = state || {};
+              var data = state.data || {};
+              var menu = (data.menu && data.menu.categories) || [];
+              if(!menu.length) return null;
+              var activeId = data.ui && data.ui.activeCategory;
+              if(!activeId){
+                return menu[0];
+              }
+              for(var i=0;i<menu.length;i+=1){
+                var category = menu[i];
+                if(category && category.id === activeId){
+                  return category;
+                }
+              }
+              return menu[0];
+            }
+            function getActiveMenuItems(state){
+              var category = getActiveCategory(state);
+              return category && Array.isArray(category.items) ? category.items : [];
+            }
             function formatCurrency(amount, state){
               var currency = (state.data && state.data.currency) || { symbol: '﷼', fraction: 2 };
               var value = (Number(amount) || 0).toFixed(currency.fraction || 2);
@@ -790,36 +811,34 @@
               </script>
 
               <nav class="menu-categories">
-                <template x-for="category in (state.data.menu && state.data.menu.categories) || []" key="category.id">
-                  <button
-                    class="category-button {state.data.ui.activeCategory === category.id ? 'active' : ''}"
-                    onclick="switchCategory(category.id, ctx)"
-                  >
-                    <span>{category.title[state.env.lang] || category.title.ar}</span>
-                    <span class="brand-meta">{category.items.length} {trans('pos.menu.itemsCount')}</span>
-                  </button>
-                </template>
+                <button
+                  x-for="category in (state.data.menu && state.data.menu.categories) || []"
+                  key="category.id"
+                  class="category-button {state.data.ui.activeCategory === category.id ? 'active' : ''}"
+                  onclick="switchCategory(category.id, ctx)"
+                >
+                  <span>{category.title[state.env.lang] || category.title.ar}</span>
+                  <span class="brand-meta">{category.items.length} {trans('pos.menu.itemsCount')}</span>
+                </button>
               </nav>
 
-              <template x-for="category in (state.data.menu && state.data.menu.categories) || []" key="category.id">
-                <section x-if="category.id === state.data.ui.activeCategory">
-                  <div class="menu-grid">
-                    <article class="menu-card" x-for="item in category.items" key="item.id">
-                      <header>
-                        <h3>{item.name[state.env.lang] || item.name.ar}</h3>
-                        <p>{item.description[state.env.lang] || item.description.ar}</p>
-                      </header>
-                      <div class="tag-row">
-                        <span class="tag" x-for="tag in item.tags" key="tag">{tag}</span>
-                      </div>
-                      <footer>
-                        <span class="price">{formatCurrency(item.price, state)}</span>
-                        <button onclick="addItemToCart(item.id, ctx)">{trans('pos.menu.add')}</button>
-                      </footer>
-                    </article>
-                  </div>
-                </section>
-              </template>
+              <section x-if="getActiveMenuItems(state).length">
+                <div class="menu-grid">
+                  <article class="menu-card" x-for="item in getActiveMenuItems(state)" key="item.id">
+                    <header>
+                      <h3>{item.name[state.env.lang] || item.name.ar}</h3>
+                      <p>{item.description[state.env.lang] || item.description.ar}</p>
+                    </header>
+                    <div class="tag-row">
+                      <span class="tag" x-for="tag in item.tags" key="tag">{tag}</span>
+                    </div>
+                    <footer>
+                      <span class="price">{formatCurrency(item.price, state)}</span>
+                      <button onclick="addItemToCart(item.id, ctx)">{trans('pos.menu.add')}</button>
+                    </footer>
+                  </article>
+                </div>
+              </section>
 
               <script>
                 function switchCategory(categoryId, ctx){

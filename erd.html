@@ -141,6 +141,122 @@
       color: color-mix(in srgb, var(--card-foreground) 92%, transparent);
       box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.05);
     }
+    .json-tree-viewer {
+      padding: 0;
+      overflow: auto;
+      max-height: 24rem;
+    }
+    .json-tree-viewer[data-json-ready='true'] .json-tree-fallback {
+      display: none;
+    }
+    .json-tree-error {
+      margin: 0.5rem 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: calc(var(--radius) - 6px);
+      background: color-mix(in srgb, var(--destructive) 8%, transparent);
+      color: color-mix(in srgb, var(--destructive-foreground) 86%, transparent);
+      font-size: 0.8rem;
+    }
+    .json-tree-fallback {
+      margin: 0;
+      padding: 1rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      direction: ltr;
+      background: transparent;
+      color: inherit;
+      overflow: auto;
+      border: 0;
+      box-shadow: none;
+    }
+    .json-tree {
+      padding: 0.75rem 1rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.35rem;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "SFMono-Regular", ui-monospace, monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      direction: ltr;
+      width: 100%;
+    }
+    .json-tree-node {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      color: color-mix(in srgb, var(--card-foreground) 92%, transparent);
+      width: 100%;
+    }
+    .json-tree-node--branch {
+      font-weight: 500;
+    }
+    .json-tree-node--collapsed > .json-tree-children {
+      display: none;
+    }
+    .json-tree-toggle,
+    .json-tree-spacer {
+      width: 1.45rem;
+      flex: 0 0 1.45rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0.15rem;
+    }
+    .json-tree-toggle {
+      border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+      color: color-mix(in srgb, var(--foreground) 94%, transparent);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      height: 1.45rem;
+      cursor: pointer;
+      box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
+      transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+    .json-tree-toggle:hover,
+    .json-tree-toggle:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+      background: color-mix(in srgb, var(--primary) 16%, transparent);
+      color: color-mix(in srgb, var(--primary-foreground) 94%, transparent);
+    }
+    .json-tree-key {
+      color: color-mix(in srgb, var(--primary) 72%, transparent);
+    }
+    .json-tree-separator {
+      color: color-mix(in srgb, var(--muted-foreground) 74%, transparent);
+    }
+    .json-tree-summary {
+      color: color-mix(in srgb, var(--muted-foreground) 78%, transparent);
+      font-weight: 400;
+    }
+    .json-tree-value {
+      font-weight: 400;
+    }
+    .json-tree-value-string {
+      color: color-mix(in srgb, #16a34a 78%, transparent);
+    }
+    .json-tree-value-number {
+      color: color-mix(in srgb, #0284c7 82%, transparent);
+    }
+    .json-tree-value-boolean {
+      color: color-mix(in srgb, #d97706 80%, transparent);
+    }
+    .json-tree-value-null {
+      color: color-mix(in srgb, #9333ea 78%, transparent);
+    }
+    .json-tree-value-unknown {
+      color: color-mix(in srgb, var(--muted-foreground) 86%, transparent);
+    }
+    .json-tree-children {
+      margin-left: 1.45rem;
+      padding-left: 0.75rem;
+      border-left: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
     .json-editor-viewer code {
       white-space: pre;
       display: block;
@@ -348,8 +464,9 @@
 
     function enhanceJsonEditors(root){
       if(typeof window === 'undefined') return;
-      if(typeof window.CodeMirror === 'undefined') return;
       const scope = root && root.querySelectorAll ? root : document;
+      enhanceJsonTreeViewers(scope);
+      if(typeof window.CodeMirror === 'undefined') return;
       const nodes = scope.querySelectorAll ? scope.querySelectorAll('textarea[data-codemirror="json"]') : [];
       nodes.forEach(ensureCodeMirrorInstance);
     }
@@ -374,6 +491,198 @@
       if(jsonEditorsObserver) return;
       jsonEditorsObserver = new MutationObserver(()=> scheduleJsonEditorRefresh(document));
       jsonEditorsObserver.observe(document.body, { childList:true, subtree:true });
+    }
+
+    const JSON_TREE_REGISTRY = new WeakMap();
+
+    function decodeJsonAttribute(text){
+      if(typeof text !== 'string') return '';
+      try {
+        return decodeURIComponent(text);
+      } catch(_){
+        return text;
+      }
+    }
+
+    function formatJsonPrimitive(value){
+      if(value === null) return { text:'null', className:'json-tree-value-null' };
+      const type = typeof value;
+      switch(type){
+        case 'string':
+          return { text:`"${value}"`, className:'json-tree-value-string' };
+        case 'number':
+        case 'bigint':
+          return { text:String(value), className:'json-tree-value-number' };
+        case 'boolean':
+          return { text:value ? 'true' : 'false', className:'json-tree-value-boolean' };
+        case 'undefined':
+          return { text:'undefined', className:'json-tree-value-unknown' };
+        default:
+          return { text:String(value), className:'json-tree-value-unknown' };
+      }
+    }
+
+    function createJsonTreeChildren(value, level, toggleLabel){
+      const fragment = document.createDocumentFragment();
+      if(Array.isArray(value)){
+        if(value.length === 0){
+          fragment.appendChild(createJsonTreeNode(null, '[]', level, toggleLabel, { summaryOnly:true }));
+        } else {
+          value.forEach((item, index)=>{
+            fragment.appendChild(createJsonTreeNode(String(index), item, level, toggleLabel));
+          });
+        }
+        return fragment;
+      }
+      if(value && typeof value === 'object'){
+        const keys = Object.keys(value);
+        if(keys.length === 0){
+          fragment.appendChild(createJsonTreeNode(null, '{}', level, toggleLabel, { summaryOnly:true }));
+        } else {
+          keys.forEach(key=>{
+            fragment.appendChild(createJsonTreeNode(key, value[key], level, toggleLabel));
+          });
+        }
+        return fragment;
+      }
+      fragment.appendChild(createJsonTreeNode(null, value, level, toggleLabel));
+      return fragment;
+    }
+
+    function createJsonTreeNode(key, value, level, toggleLabel, options){
+      const opts = options || {};
+      const node = document.createElement('div');
+      node.className = 'json-tree-node';
+      node.setAttribute('role', 'treeitem');
+      node.setAttribute('aria-level', String(level));
+
+      const isComplex = value && typeof value === 'object';
+      const hasChildren = isComplex && (Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0);
+      const isSummaryOnly = opts.summaryOnly === true;
+      let toggle;
+
+      if(isComplex && hasChildren){
+        node.classList.add('json-tree-node--branch');
+        toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'json-tree-toggle';
+        toggle.setAttribute('aria-label', toggleLabel || 'Toggle');
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.textContent = '−';
+        node.appendChild(toggle);
+      } else {
+        const spacer = document.createElement('span');
+        spacer.className = 'json-tree-spacer';
+        node.appendChild(spacer);
+      }
+
+      if(key != null){
+        const keySpan = document.createElement('span');
+        keySpan.className = 'json-tree-key';
+        keySpan.textContent = JSON.stringify(key);
+        node.appendChild(keySpan);
+
+        const separator = document.createElement('span');
+        separator.className = 'json-tree-separator';
+        separator.textContent = ':';
+        node.appendChild(separator);
+      }
+
+      if(isComplex){
+        const summary = document.createElement('span');
+        summary.className = 'json-tree-summary';
+        const size = Array.isArray(value) ? value.length : Object.keys(value).length;
+        summary.textContent = Array.isArray(value) ? `Array(${size})` : `Object(${size})`;
+        node.appendChild(summary);
+
+        if(hasChildren){
+          const children = document.createElement('div');
+          children.className = 'json-tree-children';
+          children.setAttribute('role', 'group');
+          children.appendChild(createJsonTreeChildren(value, level + 1, toggleLabel));
+          node.appendChild(children);
+
+          if(toggle){
+            toggle.addEventListener('click', ()=>{
+              const collapsed = node.classList.toggle('json-tree-node--collapsed');
+              toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+              toggle.textContent = collapsed ? '+' : '−';
+            });
+          }
+
+          return node;
+        }
+      }
+
+      if(isSummaryOnly){
+        const summary = document.createElement('span');
+        summary.className = 'json-tree-summary';
+        summary.textContent = typeof value === 'string' ? value : JSON.stringify(value);
+        node.appendChild(summary);
+        return node;
+      }
+
+      const { text, className } = formatJsonPrimitive(value);
+      const valueSpan = document.createElement('span');
+      valueSpan.className = `json-tree-value ${className}`;
+      valueSpan.textContent = text;
+      node.appendChild(valueSpan);
+
+      return node;
+    }
+
+    function ensureJsonTreeInstance(container){
+      if(typeof document === 'undefined' || !container) return;
+      const encoded = container.getAttribute('data-json-text') || '';
+      const prev = JSON_TREE_REGISTRY.get(container);
+      if(prev && prev.encoded === encoded) return;
+
+      const raw = decodeJsonAttribute(encoded);
+      container.setAttribute('data-json-raw', raw);
+      container.setAttribute('data-json-ready', 'false');
+      container.removeAttribute('data-json-error');
+      const toggleLabel = container.getAttribute('data-json-toggle-label') || 'Toggle node';
+      const errorMessage = container.getAttribute('data-json-fallback') || '';
+
+      let data;
+      let parsed = false;
+      if(raw && raw.trim){
+        try {
+          data = JSON.parse(raw);
+          parsed = true;
+        } catch(_){
+          parsed = false;
+        }
+      }
+
+      container.querySelectorAll('.json-tree, .json-tree-error').forEach(node=> node.remove());
+
+      if(!parsed){
+        if(errorMessage){
+          const alert = document.createElement('div');
+          alert.className = 'json-tree-error';
+          alert.textContent = errorMessage;
+          container.insertBefore(alert, container.firstChild);
+        }
+        container.setAttribute('data-json-error', 'true');
+        JSON_TREE_REGISTRY.set(container, { encoded, raw, error:true });
+        return;
+      }
+
+      const tree = document.createElement('div');
+      tree.className = 'json-tree';
+      tree.setAttribute('role', 'tree');
+      tree.appendChild(createJsonTreeChildren(data, 1, toggleLabel));
+      container.appendChild(tree);
+      container.setAttribute('data-json-ready', 'true');
+      JSON_TREE_REGISTRY.set(container, { encoded, raw, error:false });
+    }
+
+    function enhanceJsonTreeViewers(root){
+      if(typeof document === 'undefined') return;
+      const scope = root && root.querySelectorAll ? root : document;
+      const nodes = scope.querySelectorAll ? scope.querySelectorAll('[data-json-tree]') : [];
+      nodes.forEach(ensureJsonTreeInstance);
     }
 
     function JsonEditorTabs(db, options){
@@ -470,10 +779,23 @@
         copyButton
       ]);
 
+      const viewerContainerClass = tw(cx('json-editor-viewer json-tree-viewer', tw`relative`));
       const viewerPanel = D.Containers.Div({ attrs:{ class: viewerPanelClass }}, [
         hasContent
-          ? D.Text.Pre({ attrs:{ class:'json-editor-viewer', 'data-json-source':'viewer', dir:'ltr' }}, [
-              D.Text.Code({ attrs:{ class: tw`block` }}, [prettyText])
+          ? D.Containers.Div({
+              attrs:{
+                class: viewerContainerClass,
+                'data-json-source':'viewer',
+                'data-json-tree':'true',
+                'data-json-text': encodeURIComponent(prettyText),
+                'data-json-toggle-label': translators('json.tree.toggle', 'تبديل العنصر'),
+                'data-json-fallback': translators('json.tree.invalid', 'تعذر تحليل JSON للعرض الشجري. سيتم عرض النص كما هو.'),
+                dir:'ltr'
+              }
+            }, [
+              D.Text.Pre({ attrs:{ class:'json-tree-fallback' }}, [
+                D.Text.Code({ attrs:{ class: tw`block` }}, [prettyText])
+              ])
             ])
           : D.Containers.Div({ attrs:{ class:'json-editor-empty', 'data-json-source':'viewer' }}, [
               translators('json.tabs.empty', 'لا يوجد محتوى JSON للعرض حاليًا.')
@@ -574,6 +896,8 @@
       'json.tabs.editor':{ ar:'تحرير', en:'Editor' },
       'json.tabs.copy':{ ar:'نسخ', en:'Copy' },
       'json.tabs.empty':{ ar:'لا يوجد محتوى JSON للعرض حاليًا.', en:'There is no JSON content to display yet.' },
+      'json.tree.toggle':{ ar:'تبديل العنصر', en:'Toggle node' },
+      'json.tree.invalid':{ ar:'تعذر تحليل JSON للعرض الشجري، يتم عرض النص كما هو.', en:'Unable to parse JSON for the tree view; showing raw text instead.' },
       'json.copy.success':{ ar:'تم نسخ JSON إلى الحافظة', en:'JSON copied to the clipboard' },
       'json.copy.error':{ ar:'تعذر نسخ JSON', en:'Unable to copy JSON' },
       'json.copy.unavailable':{ ar:'لا يوجد نص لنسخه', en:'There is no text to copy' },
@@ -5867,9 +6191,17 @@
             if(!container) return;
             const textarea = container.querySelector('textarea[data-codemirror="json"]');
             let text = textarea ? (textarea.value || '') : '';
-            if(!text && !textarea){
+            if((!text || !text.trim()) && container){
               const viewer = container.querySelector('[data-json-source="viewer"]');
-              text = viewer ? (viewer.textContent || '') : '';
+              if(viewer){
+                const attr = viewer.getAttribute('data-json-text');
+                if(attr){
+                  text = decodeJsonAttribute(attr);
+                } else {
+                  const raw = viewer.getAttribute('data-json-raw');
+                  text = typeof raw === 'string' ? raw : (viewer.textContent || '');
+                }
+              }
             }
             const state = ctx.getState();
             const t = createTranslator(state);
