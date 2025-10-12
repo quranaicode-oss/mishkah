@@ -587,6 +587,17 @@
         }
       </style>
 
+      <script type="application/json" data-m-env>
+        {
+          "theme": "dark",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "htmlxExperiment": true
+          }
+        }
+      </script>
+
       <div class="page-shell">
         <header class="header app-card">
           <div class="header-inner">
@@ -614,6 +625,10 @@
               <div class="status-block">
                 <span>🎯 {translate(state, 'game.statusLabel')}</span>
                 <strong>{translate(state, 'game.status.' + state.data.game.status)}</strong>
+              </div>
+              <div class="status-block" x-if="state.env.flags && state.env.flags.htmlxExperiment">
+                <span>🧪 HTMLx</span>
+                <strong>{state.env.lang === 'ar' ? 'تجريبي' : 'Experimental'}</strong>
               </div>
             </div>
 
