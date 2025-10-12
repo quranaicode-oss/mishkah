@@ -770,39 +770,338 @@
     };
   }
 
-  function createExpressionEvaluator() {
+  function resolveAcornModules(host) {
+    var env = host || {};
+    var acornRef = env.acorn || null;
+    var walkRef = env.acornWalk || (acornRef && acornRef.walk) || null;
+
+    if (!acornRef && typeof require === 'function') {
+      try {
+        acornRef = require('acorn');
+      } catch (error) {
+        acornRef = null;
+      }
+    }
+
+    if (!walkRef && acornRef && acornRef.walk) {
+      walkRef = acornRef.walk;
+    }
+
+    if (!walkRef && typeof require === 'function') {
+      try {
+        var walkModule = require('acorn-walk');
+        if (walkModule && typeof walkModule.full === 'function') {
+          walkRef = walkModule;
+        }
+      } catch (error) {
+        walkRef = null;
+      }
+    }
+
+    return { acorn: acornRef, walk: walkRef };
+  }
+
+  function createSecureExpressionEvaluator(acornRef, acornWalkRef) {
+    var parser = acornRef;
+    var walker = acornWalkRef;
+    if (!parser || typeof parser.parse !== 'function' || !walker || typeof walker.full !== 'function') {
+      var missingMessage = '[Mishkah HTMLx] Secure evaluator requires both acorn and acorn-walk to be loaded.';
+      if (typeof console !== 'undefined' && console.error) {
+        console.error(missingMessage);
+      }
+      return function secureEvaluatorUnavailable() {
+        throw new Error(missingMessage);
+      };
+    }
+
+    var FORBIDDEN_PROPS = new Set(['constructor', 'prototype', '__proto__', 'callee']);
+    var FORBIDDEN_IDENTIFIERS = new Set(['window', 'document', 'globalThis', 'global', 'self', 'parent', 'top', 'frames']);
+    var FORBIDDEN_CALLEES = new Set(['eval', 'Function', 'setTimeout', 'setInterval', 'setImmediate', 'requestAnimationFrame', 'alert', 'confirm', 'prompt']);
+    var ALLOWED_NODE_TYPES = new Set([
+      'Program',
+      'ExpressionStatement',
+      'Literal',
+      'Identifier',
+      'BinaryExpression',
+      'LogicalExpression',
+      'UnaryExpression',
+      'ConditionalExpression',
+      'MemberExpression',
+      'CallExpression',
+      'ArrayExpression',
+      'ObjectExpression',
+      'Property',
+      'SpreadElement',
+      'TemplateLiteral',
+      'TemplateElement',
+      'ChainExpression'
+    ]);
+    var ALLOWED_UNARY_OPERATORS = new Set(['+', '-', '!', '~', 'typeof']);
+
+    var SAFE_GLOBALS = (function () {
+      var map = Object.create(null);
+      map.Math = Math;
+      map.Number = Number;
+      map.String = String;
+      map.Boolean = Boolean;
+      map.Array = Array;
+      map.Object = Object;
+      map.JSON = JSON;
+      map.Date = Date;
+      map.RegExp = RegExp;
+      map.parseInt = parseInt;
+      map.parseFloat = parseFloat;
+      map.encodeURIComponent = encodeURIComponent;
+      map.decodeURIComponent = decodeURIComponent;
+      map.isFinite = isFinite;
+      map.isNaN = isNaN;
+      if (typeof BigInt === 'function') map.BigInt = BigInt;
+      if (typeof Intl !== 'undefined') map.Intl = Intl;
+      if (typeof Symbol === 'function') map.Symbol = Symbol;
+      map.NaN = NaN;
+      map.Infinity = Infinity;
+      map.undefined = undefined;
+      return Object.freeze(map);
+    })();
+
+    function unwrapChain(node) {
+      var current = node;
+      while (current && current.type === 'ChainExpression') {
+        current = current.expression;
+      }
+      return current;
+    }
+
+    function getPropertyName(node) {
+      if (!node) return null;
+      if (!node.computed && node.property && typeof node.property.name === 'string') {
+        return node.property.name;
+      }
+      if (node.computed && node.property && node.property.type === 'Literal') {
+        return String(node.property.value);
+      }
+      return null;
+    }
+
+    function ensureAllowedProperty(node) {
+      var propertyName = getPropertyName(node);
+      if (propertyName == null) {
+        throw new Error('Security violation: Computed property access is not allowed.');
+      }
+      if (FORBIDDEN_PROPS.has(propertyName) || FORBIDDEN_IDENTIFIERS.has(propertyName) || FORBIDDEN_CALLEES.has(propertyName)) {
+        throw new Error('Security violation: Access to forbidden property "' + propertyName + '".');
+      }
+    }
+
+    function validateMemberExpression(node) {
+      var target = unwrapChain(node);
+      ensureAllowedProperty(target);
+      var object = unwrapChain(target.object);
+      if (object && object.type === 'Identifier' && FORBIDDEN_IDENTIFIERS.has(object.name)) {
+        throw new Error('Security violation: Access to forbidden identifier "' + object.name + '".');
+      }
+      if (object && object.type === 'ThisExpression') {
+        throw new Error('Security violation: Use of "this" is not allowed in expressions.');
+      }
+      if (object && object.type === 'MemberExpression') {
+        validateMemberExpression(object);
+      }
+      if (object && object.type === 'CallExpression') {
+        validateCallExpression(object);
+      }
+    }
+
+    function validateCallExpression(node) {
+      var callee = unwrapChain(node.callee);
+      if (callee.type === 'Identifier') {
+        if (FORBIDDEN_CALLEES.has(callee.name) || FORBIDDEN_IDENTIFIERS.has(callee.name)) {
+          throw new Error('Security violation: Call to forbidden function "' + callee.name + '".');
+        }
+      } else if (callee.type === 'MemberExpression') {
+        validateMemberExpression(callee);
+      } else {
+        throw new Error('Security violation: Unsupported callee type "' + callee.type + '".');
+      }
+    }
+
+    function validateAst(ast) {
+      walker.full(ast, function (node) {
+        if (!ALLOWED_NODE_TYPES.has(node.type)) {
+          throw new Error('Security violation: Disallowed node type "' + node.type + '".');
+        }
+        if (node.type === 'Program') {
+          if (!node.body || node.body.length !== 1 || node.body[0].type !== 'ExpressionStatement') {
+            throw new Error('Security violation: Only single expressions are allowed.');
+          }
+        }
+        if (node.type === 'Identifier' && FORBIDDEN_IDENTIFIERS.has(node.name)) {
+          throw new Error('Security violation: Access to forbidden identifier "' + node.name + '".');
+        }
+        if (node.type === 'UnaryExpression' && !ALLOWED_UNARY_OPERATORS.has(node.operator)) {
+          throw new Error('Security violation: Unary operator "' + node.operator + '" is not allowed.');
+        }
+        if (node.type === 'MemberExpression') {
+          validateMemberExpression(node);
+        }
+        if (node.type === 'CallExpression') {
+          validateCallExpression(node);
+        }
+        if (node.type === 'Property') {
+          if (node.kind !== 'init' || node.method) {
+            throw new Error('Security violation: Object methods are not allowed in expressions.');
+          }
+          if (node.computed) {
+            if (!node.key || node.key.type !== 'Literal') {
+              throw new Error('Security violation: Computed property keys must be literals.');
+            }
+            var keyName = String(node.key.value);
+            if (FORBIDDEN_PROPS.has(keyName)) {
+              throw new Error('Security violation: Access to forbidden property "' + keyName + '".');
+            }
+          } else if (node.key && node.key.type === 'Identifier' && FORBIDDEN_PROPS.has(node.key.name)) {
+            throw new Error('Security violation: Access to forbidden property "' + node.key.name + '".');
+          }
+        }
+        if (node.type === 'ThisExpression') {
+          throw new Error('Security violation: Use of "this" is not allowed in expressions.');
+        }
+      });
+    }
+
+    function createScopeProxy(bag) {
+      var stateRef = bag && bag.state && typeof bag.state === 'object' ? bag.state : Object.create(null);
+      var localsRef = bag && bag.locals && typeof bag.locals === 'object' ? bag.locals : Object.create(null);
+      var base = Object.create(null);
+      base.state = stateRef;
+      base.ctx = bag ? bag.ctx : undefined;
+      base.db = bag ? bag.db : undefined;
+      base.M = bag ? bag.M : undefined;
+      base.UI = bag ? bag.UI : undefined;
+      base.D = bag ? bag.D : undefined;
+      base.locals = localsRef;
+      base.trans = bag ? bag.trans : undefined;
+      base.t = bag ? bag.t : undefined;
+      base.TL = bag ? bag.TL : undefined;
+      Object.freeze(base);
+
+      return new Proxy(base, {
+        has: function (target, prop) {
+          if (prop === Symbol.unscopables) return false;
+          return true;
+        },
+        get: function (target, prop) {
+          if (prop === Symbol.unscopables) return undefined;
+          if (typeof prop === 'string') {
+            if (FORBIDDEN_PROPS.has(prop) || FORBIDDEN_IDENTIFIERS.has(prop)) {
+              return undefined;
+            }
+            if (Object.prototype.hasOwnProperty.call(localsRef, prop)) {
+              return localsRef[prop];
+            }
+            if (Object.prototype.hasOwnProperty.call(stateRef, prop)) {
+              return stateRef[prop];
+            }
+            if (Object.prototype.hasOwnProperty.call(target, prop)) {
+              return target[prop];
+            }
+            if (Object.prototype.hasOwnProperty.call(SAFE_GLOBALS, prop)) {
+              return SAFE_GLOBALS[prop];
+            }
+          }
+          return undefined;
+        },
+        set: function () {
+          throw new Error('Security violation: Assignment is not allowed in HTMLx expressions.');
+        },
+        defineProperty: function () {
+          throw new Error('Security violation: Cannot define properties inside HTMLx expressions.');
+        },
+        deleteProperty: function () {
+          throw new Error('Security violation: Cannot delete properties inside HTMLx expressions.');
+        },
+        ownKeys: function () {
+          var keys = new Set();
+          Reflect.ownKeys(localsRef).forEach(function (key) { keys.add(key); });
+          Reflect.ownKeys(stateRef).forEach(function (key) { keys.add(key); });
+          Reflect.ownKeys(base).forEach(function (key) { keys.add(key); });
+          return Array.from(keys);
+        },
+        getOwnPropertyDescriptor: function (target, prop) {
+          if (Object.prototype.hasOwnProperty.call(localsRef, prop)) {
+            return { configurable: true, enumerable: true, writable: true, value: localsRef[prop] };
+          }
+          if (Object.prototype.hasOwnProperty.call(stateRef, prop)) {
+            return { configurable: true, enumerable: true, writable: true, value: stateRef[prop] };
+          }
+          if (Object.prototype.hasOwnProperty.call(target, prop)) {
+            return Object.getOwnPropertyDescriptor(target, prop);
+          }
+          if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(SAFE_GLOBALS, prop)) {
+            var value = SAFE_GLOBALS[prop];
+            return { configurable: true, enumerable: false, writable: false, value: value };
+          }
+          return undefined;
+        }
+      });
+    }
+
     var cache = Object.create(null);
+
     return function evaluate(code, scope) {
       var source = String(code || '').trim();
       if (!source) return undefined;
-      if (!cache[source]) {
-        cache[source] = new Function(
-          'state',
-          'ctx',
-          'db',
-          'M',
-          'UI',
-          'D',
-          'locals',
-          'trans',
-          't',
-          'TL',
-          '__code',
-          'with (locals || Object.create(null)) { with (state || {}) { return eval(__code); } }'
-        );
+
+      var entry = cache[source];
+      if (!entry) {
+        var ast;
+        try {
+          ast = parser.parse(source, { ecmaVersion: 2020, sourceType: 'script' });
+        } catch (parseError) {
+          console.error('[Mishkah HTMLx] Failed to parse expression:', source, parseError);
+          cache[source] = { error: true };
+          return undefined;
+        }
+        try {
+          validateAst(ast);
+        } catch (validationError) {
+          console.error('[Mishkah HTMLx] Blocked unsafe expression:', source, validationError);
+          cache[source] = { error: true };
+          return undefined;
+        }
+        var compiled = new Function('scope', 'with (scope) { return (' + source + '); }');
+        entry = cache[source] = { fn: compiled };
       }
+
+      if (entry.error) {
+        return undefined;
+      }
+
+      var dbSource = scope && (scope.db || scope.state) || {};
+      var translator = scope && typeof scope.trans === 'function' ? scope.trans : __mkTransDynamic(dbSource);
+      var evaluateScope = createScopeProxy({
+        state: scope && scope.state,
+        ctx: scope && scope.ctx,
+        db: scope && scope.db,
+        M: scope && scope.M,
+        UI: scope && scope.UI,
+        D: scope && scope.D,
+        locals: scope && scope.locals,
+        trans: translator,
+        t: scope && typeof scope.t === 'function' ? scope.t : translator,
+        TL: scope && typeof scope.TL === 'function' ? scope.TL : translator
+      });
+
       try {
-        var _db = scope && (scope.db || scope.state) || {};
-        var __T = __mkTransDynamic(_db);
-        return cache[source](scope.state, scope.ctx, scope.db, scope.M, scope.UI, scope.D, scope.locals, __T, __T, __T, source);
-      } catch (error) {
-        console.error('HTMLx expression error:', source, error);
+        return entry.fn(evaluateScope);
+      } catch (runtimeError) {
+        console.error('[Mishkah HTMLx] Expression execution error:', source, runtimeError);
         return undefined;
       }
     };
   }
 
-  var evaluateExpression = createExpressionEvaluator();
+  var acornRuntime = resolveAcornModules(global);
+  var evaluateExpression = createSecureExpressionEvaluator(acornRuntime.acorn, acornRuntime.walk);
 
   var runtimeScopeSequence = 0;
   var runtimeScopeRegistry = Object.create(null);
@@ -3046,6 +3345,11 @@
       var result = await createApp(db, options);
       return result.app;
     }
+  };
+
+  agent.__internals = agent.__internals || {};
+  agent.__internals.evaluateExpression = function (code, scope) {
+    return evaluateExpression(code, scope);
   };
 
   agent.boot = function (db, options) {

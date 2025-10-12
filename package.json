@@ -4,6 +4,11 @@
   "description": "Build tooling metadata for Mishkah.js project.",
   "license": "MIT",
   "private": true,
-  "scripts": {},
-  "devDependencies": {}
+  "scripts": {
+    "test": "node tests/secure-evaluator.test.js"
+  },
+  "devDependencies": {
+    "acorn": "^8.15.0",
+    "acorn-walk": "^8.3.4"
+  }
 }
