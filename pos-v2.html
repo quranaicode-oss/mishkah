@@ -603,7 +603,7 @@
               return currency.position === 'before' ? currency.symbol + ' ' + value : value + ' ' + currency.symbol;
             }
             function findMenuItem(state, itemId){
-              var menu = (state.data && state.data.menu) || [];
+              var menu = (state.data && state.data.menu && state.data.menu.categories) || [];
               for(var i=0;i<menu.length;i++){
                 var items = (menu[i] && menu[i].items) || [];
                 for(var j=0;j<items.length;j++){
@@ -693,90 +693,92 @@
               </script>
 
               <script type="application/json" data-m-data data-m-path="data.menu">
-                [
-                  {
-                    "id": "coffee",
-                    "title": { "ar": "قهوة مختصة", "en": "Specialty Coffee" },
-                    "items": [
-                      {
-                        "id": "v60-ethiopia",
-                        "sku": "CF-210",
-                        "name": { "ar": "V60 إثيوبي", "en": "Ethiopian V60" },
-                        "description": { "ar": "تحميص خفيف مع توازن زهور الحمضيات.", "en": "Light roast with citrus blossom balance." },
-                        "price": 18,
-                        "tags": ["ساخن", "200 مل"]
-                      },
-                      {
-                        "id": "flat-white",
-                        "sku": "CF-118",
-                        "name": { "ar": "فلات وايت", "en": "Flat white" },
-                        "description": { "ar": "حليب مبخر مع جرعة مزدوجة.", "en": "Steamed milk over a double ristretto." },
-                        "price": 16,
-                        "tags": ["كلاسيكي", "حليب"]
-                      },
-                      {
-                        "id": "spanish-latte",
-                        "sku": "CF-142",
-                        "name": { "ar": "سبانيش لاتيه بارد", "en": "Spanish iced latte" },
-                        "description": { "ar": "حليب مكثف محلى مع نكهة الفانيلا.", "en": "Sweet condensed milk with vanilla." },
-                        "price": 19,
-                        "tags": ["بارد", "محلى"]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "breakfast",
-                    "title": { "ar": "إفطار وحلويات", "en": "Breakfast & pastry" },
-                    "items": [
-                      {
-                        "id": "avocado-toast",
-                        "sku": "BR-034",
-                        "name": { "ar": "توست الأفوكادو", "en": "Avocado toast" },
-                        "description": { "ar": "خبز الحبوب الكاملة مع بيض مسلوق.", "en": "Whole grain toast with soft boiled egg." },
-                        "price": 24,
-                        "tags": ["موسمي", "250 غ"]
-                      },
-                      {
-                        "id": "granola-bowl",
-                        "sku": "BR-041",
-                        "name": { "ar": "وعاء الجرانولا", "en": "Granola bowl" },
-                        "description": { "ar": "زبادي يوناني، عسل السدر، فواكه.", "en": "Greek yogurt, sidr honey, fresh fruit." },
-                        "price": 22,
-                        "tags": ["بارد", "طاقة"]
-                      },
-                      {
-                        "id": "cardamom-croissant",
-                        "sku": "BR-015",
-                        "name": { "ar": "كرواسون الهيل", "en": "Cardamom croissant" },
-                        "description": { "ar": "طبقات هشة محشوة بكريمة الفستق.", "en": "Flaky layers filled with pistachio crème." },
-                        "price": 14,
-                        "tags": ["طازج", "مخبوز"]
-                      }
-                    ]
-                  },
-                  {
-                    "id": "retail",
-                    "title": { "ar": "بن وحزم", "en": "Retail & beans" },
-                    "items": [
-                      {
-                        "id": "beans-yemen",
-                        "sku": "RT-501",
-                        "name": { "ar": "بن يمني محمص 250غ", "en": "Yemeni beans 250g" },
-                        "description": { "ar": "تحميص متوسط مع ملاحظات شوكولاتة وتمور.", "en": "Medium roast with chocolate & dates notes." },
-                        "price": 48,
-                        "tags": ["تحميص بيت", "محاصيل خاصة"]
-                      },
-                      {
-                        "id": "coldbrew-kit",
-                        "sku": "RT-512",
-                        "name": { "ar": "عدة تحضير كولد برو", "en": "Cold brew kit" },
-                        "description": { "ar": "كيس ترشيح، ميزان، وتعليمات خطوة بخطوة.", "en": "Filter bag, scale, and step guide." },
-                        "price": 65,
-                        "tags": ["أدوات", "محدود"]
-                      }
-                    ]
-                  }
-                ]
+                {
+                  "categories": [
+                    {
+                      "id": "coffee",
+                      "title": { "ar": "قهوة مختصة", "en": "Specialty Coffee" },
+                      "items": [
+                        {
+                          "id": "v60-ethiopia",
+                          "sku": "CF-210",
+                          "name": { "ar": "V60 إثيوبي", "en": "Ethiopian V60" },
+                          "description": { "ar": "تحميص خفيف مع توازن زهور الحمضيات.", "en": "Light roast with citrus blossom balance." },
+                          "price": 18,
+                          "tags": ["ساخن", "200 مل"]
+                        },
+                        {
+                          "id": "flat-white",
+                          "sku": "CF-118",
+                          "name": { "ar": "فلات وايت", "en": "Flat white" },
+                          "description": { "ar": "حليب مبخر مع جرعة مزدوجة.", "en": "Steamed milk over a double ristretto." },
+                          "price": 16,
+                          "tags": ["كلاسيكي", "حليب"]
+                        },
+                        {
+                          "id": "spanish-latte",
+                          "sku": "CF-142",
+                          "name": { "ar": "سبانيش لاتيه بارد", "en": "Spanish iced latte" },
+                          "description": { "ar": "حليب مكثف محلى مع نكهة الفانيلا.", "en": "Sweet condensed milk with vanilla." },
+                          "price": 19,
+                          "tags": ["بارد", "محلى"]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "breakfast",
+                      "title": { "ar": "إفطار وحلويات", "en": "Breakfast & pastry" },
+                      "items": [
+                        {
+                          "id": "avocado-toast",
+                          "sku": "BR-034",
+                          "name": { "ar": "توست الأفوكادو", "en": "Avocado toast" },
+                          "description": { "ar": "خبز الحبوب الكاملة مع بيض مسلوق.", "en": "Whole grain toast with soft boiled egg." },
+                          "price": 24,
+                          "tags": ["موسمي", "250 غ"]
+                        },
+                        {
+                          "id": "granola-bowl",
+                          "sku": "BR-041",
+                          "name": { "ar": "وعاء الجرانولا", "en": "Granola bowl" },
+                          "description": { "ar": "زبادي يوناني، عسل السدر، فواكه.", "en": "Greek yogurt, sidr honey, fresh fruit." },
+                          "price": 22,
+                          "tags": ["بارد", "طاقة"]
+                        },
+                        {
+                          "id": "cardamom-croissant",
+                          "sku": "BR-015",
+                          "name": { "ar": "كرواسون الهيل", "en": "Cardamom croissant" },
+                          "description": { "ar": "طبقات هشة محشوة بكريمة الفستق.", "en": "Flaky layers filled with pistachio crème." },
+                          "price": 14,
+                          "tags": ["طازج", "مخبوز"]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "retail",
+                      "title": { "ar": "بن وحزم", "en": "Retail & beans" },
+                      "items": [
+                        {
+                          "id": "beans-yemen",
+                          "sku": "RT-501",
+                          "name": { "ar": "بن يمني محمص 250غ", "en": "Yemeni beans 250g" },
+                          "description": { "ar": "تحميص متوسط مع ملاحظات شوكولاتة وتمور.", "en": "Medium roast with chocolate & dates notes." },
+                          "price": 48,
+                          "tags": ["تحميص بيت", "محاصيل خاصة"]
+                        },
+                        {
+                          "id": "coldbrew-kit",
+                          "sku": "RT-512",
+                          "name": { "ar": "عدة تحضير كولد برو", "en": "Cold brew kit" },
+                          "description": { "ar": "كيس ترشيح، ميزان، وتعليمات خطوة بخطوة.", "en": "Filter bag, scale, and step guide." },
+                          "price": 65,
+                          "tags": ["أدوات", "محدود"]
+                        }
+                      ]
+                    }
+                  ]
+                }
               </script>
 
               <script type="application/json" data-m-data data-m-path="data.ui">
@@ -788,34 +790,36 @@
               </script>
 
               <nav class="menu-categories">
-                <button
-                  class="category-button {state.data.ui.activeCategory === category.id ? 'active' : ''}"
-                  x-for="category in state.data.menu"
-                  key="category.id"
-                  onclick="switchCategory(category.id, ctx)"
-                >
-                  <span>{category.title[state.env.lang] || category.title.ar}</span>
-                  <span class="brand-meta">{category.items.length} {trans('pos.menu.itemsCount')}</span>
-                </button>
+                <template x-for="category in (state.data.menu && state.data.menu.categories) || []" key="category.id">
+                  <button
+                    class="category-button {state.data.ui.activeCategory === category.id ? 'active' : ''}"
+                    onclick="switchCategory(category.id, ctx)"
+                  >
+                    <span>{category.title[state.env.lang] || category.title.ar}</span>
+                    <span class="brand-meta">{category.items.length} {trans('pos.menu.itemsCount')}</span>
+                  </button>
+                </template>
               </nav>
 
-              <section x-for="category in state.data.menu" key="category.id" x-if="category.id === state.data.ui.activeCategory">
-                <div class="menu-grid">
-                  <article class="menu-card" x-for="item in category.items" key="item.id">
-                    <header>
-                      <h3>{item.name[state.env.lang] || item.name.ar}</h3>
-                      <p>{item.description[state.env.lang] || item.description.ar}</p>
-                    </header>
-                    <div class="tag-row">
-                      <span class="tag" x-for="tag in item.tags" key="tag">{tag}</span>
-                    </div>
-                    <footer>
-                      <span class="price">{formatCurrency(item.price, state)}</span>
-                      <button onclick="addItemToCart(item.id, ctx)">{trans('pos.menu.add')}</button>
-                    </footer>
-                  </article>
-                </div>
-              </section>
+              <template x-for="category in (state.data.menu && state.data.menu.categories) || []" key="category.id">
+                <section x-if="category.id === state.data.ui.activeCategory">
+                  <div class="menu-grid">
+                    <article class="menu-card" x-for="item in category.items" key="item.id">
+                      <header>
+                        <h3>{item.name[state.env.lang] || item.name.ar}</h3>
+                        <p>{item.description[state.env.lang] || item.description.ar}</p>
+                      </header>
+                      <div class="tag-row">
+                        <span class="tag" x-for="tag in item.tags" key="tag">{tag}</span>
+                      </div>
+                      <footer>
+                        <span class="price">{formatCurrency(item.price, state)}</span>
+                        <button onclick="addItemToCart(item.id, ctx)">{trans('pos.menu.add')}</button>
+                      </footer>
+                    </article>
+                  </div>
+                </section>
+              </template>
 
               <script>
                 function switchCategory(categoryId, ctx){
