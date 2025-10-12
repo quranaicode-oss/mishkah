@@ -174,12 +174,6 @@
             "url": "./docs/htmlx-ajax-demo.json",
             "responseType": "json",
             "mode": "merge"
-          },
-          "docs.ajaxDigest": {
-            "url": "./docs/htmlx-ajax-demo.json",
-            "responseType": "json",
-            "extract": "digest",
-            "mode": "replace"
           }
         }
       </script>
@@ -383,6 +377,15 @@
                     "summary": "نحضّر المحتوى...",
                     "steps": [],
                     "resources": []
+                  }
+                </script>
+
+                <script type="application/json" data-m-ajax-map="docs.ajaxDigest">
+                  {
+                    "url": "./docs/htmlx-ajax-demo.json",
+                    "responseType": "json",
+                    "extract": "digest",
+                    "mode": "replace"
                   }
                 </script>
 
