@@ -9,7 +9,7 @@ delete require.cache[require.resolve('acorn')];
 delete require.cache[require.resolve('acorn-walk')];
 
 global.Mishkah = global.Mishkah || {};
-const agent = require('../dist/mishkah-htmlx.js');
+const agent = require('../mishkah-htmlx.js');
 
 if (!agent.__internals || typeof agent.__internals.evaluateExpression !== 'function') {
   throw new Error('Secure evaluator is not exposed for testing.');
