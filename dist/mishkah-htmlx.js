@@ -2390,6 +2390,491 @@
     };
   }
 
+  function createWebSocketRuntime() {
+    if (typeof Map !== 'function' || typeof WeakMap !== 'function') {
+      return {
+        attach: function () {},
+        detach: function () {},
+        handleEmitEvent: function () {}
+      };
+    }
+
+    var connections = new Map();
+    var elementConnections = new WeakMap();
+    var subscriptionRegistry = new WeakMap();
+    var observer = null;
+    var appInstance = null;
+    var rootNode = null;
+
+    function logWarn(message) {
+      console.warn('HTMLx WS:', message);
+    }
+
+    function parseOptions(text, connId) {
+      if (text == null) return {};
+      var raw = String(text).trim();
+      if (!raw) return {};
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn('HTMLx WS: المعرّف ' + connId + ' يحتوي m-ws-options غير صالح: ' + error.message);
+        return {};
+      }
+    }
+
+    function resolveRoot(target) {
+      if (!global || !global.document) return null;
+      if (target && typeof target === 'object' && target.nodeType === 1) return target;
+      if (typeof target === 'string') {
+        try {
+          return global.document.querySelector(target);
+        } catch (_err) {
+          return null;
+        }
+      }
+      return global.document.querySelector('#app') || global.document.body || null;
+    }
+
+    function forEachElement(node, cb) {
+      if (!node || node.nodeType !== 1) return;
+      var stack = [node];
+      while (stack.length) {
+        var current = stack.pop();
+        try {
+          cb(current);
+        } catch (_err) {}
+        var child = current.lastElementChild;
+        while (child) {
+          stack.push(child);
+          child = child.previousElementSibling;
+        }
+      }
+    }
+
+    function forEachElementReverse(node, cb) {
+      if (!node || node.nodeType !== 1) return;
+      var stack = [node];
+      var list = [];
+      while (stack.length) {
+        var current = stack.pop();
+        list.push(current);
+        var child = current.lastElementChild;
+        while (child) {
+          stack.push(child);
+          child = child.previousElementSibling;
+        }
+      }
+      for (var i = list.length - 1; i >= 0; i -= 1) {
+        try {
+          cb(list[i]);
+        } catch (_err) {}
+      }
+    }
+
+    function cleanupRegistryEntry(connId, element, wrapper) {
+      var entry = connections.get(connId);
+      if (!entry || !entry.subscriptions) return;
+      var arr = entry.subscriptions.get(element);
+      if (!arr) return;
+      var idx = arr.indexOf(wrapper);
+      if (idx !== -1) arr.splice(idx, 1);
+      if (!arr.length) entry.subscriptions.delete(element);
+    }
+
+    function buildContext(element, connectionElement) {
+      var ctxObj = {
+        getState: function () {
+          if (appInstance && typeof appInstance.getState === 'function') return appInstance.getState();
+          return {};
+        },
+        setState: function (updater) {
+          if (appInstance && typeof appInstance.setState === 'function') appInstance.setState(updater);
+        },
+        flush: function (opts) {
+          if (appInstance && typeof appInstance.flush === 'function') appInstance.flush(opts);
+        },
+        rebuild: function (opts) {
+          if (appInstance && typeof appInstance.rebuild === 'function') appInstance.rebuild(opts);
+        },
+        scopeNode: element,
+        scopeId: element ? element.getAttribute('data-m-scope') : null,
+        scopeQuery: function (selector) {
+          if (!selector) return null;
+          if (element && typeof element.querySelector === 'function') return element.querySelector(selector);
+          if (connectionElement && typeof connectionElement.querySelector === 'function') return connectionElement.querySelector(selector);
+          if (rootNode && typeof rootNode.querySelector === 'function') return rootNode.querySelector(selector);
+          if (global && global.document && typeof global.document.querySelector === 'function') return global.document.querySelector(selector);
+          return null;
+        },
+        scopeQueryAll: function (selector) {
+          if (!selector) return [];
+          if (element && typeof element.querySelectorAll === 'function') return element.querySelectorAll(selector);
+          if (connectionElement && typeof connectionElement.querySelectorAll === 'function') return connectionElement.querySelectorAll(selector);
+          if (rootNode && typeof rootNode.querySelectorAll === 'function') return rootNode.querySelectorAll(selector);
+          if (global && global.document && typeof global.document.querySelectorAll === 'function') return global.document.querySelectorAll(selector);
+          return [];
+        },
+        stop: function () {},
+        root: rootNode || (global && global.document ? global.document.body : null)
+      };
+      return ContextAdapter(ctxObj);
+    }
+
+    function registerSubscription(element, topicAttr, connInfo) {
+      var topic = topicAttr.name.slice(8);
+      if (!topic) return;
+      var socket = connInfo.socket;
+      if (!socket) {
+        logWarn('تعذر إنشاء اشتراك لـ m-ws-on:' + topic + ' بدون اتصال نشط.');
+        return;
+      }
+      var registry = subscriptionRegistry.get(element);
+      if (!registry) {
+        registry = {};
+        subscriptionRegistry.set(element, registry);
+      }
+      if (registry[topic]) return;
+
+      var entry = connections.get(connInfo.id);
+      if (!entry) return;
+
+      var handler = function (payload, raw) {
+        var ctx = buildContext(element, connInfo.element);
+        var eventObject = {
+          type: 'ws-message',
+          detail: { payload: payload, topic: topic, connectionId: connInfo.id, raw: raw },
+          target: element,
+          currentTarget: element,
+          preventDefault: function () {},
+          stopPropagation: function () {},
+          stopImmediatePropagation: function () {}
+        };
+        var runtimeLocals = resolveRuntimeLocals(element);
+        var localsBag = mergeRuntimeLocals(runtimeLocals, eventObject, ctx);
+        try {
+          evaluateExpression(topicAttr.value, {
+            state: ctx.getState(),
+            ctx: ctx,
+            db: ctx.getState(),
+            event: eventObject,
+            locals: localsBag,
+            payload: payload,
+            M: Mishkah,
+            UI: Mishkah.UI,
+            D: Mishkah.DSL
+          });
+        } catch (error) {
+          console.warn('HTMLx WS: فشل تشغيل m-ws-on:' + topic + ' —', error);
+        }
+        if (appInstance && typeof appInstance.flush === 'function') {
+          try { appInstance.flush(); } catch (_f) {}
+        } else if (appInstance && typeof appInstance.rebuild === 'function') {
+          try { appInstance.rebuild(); } catch (_r) {}
+        }
+      };
+
+      var unsubscribeRaw = null;
+      try {
+        if (typeof socket.subscribe === 'function') {
+          unsubscribeRaw = socket.subscribe(topic, handler);
+        } else if (typeof socket.on === 'function') {
+          socket.on(topic, handler);
+          if (typeof socket.off === 'function') {
+            unsubscribeRaw = function () { try { socket.off(topic, handler); } catch (_err) {} };
+          }
+        }
+      } catch (error) {
+        console.warn('HTMLx WS: فشل الاشتراك في ' + topic + ' —', error);
+        return;
+      }
+      if (typeof unsubscribeRaw !== 'function') return;
+
+      var wrappers = entry.subscriptions.get(element);
+      if (!wrappers) {
+        wrappers = [];
+        entry.subscriptions.set(element, wrappers);
+      }
+
+      var wrapper = function () {
+        try { unsubscribeRaw(); } catch (_err) {}
+        if (registry[topic] === wrapper) {
+          delete registry[topic];
+        }
+        cleanupRegistryEntry(connInfo.id, element, wrapper);
+      };
+
+      registry[topic] = wrapper;
+      wrappers.push(wrapper);
+    }
+
+    function processSubscriptions(element) {
+      if (!element || element.nodeType !== 1 || !element.attributes) return;
+      var connInfo = null;
+      for (var i = 0; i < element.attributes.length; i += 1) {
+        var attr = element.attributes[i];
+        if (!attr || typeof attr.name !== 'string') continue;
+        if (attr.name.indexOf('m-ws-on:') === 0) {
+          if (!connInfo) connInfo = findConnectionInfo(element);
+          if (connInfo) registerSubscription(element, attr, connInfo);
+        }
+      }
+    }
+
+    function setupConnection(element) {
+      if (!element || element.nodeType !== 1) return null;
+      var existingId = elementConnections.get(element);
+      if (existingId) {
+        return connections.get(existingId) || null;
+      }
+      var connId = (element.getAttribute('m-ws-connect') || '').trim();
+      if (!connId) {
+        logWarn('عنصر يحمل m-ws-connect بدون معرف صالح.');
+        return null;
+      }
+      var url = (element.getAttribute('m-ws-url') || '').trim();
+      if (!url) {
+        logWarn('الاتصال ' + connId + ' يحتاج إلى m-ws-url.');
+        return null;
+      }
+      var options = parseOptions(element.getAttribute('m-ws-options'), connId);
+      if (!U || typeof U.WebSocketX !== 'function') {
+        logWarn('U.WebSocketX غير متوفر لإنشاء الاتصال ' + connId + '.');
+        return null;
+      }
+      if (connections.has(connId)) {
+        var previous = connections.get(connId);
+        if (previous && previous.element !== element) {
+          logWarn('استبدال اتصال WebSocket موجود بالمعرف ' + connId + '.');
+          if (previous.element) {
+            teardownConnection(previous.element);
+          } else {
+            if (previous.socket && typeof previous.socket.close === 'function') {
+              try { previous.socket.close(); } catch (_err) {}
+            }
+            connections.delete(connId);
+          }
+        } else if (previous) {
+          elementConnections.set(element, connId);
+          return previous;
+        }
+      }
+      var socketInstance;
+      try {
+        socketInstance = new U.WebSocketX(url, options || {});
+      } catch (error) {
+        console.warn('HTMLx WS: فشل إنشاء الاتصال ' + connId + ':', error);
+        return null;
+      }
+      if (socketInstance && typeof socketInstance.connect === 'function') {
+        try { socketInstance.connect({ waitOpen: false }); } catch (_connectErr) {}
+      }
+      var entry = { id: connId, element: element, socket: socketInstance, options: options || {}, subscriptions: new Map() };
+      connections.set(connId, entry);
+      elementConnections.set(element, connId);
+      return entry;
+    }
+
+    function findConnectionInfo(element) {
+      if (!element) return null;
+      var current = element;
+      while (current) {
+        if (current.nodeType === 1 && current.hasAttribute && current.hasAttribute('m-ws-connect')) {
+          var connId = elementConnections.get(current);
+          if (!connId) {
+            connId = (current.getAttribute('m-ws-connect') || '').trim();
+          }
+          if (!connId) return null;
+          var entry = connections.get(connId);
+          if (!entry) {
+            entry = setupConnection(current);
+          }
+          if (!entry) return null;
+          return { id: connId, element: current, socket: entry.socket };
+        }
+        current = current.parentNode || null;
+      }
+      return null;
+    }
+
+    function cleanupElement(element) {
+      if (!element || element.nodeType !== 1) return;
+      var registry = subscriptionRegistry.get(element);
+      if (registry) {
+        for (var key in registry) {
+          if (!Object.prototype.hasOwnProperty.call(registry, key)) continue;
+          try { registry[key](); } catch (_err) {}
+        }
+        subscriptionRegistry.delete(element);
+      }
+    }
+
+    function teardownConnection(element) {
+      if (!element || element.nodeType !== 1) return;
+      var connId = elementConnections.get(element) || (element.getAttribute ? (element.getAttribute('m-ws-connect') || '').trim() : '');
+      if (!connId) return;
+      var entry = connections.get(connId);
+      if (entry) {
+        if (entry.subscriptions && entry.subscriptions.size) {
+          entry.subscriptions.forEach(function (wrappers) {
+            if (Array.isArray(wrappers)) {
+              for (var i = wrappers.length - 1; i >= 0; i -= 1) {
+                try { wrappers[i](); } catch (_err) {}
+              }
+            }
+          });
+          entry.subscriptions.clear();
+        }
+        if (entry.socket && typeof entry.socket.close === 'function') {
+          try { entry.socket.close(); } catch (_err) {}
+        }
+        connections.delete(connId);
+      }
+      elementConnections.delete(element);
+    }
+
+    function handleRemovedElement(element) {
+      if (!element || element.nodeType !== 1) return;
+      cleanupElement(element);
+      if (element.hasAttribute && element.hasAttribute('m-ws-connect')) {
+        teardownConnection(element);
+      }
+    }
+
+    function handleMutations(records) {
+      if (!records) return;
+      for (var i = 0; i < records.length; i += 1) {
+        var record = records[i];
+        if (record && record.removedNodes) {
+          for (var r = 0; r < record.removedNodes.length; r += 1) {
+            forEachElementReverse(record.removedNodes[r], handleRemovedElement);
+          }
+        }
+        if (record && record.addedNodes) {
+          for (var a = 0; a < record.addedNodes.length; a += 1) {
+            forEachElement(record.addedNodes[a], processElement);
+          }
+        }
+      }
+    }
+
+    function processElement(element) {
+      if (!element || element.nodeType !== 1) return;
+      if (element.hasAttribute && element.hasAttribute('m-ws-connect')) {
+        setupConnection(element);
+      }
+      processSubscriptions(element);
+    }
+
+    function detach() {
+      if (observer && typeof observer.disconnect === 'function') {
+        observer.disconnect();
+      }
+      observer = null;
+      connections.forEach(function (entry) {
+        if (!entry) return;
+        if (entry.subscriptions && entry.subscriptions.size) {
+          entry.subscriptions.forEach(function (wrappers) {
+            if (Array.isArray(wrappers)) {
+              for (var i = wrappers.length - 1; i >= 0; i -= 1) {
+                try { wrappers[i](); } catch (_err) {}
+              }
+            }
+          });
+          entry.subscriptions.clear();
+        }
+        if (entry.socket && typeof entry.socket.close === 'function') {
+          try { entry.socket.close(); } catch (_err) {}
+        }
+      });
+      connections.clear();
+      elementConnections = new WeakMap();
+      subscriptionRegistry = new WeakMap();
+      rootNode = null;
+      appInstance = null;
+    }
+
+    function attach(app, mountTarget) {
+      if (!global || !global.document) {
+        appInstance = app || null;
+        rootNode = null;
+        return;
+      }
+      detach();
+      appInstance = app || null;
+      rootNode = resolveRoot(mountTarget);
+      if (!rootNode) return;
+      if (typeof MutationObserver === 'function') {
+        observer = new MutationObserver(handleMutations);
+        observer.observe(rootNode, { childList: true, subtree: true });
+      }
+      forEachElement(rootNode, processElement);
+    }
+
+    function emitFromElement(element, topic, expr, domEvent, ctxAdapter) {
+      if (!expr) return;
+      var code = String(expr).trim();
+      if (!code) return;
+      var connInfo = findConnectionInfo(element);
+      if (!connInfo || !connInfo.socket) {
+        logWarn('لا يمكن إرسال m-ws-emit:' + topic + ' بدون اتصال.');
+        return;
+      }
+      var runtimeLocals = resolveRuntimeLocals(element);
+      var localsBag = mergeRuntimeLocals(runtimeLocals, domEvent, ctxAdapter);
+      var payload;
+      try {
+        payload = evaluateExpression(code, {
+          state: ctxAdapter.getState(),
+          ctx: ctxAdapter,
+          db: ctxAdapter.getState(),
+          event: domEvent,
+          locals: localsBag,
+          M: Mishkah,
+          UI: Mishkah.UI,
+          D: Mishkah.DSL
+        });
+      } catch (error) {
+        console.warn('HTMLx WS: فشل تقييم m-ws-emit:' + topic + ' —', error);
+        return;
+      }
+      if (payload == null) return;
+      try {
+        if (typeof connInfo.socket.emit === 'function') {
+          connInfo.socket.emit(topic, payload);
+        } else if (typeof connInfo.socket.send === 'function') {
+          connInfo.socket.send({ type: 'event', topic: topic, payload: payload });
+        } else {
+          logWarn('الاتصال ' + connInfo.id + ' لا يدعم الإرسال.');
+        }
+      } catch (error) {
+        console.warn('HTMLx WS: فشل إرسال m-ws-emit:' + topic + ' —', error);
+      }
+    }
+
+    function handleEmitEvent(event, ctxAdapter) {
+      if (!event || !ctxAdapter) return;
+      var target = event.currentTarget || event.target;
+      if (!target || target.nodeType !== 1 || !target.attributes) return;
+      for (var i = 0; i < target.attributes.length; i += 1) {
+        var attr = target.attributes[i];
+        if (!attr || typeof attr.name !== 'string') continue;
+        if (attr.name.indexOf('m-ws-emit:') === 0) {
+          var topic = attr.name.slice(10);
+          if (!topic) continue;
+          emitFromElement(target, topic, attr.value, event, ctxAdapter);
+        }
+      }
+    }
+
+    return {
+      attach: attach,
+      detach: detach,
+      handleEmitEvent: handleEmitEvent
+    };
+  }
+
+  var wsRuntime = createWebSocketRuntime();
+
   function createOrderKey(namespace, expr) {
     var eventExpr = parseEventExpression(expr);
     if (!eventExpr || !eventExpr.handler || eventExpr.inline) {
@@ -2484,6 +2969,9 @@
         event.preventDefault();
       }
       var ctx = ContextAdapter(context);
+      if (wsRuntime && typeof wsRuntime.handleEmitEvent === 'function') {
+        wsRuntime.handleEmitEvent(event, ctx);
+      }
       var runtimeLocals = resolveRuntimeLocals(event && event.target);
       var localsBag = mergeRuntimeLocals(runtimeLocals, event, ctx);
       if (parsed && parsed.inline && parsed.args && parsed.args.length) {
@@ -3323,6 +3811,9 @@
 
     var mountTarget = (options && options.mount) || '#app';
     app.mount(mountTarget);
+    if (wsRuntime && typeof wsRuntime.attach === 'function') {
+      wsRuntime.attach(app, mountTarget);
+    }
 
     await runLifecycle(lifecycle.init, app, 'init', { app: app });
     var optionInits = ensureArray(options && options.init);

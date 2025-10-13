@@ -1,479 +1,111 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mishkah — Index</title>
-    
-  </head>
-  <body>
-    <div id="app"></div>
+<head>
+  <meta charset="UTF-8">
+  <title>Mishkah WebSocket Demo</title>
+  <script src="mishkah.core.js"></script>
+  <script src="mishkah-utils.js"></script>
+  <script src="mishkah-htmlx.js"></script>
+  <script src="mishkah-ui.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white">
 
-    <script src="./mishkah-utils.js"></script>
-    <script src="./mishkah.core.js"></script>
-    <script src="./mishkah-ui.js"></script>
-    <script src="./mishkah.pages.js"></script>
-    <script src="./readme.js"></script>
-    <script src="./template/pages-helpers.js"></script>
-    <script src="./template/pages-shell.js"></script>
-    <script src="./template/pages-topnav.js"></script>
-    <script src="./template/pages-blog.js"></script>
-    <script src="./template/pages-sdk.js"></script>
-    <script src="./template/pages-tabs-top.js"></script>
-    <script src="./template/pages-tabs-bottom.js"></script>
-    <script src="./ui/index-ui.js"></script>
-    <script>
-      (function () {
-        const M = window.Mishkah;
-        const Index = M.apps.index;
-        const cfg = Index.buildConfig();
-        const MPages = M.Pages || {};
+  <div id="app"></div>
 
-        const baseHeadLinks = [
-          { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-          { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: 'anonymous' },
-          {
-            rel: 'stylesheet',
-            href: 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap'
-          }
-        ];
+  <template data-namespace="chatApp">
 
-        const baseStyleContent = `
-          :root {
-            color-scheme: light dark;
-            font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            --page-gradient: linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%);
-            --page-overlay-1: radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%);
-            --page-overlay-2: radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%);
-            --panel-glass: rgba(255, 255, 255, 0.78);
-            --panel-border: rgba(99, 102, 241, 0.12);
-            --panel-shadow: 0 25px 50px -20px rgba(15, 23, 42, 0.18);
-            --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
-            --tile-bg-revealed: linear-gradient(160deg, rgba(129, 140, 248, 0.75), rgba(79, 70, 229, 0.65));
-            --tile-border: rgba(99, 102, 241, 0.25);
-            --letters-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.35);
-            --letters-hover: 0 25px 50px -20px rgba(99, 102, 241, 0.45);
-            --accent-ring: rgba(79, 70, 229, 0.18);
-            --tile-size: 3.1rem;
-            --user-font-scale: 100;
-            --font-size-body: 1rem;
-            --font-size-scale-xs: 0.78rem;
-            --font-size-scale-sm: 0.9rem;
-            --font-size-scale-md: 1rem;
-            --font-size-scale-lg: 1.18rem;
-            --font-size-scale-xl: 1.38rem;
-            --font-size-scale-2xl: 1.8rem;
-            --font-size-scale-3xl: 2.35rem;
-            --font-size-heading-1: 2.6rem;
-            --font-size-heading-2: 2.05rem;
-            --font-size-heading-3: 1.62rem;
-            --font-size-sidebar: 1.05rem;
-            --font-size-quote: 1.18rem;
-            --font-size-info: 1.22rem;
-            --font-size-letter: 1.35rem;
-            --font-size-status: 1.22rem;
-            --font-size-badge: 0.82rem;
-          }
+    <div class="container mx-auto p-8 max-w-md" m-if="!data.joined">
+      <h1 class="text-2xl font-bold mb-4">انضم إلى الدردشة</h1>
+      <div class="flex flex-col gap-4">
+        <input type="text" m-model="data.username" class="p-2 rounded bg-gray-800 border border-gray-700">
+        <button m-on:click="joinChat(ctx)" class="bg-blue-600 p-2 rounded hover:bg-blue-700">
+          دخول
+        </button>
+      </div>
+    </div>
 
-          :root.dark {
-            --page-gradient: linear-gradient(160deg, #0d1224 0%, #111c3d 100%);
-            --page-overlay-1: radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%);
-            --page-overlay-2: radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%);
-            --panel-glass: rgba(17, 25, 40, 0.75);
-            --panel-border: rgba(148, 163, 184, 0.32);
-            --panel-shadow: 0 25px 50px -18px rgba(15, 23, 42, 0.55);
-            --tile-bg: linear-gradient(160deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.92));
-            --tile-bg-revealed: linear-gradient(160deg, rgba(99, 102, 241, 0.55), rgba(79, 70, 229, 0.38));
-            --tile-border: rgba(148, 163, 184, 0.35);
-            --letters-shadow: 0 20px 40px -18px rgba(148, 163, 184, 0.35);
-            --letters-hover: 0 28px 60px -20px rgba(99, 102, 241, 0.6);
-            --accent-ring: rgba(129, 140, 248, 0.35);
-          }
+    <div class="container mx-auto p-4 flex gap-4 h-screen" m-if="data.joined"
+         m-ws-connect="main_socket"
+         m-ws-url="wss://ws.mas.com.eg"
+         m-ws-options='{"autoReconnect": true}'>
 
-          @media (min-width: 640px) {
-            :root { --tile-size: 3.25rem; }
-          }
+      <aside class="w-1/4 bg-gray-800 p-4 rounded-lg">
+        <h2 class="font-bold mb-2">المتصلون الآن</h2>
+        <ul m-ws-on:user-list-update="updateUsers(event.detail.payload, ctx)">
+          <li m-for="user in data.users">{{ user.name }}</li>
+        </ul>
+      </aside>
 
-          @media (min-width: 1024px) {
-            :root { --tile-size: 3.4rem; }
-          }
+      <main class="w-3/4 flex flex-col gap-4">
+        <div class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto" m-ws-on:new-message="appendMessage(event.detail.payload, ctx)">
+          <div m-for="msg in data.messages" class="mb-2">
+            <strong>{{ msg.user }}:</strong>
+            <span>{{ msg.text }}</span>
+          </div>
+        </div>
 
-          *, *::before, *::after {
-            box-sizing: border-box;
-          }
+        <div class="flex gap-2">
+          <input type="text" m-model="data.newMessage" class="flex-1 p-2 rounded bg-gray-700 border border-gray-600" placeholder="اكتب رسالتك...">
+          <button m-on:click m-ws-emit:send-message="getMessagePayload(ctx)" class="bg-green-600 p-2 rounded hover:bg-green-700">
+            إرسال
+          </button>
+        </div>
+      </main>
+    </div>
 
-          body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: inherit;
-            font-size: calc(var(--font-size-body) * var(--user-font-scale) / 100);
-            background: var(--page-gradient);
-            color: var(--foreground);
-            position: relative;
-            overflow-x: hidden;
-            transition: background 0.45s ease, color 0.45s ease;
-          }
-
-          body::before,
-          body::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-            background: var(--page-overlay-1);
-            mix-blend-mode: screen;
-            animation: pulseNebula 18s ease-in-out infinite alternate;
-          }
-
-          body::after {
-            background: var(--page-overlay-2);
-            animation-delay: 6s;
-          }
-
-          @keyframes pulseNebula {
-            0% { opacity: 0.45; transform: scale(1); }
-            100% { opacity: 0.75; transform: scale(1.05); }
-          }
-
-          #app {
-            position: relative;
-            z-index: 1;
-          }
-
-          .text-xs { font-size: calc(var(--font-size-scale-xs) * var(--user-font-scale) / 100) !important; }
-          .text-xxs { font-size: calc(var(--font-size-scale-xs) * 0.9 * var(--user-font-scale) / 100) !important; }
-          .text-sm { font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100) !important; }
-          .text-base { font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100) !important; }
-          .text-lg { font-size: calc(var(--font-size-scale-lg) * var(--user-font-scale) / 100) !important; }
-          .text-xl { font-size: calc(var(--font-size-scale-xl) * var(--user-font-scale) / 100) !important; }
-          .text-2xl { font-size: calc(var(--font-size-scale-2xl) * var(--user-font-scale) / 100) !important; }
-          .text-3xl { font-size: calc(var(--font-size-scale-3xl) * var(--user-font-scale) / 100) !important; }
-
-          .design-lab-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-          }
-
-          .design-lab-row {
-            display: grid;
-            gap: 0.75rem;
-            align-items: center;
-            padding: 0.85rem 1rem;
-            border-radius: 1rem;
-            border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 92%, transparent);
-            box-shadow: 0 18px 38px -28px rgba(15, 23, 42, 0.35);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-          }
-
-          .design-lab-row[data-custom="true"] {
-            border-color: color-mix(in oklab, var(--primary) 55%, transparent);
-            box-shadow: 0 18px 44px -26px rgba(79, 70, 229, 0.45);
-            transform: translateY(-1px);
-          }
-
-          .design-lab-row[data-type='color'] {
-            grid-template-columns: minmax(0, 240px) 72px minmax(0, 160px) minmax(0, 1fr) auto;
-          }
-
-          .design-lab-row[data-type='range'] {
-            grid-template-columns: minmax(0, 240px) minmax(0, 150px) minmax(0, 1fr) minmax(0, 120px) auto;
-          }
-
-          .design-lab-row[data-type='text'] {
-            grid-template-columns: minmax(0, 240px) minmax(0, 1fr) auto;
-          }
-
-          .design-lab-label {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
-            color: color-mix(in oklab, var(--muted-foreground) 82%, transparent);
-            min-width: 0;
-          }
-
-          .design-lab-label strong {
-            color: color-mix(in oklab, var(--foreground) 94%, transparent);
-            font-size: calc(var(--font-size-scale-md) * var(--user-font-scale) / 100);
-          }
-
-          .design-lab-meta {
-            font-size: calc(var(--font-size-scale-xs) * var(--user-font-scale) / 100);
-            color: color-mix(in oklab, var(--muted-foreground) 78%, transparent);
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-          }
-
-          .design-lab-color-chip {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 0.9rem;
-            border: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-          }
-
-          .design-lab-color-input {
-            width: 100%;
-            height: 2.75rem;
-            border-radius: 0.85rem;
-            border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 94%, transparent);
-            cursor: pointer;
-          }
-
-          .design-lab-value-input,
-          .design-lab-number-input {
-            width: 100%;
-            height: 2.75rem;
-            border-radius: 0.85rem;
-            border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 96%, transparent);
-            padding: 0.45rem 0.85rem;
-            color: color-mix(in oklab, var(--foreground) 92%, transparent);
-            font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-          }
-
-          .design-lab-value-input:focus,
-          .design-lab-number-input:focus {
-            outline: none;
-            border-color: color-mix(in oklab, var(--primary) 65%, transparent);
-            box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 22%, transparent);
-          }
-
-          .design-lab-slider {
-            width: 100%;
-            height: 0.4rem;
-            accent-color: var(--primary);
-          }
-
-          .design-lab-font-preview {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            height: 2.75rem;
-            border-radius: 0.85rem;
-            border: 1px dashed color-mix(in oklab, var(--border) 60%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 94%, transparent);
-            color: color-mix(in oklab, var(--foreground) 90%, transparent);
-            font-weight: 600;
-            font-size: calc(var(--font-size-scale-sm) * var(--user-font-scale) / 100);
-          }
-
-          .design-lab-reset {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 2.35rem;
-            height: 2.35rem;
-            border-radius: 999px;
-            border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 95%, transparent);
-            color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-          }
-
-          .design-lab-reset:hover:not([disabled]) {
-            transform: translateY(-2px);
-            border-color: color-mix(in oklab, var(--primary) 55%, transparent);
-            box-shadow: 0 16px 32px -24px rgba(79, 70, 229, 0.45);
-            color: color-mix(in oklab, var(--primary) 70%, transparent);
-          }
-
-          .design-lab-reset[disabled] {
-            cursor: not-allowed;
-            opacity: 0.45;
-            transform: none;
-            box-shadow: none;
-          }
-
-          @media (max-width: 960px) {
-            .design-lab-row[data-type='color'],
-            .design-lab-row[data-type='range'],
-            .design-lab-row[data-type='text'] {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .design-lab-label,
-            .design-lab-color-chip,
-            .design-lab-color-input,
-            .design-lab-value-input,
-            .design-lab-number-input,
-            .design-lab-slider,
-            .design-lab-font-preview,
-            .design-lab-reset {
-              grid-column: span 2 / span 2;
-            }
-
-            .design-lab-font-preview {
-              justify-content: flex-start;
-              padding-inline: 0.6rem;
-            }
-
-            .design-lab-reset {
-              justify-self: end;
-            }
-          }
-
-          @media (max-width: 640px) {
-            .design-lab-row {
-              grid-template-columns: minmax(0, 1fr);
-            }
-
-            .design-lab-reset {
-              justify-self: stretch;
-            }
-          }
-
-          .sdk-showcase-grid {
-            display: grid;
-            gap: 1.25rem;
-          }
-
-          @media (min-width: 960px) {
-            .sdk-showcase-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-          }
-
-          .sdk-card-body {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-          }
-
-          .sdk-card-copy p {
-            margin: 0;
-          }
-
-          .sdk-preview {
-            padding: 1rem;
-            border-radius: 1rem;
-            border: 1px dashed color-mix(in oklab, var(--border) 55%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 96%, transparent);
-            box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 38%, transparent);
-          }
-
-          .sdk-preview > *:not(:first-child) {
-            margin-top: 0.75rem;
-          }
-
-          .sdk-snippet-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-
-          .sdk-snippet {
-            background: color-mix(in oklab, var(--surface-2) 88%, transparent);
-            border-radius: 0.9rem;
-            padding: 0.85rem 1rem;
-            overflow-x: auto;
-            font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Source Code Pro', 'Courier New', monospace;
-            font-size: calc(var(--font-size-scale-xs) * 0.95 * var(--user-font-scale) / 100);
-            line-height: 1.6;
-            direction: ltr;
-            text-align: left;
-            color: color-mix(in oklab, var(--foreground) 92%, transparent);
-            box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 45%, transparent);
-          }
-
-          .sdk-snippet code {
-            background: transparent;
-            padding: 0;
-            font-size: inherit;
-            color: inherit;
-          }
-
-          .sdk-function-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-          }
-
-          .sdk-function-item {
-            border-radius: 0.9rem;
-            border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
-            background: color-mix(in oklab, var(--surface-1) 97%, transparent);
-            padding: 0.75rem 1rem;
-            box-shadow: 0 18px 32px -26px rgba(15, 23, 42, 0.28);
-          }
-        `;
-
-        const baseHeadStyles = [{ id: 'index-base-styles', content: baseStyleContent }];
-
-        if (M.Head && typeof M.Head.batch === 'function') {
-          M.Head.batch({ links: baseHeadLinks, styles: baseHeadStyles });
-        }
-
-        function composeHead(head, title) {
-          const existing = head && typeof head === 'object' ? head : {};
-
-          const mergedLinks = [];
-          if (Array.isArray(baseHeadLinks)) mergedLinks.push(...baseHeadLinks);
-          if (Array.isArray(existing.links)) mergedLinks.push(...existing.links);
-          const seenLinkKeys = new Set();
-          const dedupedLinks = mergedLinks.filter((link) => {
-            if (!link || typeof link !== 'object') return false;
-            const key = link.id || `${link.rel || 'rel'}:${link.href || 'href'}`;
-            if (seenLinkKeys.has(key)) return false;
-            seenLinkKeys.add(key);
-            return true;
-          });
-
-          const mergedStyles = [];
-          if (Array.isArray(baseHeadStyles)) mergedStyles.push(...baseHeadStyles);
-          if (Array.isArray(existing.styles)) mergedStyles.push(...existing.styles);
-          const seenStyleKeys = new Set();
-          const dedupedStyles = mergedStyles.filter((style) => {
-            if (!style || typeof style !== 'object') return false;
-            const key = style.id || style.key || 'style';
-            if (seenStyleKeys.has(key)) return false;
-            seenStyleKeys.add(key);
-            return true;
-          });
-
-          return Object.assign({}, existing, {
-            title,
-            links: dedupedLinks,
-            styles: dedupedStyles
-          });
-        }
-
-        if (MPages && typeof MPages.create === 'function') {
-          MPages.create(cfg);
-          return;
-        }
-
-        const database = typeof Index.buildDatabase === 'function'
-          ? Index.buildDatabase()
-          : null;
-        const template = M.templates.PagesShell;
-
-        if (!database || !template || typeof template.render !== 'function') {
-          throw new Error('Mishkah PagesShell template is required.');
-        }
-
-        const lookupInit = Index.makeLangLookup(database);
-        database.head = composeHead(database.head, lookupInit.TL('app.title'));
-
-        M.app.setBody(function (db) {
-          const lookup = Index.makeLangLookup(db);
-          db.head = composeHead(db.head, lookup.TL('app.title'));
-          return template.render(db);
-        });
-
-        const app = M.app.createApp(database, {});
-        const templateOrders = template.createOrders(database);
-        const orders = Object.assign({}, Index.orders, templateOrders);
-        const twx = M.utils.twcss.auto(database, app);
-        app.setOrders(Object.assign({}, orders, M.UI.orders, twx.orders));
-        app.mount('#app');
-      })();
+    <script data-m-data data-m-path="data">
+      {
+        "joined": false,
+        "username": "Client-" + Math.floor(Math.random() * 1000),
+        "users": [],
+        "messages": [],
+        "newMessage": ""
+      }
     </script>
-  </body>
+
+    <script>
+      function joinChat(ctx) {
+        // تحديث الحالة للانتقال إلى شاشة الدردشة
+        ctx.set('data.joined', true);
+        // يمكنك هنا إرسال حدث الانضمام إلى الخادم إذا لزم الأمر
+        // عبر استدعاء ws.emit يدويًا أو عبر تعبير m-ws-emit
+      }
+
+      function updateUsers(userList, ctx) {
+        // تحديث قائمة المستخدمين عند وصولها من الخادم
+        if (Array.isArray(userList)) {
+          ctx.set('data.users', userList);
+        }
+      }
+
+      function appendMessage(message, ctx) {
+        // إضافة رسالة جديدة إلى السجل
+        const currentMessages = ctx.get('data.messages') || [];
+        ctx.set('data.messages', [...currentMessages, message]);
+      }
+
+      function getMessagePayload(ctx) {
+        // تجهيز حمولة الرسالة لإرسالها
+        const text = ctx.get('data.newMessage');
+        if (!text.trim()) return null; // لا ترسل رسائل فارغة
+
+        const payload = {
+          user: ctx.get('data.username'),
+          text: text
+        };
+        // تفريغ حقل الإدخال بعد الإرسال
+        ctx.set('data.newMessage', '');
+        return payload;
+      }
+    </script>
+  </template>
+
+  <script>
+    Mishkah.app.make({}).then(result => {
+      console.log('Mishkah HTMLx WebSocket App Initialized!');
+    });
+  </script>
+
+</body>
 </html>
