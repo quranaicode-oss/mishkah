@@ -108,6 +108,31 @@
       const parsed = parseMaybeJSONish(value);
       return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     };
+    const DEFAULT_PAYMENT_METHODS_SOURCE = [
+      { id:'cash', icon:'💵', name:{ ar:'نقدي', en:'Cash' }, type:'cash' },
+      { id:'card', icon:'💳', name:{ ar:'بطاقة', en:'Card' }, type:'card' }
+    ];
+    const sanitizePaymentMethod = (method={})=>{
+      const fallbackName = method.name || method.label || {};
+      const idSource = method.id || method.code || fallbackName?.en || fallbackName?.ar || method.type || 'cash';
+      const id = String(idSource || 'cash').trim() || 'cash';
+      const label = ensureLocaleObject(method.name || method.label, { ar:id, en:id });
+      return {
+        ...method,
+        id,
+        code: method.code || id,
+        icon: method.icon || '💳',
+        type: method.type || method.payment_type || 'other',
+        label,
+        name: label
+      };
+    };
+    const derivePaymentMethods = (source)=>{
+      const list = Array.isArray(source?.payment_methods) && source.payment_methods.length
+        ? source.payment_methods
+        : DEFAULT_PAYMENT_METHODS_SOURCE;
+      return list.map(sanitizePaymentMethod);
+    };
     const REMOTE_CONFIG = { endpoint:'/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
     const extractRemotePayload = (response)=>{
       if(!response || typeof response !== 'object') return null;
@@ -187,6 +212,7 @@
     }
     const MOCK_BASE = cloneDeep(typeof window !== 'undefined' ? (window.database || {}) : {});
     let MOCK = cloneDeep(MOCK_BASE);
+    let PAYMENT_METHODS = derivePaymentMethods(MOCK);
     const remoteHydrator = createRemoteHydrator();
     const remoteStatus = remoteHydrator.status;
     const initialRemoteSnapshot = snapshotRemoteStatus(remoteStatus);
@@ -280,21 +306,7 @@
     }));
     const ORDER_TYPE_IDS = new Set(ORDER_TYPES.map(type=> type.id));
 
-    const rawPaymentMethods = Array.isArray(MOCK.payment_methods) && MOCK.payment_methods.length
-      ? MOCK.payment_methods
-      : [
-          { id:'cash', icon:'💵', name:{ ar:'نقدي', en:'Cash' }, type:'cash' },
-          { id:'card', icon:'💳', name:{ ar:'بطاقة', en:'Card' }, type:'card' }
-        ];
-    const PAYMENT_METHODS = rawPaymentMethods.map(method=>({
-      id: method.id || method.code || String(method.name?.en || method.name?.ar || method.label?.en || method.label?.ar || 'method'),
-      icon: method.icon || '💳',
-      type: method.type || 'other',
-      label:{
-        ar: method.name?.ar || method.label?.ar || method.id || 'نقدي',
-        en: method.name?.en || method.label?.en || method.id || 'Cash'
-      }
-    }));
+    const clonePaymentMethods = (methods)=> cloneDeep(methods || []);
 
     const CAIRO_DISTRICTS = [
       { id:'heliopolis', ar:'هليوبوليس', en:'Heliopolis' },
@@ -1719,7 +1731,8 @@
         categorySections: cloneDeep(categorySections),
         categories: cloneDeep(categories),
         menuItems: cloneDeep(menuItems),
-        modifiersCatalog: cloneDeep(modifiersCatalog)
+        modifiersCatalog: cloneDeep(modifiersCatalog),
+        paymentMethods: clonePaymentMethods(PAYMENT_METHODS)
       };
     }
 
@@ -1728,6 +1741,21 @@
     let pendingRemoteResult = null;
     const assignRemoteData = (currentData, derivedSnapshot, remoteSnapshot)=>{
       const menuState = currentData?.menu || {};
+      const paymentsState = currentData?.payments || {};
+      const derivedMethods = Array.isArray(derivedSnapshot?.paymentMethods) && derivedSnapshot.paymentMethods.length
+        ? clonePaymentMethods(derivedSnapshot.paymentMethods)
+        : clonePaymentMethods(PAYMENT_METHODS);
+      let activeMethod = paymentsState.activeMethod;
+      if(derivedMethods.length){
+        const hasActive = activeMethod && derivedMethods.some(method=> method.id === activeMethod);
+        activeMethod = hasActive ? activeMethod : derivedMethods[0].id;
+      }
+      const nextPayments = {
+        ...paymentsState,
+        methods: derivedMethods,
+        activeMethod,
+        split: Array.isArray(paymentsState.split) ? paymentsState.split.map(entry=> ({ ...entry })) : []
+      };
       return {
         ...(currentData || {}),
         remotes:{
@@ -1741,13 +1769,15 @@
           categories: derivedSnapshot.categories,
           items: derivedSnapshot.menuItems
         },
-        modifiers: derivedSnapshot.modifiersCatalog
+        modifiers: derivedSnapshot.modifiersCatalog,
+        payments: nextPayments
       };
     };
 
     remoteHydrator.promise.then(result=>{
       if(result && result.data){
         MOCK = mergePreferRemote(MOCK_BASE, result.data);
+        PAYMENT_METHODS = derivePaymentMethods(MOCK);
         applyMenuDataset(MOCK);
       }
       if(result && result.error){
@@ -1969,7 +1999,23 @@
         delivery: round(Number(totals.delivery) || 0)
       };
       const paymentsByMethod = PAYMENT_METHODS.reduce((acc, method)=>{
-        const value = payments[method.id] ?? payments[method.code] ?? payments[method.name] ?? 0;
+        const lookupKeys = [
+          method.id,
+          method.code,
+          typeof method.name === 'string' ? method.name : null,
+          typeof method.name?.en === 'string' ? method.name.en : null,
+          typeof method.name?.ar === 'string' ? method.name.ar : null,
+          typeof method.label === 'string' ? method.label : null,
+          typeof method.label?.en === 'string' ? method.label.en : null,
+          typeof method.label?.ar === 'string' ? method.label.ar : null
+        ].filter(Boolean);
+        let value = 0;
+        for(const key of lookupKeys){
+          if(key != null && Object.prototype.hasOwnProperty.call(payments, key)){
+            value = payments[key];
+            break;
+          }
+        }
         acc[method.id] = round(Number(value) || 0);
         return acc;
       }, {});
@@ -2258,8 +2304,8 @@
         ordersQueue,
         auditTrail,
         payments:{
-          methods: PAYMENT_METHODS,
-          activeMethod: PAYMENT_METHODS[0]?.id || 'cash',
+          methods: clonePaymentMethods(PAYMENT_METHODS),
+          activeMethod: (PAYMENT_METHODS[0] && PAYMENT_METHODS[0].id) ? PAYMENT_METHODS[0].id : 'cash',
           split:[]
         },
         customers: createInitialCustomers(),
@@ -3864,7 +3910,7 @@
           split: paymentsSplit
         };
         if(!Array.isArray(nextPayments.methods) || !nextPayments.methods.length){
-          nextPayments.methods = PAYMENT_METHODS;
+          nextPayments.methods = clonePaymentMethods(PAYMENT_METHODS);
         }
         const totals = safeOrder.totals && typeof safeOrder.totals === 'object'
           ? { ...safeOrder.totals }
