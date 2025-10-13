@@ -792,10 +792,30 @@ UI.SweetNotice = ({
 
 UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });
 UI.Textarea = ({ attrs }) => h.Inputs.Textarea({ attrs: withClass(attrs, token('input')) });
-UI.Select   = ({ attrs={}, options=[] }) =>
-  h.Inputs.Select({ attrs: withClass(attrs, token('input')) },
-    options.map((o,i)=> h.Inputs.Option({ attrs:{ value:o.value, key:`opt-${i}` }}, [o.label]) )
+UI.Select   = ({ attrs={}, options=[] }) => {
+  const selectAttrs = withClass(attrs, token('input'));
+  const hasValue = Object.prototype.hasOwnProperty.call(selectAttrs, 'value') || Object.prototype.hasOwnProperty.call(selectAttrs, 'defaultValue');
+  const rawCurrentValue = hasValue
+    ? (Object.prototype.hasOwnProperty.call(selectAttrs, 'value') ? selectAttrs.value : selectAttrs.defaultValue)
+    : undefined;
+  const normalizedCurrentValue = rawCurrentValue == null ? undefined : String(rawCurrentValue);
+  return h.Inputs.Select({ attrs: selectAttrs },
+    options.map((o,i)=>{
+      const optionValue = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'value')) ? o.value : o;
+      const optionLabel = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'label')) ? o.label : (o == null ? '' : String(o));
+      const optionAttrs = { value: optionValue, key:`opt-${i}` };
+      const optionHasSelected = !!(o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'selected'));
+      if(o && typeof o === 'object'){
+        if('disabled' in o) optionAttrs.disabled = !!o.disabled;
+        if(optionHasSelected) optionAttrs.selected = !!o.selected;
+      }
+      if(normalizedCurrentValue !== undefined && optionValue != null && normalizedCurrentValue === String(optionValue) && !optionHasSelected){
+        optionAttrs.selected = true;
+      }
+      return h.Inputs.Option({ attrs: optionAttrs }, [optionLabel]);
+    })
   );
+};
 UI.Label    = ({ attrs, forId, text }) => {
   const a=Object.assign({},attrs||{}); if(forId) a.for=forId;
   return h.Forms.Label({ attrs: withClass(a, token('label')) }, [text||'']);
