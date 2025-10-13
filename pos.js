@@ -8,7 +8,179 @@
     const { tw, token } = U.twcss;
     const BASE_PALETTE = U.twcss?.PALETTE || {};
 
-    const MOCK = window.database || {};
+    const JSONX = U.JSON || {};
+    const hasStructuredClone = typeof structuredClone === 'function';
+    const isPlainObject = value => value && typeof value === 'object' && !Array.isArray(value);
+    const cloneDeep = (value)=>{
+      if(value == null) return value;
+      if(JSONX && typeof JSONX.clone === 'function') return JSONX.clone(value);
+      if(hasStructuredClone){
+        try{ return structuredClone(value); } catch(_err){}
+      }
+      try{ return JSON.parse(JSON.stringify(value)); } catch(_err){
+        if(Array.isArray(value)) return value.slice();
+        if(isPlainObject(value)) return { ...value };
+        return value;
+      }
+    };
+    const mergePreferRemote = (base, patch)=>{
+      if(patch === undefined) return cloneDeep(base);
+      if(patch === null) return null;
+      if(Array.isArray(patch)) return patch.map(entry=> cloneDeep(entry));
+      if(isPlainObject(patch)){
+        const baseObj = isPlainObject(base) ? base : {};
+        const target = cloneDeep(baseObj);
+        Object.keys(patch).forEach(key=>{
+          target[key] = mergePreferRemote(baseObj[key], patch[key]);
+        });
+        return target;
+      }
+      return cloneDeep(patch);
+    };
+    const JSONISH_FIX_KEYS = /([,{]\s*)([A-Za-z0-9_]+)\s*:/g;
+    const JSON_PARSE_FAIL = Symbol('json:fail');
+    const tryParseJson = (value)=>{
+      if(typeof value !== 'string') return JSON_PARSE_FAIL;
+      if(JSONX && typeof JSONX.parseSafe === 'function'){
+        return JSONX.parseSafe(value, JSON_PARSE_FAIL);
+      }
+      try{ return JSON.parse(value); } catch(_err){ return JSON_PARSE_FAIL; }
+    };
+    const parseMaybeJSONish = (value)=>{
+      if(typeof value !== 'string') return value;
+      const trimmed = value.trim();
+      if(!trimmed) return value;
+      const candidates = [trimmed];
+      if(trimmed[0] !== '{' && trimmed[0] !== '[' && trimmed.includes(':')){
+        let normalized = trimmed;
+        if(!normalized.startsWith('{')) normalized = `{${normalized}`;
+        if(!normalized.endsWith('}') && normalized.includes(':')) normalized = `${normalized}}`;
+        candidates.push(normalized);
+      }
+      for(const candidate of candidates){
+        const direct = tryParseJson(candidate);
+        if(direct !== JSON_PARSE_FAIL) return direct;
+        const first = candidate[0];
+        const last = candidate[candidate.length - 1];
+        const looksStructured = (first === '{' && last === '}') || (first === '[' && last === ']');
+        if(!looksStructured) continue;
+        const sanitized = candidate
+          .replace(JSONISH_FIX_KEYS, '$1"$2":')
+          .replace(/'/g, '"')
+          .replace(/,(\s*[}\]])/g, '$1');
+        const parsed = tryParseJson(sanitized);
+        if(parsed !== JSON_PARSE_FAIL) return parsed;
+      }
+      return value;
+    };
+    const ensureLocaleObject = (value, fallback)=>{
+      const parsed = parseMaybeJSONish(value);
+      const locale = {};
+      if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)){
+        Object.keys(parsed).forEach(key=>{
+          const rawKey = key.toLowerCase();
+          const normalizedKey = rawKey.startsWith('ar') ? 'ar'
+            : rawKey.startsWith('en') ? 'en'
+              : rawKey;
+          const entryValue = parsed[key];
+          if(entryValue == null) return;
+          locale[normalizedKey] = typeof entryValue === 'string' ? entryValue : String(entryValue);
+        });
+      } else if(typeof parsed === 'string' && parsed.trim()){
+        const text = parsed.trim();
+        locale.ar = text;
+        locale.en = text;
+      }
+      if(!locale.en && locale.ar) locale.en = locale.ar;
+      if(!locale.ar && locale.en) locale.ar = locale.en;
+      if(Object.keys(locale).length) return locale;
+      if(!fallback) return {};
+      const clonedFallback = {};
+      Object.keys(fallback).forEach(key=>{
+        if(fallback[key] == null) return;
+        clonedFallback[key] = typeof fallback[key] === 'string' ? fallback[key] : String(fallback[key]);
+      });
+      if(!clonedFallback.en && clonedFallback.ar) clonedFallback.en = clonedFallback.ar;
+      if(!clonedFallback.ar && clonedFallback.en) clonedFallback.ar = clonedFallback.en;
+      return clonedFallback;
+    };
+    const ensurePlainObject = (value)=>{
+      const parsed = parseMaybeJSONish(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    };
+    const REMOTE_CONFIG = { endpoint:'/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
+    const extractRemotePayload = (response)=>{
+      if(!response || typeof response !== 'object') return null;
+      if(response.result && typeof response.result === 'object') return response.result;
+      if(response.payload && typeof response.payload === 'object') return response.payload;
+      if(response.data && typeof response.data === 'object' && !Array.isArray(response.data)) return response.data;
+      return response;
+    };
+    const snapshotRemoteStatus = (status)=>({
+      status: status?.status || 'idle',
+      error: status?.error ? (status.error.message || String(status.error)) : null,
+      startedAt: status?.startedAt || null,
+      finishedAt: status?.finishedAt || null,
+      keys: Array.isArray(status?.keys) ? status.keys.slice() : []
+    });
+    function createRemoteHydrator(){
+      const status = { status:'idle', error:null, startedAt:null, finishedAt:null, keys:[] };
+      const { Net } = U;
+      const promise = (async()=>{
+        status.status = 'loading';
+        status.startedAt = Date.now();
+        try{
+          let response = null;
+          if(Net && typeof Net.post === 'function'){
+            response = await Net.post(REMOTE_CONFIG.endpoint, {
+              body: REMOTE_CONFIG.payload,
+              headers:{ 'Content-Type':'application/json' },
+              timeout: REMOTE_CONFIG.timeout,
+              responseType:'json'
+            });
+          } else if(Net && typeof Net.ajax === 'function'){
+            response = await Net.ajax(REMOTE_CONFIG.endpoint, {
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: REMOTE_CONFIG.payload,
+              responseType:'json',
+              timeout: REMOTE_CONFIG.timeout
+            });
+          } else if(typeof fetch === 'function'){
+            const res = await fetch(REMOTE_CONFIG.endpoint, {
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: JSON.stringify(REMOTE_CONFIG.payload)
+            });
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            response = await res.json();
+          } else {
+            throw new Error('Networking unavailable');
+          }
+          const data = extractRemotePayload(response);
+          status.finishedAt = Date.now();
+          if(data && typeof data === 'object'){
+            status.status = 'ready';
+            status.keys = Object.keys(data);
+            return { data, status };
+          }
+          status.status = 'ready';
+          return { data:null, status };
+        } catch(error){
+          status.status = 'error';
+          status.error = error;
+          status.finishedAt = Date.now();
+          return { data:null, error, status };
+        }
+      })();
+      return { status, promise };
+    }
+    const MOCK_BASE = cloneDeep(typeof window !== 'undefined' ? (window.database || {}) : {});
+    let MOCK = cloneDeep(MOCK_BASE);
+    const remoteHydrator = createRemoteHydrator();
+    const remoteStatus = remoteHydrator.status;
+    const initialRemoteSnapshot = snapshotRemoteStatus(remoteStatus);
+    let appRef = null;
     const settings = MOCK.settings || {};
     const currencyConfig = settings.currency || {};
     const rawPosConfig = settings.pos || settings.pos_info || settings.posInfo || {};
@@ -141,6 +313,9 @@
         ui:{
           shift:'الوردية', cashier:'الكاشير', dine_in:'صالة', delivery:'توصيل', takeaway:'تيك أواي', cashier_mode:'كاشير',
           search:'ابحث في المنيو', favorites:'المفضلة', favorites_only:'المفضلة فقط', categories:'التصنيفات', load_more:'عرض المزيد',
+          menu_loading:'جاري تحميل القائمة الحية…', menu_loading_hint:'نقوم بجلب الأصناف من النظام المركزي. يمكنك الاستمرار بالبيانات الحالية مؤقتًا.',
+          menu_load_error:'تعذر تحديث القائمة الحية، يتم استخدام البيانات المخزنة.', menu_load_error_short:'تعذر التحديث',
+          menu_live_badge:'القائمة الحية', menu_last_updated:'آخر تحديث', menu_load_success:'تم تحديث القائمة بنجاح.',
           indexeddb:'قاعدة البيانات المحلية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
           subtotal:'الإجمالي الفرعي', service:'خدمة', vat:'ضريبة', discount:'خصم', delivery_fee:'رسوم التوصيل', total:'الإجمالي المستحق',
           cart_empty:'لم يتم إضافة أصناف بعد', choose_items:'اختر صنفًا من القائمة لإضافته إلى الطلب.', tables:'الطاولات',
@@ -265,6 +440,9 @@
         ui:{
           shift:'Shift', cashier:'Cashier', dine_in:'Dine-in', delivery:'Delivery', takeaway:'Takeaway', cashier_mode:'Counter',
           search:'Search menu', favorites:'Favorites', favorites_only:'Only favorites', categories:'Categories', load_more:'Load more',
+          menu_loading:'Loading live menu…', menu_loading_hint:'Fetching the latest catalog from the central system. You can continue working with local data.',
+          menu_load_error:'Live menu refresh failed, using cached data instead.', menu_load_error_short:'Update failed',
+          menu_live_badge:'Live menu', menu_last_updated:'Last updated', menu_load_success:'Live menu updated.',
           indexeddb:'Local database', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
           service:'Service', vat:'VAT', discount:'Discount', delivery_fee:'Delivery fee', total:'Amount due',
           cart_empty:'No items added yet', choose_items:'Pick an item from the menu to start the order.', tables:'Tables',
@@ -1428,70 +1606,160 @@
     applyThemePreferenceStyles(savedThemePrefs);
     const kdsBridge = createKDSBridge('wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q');
 
-    const kitchenSections = Array.isArray(MOCK.kitchen_sections) ? MOCK.kitchen_sections.map(section=>({
-      id: section.id,
-      name:{ ar: section.section_name?.ar || section.id, en: section.section_name?.en || section.id },
-      description: section.description || {}
-    })) : [];
+    let kitchenSections;
+    let categorySections;
+    let categories;
+    let menuItems;
+    let menuIndex;
+    let modifiersCatalog;
 
-    const categorySections = Array.isArray(MOCK.category_sections) ? MOCK.category_sections : [];
-    const categorySectionMap = new Map(categorySections.map(entry=> [entry.category_id || entry.categoryId, entry.section_id || entry.sectionId]));
-
-    const rawCategories = Array.isArray(MOCK.categories) ? MOCK.categories.slice() : [];
-    if(!rawCategories.some(cat=> cat.id === 'all')){
-      rawCategories.unshift({ id:'all', category_name:{ ar:'الكل', en:'All' }, section_id:'expo' });
+    function deriveMenuStructures(source){
+      const dataset = source || {};
+      const sectionsRaw = Array.isArray(dataset.kitchen_sections) ? dataset.kitchen_sections : [];
+      const sections = sectionsRaw.map(section=>{
+        const name = ensureLocaleObject(section?.section_name, { ar: section?.id || '', en: section?.id || '' });
+        const description = ensureLocaleObject(section?.description, {});
+        return {
+          id: section?.id,
+          name,
+          description
+        };
+      });
+      const categorySectionsRaw = Array.isArray(dataset.category_sections) ? dataset.category_sections.slice() : [];
+      const sectionMap = new Map(categorySectionsRaw.map(entry=> [entry.category_id || entry.categoryId, entry.section_id || entry.sectionId]));
+      const rawCategories = Array.isArray(dataset.categories) ? dataset.categories.slice() : [];
+      if(!rawCategories.some(cat=> cat && cat.id === 'all')){
+        rawCategories.unshift({ id:'all', category_name:{ ar:'الكل', en:'All' }, section_id:'expo' });
+      }
+      const normalizedCategories = rawCategories.map(cat=>{
+        const sectionId = cat?.section_id || sectionMap.get(cat?.id) || null;
+        const fallbackLabel = { ar: cat?.id || '', en: cat?.id || '' };
+        const label = ensureLocaleObject(cat?.category_name, fallbackLabel);
+        return {
+          id: cat?.id,
+          sectionId,
+          label
+        };
+      });
+      const itemsRaw = Array.isArray(dataset.items) ? dataset.items : [];
+      const items = itemsRaw.map(item=>{
+        const categoryId = item.category_id || item.category || 'all';
+        const pricing = ensurePlainObject(item.pricing);
+        const priceSource = pricing.base ?? pricing.price ?? pricing.amount ?? pricing.value ?? item.price;
+        const price = round(priceSource);
+        const kitchenSection = item.kitchen_section_id || sectionMap.get(categoryId) || 'expo';
+        const media = ensurePlainObject(item.media);
+        const name = ensureLocaleObject(item.item_name || item.name, { ar: String(item.id || ''), en: String(item.id || '') });
+        const description = ensureLocaleObject(item.item_description || item.description, { ar:'', en:'' });
+        return {
+          id: item.id,
+          category: categoryId,
+          price,
+          image: media.image || media.url || media.path || item.image || '',
+          kitchenSection,
+          name,
+          description
+        };
+      });
+      const index = new Map(items.map(entry=> [String(entry.id), entry]));
+      const rawModifiers = typeof dataset.modifiers === 'object' && dataset.modifiers ? dataset.modifiers : {};
+      const normalizeModifierEntry = (entry, fallbackType)=>{
+        if(!entry) return null;
+        const id = entry.id ?? entry.code ?? entry.key;
+        if(id == null) return null;
+        const priceChange = Number(entry.price_change ?? entry.priceChange ?? entry.amount ?? 0) || 0;
+        const label = ensureLocaleObject(entry.name || entry.label, { ar: String(id), en: String(id) });
+        return {
+          id: String(id),
+          type: fallbackType,
+          label,
+          priceChange: round(priceChange)
+        };
+      };
+      const addOns = (Array.isArray(rawModifiers.add_ons) ? rawModifiers.add_ons : rawModifiers.addOns || [])
+        .map(entry=> normalizeModifierEntry(entry, 'add_on'))
+        .filter(Boolean);
+      const removals = (Array.isArray(rawModifiers.removals) ? rawModifiers.removals : rawModifiers.remove || [])
+        .map(entry=> normalizeModifierEntry(entry, 'removal'))
+        .filter(Boolean);
+      return {
+        kitchenSections: sections,
+        categorySections: categorySectionsRaw,
+        categories: normalizedCategories,
+        menuItems: items,
+        menuIndex: index,
+        modifiersCatalog: { addOns, removals }
+      };
     }
-    const categories = rawCategories.map(cat=>{
-      const sectionId = cat.section_id || categorySectionMap.get(cat.id) || null;
+
+    function applyMenuDataset(source){
+      const derived = deriveMenuStructures(source);
+      kitchenSections = derived.kitchenSections;
+      categorySections = derived.categorySections;
+      categories = derived.categories;
+      menuItems = derived.menuItems;
+      menuIndex = derived.menuIndex;
+      modifiersCatalog = derived.modifiersCatalog;
+      return derived;
+    }
+
+    function cloneMenuDerived(){
       return {
-        id: cat.id,
-        sectionId,
-        label:{ ar: cat.category_name?.ar || cat.id, en: cat.category_name?.en || cat.id }
+        kitchenSections: cloneDeep(kitchenSections),
+        categorySections: cloneDeep(categorySections),
+        categories: cloneDeep(categories),
+        menuItems: cloneDeep(menuItems),
+        modifiersCatalog: cloneDeep(modifiersCatalog)
       };
-    });
+    }
 
-    const menuItems = (MOCK.items || []).map(item=>{
-      const categoryId = item.category_id || item.category || 'all';
-      const price = item.pricing && typeof item.pricing.base !== 'undefined' ? Number(item.pricing.base) : Number(item.price) || 0;
-      const kitchenSection = item.kitchen_section_id || categorySectionMap.get(categoryId) || 'expo';
+    applyMenuDataset(MOCK);
+
+    let pendingRemoteResult = null;
+    const assignRemoteData = (currentData, derivedSnapshot, remoteSnapshot)=>{
+      const menuState = currentData?.menu || {};
       return {
-        id: item.id,
-        category: categoryId,
-        price,
-        image: item.media?.image || item.image || '',
-        kitchenSection,
-        name:{
-          ar: item.item_name?.ar || item.item_name?.en || String(item.id),
-          en: item.item_name?.en || item.item_name?.ar || String(item.id)
+        ...(currentData || {}),
+        remotes:{
+          ...(currentData?.remotes || {}),
+          posDatabase: remoteSnapshot
         },
-        description:{
-          ar: item.item_description?.ar || '',
-          en: item.item_description?.en || item.item_description?.ar || ''
-        }
-      };
-    });
-
-    const menuIndex = new Map(menuItems.map(item=> [String(item.id), item]));
-
-    const rawModifiers = typeof MOCK.modifiers === 'object' && MOCK.modifiers ? MOCK.modifiers : {};
-    const normalizeModifierEntry = (entry, fallbackType)=>{
-      if(!entry) return null;
-      const id = entry.id ?? entry.code ?? entry.key;
-      if(id == null) return null;
-      const priceChange = Number(entry.price_change ?? entry.priceChange ?? entry.amount ?? 0) || 0;
-      return {
-        id: String(id),
-        type: fallbackType,
-        label:{
-          ar: entry.name?.ar || entry.name?.en || String(id),
-          en: entry.name?.en || entry.name?.ar || String(id)
+        kitchenSections: derivedSnapshot.kitchenSections,
+        categorySections: derivedSnapshot.categorySections,
+        menu:{
+          ...menuState,
+          categories: derivedSnapshot.categories,
+          items: derivedSnapshot.menuItems
         },
-        priceChange: round(priceChange)
+        modifiers: derivedSnapshot.modifiersCatalog
       };
     };
-    const addOns = (Array.isArray(rawModifiers.add_ons) ? rawModifiers.add_ons : rawModifiers.addOns || []).map(entry=> normalizeModifierEntry(entry, 'add_on')).filter(Boolean);
-    const removals = (Array.isArray(rawModifiers.removals) ? rawModifiers.removals : rawModifiers.remove || []).map(entry=> normalizeModifierEntry(entry, 'removal')).filter(Boolean);
-    const modifiersCatalog = { addOns, removals };
+
+    remoteHydrator.promise.then(result=>{
+      if(result && result.data){
+        MOCK = mergePreferRemote(MOCK_BASE, result.data);
+        applyMenuDataset(MOCK);
+      }
+      if(result && result.error){
+        console.warn('[Mishkah][POS] remote catalog hydration error', result.error);
+      }
+      pendingRemoteResult = {
+        derived: cloneMenuDerived(),
+        remote: snapshotRemoteStatus(remoteStatus)
+      };
+      if(appRef){
+        flushRemoteUpdate();
+      }
+    }).catch(error=>{
+      console.warn('[Mishkah][POS] remote catalog hydration failed', error);
+      pendingRemoteResult = {
+        derived: cloneMenuDerived(),
+        remote: snapshotRemoteStatus(remoteStatus)
+      };
+      if(appRef){
+        flushRemoteUpdate();
+      }
+    });
 
     const orderStages = (Array.isArray(MOCK.order_stages) && MOCK.order_stages.length ? MOCK.order_stages : [
       { id:'new', stage_name:{ ar:'جديد', en:'New' }, sequence:1, lock_line_edits:false },
@@ -1909,6 +2177,7 @@
       env:{ theme:initialTheme, lang:'ar', dir:'rtl' },
       data:{
         settings,
+        remotes:{ posDatabase: initialRemoteSnapshot },
         themePrefs: savedThemePrefs,
         currency:{ code: currencyCode, symbols: currencySymbols, display: currencyDisplayMode },
         pos: POS_INFO,
@@ -2044,7 +2313,19 @@
       }
     };
 
-    let appRef = null;
+    function flushRemoteUpdate(){
+      if(!pendingRemoteResult) return;
+      const { derived, remote } = pendingRemoteResult;
+      const nextData = assignRemoteData(posState.data, derived, remote);
+      posState.data = nextData;
+      if(appRef && typeof appRef.setState === 'function'){
+        appRef.setState(prev=>({
+          ...prev,
+          data: assignRemoteData(prev.data, derived, remote)
+        }));
+      }
+      pendingRemoteResult = null;
+    }
 
     async function refreshPersistentSnapshot(options={}){
       if(!posDB.available) return null;
@@ -2293,10 +2574,42 @@
       ]);
     }
 
+    function LoadingSpinner(extraAttrs){
+      const extraClass = extraAttrs && extraAttrs.class ? extraAttrs.class : '';
+      const attrs = Object.assign({}, extraAttrs || {});
+      attrs.class = tw`${extraClass} h-3 w-3 animate-spin rounded-full border-2 border-[color-mix(in_oklab,var(--primary)75%,transparent)] border-t-transparent`;
+      attrs['aria-hidden'] = attrs['aria-hidden'] || 'true';
+      return D.Containers.Div({ attrs });
+    }
+
+    function MenuSkeletonGrid(count){
+      const total = Number.isFinite(count) && count > 0 ? count : 8;
+      const cards = Array.from({ length: total }).map((_, idx)=> D.Containers.Div({
+        attrs:{
+          key:`menu-skeleton-${idx}`,
+          class: tw`flex animate-pulse flex-col gap-2 rounded-3xl border border-dashed border-[color-mix(in_oklab,var(--border)70%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)94%,transparent)] p-3`
+        }
+      }, [
+        D.Containers.Div({ attrs:{ class: tw`h-24 w-full rounded-2xl bg-[color-mix(in_oklab,var(--surface-2)90%,transparent)]` } }),
+        D.Containers.Div({ attrs:{ class: tw`space-y-2` } }, [
+          D.Containers.Div({ attrs:{ class: tw`h-3 w-3/4 rounded-full bg-[color-mix(in_oklab,var(--surface-2)88%,transparent)]` } }),
+          D.Containers.Div({ attrs:{ class: tw`h-3 w-full rounded-full bg-[color-mix(in_oklab,var(--surface-2)82%,transparent)]` } })
+        ]),
+        D.Containers.Div({ attrs:{ class: tw`mt-auto h-3 w-1/2 rounded-full bg-[color-mix(in_oklab,var(--surface-2)84%,transparent)]` } })
+      ]));
+      return D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3` } }, cards);
+    }
+
     function MenuColumn(db){
       const t = getTexts(db);
       const lang = db.env.lang;
       const menu = db.data.menu;
+      const remote = db.data.remotes?.posDatabase || {};
+      const remoteStatus = remote.status || 'idle';
+      const isLoadingRemote = remoteStatus === 'loading';
+      const hasRemoteError = remoteStatus === 'error';
+      const remoteUpdatedAt = remote.finishedAt || null;
+      const remoteErrorMessage = remote.error || null;
       const filtered = filterMenu(menu, lang);
       const categories = Array.isArray(menu.categories) ? menu.categories : [];
       const seenCategories = new Set();
@@ -2310,6 +2623,14 @@
         });
         return acc;
       }, []).sort((a,b)=> (a.id==='all' ? -1 : b.id==='all' ? 1 : 0));
+      const remoteStatusText = isLoadingRemote
+        ? t.ui.menu_loading_hint
+        : hasRemoteError
+          ? (remoteErrorMessage ? `${t.ui.menu_load_error}: ${remoteErrorMessage}` : t.ui.menu_load_error)
+          : remoteUpdatedAt
+            ? `${t.ui.menu_last_updated}: ${formatSync(remoteUpdatedAt, lang) || '—'}`
+            : t.ui.menu_load_success;
+      const lastSyncLabel = `${t.ui.last_sync}: ${formatSync(db.data.status.indexeddb.lastSync, lang) || t.ui.never_synced}`;
       return D.Containers.Section({ attrs:{ class: tw`flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden` }}, [
         UI.Card({
           variant:'card/soft-1',
@@ -2333,24 +2654,38 @@
           ])
         }),
         D.Containers.Section({ attrs:{ class: tw`${token('scroll-panel')} flex-1 min-h-0 w-full overflow-hidden` }}, [
-          D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/head')}` }}, [
-            D.Text.Strong({}, [t.ui.categories]),
-            UI.Button({ attrs:{ gkey:'pos:menu:load-more' }, variant:'ghost', size:'sm' }, [t.ui.load_more])
+          D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/head')} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+              D.Text.Strong({}, [t.ui.categories]),
+              isLoadingRemote ? LoadingSpinner({ title: t.ui.menu_loading }) : null,
+              hasRemoteError ? UI.Badge({ variant:'badge/status', attrs:{ class: tw`${token('status/offline')} text-xs` } }, [`⚠️ ${t.ui.menu_load_error_short}`]) : null
+            ].filter(Boolean)),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
+              UI.Button({ attrs:{ gkey:'pos:menu:load-more' }, variant:'ghost', size:'sm' }, [t.ui.load_more])
+            ])
           ]),
           UI.ScrollArea({
             attrs:{ class: tw`${token('scroll-panel/body')} h-full w-full px-3 pb-3` },
             children:[
-              filtered.length
-                ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3` }}, filtered.map(item=> MenuItemCard(db, item)))
-                : UI.EmptyState({ icon:'🍽️', title:t.ui.cart_empty, description:t.ui.choose_items })
+              isLoadingRemote
+                ? MenuSkeletonGrid(8)
+                : filtered.length
+                  ? D.Containers.Div({ attrs:{ class: tw`grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3` }}, filtered.map(item=> MenuItemCard(db, item)))
+                  : UI.EmptyState({ icon:'🍽️', title:t.ui.cart_empty, description:t.ui.choose_items })
             ]
           }),
           D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/footer')} flex flex-wrap items-center justify-between gap-3` }}, [
-            statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb),
-            D.Containers.Div({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [
-              D.Text.Span({}, [`${t.ui.last_sync}: ${formatSync(db.data.status.indexeddb.lastSync, lang) || t.ui.never_synced}`])
-            ]),
-            UI.Button({ attrs:{ gkey:'pos:indexeddb:sync' }, variant:'ghost', size:'sm' }, [t.ui.sync_now])
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2` }}, [
+              statusBadge(db, remoteStatus === 'ready' ? 'online' : hasRemoteError ? 'offline' : 'idle', t.ui.menu_live_badge),
+              statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
+            ].filter(Boolean)),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
+              D.Containers.Div({ attrs:{ class: tw`text-xs ${token('muted')} flex flex-col sm:flex-row sm:items-center sm:gap-3` }}, [
+                D.Text.Span({}, [remoteStatusText]),
+                D.Text.Span({}, [lastSyncLabel])
+              ]),
+              UI.Button({ attrs:{ gkey:'pos:indexeddb:sync' }, variant:'ghost', size:'sm' }, [t.ui.sync_now])
+            ])
           ])
         ])
       ]);
@@ -4243,6 +4578,9 @@
 
     const app = M.app.createApp(posState, {});
     appRef = app;
+    if(pendingRemoteResult){
+      flushRemoteUpdate();
+    }
     const POS_DEV_TOOLS = {
       async resetIndexedDB(){
         if(!posDB.available || typeof posDB.resetAll !== 'function'){
