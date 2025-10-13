@@ -132,7 +132,7 @@
       border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
       background: color-mix(in oklab, var(--surface-0) 96%, transparent);
       padding: 1rem;
-      max-height: 24rem;
+      max-height: min(70vh, 48rem);
       overflow: auto;
       font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "SFMono-Regular", ui-monospace, monospace;
       font-size: 0.85rem;
@@ -144,7 +144,11 @@
     .json-tree-viewer {
       padding: 0;
       overflow: auto;
-      max-height: 24rem;
+      max-height: min(70vh, 48rem);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
     }
     .json-tree-viewer[data-json-ready='true'] .json-tree-fallback {
       display: none;
@@ -183,9 +187,16 @@
     }
     .json-tree-node {
       display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      color: color-mix(in srgb, var(--card-foreground) 92%, transparent);
+      width: 100%;
+    }
+    .json-tree-header {
+      display: flex;
+      flex-wrap: wrap;
       align-items: flex-start;
       gap: 0.45rem;
-      color: color-mix(in srgb, var(--card-foreground) 92%, transparent);
       width: 100%;
     }
     .json-tree-node--branch {
@@ -201,7 +212,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-top: 0.15rem;
+      margin-top: 0.1rem;
     }
     .json-tree-toggle {
       border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
@@ -250,9 +261,9 @@
       color: color-mix(in srgb, var(--muted-foreground) 86%, transparent);
     }
     .json-tree-children {
-      margin-left: 1.45rem;
-      padding-left: 0.75rem;
-      border-left: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+      margin-inline-start: 1.45rem;
+      padding-inline-start: 1rem;
+      border-inline-start: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
@@ -559,6 +570,10 @@
       const isComplex = value && typeof value === 'object';
       const hasChildren = isComplex && (Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0);
       const isSummaryOnly = opts.summaryOnly === true;
+      const header = document.createElement('div');
+      header.className = 'json-tree-header';
+      node.appendChild(header);
+
       let toggle;
 
       if(isComplex && hasChildren){
@@ -569,23 +584,23 @@
         toggle.setAttribute('aria-label', toggleLabel || 'Toggle');
         toggle.setAttribute('aria-expanded', 'true');
         toggle.textContent = '−';
-        node.appendChild(toggle);
+        header.appendChild(toggle);
       } else {
         const spacer = document.createElement('span');
         spacer.className = 'json-tree-spacer';
-        node.appendChild(spacer);
+        header.appendChild(spacer);
       }
 
       if(key != null){
         const keySpan = document.createElement('span');
         keySpan.className = 'json-tree-key';
         keySpan.textContent = JSON.stringify(key);
-        node.appendChild(keySpan);
+        header.appendChild(keySpan);
 
         const separator = document.createElement('span');
         separator.className = 'json-tree-separator';
         separator.textContent = ':';
-        node.appendChild(separator);
+        header.appendChild(separator);
       }
 
       if(isComplex){
@@ -593,7 +608,7 @@
         summary.className = 'json-tree-summary';
         const size = Array.isArray(value) ? value.length : Object.keys(value).length;
         summary.textContent = Array.isArray(value) ? `Array(${size})` : `Object(${size})`;
-        node.appendChild(summary);
+        header.appendChild(summary);
 
         if(hasChildren){
           const children = document.createElement('div');
@@ -618,7 +633,7 @@
         const summary = document.createElement('span');
         summary.className = 'json-tree-summary';
         summary.textContent = typeof value === 'string' ? value : JSON.stringify(value);
-        node.appendChild(summary);
+        header.appendChild(summary);
         return node;
       }
 
@@ -626,7 +641,7 @@
       const valueSpan = document.createElement('span');
       valueSpan.className = `json-tree-value ${className}`;
       valueSpan.textContent = text;
-      node.appendChild(valueSpan);
+      header.appendChild(valueSpan);
 
       return node;
     }
@@ -916,6 +931,14 @@
       'modal.table.includeId':{ ar:'إنشاء حقل id افتراضي؟', en:'Create default id field?' },
       'common.create':{ ar:'إنشاء', en:'Create' },
       'common.cancel':{ ar:'إلغاء', en:'Cancel' },
+      'modal.renameTable.title':{ ar:'إعادة تسمية الجدول', en:'Rename table' },
+      'modal.renameTable.description':{ ar:'حدّث اسم الجدول والمسمى والوصف الاختياري.', en:'Update the table identifier, display label, and optional notes.' },
+      'modal.renameTable.name.placeholder':{ ar:'English name (snake_case)', en:'English name (snake_case)' },
+      'modal.renameTable.label.placeholder':{ ar:'المسمى الظاهر (اختياري)', en:'Display label (optional)' },
+      'modal.renameTable.helper':{ ar:'سيُحفظ الجدول تحت المعرف: {name}', en:'The table will be saved with the identifier: {name}' },
+      'modal.renameTable.prompt':{ ar:'اكتب اسمًا جديدًا وسيتم تحويله إلى معرف متوافق مع SQL.', en:'Provide a new name and it will be converted to a SQL-safe identifier.' },
+      'modal.renameTable.save':{ ar:'حفظ التعديلات', en:'Save changes' },
+      'modal.renameTable.current':{ ar:'الوصف الحالي: {value}', en:'Current description: {value}' },
       'table.create.helper.suggested':{ ar:'سيتم حفظ الجدول في قاعدة البيانات بالاسم: {name} مع ضمان عدم تكرار المعرف داخل المخطط.', en:'The table will be saved in the database with the name: {name}, ensuring the identifier stays unique within the diagram.' },
       'table.create.helper.prompt':{ ar:'اكتب اسمًا إنجليزيًا، وسيتم تحويل المسافات والمحارف الخاصة تلقائيًا إلى صيغة SQL سليمة.', en:'Type an English name; spaces and special characters will be converted automatically to a valid SQL identifier.' },
       'modal.field.title':{ ar:'إضافة حقل', en:'Add field' },
@@ -994,6 +1017,9 @@
       'modal.columns.index.modal.columns':{ ar:'الأعمدة المرتبطة', en:'Columns' },
       'modal.columns.index.save':{ ar:'حفظ الفهرس', en:'Save index' },
       'toast.columns.unique.saved':{ ar:'تم حفظ القيد الفريد', en:'Unique constraint saved' },
+      'toast.table.rename.success':{ ar:'تم تحديث اسم الجدول', en:'Table name updated' },
+      'toast.table.rename.invalid':{ ar:'الاسم غير صالح', en:'Invalid table name' },
+      'toast.table.rename.missing':{ ar:'تعذر العثور على الجدول', en:'Table not found' },
       'toast.columns.unique.deleted':{ ar:'تم حذف القيد الفريد', en:'Unique constraint removed' },
       'toast.columns.unique.invalid':{ ar:'اختر عمودًا واحدًا على الأقل للقيد الفريد.', en:'Select at least one column for the unique constraint.' },
       'toast.columns.index.saved':{ ar:'تم حفظ الفهرس بنجاح', en:'Index saved successfully' },
@@ -1697,8 +1723,14 @@
       { value:'datetime', label:'Datetime' },
       { value:'timestamp', label:'Timestamp with timezone' },
       { value:'json', label:'JSONB' },
-      { value:'uuid', label:'UUID' }
+    { value:'uuid', label:'UUID' }
     ];
+    const FIELD_TYPE_SET = new Set(FIELD_TYPE_OPTIONS.map(option => option.value));
+
+    function normalizeFieldType(type){
+      const candidate = String(type || '').toLowerCase();
+      return FIELD_TYPE_SET.has(candidate) ? candidate : 'string';
+    }
 
     const RELATION_ACTION_OPTIONS = ['CASCADE','RESTRICT','SET NULL','NO ACTION'];
     const INDEX_METHOD_OPTIONS = ['btree','hash','gist','gin'];
@@ -1748,7 +1780,7 @@
         key: field.name,
         originalName: field.name,
         name: field.name,
-        type: field.type || 'string',
+        type: normalizeFieldType(field.type || 'string'),
         length: field.maxLength != null ? String(field.maxLength) : '',
         precision: field.precision != null ? String(field.precision) : '',
         scale: field.scale != null ? String(field.scale) : '',
@@ -1775,7 +1807,7 @@
         key,
         originalName:'',
         name: uniqueName,
-        type:'string',
+        type: normalizeFieldType('string'),
         length: typeSupportsLength('string') ? defaultLengthForType('string') : '',
         precision:'',
         scale:'',
@@ -2933,6 +2965,16 @@
       return candidate;
     }
 
+    function ensureUniqueTableNameExcept(registry, base, exclude){
+      const clean = base || 'table';
+      let candidate = clean;
+      let index = 1;
+      while(registry.get(candidate) && candidate !== exclude){
+        candidate = `${clean}_${index++}`;
+      }
+      return candidate;
+    }
+
     function ensureUniqueFieldName(table, base){
       const clean = base || 'field';
       if(!table) return clean;
@@ -3198,7 +3240,18 @@
           const guard = event => {
             if(!event) return;
             const target = event.target;
-            if(target && typeof root.contains === 'function' && !root.contains(target) && target !== root){
+            const rect = typeof host.getBoundingClientRect === 'function' ? host.getBoundingClientRect() : null;
+            const pointInside = (()=>{
+              if(!rect) return false;
+              const readPoint = src => (src && typeof src.clientX === 'number' && typeof src.clientY === 'number') ? src : null;
+              const fromEvent = readPoint(event);
+              const pickTouch = list => (!fromEvent && list && list.length) ? readPoint(list[0]) : null;
+              const fromTouch = pickTouch(event.changedTouches) || pickTouch(event.touches);
+              const point = fromEvent || fromTouch;
+              if(!point) return false;
+              return point.clientX >= rect.left && point.clientX <= rect.right && point.clientY >= rect.top && point.clientY <= rect.bottom;
+            })();
+            if(target && typeof root.contains === 'function' && !root.contains(target) && target !== root && !pointInside){
               return;
             }
             if(typeof root.isConnected === 'boolean' && !root.isConnected){
@@ -4185,6 +4238,37 @@
       
     }
 
+    function openRenameTable(ctx, tableName){
+      const state = ctx.getState();
+      const t = createTranslator(state);
+      const registry = getRegistry(state);
+      const targetName = tableName && registry.get(tableName) ? tableName : '';
+      const table = targetName ? registry.get(targetName) : null;
+      if(!table){
+        UI.pushToast(ctx, { title:t('toast.table.rename.missing', 'تعذر العثور على الجدول'), icon:'⚠️' });
+        return;
+      }
+      ctx.setState(s => ({
+        ...s,
+        ui:{
+          ...(s.ui || {}),
+          modals:{ ...(s.ui?.modals || {}), tableRename:true },
+          form:{
+            ...(s.ui?.form || {}),
+            tableRename:{
+              originalName: table.name,
+              name: table.name,
+              nameInput: table.name,
+              label: table.label || '',
+              comment: table.comment || '',
+              classCode: table.classCode || ''
+            }
+          }
+        }
+      }));
+
+    }
+
     function openColumnsManager(ctx, tableName){
       const state = ctx.getState();
       const registry = getRegistry(state);
@@ -4823,7 +4907,7 @@
       const items = library.items || [];
       return UI.Modal({
         open,
-        size:'lg',
+        size:'full',
         title:t('modal.import.title', 'استيراد مخطط JSON'),
         description:t('modal.import.description', 'ألصق بيانات المخطط أو استبدل مخططًا موجودًا.'),
         closeGkey:'erd:modal:close',
@@ -4861,7 +4945,7 @@
       const text = db.ui?.form?.export?.text || '';
       return UI.Modal({
         open,
-        size:'lg',
+        size:'full',
         title:t('modal.exportJson.title', 'مخطط JSON'),
         description:t('modal.exportJson.description', 'انسخ المحتوى للاستخدام في أماكن أخرى.'),
         closeGkey:'erd:modal:close',
@@ -5088,6 +5172,63 @@
         ],
         actions:[
           UI.Button({ attrs:{ gkey:'erd:field:create', variant:'solid', size:'sm' }}, [t('common.add', 'إضافة')]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
+        ]
+      });
+    }
+
+    function ModalRenameTable(db){
+      const t = createTranslator(db);
+      const open = db.ui?.modals?.tableRename;
+      if(!open) return null;
+      const form = db.ui?.form?.tableRename || {};
+      const registry = getRegistry(db);
+      const originalName = form.originalName || '';
+      const currentTable = originalName ? registry.get(originalName) : null;
+      const sanitizedName = form.name || '';
+      const previewIdentifier = sanitizedName
+        ? ensureUniqueTableNameExcept(registry, sanitizedName, originalName || sanitizedName)
+        : originalName;
+      const helperText = previewIdentifier
+        ? t('modal.renameTable.helper', `سيُحفظ الجدول تحت المعرف: ${previewIdentifier}`).replace('{name}', previewIdentifier)
+        : t('modal.renameTable.prompt', 'اكتب اسمًا جديدًا وسيتم تحويله إلى معرف متوافق مع SQL.');
+      const classRows = Array.isArray(db.data?.classes) ? db.data.classes : [];
+      const leafClasses = computeClassLeaves(classRows);
+      const classOptions = leafClasses.map(item => ({
+        value: item.code,
+        label: item.name ? `${item.code} — ${item.name}` : item.code
+      }));
+      return UI.Modal({
+        open,
+        size:'md',
+        title:t('modal.renameTable.title', 'إعادة تسمية الجدول'),
+        description:t('modal.renameTable.description', 'حدّث اسم الجدول والمسمى والوصف الاختياري.'),
+        closeGkey:'erd:modal:close',
+        content:[
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3` }}, [
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'tableRename', 'data-field':'name', value: form.nameInput || '', placeholder:t('modal.renameTable.name.placeholder', 'English name (snake_case)') } }),
+            D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [helperText]),
+            UI.Input({ attrs:{ gkey:'erd:form:update', 'data-form':'tableRename', 'data-field':'label', value: form.label || '', placeholder:t('modal.renameTable.label.placeholder', 'المسمى الظاهر (اختياري)') } }),
+            UI.Textarea({ attrs:{ gkey:'erd:form:update', 'data-form':'tableRename', 'data-field':'comment', value: form.comment || '', rows:3, placeholder:t('common.notes.placeholder', 'ملاحظات') } }),
+            UI.Select({
+              attrs:{
+                gkey:'erd:form:update',
+                'data-form':'tableRename',
+                'data-field':'classCode',
+                value: form.classCode || ''
+              },
+              options:[{ value:'', label:t('modal.table.class.placeholder', 'اختر الفئة') }, ...classOptions]
+            }),
+            classOptions.length ? null : D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [t('classification.leaf.only', 'يرجى اختيار كود نهائي من الشجرة.')]),
+            currentTable && currentTable.comment
+              ? D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [
+                  t('modal.renameTable.current', `الوصف الحالي: ${currentTable.comment}`).replace('{value}', currentTable.comment)
+                ])
+              : null
+          ].filter(Boolean))
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:table:rename:submit', variant:'solid', size:'sm' }}, [t('modal.renameTable.save', 'حفظ التعديلات')]),
           UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('common.cancel', 'إلغاء')])
         ]
       });
@@ -5653,11 +5794,12 @@
     function Modals(db){
       return [
         ModalImport(db),
-        ModalExportJson(db),
-        ModalExportSql(db),
-        ModalSchemaMeta(db),
-        ModalAddTable(db),
-        ModalAddField(db),
+      ModalExportJson(db),
+      ModalExportSql(db),
+      ModalSchemaMeta(db),
+      ModalAddTable(db),
+      ModalRenameTable(db),
+      ModalAddField(db),
         ModalRelation(db),
         ModalColumnsManager(db),
         ModalColumnsUniqueEditor(db),
@@ -6276,6 +6418,41 @@
               }
               return { ...s, ui:{ ...(s.ui || {}), form:{ ...currentForms, table: nextTable } } };
             }
+            if(formKey === 'tableRename' && fieldKey === 'name'){
+              const targetForm = currentForms.tableRename || {};
+              const normalized = sanitizeSqlIdentifier(value);
+              return {
+                ...s,
+                ui:{
+                  ...(s.ui || {}),
+                  form:{
+                    ...currentForms,
+                    tableRename:{ ...targetForm, name: normalized, nameInput: value }
+                  }
+                }
+              };
+            }
+            if(formKey === 'tableRename' && fieldKey === 'label'){
+              const targetForm = currentForms.tableRename || {};
+              return {
+                ...s,
+                ui:{ ...(s.ui || {}), form:{ ...currentForms, tableRename:{ ...targetForm, label: value } } }
+              };
+            }
+            if(formKey === 'tableRename' && fieldKey === 'comment'){
+              const targetForm = currentForms.tableRename || {};
+              return {
+                ...s,
+                ui:{ ...(s.ui || {}), form:{ ...currentForms, tableRename:{ ...targetForm, comment: value } } }
+              };
+            }
+            if(formKey === 'tableRename' && fieldKey === 'classCode'){
+              const targetForm = currentForms.tableRename || {};
+              return {
+                ...s,
+                ui:{ ...(s.ui || {}), form:{ ...currentForms, tableRename:{ ...targetForm, classCode: value } } }
+              };
+            }
             if(formKey === 'field' && fieldKey === 'label'){
               const registry = getRegistry(s);
               const targetForm = currentForms.field || {};
@@ -6479,6 +6656,153 @@
             console.warn('[Mishkah][ERD] failed to create table', error);
             UI.pushToast(ctx, { title:'فشل إنشاء الجدول', message:String(error), icon:'🛑' });
           }
+        }
+      },
+      'erd.table.rename:submit':{
+        on:['click'],
+        gkeys:['erd:table:rename:submit'],
+        handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = createTranslator(state);
+          const form = state.ui?.form?.tableRename || {};
+          const originalName = form.originalName || '';
+          if(!originalName){
+            UI.pushToast(ctx, { title:t('toast.table.rename.missing', 'تعذر العثور على الجدول'), icon:'⚠️' });
+            return;
+          }
+          const registry = getRegistry(state);
+          const table = registry.get(originalName);
+          if(!table){
+            UI.pushToast(ctx, { title:t('toast.table.rename.missing', 'تعذر العثور على الجدول'), icon:'⚠️' });
+            return;
+          }
+          const requestedRaw = form.nameInput != null ? form.nameInput : form.name || '';
+          const normalized = sanitizeSqlIdentifier(requestedRaw || form.name || '');
+          if(!normalized){
+            UI.pushToast(ctx, { title:t('toast.table.rename.invalid', 'الاسم غير صالح'), icon:'⚠️' });
+            return;
+          }
+          const finalName = ensureUniqueTableNameExcept(registry, normalized, originalName);
+          const nextLabelInput = form.label != null ? form.label : table.label;
+          const nextCommentInput = form.comment != null ? form.comment : table.comment;
+          const nextClassCodeInput = form.classCode != null ? form.classCode : table.classCode;
+          registry.unregister(originalName);
+          table.name = finalName;
+          table.label = (nextLabelInput && String(nextLabelInput).trim()) || table.label || finalName;
+          table.comment = nextCommentInput != null ? String(nextCommentInput) : table.comment || '';
+          table.classCode = nextClassCodeInput != null ? String(nextClassCodeInput) : table.classCode || '';
+          table.sqlName = Schema.utils?.toSnakeCase ? Schema.utils.toSnakeCase(finalName) : sanitizeSqlIdentifier(finalName);
+          registry.register(table);
+          registry.list().forEach(target => {
+            if(!target || target.name === finalName) return;
+            const fields = Array.isArray(target.fields) ? target.fields.slice() : [];
+            fields.forEach(field => {
+              if(field && field.references && field.references.table === originalName){
+                target.updateField(field.name, { references:{ ...field.references, table: finalName } });
+              }
+            });
+          });
+          const schemaJSON = registry.toJSON();
+          const finalTable = registry.get(finalName);
+          let nextState = null;
+          ctx.setState(s=>{
+            const now = Date.now();
+            const layout = Object.assign({}, s.data.layout || {});
+            if(layout[originalName]){
+              layout[finalName] = layout[originalName];
+              delete layout[originalName];
+            }
+            const selection = s.data.selection || {};
+            const nextSelection = {
+              table: selection.table === originalName ? finalName : selection.table,
+              field: selection.table === originalName ? selection.field : selection.field
+            };
+            const hiddenSet = new Set((s.ui?.hiddenTables || []).map(name => String(name)));
+            if(hiddenSet.delete(originalName)) hiddenSet.add(finalName);
+            const forms = Object.assign({}, s.ui?.form || {});
+            if(forms.columns){
+              const current = forms.columns;
+              const mappedRows = Array.isArray(current.rows)
+                ? current.rows.map(row => {
+                    if(row && row.references && row.references.table === originalName){
+                      return { ...row, references:{ ...(row.references || {}), table: finalName } };
+                    }
+                    return row;
+                  })
+                : current.rows;
+              if(current.table === originalName){
+                forms.columns = { table: finalName, rows: buildColumnsFormRows(finalTable), deleted: [] };
+              } else {
+                forms.columns = { ...current, rows: mappedRows };
+              }
+            }
+            if(forms.columnsUnique){
+              forms.columnsUnique = {
+                ...forms.columnsUnique,
+                table: forms.columnsUnique.table === originalName ? finalName : forms.columnsUnique.table
+              };
+            }
+            if(forms.columnsIndex){
+              forms.columnsIndex = {
+                ...forms.columnsIndex,
+                table: forms.columnsIndex.table === originalName ? finalName : forms.columnsIndex.table
+              };
+            }
+            if(forms.field){
+              const updatedField = { ...forms.field };
+              if(updatedField.table === originalName) updatedField.table = finalName;
+              if(updatedField.references && updatedField.references.table === originalName){
+                updatedField.references = { ...updatedField.references, table: finalName };
+              }
+              forms.field = updatedField;
+            }
+            if(forms.fieldRef && forms.fieldRef.table === originalName){
+              forms.fieldRef = { ...forms.fieldRef, table: finalName, column: '' };
+            }
+            if(forms.relation){
+              const rel = { ...forms.relation };
+              if(rel.sourceTable === originalName) rel.sourceTable = finalName;
+              if(rel.targetTable === originalName) rel.targetTable = finalName;
+              forms.relation = rel;
+            }
+            forms.tableRename = null;
+            const record = {
+              id: s.data.schemaId,
+              name: s.data.schemaMeta?.name || '',
+              title: s.data.schemaMeta?.title || '',
+              description: s.data.schemaMeta?.description || '',
+              schema: schemaJSON,
+              layout,
+              canvas: s.data.canvas,
+              classes: s.data.classes || [],
+              createdAt: s.data.schemaCreatedAt,
+              updatedAt: now
+            };
+            const draft = {
+              ...s,
+              data:{
+                ...s.data,
+                schema: schemaJSON,
+                layout,
+                selection: nextSelection,
+                schemaUpdatedAt: now,
+                library:{ ...(s.data.library || {}), items: mergeLibraryItems(s.data.library?.items || [], record) }
+              },
+              ui:{
+                ...(s.ui || {}),
+                hiddenTables: Array.from(hiddenSet),
+                modals:{ ...(s.ui?.modals || {}), tableRename:false },
+                form: forms
+              }
+            };
+            nextState = draft;
+            return draft;
+          });
+          if(nextState){
+            schedulePersist(recordFromState(nextState));
+            scheduleDiagramRender(nextState);
+          }
+          UI.pushToast(ctx, { title:t('toast.table.rename.success', 'تم تحديث اسم الجدول'), icon:'✅' });
         }
       },
       'erd.field.add':{
@@ -6782,7 +7106,7 @@
               next.name = rawValue;
               break;
             case 'type':{
-              const nextType = rawValue || 'string';
+              const nextType = normalizeFieldType(rawValue || 'string');
               next.type = nextType;
               if(typeSupportsLength(nextType)){
                 if(!next.length) next.length = defaultLengthForType(nextType);
@@ -6943,7 +7267,7 @@
               }
             }
           }));
-          
+          ctx.flush();
         }
       },
       'erd.columns.focus':{
@@ -7030,7 +7354,7 @@
               const patch = {
                 name: nextName,
                 columnName: nextName,
-                type: row.type || 'string',
+                type: normalizeFieldType(row.type),
                 nullable: row.nullable !== false,
                 primaryKey: !!row.primaryKey,
                 unique: !!row.unique,
@@ -7870,6 +8194,8 @@
               openColumnsManager(ctx, tableName);
               break;
             case 'table:rename':
+              openRenameTable(ctx, tableName);
+              break;
             case 'table:duplicate':
             case 'table:delete':
               UI.pushToast(ctx, { title:'هذه الميزة قيد التطوير', icon:'🛠️' });
