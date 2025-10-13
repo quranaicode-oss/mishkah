@@ -792,10 +792,49 @@ UI.SweetNotice = ({
 
 UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });
 UI.Textarea = ({ attrs }) => h.Inputs.Textarea({ attrs: withClass(attrs, token('input')) });
-UI.Select   = ({ attrs={}, options=[] }) =>
-  h.Inputs.Select({ attrs: withClass(attrs, token('input')) },
-    options.map((o,i)=> h.Inputs.Option({ attrs:{ value:o.value, key:`opt-${i}` }}, [o.label]) )
+UI.Select   = ({ attrs={}, options=[] }) => {
+  const selectAttrs = withClass(attrs, token('input'));
+  const hasValue = Object.prototype.hasOwnProperty.call(selectAttrs, 'value') || Object.prototype.hasOwnProperty.call(selectAttrs, 'defaultValue');
+  const rawCurrentValue = hasValue
+    ? (Object.prototype.hasOwnProperty.call(selectAttrs, 'value') ? selectAttrs.value : selectAttrs.defaultValue)
+    : undefined;
+  const normalizedCurrentValue = rawCurrentValue == null ? undefined : String(rawCurrentValue);
+  return h.Inputs.Select({ attrs: selectAttrs },
+    options.map((o,i)=>{
+      const isPlainObject = !!o && typeof o === 'object' && !Array.isArray(o);
+      const optionLabel = isPlainObject && Object.prototype.hasOwnProperty.call(o, 'label')
+        ? o.label
+        : (o == null ? '' : String(o));
+      const optionAttrs = { key:`opt-${i}` };
+      if(isPlainObject && o.attrs && typeof o.attrs === 'object'){
+        Object.assign(optionAttrs, o.attrs);
+      }
+      const hasExplicitValue = isPlainObject && Object.prototype.hasOwnProperty.call(o, 'value');
+      const rawOptionValue = hasExplicitValue
+        ? o.value
+        : (Object.prototype.hasOwnProperty.call(optionAttrs, 'value')
+          ? optionAttrs.value
+          : (isPlainObject && Object.prototype.hasOwnProperty.call(o, 'label') ? o.label : o));
+      const normalizedOptionValue = rawOptionValue == null ? undefined : String(rawOptionValue);
+      if(Object.prototype.hasOwnProperty.call(optionAttrs, 'value')){
+        if(optionAttrs.value != null){
+          optionAttrs.value = String(optionAttrs.value);
+        }
+      } else if(normalizedOptionValue !== undefined){
+        optionAttrs.value = normalizedOptionValue;
+      }
+      if(isPlainObject){
+        if('disabled' in o && !Object.prototype.hasOwnProperty.call(optionAttrs, 'disabled')) optionAttrs.disabled = !!o.disabled;
+        if('selected' in o && !Object.prototype.hasOwnProperty.call(optionAttrs, 'selected')) optionAttrs.selected = !!o.selected;
+      }
+      const optionHasSelected = Object.prototype.hasOwnProperty.call(optionAttrs, 'selected');
+      if(!optionHasSelected && normalizedCurrentValue !== undefined && normalizedOptionValue !== undefined && normalizedCurrentValue === normalizedOptionValue){
+        optionAttrs.selected = true;
+      }
+      return h.Inputs.Option({ attrs: optionAttrs }, [optionLabel]);
+    })
   );
+};
 UI.Label    = ({ attrs, forId, text }) => {
   const a=Object.assign({},attrs||{}); if(forId) a.for=forId;
   return h.Forms.Label({ attrs: withClass(a, token('label')) }, [text||'']);
