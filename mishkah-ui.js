@@ -801,15 +801,34 @@ UI.Select   = ({ attrs={}, options=[] }) => {
   const normalizedCurrentValue = rawCurrentValue == null ? undefined : String(rawCurrentValue);
   return h.Inputs.Select({ attrs: selectAttrs },
     options.map((o,i)=>{
-      const optionValue = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'value')) ? o.value : o;
-      const optionLabel = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'label')) ? o.label : (o == null ? '' : String(o));
-      const optionAttrs = { value: optionValue, key:`opt-${i}` };
-      const optionHasSelected = !!(o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'selected'));
-      if(o && typeof o === 'object'){
-        if('disabled' in o) optionAttrs.disabled = !!o.disabled;
-        if(optionHasSelected) optionAttrs.selected = !!o.selected;
+      const isPlainObject = !!o && typeof o === 'object' && !Array.isArray(o);
+      const optionLabel = isPlainObject && Object.prototype.hasOwnProperty.call(o, 'label')
+        ? o.label
+        : (o == null ? '' : String(o));
+      const optionAttrs = { key:`opt-${i}` };
+      if(isPlainObject && o.attrs && typeof o.attrs === 'object'){
+        Object.assign(optionAttrs, o.attrs);
       }
-      if(normalizedCurrentValue !== undefined && optionValue != null && normalizedCurrentValue === String(optionValue) && !optionHasSelected){
+      const hasExplicitValue = isPlainObject && Object.prototype.hasOwnProperty.call(o, 'value');
+      const rawOptionValue = hasExplicitValue
+        ? o.value
+        : (Object.prototype.hasOwnProperty.call(optionAttrs, 'value')
+          ? optionAttrs.value
+          : (isPlainObject && Object.prototype.hasOwnProperty.call(o, 'label') ? o.label : o));
+      const normalizedOptionValue = rawOptionValue == null ? undefined : String(rawOptionValue);
+      if(Object.prototype.hasOwnProperty.call(optionAttrs, 'value')){
+        if(optionAttrs.value != null){
+          optionAttrs.value = String(optionAttrs.value);
+        }
+      } else if(normalizedOptionValue !== undefined){
+        optionAttrs.value = normalizedOptionValue;
+      }
+      if(isPlainObject){
+        if('disabled' in o && !Object.prototype.hasOwnProperty.call(optionAttrs, 'disabled')) optionAttrs.disabled = !!o.disabled;
+        if('selected' in o && !Object.prototype.hasOwnProperty.call(optionAttrs, 'selected')) optionAttrs.selected = !!o.selected;
+      }
+      const optionHasSelected = Object.prototype.hasOwnProperty.call(optionAttrs, 'selected');
+      if(!optionHasSelected && normalizedCurrentValue !== undefined && normalizedOptionValue !== undefined && normalizedCurrentValue === normalizedOptionValue){
         optionAttrs.selected = true;
       }
       return h.Inputs.Option({ attrs: optionAttrs }, [optionLabel]);
