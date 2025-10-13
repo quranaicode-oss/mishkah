@@ -774,8 +774,9 @@
     var env = host || {};
     var acornRef = env.acorn || null;
     var walkRef = env.acornWalk || (acornRef && acornRef.walk) || null;
+    var isLocal = typeof location !== 'undefined' && location.protocol === 'file:';
 
-    if (!acornRef && typeof require === 'function') {
+    if (!acornRef && !isLocal && typeof require === 'function') {
       try {
         acornRef = require('acorn');
       } catch (error) {
@@ -787,7 +788,7 @@
       walkRef = acornRef.walk;
     }
 
-    if (!walkRef && typeof require === 'function') {
+    if (!walkRef && !isLocal && typeof require === 'function') {
       try {
         var walkModule = require('acorn-walk');
         if (walkModule && typeof walkModule.full === 'function') {
