@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>Mishkah WebSocket Demo</title>
+  <script src="mishkah.core.js"></script>
+  <script src="mishkah-utils.js"></script>
+  <script src="mishkah-htmlx.js"></script>
+  <script src="mishkah-ui.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white">
+
+  <div id="app"></div>
+
+  <template data-namespace="chatApp">
+
+    <div class="container mx-auto p-8 max-w-md" m-if="!data.joined">
+      <h1 class="text-2xl font-bold mb-4">انضم إلى الدردشة</h1>
+      <div class="flex flex-col gap-4">
+        <input type="text" m-model="data.username" class="p-2 rounded bg-gray-800 border border-gray-700">
+        <button m-on:click="joinChat(ctx)" class="bg-blue-600 p-2 rounded hover:bg-blue-700">
+          دخول
+        </button>
+      </div>
+    </div>
+
+    <div class="container mx-auto p-4 flex gap-4 h-screen" m-if="data.joined"
+         m-ws-connect="main_socket"
+         m-ws-url="wss://ws.mas.com.eg"
+         m-ws-options='{"autoReconnect": true}'>
+
+      <aside class="w-1/4 bg-gray-800 p-4 rounded-lg">
+        <h2 class="font-bold mb-2">المتصلون الآن</h2>
+        <ul m-ws-on:user-list-update="updateUsers(event.detail.payload, ctx)">
+          <li m-for="user in data.users">{{ user.name }}</li>
+        </ul>
+      </aside>
+
+      <main class="w-3/4 flex flex-col gap-4">
+        <div class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto" m-ws-on:new-message="appendMessage(event.detail.payload, ctx)">
+          <div m-for="msg in data.messages" class="mb-2">
+            <strong>{{ msg.user }}:</strong>
+            <span>{{ msg.text }}</span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" m-model="data.newMessage" class="flex-1 p-2 rounded bg-gray-700 border border-gray-600" placeholder="اكتب رسالتك...">
+          <button m-on:click m-ws-emit:send-message="getMessagePayload(ctx)" class="bg-green-600 p-2 rounded hover:bg-green-700">
+            إرسال
+          </button>
+        </div>
+      </main>
+    </div>
+
+    <script data-m-data data-m-path="data">
+      {
+        "joined": false,
+        "username": "Client-" + Math.floor(Math.random() * 1000),
+        "users": [],
+        "messages": [],
+        "newMessage": ""
+      }
+    </script>
+
+    <script>
+      function joinChat(ctx) {
+        // تحديث الحالة للانتقال إلى شاشة الدردشة
+        ctx.set('data.joined', true);
+        // يمكنك هنا إرسال حدث الانضمام إلى الخادم إذا لزم الأمر
+        // عبر استدعاء ws.emit يدويًا أو عبر تعبير m-ws-emit
+      }
+
+      function updateUsers(userList, ctx) {
+        // تحديث قائمة المستخدمين عند وصولها من الخادم
+        if (Array.isArray(userList)) {
+          ctx.set('data.users', userList);
+        }
+      }
+
+      function appendMessage(message, ctx) {
+        // إضافة رسالة جديدة إلى السجل
+        const currentMessages = ctx.get('data.messages') || [];
+        ctx.set('data.messages', [...currentMessages, message]);
+      }
+
+      function getMessagePayload(ctx) {
+        // تجهيز حمولة الرسالة لإرسالها
+        const text = ctx.get('data.newMessage');
+        if (!text.trim()) return null; // لا ترسل رسائل فارغة
+
+        const payload = {
+          user: ctx.get('data.username'),
+          text: text
+        };
+        // تفريغ حقل الإدخال بعد الإرسال
+        ctx.set('data.newMessage', '');
+        return payload;
+      }
+    </script>
+  </template>
+
+  <script>
+    Mishkah.app.make({}).then(result => {
+      console.log('Mishkah HTMLx WebSocket App Initialized!');
+    });
+  </script>
+
+</body>
+</html>
