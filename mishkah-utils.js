@@ -1998,3 +1998,106 @@ U.twcss = { tw, cx, def, token, auto, setTheme, setDir, PALETTE: DEFAULT_PALETTE
 
 })(window);
 
+
+
+(function(window){
+  'use strict';
+  const M = window.Mishkah = window.Mishkah || {};
+  const U = M.utils = M.utils || {};
+  
+function getPureJson(data) {
+  if (typeof data !== 'object' || data === null) {
+    console.error("المدخل ليس كائنًا صالحًا.");
+    return null;
+  }
+
+  function looksLikeKeyValue(str){
+    // أي شيء مثل: en: "x" أو ar: 'y' أو media: {...}
+    return /^\s*[A-Za-z_\u0600-\u06FF][\w\u0600-\u06FF]*\s*:/.test(str);
+  }
+
+  function normalizeLooseJson(input) {
+    let s = String(input).trim();
+
+    // لو يبدأ بمفتاح وليس { أو [ ، لفه داخل {}
+    if (!s.startsWith('{') && !s.startsWith('[') && looksLikeKeyValue(s)) {
+      s = '{' + s + '}';
+    }
+
+    // بدّل الاقتباس الأحادي في القيم إلى مزدوج (بحذر: خارج النصوص المزدوجة بالفعل)
+    // أبسط تقريب: حوّل كل ' إلى " ثم أصلح المزدوج المزدوج لاحقًا
+    // إن كان لديك قيم فيها apostrophes يمكنك تحسين هذا لاحقًا
+    s = s.replace(/'/g, '"');
+
+    // اقتباس المفاتيح غير المُقتبسة (عربية/لاتينية) قبل النقطتين
+    // يلتقط: { en: ..., ar : ... , كلمه: ... }
+    s = s.replace(/([{,\s])([A-Za-z_\u0600-\u06FF][\w\u0600-\u06FF]*)\s*:/g, '$1"$2":');
+
+    // إزالة الفواصل الزائدة قبل الأقواس
+    s = s.replace(/,\s*([}\]])/g, '$1');
+
+    // تطييب الـ backslashes الشاردة فقط حين تسبق علامات خاصة JSON
+    s = s.replace(/\\(?=["\\/bfnrtu])/g, '\\\\');
+
+    return s;
+  }
+
+  function tryParseLoose(str){
+    // المحاولة الأولى مباشرة
+    try { return JSON.parse(str); } catch (_) {}
+    // طبّع ثم جرّب ثانية
+    const normalized = normalizeLooseJson(str);
+    try { return JSON.parse(normalized); }
+    catch (e) {
+      console.error("فشل في التحليل بعد التطبيع:", e.message);
+      // مفيد للتشخيص:
+      // console.log("بعد التطبيع:", normalized);
+      throw e;
+    }
+  }
+
+  function traverse(obj) {
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) obj[i] = traverse(obj[i]);
+      return obj;
+    }
+
+    for (let key in obj) {
+      const v = obj[key];
+      if (typeof v === 'string') {
+        const str = v.trim();
+        // فقط لو يبدو JSON/JS-Object داخل نص
+        if (
+          (str.startsWith('{') && str.endsWith('}')) ||
+          (str.startsWith('[') && str.endsWith(']')) ||
+          looksLikeKeyValue(str) // مثل: en:"x", ar:"y"
+        ) {
+          try {
+            obj[key] = traverse(tryParseLoose(str));
+          } catch (e) {
+            console.warn(`فشل في تحليل الحقل '${key}': ${e.message}`);
+            // اتركه كسلسلة كما هو، أو عيّنه null حسب رغبتك:
+            // obj[key] = null;
+          }
+        } else {
+          obj[key] = v; // اترك النص العادي
+        }
+      } else if (v && typeof v === 'object') {
+        obj[key] = traverse(v);
+      }
+    }
+    return obj;
+  }
+
+  // لا تعدّل الأصل (اختياري)
+  const cloned = JSON.parse(JSON.stringify(data));
+  return traverse(cloned);
+}
+
+
+  U.helpers = {getPureJson:getPureJson};
+  
+  
+})(window);
+
+
