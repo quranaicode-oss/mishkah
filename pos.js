@@ -114,9 +114,17 @@
       if(response.result && typeof response.result === 'object') return response.result;
       if(response.payload && typeof response.payload === 'object') return response.payload;
       if(response.data && typeof response.data === 'object' && !Array.isArray(response.data)) return response.data;
-     response= Mishkah.utils.helpers.getPureJson(response[0]);
-      console.log("ajax pos data",response);
-      return response;
+      const pure = Mishkah.utils.helpers.getPureJson(response);
+      if(!pure) return null;
+      let payload = pure;
+      if(Array.isArray(pure)){
+        payload = pure.find(entry=> entry && typeof entry === 'object' && !Array.isArray(entry)) || null;
+      }
+      if(payload && typeof payload === 'object' && !Array.isArray(payload)){
+        console.log("ajax pos data", payload);
+        return payload;
+      }
+      return null;
     };
     const snapshotRemoteStatus = (status)=>({
       status: status?.status || 'idle',
