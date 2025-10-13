@@ -20,49 +20,86 @@
 
   <template data-namespace="chatApp">
 
-    <div class="container mx-auto p-8 max-w-md" m-if="!data.joined">
+    <div class="container mx-auto p-8 max-w-md" x-if="!state.data.joined">
       <h1 class="text-2xl font-bold mb-4">انضم إلى الدردشة</h1>
       <div class="flex flex-col gap-4">
-        <input type="text" m-model="data.username" class="p-2 rounded bg-gray-800 border border-gray-700">
-        <button m-on:click="joinChat(ctx)" class="bg-blue-600 p-2 rounded hover:bg-blue-700">
+        <input
+          type="text"
+          class="p-2 rounded bg-gray-800 border border-gray-700"
+          placeholder="اكتب اسمك المستعار"
+          value="{state.data.username}"
+          oninput="handleUsernameInput(event, ctx)"
+        />
+        <button
+          type="button"
+          class="bg-blue-600 p-2 rounded hover:bg-blue-700"
+          onclick="joinChat(event, ctx)"
+          data-m-gkey="chat:join"
+        >
           دخول
         </button>
       </div>
     </div>
 
-    <div class="container mx-auto p-4 flex gap-4 h-screen" m-if="data.joined"
-         m-ws-connect="main_socket"
-         m-ws-url="wss://ws.mas.com.eg"
-         m-ws-options='{"autoReconnect": true}'>
+    <div
+      class="container mx-auto p-4 flex gap-4 h-screen"
+      x-if="state.data.joined"
+      m-ws-connect="main_socket"
+      m-ws-url="wss://ws.mas.com.eg"
+    >
 
       <aside class="w-1/4 bg-gray-800 p-4 rounded-lg">
         <h2 class="font-bold mb-2">المتصلون الآن</h2>
         <ul m-ws-on:user-list-update="updateUsers(event.detail.payload, ctx)">
-          <li m-for="user in data.users">{{ user.name }}</li>
+          <li
+            x-for="user, idx in state.data.users"
+            data-m-key="{user.id || idx}"
+            class="py-1 border-b border-gray-700 last:border-0"
+          >
+            {user.name || user}
+          </li>
         </ul>
       </aside>
 
       <main class="w-3/4 flex flex-col gap-4">
-        <div class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto" m-ws-on:new-message="appendMessage(event.detail.payload, ctx)">
-          <div m-for="msg in data.messages" class="mb-2">
-            <strong>{{ msg.user }}:</strong>
-            <span>{{ msg.text }}</span>
+        <div
+          class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto"
+          m-ws-on:new-message="appendMessage(event.detail.payload, ctx)"
+        >
+          <div
+            x-for="msg, msgIdx in state.data.messages"
+            data-m-key="{msg.id || msgIdx}"
+            class="mb-3"
+          >
+            <strong class="text-blue-300">{msg.user || 'مجهول'}:</strong>
+            <span class="ml-2">{msg.text}</span>
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <input type="text" m-model="data.newMessage" class="flex-1 p-2 rounded bg-gray-700 border border-gray-600" placeholder="اكتب رسالتك...">
-          <button m-on:click m-ws-emit:send-message="getMessagePayload(ctx)" class="bg-green-600 p-2 rounded hover:bg-green-700">
+        <form class="flex gap-2" onsubmit="sendMessage(event, ctx)">
+          <input
+            type="text"
+            class="flex-1 p-2 rounded bg-gray-700 border border-gray-600"
+            placeholder="اكتب رسالتك..."
+            value="{state.data.newMessage}"
+            oninput="handleMessageInput(event, ctx)"
+          />
+          <button
+            type="submit"
+            class="bg-green-600 p-2 rounded hover:bg-green-700"
+            data-m-gkey="chat:send"
+            m-ws-emit:send-message="messagePayload(ctx)"
+          >
             إرسال
           </button>
-        </div>
+        </form>
       </main>
     </div>
 
-    <script data-m-data data-m-path="data">
+    <script type="application/json" data-m-data data-m-path="data">
       {
         "joined": false,
-        "username": "Client-" + Math.floor(Math.random() * 1000),
+        "username": "",
         "users": [],
         "messages": [],
         "newMessage": ""
@@ -70,38 +107,80 @@
     </script>
 
     <script>
-      function joinChat(ctx) {
-        // تحديث الحالة للانتقال إلى شاشة الدردشة
+      function handleUsernameInput(event, ctx) {
+        if (!ctx || !event) return;
+        var value = '';
+        if (event.target && typeof event.target.value === 'string') {
+          value = event.target.value;
+        }
+        ctx.set('data.username', value);
+      }
+
+      function joinChat(event, ctx) {
+        if (event && typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+        if (!ctx) return;
+        var name = (ctx.get('data.username') || '').trim();
+        if (!name) {
+          name = generateGuestName();
+          ctx.set('data.username', name);
+        }
         ctx.set('data.joined', true);
-        // يمكنك هنا إرسال حدث الانضمام إلى الخادم إذا لزم الأمر
-        // عبر استدعاء ws.emit يدويًا أو عبر تعبير m-ws-emit
       }
 
       function updateUsers(userList, ctx) {
-        // تحديث قائمة المستخدمين عند وصولها من الخادم
+        if (!ctx) return;
         if (Array.isArray(userList)) {
           ctx.set('data.users', userList);
+        } else {
+          ctx.set('data.users', []);
         }
       }
 
       function appendMessage(message, ctx) {
-        // إضافة رسالة جديدة إلى السجل
-        const currentMessages = ctx.get('data.messages') || [];
-        ctx.set('data.messages', [...currentMessages, message]);
+        if (!ctx || !message) return;
+        var currentMessages = ctx.get('data.messages') || [];
+        var normalized = {
+          id: message.id || ('msg-' + Date.now()),
+          user: message.user || 'مجهول',
+          text: (message.text || '').toString()
+        };
+        ctx.set('data.messages', currentMessages.concat([normalized]));
       }
 
-      function getMessagePayload(ctx) {
-        // تجهيز حمولة الرسالة لإرسالها
-        const text = ctx.get('data.newMessage');
-        if (!text.trim()) return null; // لا ترسل رسائل فارغة
+      function handleMessageInput(event, ctx) {
+        if (!ctx || !event) return;
+        var value = '';
+        if (event.target && typeof event.target.value === 'string') {
+          value = event.target.value;
+        }
+        ctx.set('data.newMessage', value);
+      }
 
-        const payload = {
-          user: ctx.get('data.username'),
+      function messagePayload(ctx) {
+        if (!ctx) return null;
+        var text = (ctx.get('data.newMessage') || '').trim();
+        if (!text) return null;
+        return {
+          user: ctx.get('data.username') || generateGuestName(),
           text: text
         };
-        // تفريغ حقل الإدخال بعد الإرسال
+      }
+
+      function sendMessage(event, ctx) {
+        if (event && typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+        if (!ctx) return;
+        var payload = messagePayload(ctx);
+        if (!payload) return;
         ctx.set('data.newMessage', '');
-        return payload;
+      }
+
+      function generateGuestName() {
+        var random = Math.floor(Math.random() * 9000) + 1000;
+        return 'ضيف-' + random;
       }
     </script>
   </template>
