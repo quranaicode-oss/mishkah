@@ -1723,13 +1723,52 @@
       { value:'datetime', label:'Datetime' },
       { value:'timestamp', label:'Timestamp with timezone' },
       { value:'json', label:'JSONB' },
-    { value:'uuid', label:'UUID' }
+      { value:'uuid', label:'UUID' }
     ];
     const FIELD_TYPE_SET = new Set(FIELD_TYPE_OPTIONS.map(option => option.value));
+    const FIELD_TYPE_ALIASES = {
+      varchar:'string',
+      char:'string',
+      'character varying':'string',
+      text:'text',
+      integer:'integer',
+      int:'integer',
+      int4:'integer',
+      int8:'integer',
+      int2:'integer',
+      bigint:'integer',
+      smallint:'integer',
+      serial:'integer',
+      numeric:'number',
+      decimal:'decimal',
+      float:'float',
+      double:'float',
+      real:'float',
+      'double precision':'float',
+      boolean:'boolean',
+      bool:'boolean',
+      date:'date',
+      datetime:'datetime',
+      'timestamp without time zone':'datetime',
+      'timestamp with time zone':'timestamp',
+      'timestamp with timezone':'timestamp',
+      'timestamp with local time zone':'timestamp',
+      timestamptz:'timestamp',
+      json:'json',
+      jsonb:'json',
+      uuid:'uuid'
+    };
 
     function normalizeFieldType(type){
-      const candidate = String(type || '').toLowerCase();
-      return FIELD_TYPE_SET.has(candidate) ? candidate : 'string';
+      const raw = String(type || '').trim();
+      if(!raw) return 'string';
+      const candidate = raw.toLowerCase();
+      if(FIELD_TYPE_SET.has(candidate)) return candidate;
+      if(Object.prototype.hasOwnProperty.call(FIELD_TYPE_ALIASES, candidate)){
+        const mapped = FIELD_TYPE_ALIASES[candidate];
+        if(mapped && FIELD_TYPE_SET.has(mapped)) return mapped;
+      }
+      return 'string';
     }
 
     const RELATION_ACTION_OPTIONS = ['CASCADE','RESTRICT','SET NULL','NO ACTION'];
@@ -1776,26 +1815,31 @@
 
     function buildColumnsFormRows(table){
       if(!table || !Array.isArray(table.fields)) return [];
-      return table.fields.map(field => ({
-        key: field.name,
-        originalName: field.name,
-        name: field.name,
-        type: normalizeFieldType(field.type || 'string'),
-        length: field.maxLength != null ? String(field.maxLength) : '',
-        precision: field.precision != null ? String(field.precision) : '',
-        scale: field.scale != null ? String(field.scale) : '',
-        nullable: field.nullable !== false,
-        defaultValue: field.defaultValue != null ? String(field.defaultValue) : '',
-        primaryKey: !!field.primaryKey,
-        unique: !!field.unique,
-        index: !!field.index,
-        references: field.references ? {
-          table: field.references.table || '',
-          column: field.references.column || '',
-          onDelete: field.references.onDelete || 'CASCADE',
-          onUpdate: field.references.onUpdate || 'CASCADE'
-        } : { table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
-      }));
+      return table.fields.map(field => {
+        const rawType = field.type || 'string';
+        const normalized = normalizeFieldType(rawType);
+        return {
+          key: field.name,
+          originalName: field.name,
+          name: field.name,
+          type: normalized,
+          originalType: normalized,
+          length: field.maxLength != null ? String(field.maxLength) : '',
+          precision: field.precision != null ? String(field.precision) : '',
+          scale: field.scale != null ? String(field.scale) : '',
+          nullable: field.nullable !== false,
+          defaultValue: field.defaultValue != null ? String(field.defaultValue) : '',
+          primaryKey: !!field.primaryKey,
+          unique: !!field.unique,
+          index: !!field.index,
+          references: field.references ? {
+            table: field.references.table || '',
+            column: field.references.column || '',
+            onDelete: field.references.onDelete || 'CASCADE',
+            onUpdate: field.references.onUpdate || 'CASCADE'
+          } : { table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }
+        };
+      });
     }
 
     function createBlankColumnRow(table){
@@ -1808,6 +1852,7 @@
         originalName:'',
         name: uniqueName,
         type: normalizeFieldType('string'),
+        originalType: normalizeFieldType('string'),
         length: typeSupportsLength('string') ? defaultLengthForType('string') : '',
         precision:'',
         scale:'',
@@ -5269,6 +5314,7 @@
       return UI.Modal({
         open,
         size:'md',
+        zIndex:60,
         title:t('modal.relation.title', 'إنشاء علاقة بين الجداول'),
         description:t('modal.relation.description', 'حدد الجدول المصدر والهدف وأسلوب التحديث.'),
         closeGkey:'erd:modal:close',
@@ -5329,7 +5375,13 @@
         ? form.table
         : (tables[0]?.name || '');
       const currentTable = currentTableName ? registry.get(currentTableName) : null;
-      const rows = Array.isArray(form.rows) && form.rows.length ? form.rows : buildColumnsFormRows(currentTable);
+      const rows = Array.isArray(form.rows) && form.rows.length
+        ? form.rows.map(row => (
+            row && row.originalType
+              ? row
+              : ({ ...row, originalType: normalizeFieldType(row?.type || 'string') })
+          ))
+        : buildColumnsFormRows(currentTable);
       const tableNav = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, tables.map(table => UI.Button({
         attrs:{
           gkey:'erd:columns:select-table',
@@ -5800,11 +5852,11 @@
       ModalAddTable(db),
       ModalRenameTable(db),
       ModalAddField(db),
-        ModalRelation(db),
         ModalColumnsManager(db),
         ModalColumnsUniqueEditor(db),
         ModalColumnsIndexEditor(db),
-        ModalClassificationBulk(db)
+        ModalClassificationBulk(db),
+        ModalRelation(db)
       ];
     }
 
@@ -7108,6 +7160,7 @@
             case 'type':{
               const nextType = normalizeFieldType(rawValue || 'string');
               next.type = nextType;
+              next.originalType = nextType;
               if(typeSupportsLength(nextType)){
                 if(!next.length) next.length = defaultLengthForType(nextType);
               } else {
@@ -7196,6 +7249,9 @@
               break;
           }
           if(!shouldPersist) return;
+          if(!next.originalType){
+            next.originalType = normalizeFieldType(next.type || 'string');
+          }
           rows[rowIndex] = next;
           ctx.setState(s => ({
             ...s,
@@ -7351,10 +7407,11 @@
               if(!nextName){
                 nextName = ensureUniqueFieldName(table, original || 'column');
               }
+              const normalizedType = normalizeFieldType(row.type || row.originalType || 'string');
               const patch = {
                 name: nextName,
                 columnName: nextName,
-                type: normalizeFieldType(row.type),
+                type: normalizedType,
                 nullable: row.nullable !== false,
                 primaryKey: !!row.primaryKey,
                 unique: !!row.unique,

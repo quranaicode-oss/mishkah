@@ -1017,7 +1017,7 @@ UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:c
   ]);
 };
 
-UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close', sizeKey=null, sizeOptions=['sm','md','lg','xl','full'] })=>{
+UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close', sizeKey=null, sizeOptions=['sm','md','lg','xl','full'], zIndex=null })=>{
   if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
   const uid = Math.random().toString(36).slice(2,8);
   const titleId = title ? `modal-${uid}-title` : undefined;
@@ -1068,7 +1068,21 @@ UI.Modal = ({ open=false, title, description, content, actions=[], size='md', cl
   };
   if(titleId) modalAttrs['aria-labelledby'] = titleId;
   if(descriptionId) modalAttrs['aria-describedby'] = descriptionId;
-  return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}`, role:'presentation' }}, [
+  const rootAttrs = { class: tw`${token('modal-root')}`, role:'presentation' };
+  if(zIndex !== null && zIndex !== undefined){
+    let zValue = '';
+    if(typeof zIndex === 'number' && Number.isFinite(zIndex)){
+      zValue = String(zIndex);
+    } else if(typeof zIndex === 'string' && zIndex.trim()){
+      const parsed = Number(zIndex);
+      zValue = Number.isFinite(parsed) ? String(parsed) : zIndex.trim();
+    }
+    if(zValue){
+      const existing = rootAttrs.style ? `${rootAttrs.style};` : '';
+      rootAttrs.style = `${existing}z-index:${zValue};`;
+    }
+  }
+  return h.Containers.Div({ attrs: rootAttrs }, [
     h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:closeGkey }}, []),
     h.Containers.Section({ attrs: modalAttrs }, [
       h.Containers.Div({ attrs:{ class: tw`${token('modal/header')}` }}, headerContent.filter(Boolean)),
