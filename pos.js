@@ -114,6 +114,8 @@
       if(response.result && typeof response.result === 'object') return response.result;
       if(response.payload && typeof response.payload === 'object') return response.payload;
       if(response.data && typeof response.data === 'object' && !Array.isArray(response.data)) return response.data;
+     response= Mishkah.utils.helpers.getPureJson(response);
+      console.log("ajax pos data",response);
       return response;
     };
     const snapshotRemoteStatus = (status)=>({
