@@ -33,7 +33,6 @@
         <button
           type="button"
           class="bg-blue-600 p-2 rounded hover:bg-blue-700"
-          onclick="joinChat(event, ctx)"
           data-m-gkey="chat:join"
         >
           دخول
@@ -106,65 +105,101 @@
       }
     </script>
 
-    <script>
+  </template>
+
+  <script>
+    (function (global) {
+      var agent =
+        global.Mishkah &&
+        global.Mishkah.HTMLx &&
+        global.Mishkah.HTMLx.Agent;
+
+      function ensureContext(ctx) {
+        if (!ctx) return null;
+        if (typeof ctx.get === 'function' && typeof ctx.set === 'function') {
+          return ctx;
+        }
+        if (agent && typeof agent.ContextAdapter === 'function') {
+          return agent.ContextAdapter(ctx);
+        }
+        return null;
+      }
+
       function handleUsernameInput(event, ctx) {
-        if (!ctx || !event) return;
+        var context = ensureContext(ctx);
+        if (!context || !event) return;
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
-        ctx.set('data.username', value);
+        context.set('data.username', value);
       }
 
       function joinChat(event, ctx) {
         if (event && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
-        if (!ctx) return;
-        var name = (ctx.get('data.username') || '').trim();
+        var context = ensureContext(ctx);
+        if (!context) return;
+        var current = context.get ? context.get('data.username') : '';
+        var name = typeof current === 'string' ? current.trim() : '';
         if (!name) {
           name = generateGuestName();
-          ctx.set('data.username', name);
+          context.set('data.username', name);
+        } else if (name !== current) {
+          context.set('data.username', name);
         }
-        ctx.set('data.joined', true);
+        context.set('data.joined', true);
       }
 
       function updateUsers(userList, ctx) {
-        if (!ctx) return;
+        var context = ensureContext(ctx);
+        if (!context) return;
         if (Array.isArray(userList)) {
-          ctx.set('data.users', userList);
+          context.set('data.users', userList);
         } else {
-          ctx.set('data.users', []);
+          context.set('data.users', []);
         }
       }
 
       function appendMessage(message, ctx) {
-        if (!ctx || !message) return;
-        var currentMessages = ctx.get('data.messages') || [];
+        var context = ensureContext(ctx);
+        if (!context || !message) return;
+        var currentMessages = context.get ? context.get('data.messages') : [];
+        if (!Array.isArray(currentMessages)) {
+          currentMessages = [];
+        }
         var normalized = {
-          id: message.id || ('msg-' + Date.now()),
+          id: message.id || 'msg-' + Date.now(),
           user: message.user || 'مجهول',
           text: (message.text || '').toString()
         };
-        ctx.set('data.messages', currentMessages.concat([normalized]));
+        context.set('data.messages', currentMessages.concat([normalized]));
       }
 
       function handleMessageInput(event, ctx) {
-        if (!ctx || !event) return;
+        var context = ensureContext(ctx);
+        if (!context || !event) return;
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
-        ctx.set('data.newMessage', value);
+        context.set('data.newMessage', value);
       }
 
       function messagePayload(ctx) {
-        if (!ctx) return null;
-        var text = (ctx.get('data.newMessage') || '').trim();
-        if (!text) return null;
+        var context = ensureContext(ctx);
+        if (!context) return null;
+        var text = context.get ? context.get('data.newMessage') : '';
+        var value = typeof text === 'string' ? text.trim() : '';
+        if (!value) return null;
+        var username = context.get ? context.get('data.username') : '';
+        if (!username) {
+          username = generateGuestName();
+        }
         return {
-          user: ctx.get('data.username') || generateGuestName(),
-          text: text
+          user: username,
+          text: value
         };
       }
 
@@ -172,21 +207,54 @@
         if (event && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
-        if (!ctx) return;
-        var payload = messagePayload(ctx);
+        var context = ensureContext(ctx);
+        if (!context) return;
+        var payload = messagePayload(context);
         if (!payload) return;
-        ctx.set('data.newMessage', '');
+        context.set('data.newMessage', '');
       }
 
       function generateGuestName() {
         var random = Math.floor(Math.random() * 9000) + 1000;
         return 'ضيف-' + random;
       }
-    </script>
-  </template>
+
+      var chatOrders = {
+        'chat.join': {
+          on: ['click'],
+          gkeys: ['chat:join'],
+          handler: function (event, context) {
+            joinChat(event, context);
+          }
+        },
+        'chat.send': {
+          on: ['click'],
+          gkeys: ['chat:send'],
+          handler: function (event, context) {
+            sendMessage(event, context);
+          }
+        }
+      };
+
+      global.handleUsernameInput = handleUsernameInput;
+      global.joinChat = joinChat;
+      global.updateUsers = updateUsers;
+      global.appendMessage = appendMessage;
+      global.handleMessageInput = handleMessageInput;
+      global.messagePayload = messagePayload;
+      global.sendMessage = sendMessage;
+      global.generateGuestName = generateGuestName;
+      global.chatOrders = chatOrders;
+    })(window);
+  </script>
 
   <script>
-    Mishkah.app.make({}).then(result => {
+    const chatDatabase = {
+      head: { title: 'Mishkah WebSocket Demo' },
+      env: { lang: 'ar', dir: 'rtl', theme: 'dark' }
+    };
+
+    Mishkah.app.make(chatDatabase, { orders: window.chatOrders || {} }).then(app => {
       console.log('Mishkah HTMLx WebSocket App Initialized!');
     });
   </script>
