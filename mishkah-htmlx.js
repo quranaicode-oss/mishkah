@@ -2012,14 +2012,154 @@
     return out;
   }
 
+  function isRegexLiteralStart(prev) {
+    if (!prev) return true;
+    return /[([{:;,=!?&|+\-*~%^<>]/.test(prev);
+  }
+
+  function captureArrayLiteral(source, startIndex) {
+    var text = String(source || '');
+    var length = text.length;
+    var level = 1;
+    var inString = false;
+    var stringChar = '';
+    var inTemplate = false;
+    var inRegex = false;
+    var inBlockComment = false;
+    var inLineComment = false;
+    var escape = false;
+    var prevNonSpace = '';
+    for (var i = startIndex; i < length; i += 1) {
+      var ch = text.charAt(i);
+      var next = i + 1 < length ? text.charAt(i + 1) : '';
+
+      if (inLineComment) {
+        if (ch === '\n' || ch === '\r') {
+          inLineComment = false;
+          prevNonSpace = '';
+        }
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (ch === '*' && next === '/') {
+          inBlockComment = false;
+          i += 1;
+        }
+        continue;
+      }
+
+      if (inRegex) {
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escape = true;
+          continue;
+        }
+        if (ch === '/') {
+          inRegex = false;
+        }
+        continue;
+      }
+
+      if (inString) {
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escape = true;
+          continue;
+        }
+        if (ch === stringChar) {
+          inString = false;
+          stringChar = '';
+        }
+        continue;
+      }
+
+      if (inTemplate) {
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escape = true;
+          continue;
+        }
+        if (ch === '`') {
+          inTemplate = false;
+        }
+        continue;
+      }
+
+      if (ch === '\'' || ch === '"') {
+        inString = true;
+        stringChar = ch;
+        continue;
+      }
+
+      if (ch === '`') {
+        inTemplate = true;
+        continue;
+      }
+
+      if (ch === '/' && next === '*') {
+        inBlockComment = true;
+        i += 1;
+        continue;
+      }
+
+      if (ch === '/' && next === '/') {
+        inLineComment = true;
+        i += 1;
+        continue;
+      }
+
+      if (ch === '/' && isRegexLiteralStart(prevNonSpace)) {
+        inRegex = true;
+        continue;
+      }
+
+      if (ch === '[') {
+        level += 1;
+        prevNonSpace = '[';
+        continue;
+      }
+
+      if (ch === ']') {
+        level -= 1;
+        if (level === 0) {
+          return { content: text.slice(startIndex, i), end: i };
+        }
+        prevNonSpace = ']';
+        continue;
+      }
+
+      if (!/\s/.test(ch)) {
+        prevNonSpace = ch;
+      } else if (ch === '\n' || ch === '\r') {
+        prevNonSpace = '';
+      }
+    }
+    return null;
+  }
+
   function parseFunctionArrays(source) {
     var locals = Object.create(null);
     if (!source) return locals;
-    var re = /(var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*\[([\s\S]*?)\];/g;
+    var re = /(var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*\[/g;
     var match;
     while ((match = re.exec(source))) {
       var name = match[2];
-      var inner = match[3] || '';
+      var capture = captureArrayLiteral(source, re.lastIndex);
+      if (!capture) {
+        continue;
+      }
+      re.lastIndex = capture.end + 1;
+      var inner = capture.content || '';
       var terms = splitTopLevelList(inner);
       var arr = [];
       for (var i = 0; i < terms.length; i += 1) {
