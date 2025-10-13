@@ -1,1 +1,4 @@
-https://cdn.jsdelivr.net/gh/quranaicode-oss/mishkah/mishkah.core.js
+ <script src="https://cdn.jsdelivr.net/gh/quranaicode-oss/mishkah/mishkah.core.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/quranaicode-oss/mishkah/mishkah-utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/quranaicode-oss/mishkah/mishkah-ui.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/quranaicode-oss/mishkah/mishkah-htmlx.js"></script>
