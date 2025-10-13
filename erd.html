@@ -338,6 +338,7 @@
   <script src="./mishkah-schema.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js" integrity="sha512-DpQ0siJmq9hw3rroWAt4EvsC0BpvyEukgqS0bkkCm1cW0XkyKADVY6jwxKF1u9IiMaivGi99ZTSdKCbFf8C9mg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js" integrity="sha512-LFxrDx9yZq9KoU0zY4xXHzkwmo7aX6ixkmKuuNHYsYvwdivgLPgAvFp8ZUBKbjsggq09uXBJgp7wa9u0edPF7w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js" integrity="sha512-WH1k3mkaW1XHlzTH0jzZMfjNV8iPBUFeCFGXFZ8iDSHPsuacF2nwLxgPLZld0dfzpOwLKhPNgm6kKiC9JIhbGg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -412,15 +413,33 @@
     let jsonEditorsObserver = null;
     let jsonEditorsRefreshScheduled = false;
 
+    function resolveCodeMirrorMode(attr){
+      const key = String(attr || '').toLowerCase();
+      switch(key){
+        case 'sql':
+        case 'pgsql':
+        case 'postgres':
+          return 'text/x-pgsql';
+        case 'mssql':
+        case 'sqlserver':
+          return 'text/x-mssql';
+        default:
+          return { name:'javascript', json:true };
+      }
+    }
+
     function ensureCodeMirrorInstance(textarea){
       if(!textarea || typeof window === 'undefined') return;
       if(typeof window.CodeMirror === 'undefined') return;
+      const modeAttr = textarea.getAttribute('data-codemirror');
+      const mode = resolveCodeMirrorMode(modeAttr);
       const desiredHeight = parseInt(textarea.getAttribute('data-height') || '0', 10);
       const readOnlyAttr = textarea.getAttribute('readonly');
       const readOnly = readOnlyAttr != null && readOnlyAttr !== 'false';
       const existing = JSON_CODEMIRROR_REGISTRY.get(textarea);
       if(existing && existing.editor){
         existing.editor.setOption('readOnly', readOnly ? 'nocursor' : false);
+        existing.editor.setOption('mode', mode);
         if(desiredHeight > 0){
           existing.editor.setSize('100%', `${desiredHeight}px`);
         } else {
@@ -434,7 +453,7 @@
 
       const instance = { editor:null, suppress:false, sync:()=>{} };
       const editor = window.CodeMirror.fromTextArea(textarea, {
-        mode:{ name:'javascript', json:true },
+        mode,
         lineNumbers:true,
         lineWrapping:true,
         tabSize:2,
@@ -478,7 +497,7 @@
       const scope = root && root.querySelectorAll ? root : document;
       enhanceJsonTreeViewers(scope);
       if(typeof window.CodeMirror === 'undefined') return;
-      const nodes = scope.querySelectorAll ? scope.querySelectorAll('textarea[data-codemirror="json"]') : [];
+      const nodes = scope.querySelectorAll ? scope.querySelectorAll('textarea[data-codemirror]') : [];
       nodes.forEach(ensureCodeMirrorInstance);
     }
 
@@ -904,6 +923,7 @@
       'modal.import.target.new':{ ar:'إنشاء مخطط جديد', en:'Create a new diagram' },
       'modal.import.target.replace':{ ar:'استبدال:', en:'Replace:' },
       'modal.import.submit':{ ar:'استيراد وتخزين', en:'Import and store' },
+      'modal.import.file.label':{ ar:'استيراد من ملف JSON', en:'Import from JSON file' },
       'modal.close':{ ar:'إغلاق', en:'Close' },
       'modal.exportJson.title':{ ar:'مخطط JSON', en:'JSON diagram' },
       'modal.exportJson.description':{ ar:'انسخ المحتوى للاستخدام في أماكن أخرى.', en:'Copy the content for use elsewhere.' },
@@ -919,6 +939,9 @@
       'modal.done':{ ar:'تم', en:'Done' },
       'modal.exportSql.title':{ ar:'نص SQL', en:'SQL script' },
       'modal.exportSql.description':{ ar:'هذا النص يمثل أوامر إنشاء الجداول PostgreSQL.', en:'This script represents the PostgreSQL table definitions.' },
+      'modal.exportSql.copy':{ ar:'نسخ', en:'Copy' },
+      'modal.exportSql.download':{ ar:'تنزيل', en:'Download' },
+      'modal.exportSql.dbType':{ ar:'نوع قاعدة البيانات', en:'Database type' },
       'modal.schemaMeta.title':{ ar:'خصائص المخطط', en:'Diagram properties' },
       'modal.schemaMeta.description':{ ar:'قم بتحديث اسم التعريف والعنوان والوصف.', en:'Update the identifier, title, and description.' },
       'modal.schemaMeta.description.placeholder':{ ar:'وصف مختصر للمخطط', en:'Short diagram description' },
@@ -994,6 +1017,16 @@
       'modal.columns.reference.column':{ ar:'حقل المرجع', en:'Reference column' },
       'modal.columns.reference.noMatch':{ ar:'لا توجد أعمدة متوافقة في الجدول المحدد.', en:'No compatible columns in the selected table.' },
       'modal.columns.reference.typeMismatch':{ ar:'يجب أن يتطابق نوع بيانات المفتاح الأجنبي مع العمود المرجعي.', en:'Foreign key type must match the referenced column.' },
+      'modal.columns.section.foreignKeys':{ ar:'المفاتيح الأجنبية', en:'Foreign keys' },
+      'modal.columns.fk.source':{ ar:'العمود', en:'Column' },
+      'modal.columns.fk.target':{ ar:'المرجع', en:'Reference' },
+      'modal.columns.fk.onDelete':{ ar:'عند الحذف', en:'On delete' },
+      'modal.columns.fk.onUpdate':{ ar:'عند التحديث', en:'On update' },
+      'modal.columns.fk.actions':{ ar:'إجراءات', en:'Actions' },
+      'modal.columns.fk.empty':{ ar:'لا توجد علاقات خارجية مضبوطة لهذا الجدول.', en:'No foreign keys defined for this table.' },
+      'modal.columns.fk.remove':{ ar:'إزالة', en:'Remove' },
+      'modal.columns.fk.cascade':{ ar:'Cascade', en:'Cascade' },
+      'modal.columns.fk.uncascade':{ ar:'بدون Cascade', en:'No cascade' },
       'modal.columns.section.unique':{ ar:'القيود الفريدة', en:'Unique constraints' },
       'modal.columns.section.indexes':{ ar:'الفهارس', en:'Indexes' },
       'modal.columns.unique.add':{ ar:'إضافة قيد فريد', en:'Add unique constraint' },
@@ -1025,8 +1058,16 @@
       'toast.columns.index.saved':{ ar:'تم حفظ الفهرس بنجاح', en:'Index saved successfully' },
       'toast.columns.index.deleted':{ ar:'تم حذف الفهرس', en:'Index removed' },
       'toast.columns.index.invalid':{ ar:'اختر عمودًا واحدًا على الأقل للفهرس.', en:'Select at least one column for the index.' },
+      'toast.columns.fk.removed':{ ar:'تم إلغاء الربط الأجنبي', en:'Foreign key cleared' },
       'toast.columns.tableMissing':{ ar:'الجدول غير موجود', en:'Table not found' },
       'toast.columns.indexMissing':{ ar:'الفهرس غير موجود', en:'Index not found' },
+      'toast.exportSql.copied':{ ar:'تم نسخ نص SQL إلى الحافظة', en:'SQL copied to clipboard' },
+      'toast.exportSql.copyError':{ ar:'تعذر نسخ نص SQL', en:'Unable to copy SQL' },
+      'toast.exportSql.empty':{ ar:'لا يوجد نص SQL متاح', en:'No SQL script available' },
+      'toast.exportSql.downloaded':{ ar:'تم تنزيل ملف SQL', en:'SQL file downloaded' },
+      'toast.exportSql.downloadError':{ ar:'تعذر تنزيل ملف SQL', en:'Unable to download SQL file' },
+      'toast.import.file.loaded':{ ar:'تم تحميل ملف JSON', en:'JSON file loaded' },
+      'toast.import.file.error':{ ar:'تعذر قراءة ملف JSON', en:'Unable to read JSON file' },
       'context.section.schema':{ ar:'المخطط', en:'Diagram' },
       'context.section.structure':{ ar:'البنية', en:'Structure' },
       'context.section.outputs':{ ar:'المخرجات', en:'Outputs' },
@@ -4964,6 +5005,10 @@
               { value:'', label:t('modal.import.target.new', 'إنشاء مخطط جديد') },
               ...items.map(item=> ({ value:item.id, label:`${t('modal.import.target.replace', 'استبدال:')} ${item.title || item.name}` }))
             ] }),
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t('modal.import.file.label', 'استيراد من ملف JSON')]),
+              UI.Input({ attrs:{ gkey:'erd:import:file', type:'file', accept:'.json,application/json', class: tw`w-full sm:w-auto cursor-pointer` } })
+            ]),
             JsonEditorTabs(db, {
               id:'import',
               text: form.text || '',
@@ -5013,15 +5058,51 @@
     function ModalExportSql(db){
       const t = createTranslator(db);
       const open = db.ui?.modals?.exportSql;
-      const text = db.ui?.form?.sql?.text || '';
+      const form = db.ui?.form?.sql || {};
+      const text = form.text || '';
+      const dbType = form.dbType || 'pgsql';
+      const schemaName = db.data?.schemaMeta?.name || 'schema';
+      const baseName = sanitizeSqlIdentifier(schemaName) || 'schema';
+      const downloadName = `${baseName}_${dbType}.sql`;
+      const dbTypeOptions = [
+        { value:'pgsql', label:'PostgreSQL (pgsql)' },
+        { value:'mssql', label:'MS SQL (mssql)' }
+      ];
+      const typeSelector = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-xs font-semibold text-[var(--muted)] uppercase tracking-[0.18em]` }}, [t('modal.exportSql.dbType', 'نوع قاعدة البيانات')]),
+        UI.Select({ attrs:{ gkey:'erd:export:sql:dbtype', 'data-field':'dbType', value: dbType }, options: dbTypeOptions })
+      ]);
+      const filenameHint = D.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted)]` }}, [`${downloadName}`]);
+      const toolbar = D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between` }}, [
+        typeSelector,
+        filenameHint
+      ]);
+      const editor = UI.Textarea({
+        attrs:{
+          readonly:true,
+          value: text,
+          class: tw`w-full font-mono text-sm`,
+          'data-codemirror':'sql',
+          'data-height':'480'
+        }
+      });
       return UI.Modal({
         open,
-        size:'lg',
+        size:'xl',
         title:t('modal.exportSql.title', 'نص SQL'),
         description:t('modal.exportSql.description', 'هذا النص يمثل أوامر إنشاء الجداول PostgreSQL.'),
         closeGkey:'erd:modal:close',
-        content:[ UI.Textarea({ attrs:{ readonly:true, value: text, rows:16, class: tw`w-full font-mono text-xs` } }) ],
-        actions:[ UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.done', 'تم')]) ]
+        content:[
+          D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4` }}, [
+            toolbar,
+            editor
+          ])
+        ],
+        actions:[
+          UI.Button({ attrs:{ gkey:'erd:export:sql:copy', variant:'ghost', size:'sm' }}, [`📋 ${t('modal.exportSql.copy', 'نسخ')}`]),
+          UI.Button({ attrs:{ gkey:'erd:export:sql:download', variant:'soft', size:'sm' }}, [`💾 ${t('modal.exportSql.download', 'تنزيل')}`]),
+          UI.Button({ attrs:{ gkey:'erd:modal:close', variant:'ghost', size:'sm' }}, [t('modal.done', 'تم')])
+        ]
       });
     }
 
@@ -5496,6 +5577,75 @@
         D.Containers.Div({ attrs:{ class: tw`overflow-auto` }}, [columnsTable]),
         columnsFooter
       ]);
+      const foreignKeyRecords = rows
+        .filter(row => row && row.references && row.references.table && row.references.column)
+        .map(row => {
+          const key = row.key || row.originalName || row.name || '';
+          const sourceLabel = formatIdentifier(row.name || row.originalName || key) || key;
+          const targetTable = formatIdentifier(row.references.table || '') || row.references.table || '';
+          const targetColumn = formatIdentifier(row.references.column || '') || row.references.column || '';
+          const onDelete = String(row.references.onDelete || 'CASCADE').toUpperCase();
+          const onUpdate = String(row.references.onUpdate || 'CASCADE').toUpperCase();
+          return { key, sourceLabel, targetTable, targetColumn, onDelete, onUpdate };
+        });
+      const foreignKeyContent = foreignKeyRecords.length
+        ? D.Tables.Table({ attrs:{ class: tw`w-full text-sm border-separate [border-spacing:0_6px]` }}, [
+            D.Tables.Thead({}, [D.Tables.Tr({}, [
+              D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] text-right` }}, [t('modal.columns.fk.source', 'Column')]),
+              D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] text-right` }}, [t('modal.columns.fk.target', 'Reference')]),
+              D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] text-right` }}, [t('modal.columns.fk.onDelete', 'On delete')]),
+              D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] text-right` }}, [t('modal.columns.fk.onUpdate', 'On update')]),
+              D.Tables.Th({ attrs:{ class: tw`px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] text-right` }}, [t('modal.columns.fk.actions', 'Actions')])
+            ])]),
+            D.Tables.Tbody({}, foreignKeyRecords.map(record => {
+              const deleteCascade = record.onDelete === 'CASCADE';
+              const updateCascade = record.onUpdate === 'CASCADE';
+              const onDeleteButton = UI.Button({
+                attrs:{
+                  gkey:'erd:columns:fk:toggle',
+                  'data-row': record.key,
+                  'data-mode':'onDelete',
+                  'data-table': currentTableName || '',
+                  class: tw`${deleteCascade ? '!bg-[var(--primary)] !text-[var(--primary-foreground)]' : '!text-[var(--muted)] hover:!text-[var(--foreground)]'} !px-2 !py-1 text-xs`
+                },
+                variant: deleteCascade ? 'soft' : 'ghost',
+                size:'xs'
+              }, [deleteCascade ? t('modal.columns.fk.cascade', 'Cascade') : t('modal.columns.fk.uncascade', 'No cascade')]);
+              const onUpdateButton = UI.Button({
+                attrs:{
+                  gkey:'erd:columns:fk:toggle',
+                  'data-row': record.key,
+                  'data-mode':'onUpdate',
+                  'data-table': currentTableName || '',
+                  class: tw`${updateCascade ? '!bg-[var(--primary)] !text-[var(--primary-foreground)]' : '!text-[var(--muted)] hover:!text-[var(--foreground)]'} !px-2 !py-1 text-xs`
+                },
+                variant: updateCascade ? 'soft' : 'ghost',
+                size:'xs'
+              }, [updateCascade ? t('modal.columns.fk.cascade', 'Cascade') : t('modal.columns.fk.uncascade', 'No cascade')]);
+              const removeButton = UI.Button({
+                attrs:{
+                  gkey:'erd:columns:fk:remove',
+                  'data-row': record.key,
+                  'data-table': currentTableName || '',
+                  class: tw`!px-2 !py-1 text-xs text-[var(--destructive)]`
+                },
+                variant:'ghost',
+                size:'xs'
+              }, [t('modal.columns.fk.remove', 'Remove')]);
+              return D.Tables.Tr({ attrs:{ key:`fk-${record.key}`, class: tw`bg-[var(--surface-1)]` }}, [
+                D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm font-semibold` }}, [record.sourceLabel || '—']),
+                D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [record.targetTable && record.targetColumn ? `${record.targetTable}.${record.targetColumn}` : '—']),
+                D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [onDeleteButton]),
+                D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [onUpdateButton]),
+                D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [D.Containers.Div({ attrs:{ class: tw`flex items-center justify-end` }}, [removeButton])])
+              ]);
+            }))
+          ])
+        : D.Text.Span({ attrs:{ class: tw`text-sm text-[var(--muted)]` }}, [t('modal.columns.fk.empty', 'لا توجد علاقات خارجية مضبوطة لهذا الجدول.')]);
+      const foreignKeysSection = D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-[var(--border)]/70 bg-[var(--surface-1)]/80 p-4 space-y-3` }}, [
+        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t('modal.columns.section.foreignKeys', 'المفاتيح الأجنبية')]),
+        foreignKeyContent
+      ]);
       const indexes = getTableIndexes(currentTable);
       const uniqueConstraints = indexes.filter(index => index.unique);
       const nonUniqueIndexes = indexes.filter(index => !index.unique);
@@ -5577,6 +5727,7 @@
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-4` }}, [
               columnsSection,
+              foreignKeysSection,
               uniqueSection,
               indexSection
             ])
@@ -6182,16 +6333,17 @@
               console.warn('[Mishkah][ERD] generateSQL failed', error);
               sql = registry.generateSQL({ schemaName:'public' });
             }
+            const previousType = state.ui?.form?.sql?.dbType || 'pgsql';
             ctx.setState(s=>({
               ...s,
               data:{ ...s.data, sqlPreview: sql },
               ui:{
                 ...(s.ui || {}),
                 modals:{ ...(s.ui?.modals || {}), exportSql:true },
-                form:{ ...(s.ui?.form || {}), sql:{ text: sql } }
+                form:{ ...(s.ui?.form || {}), sql:{ text: sql, dbType: previousType } }
               }
             }));
-            
+
             return;
           }
         }
@@ -6376,11 +6528,11 @@
             scheduleJsonEditorRefresh(document);
           }
         },
-        'erd.json.copy':{
-          on:['click'],
-          gkeys:['erd:json:copy'],
-          handler:async (e,ctx)=>{
-            if(e?.preventDefault) e.preventDefault();
+      'erd.json.copy':{
+        on:['click'],
+        gkeys:['erd:json:copy'],
+        handler:async (e,ctx)=>{
+          if(e?.preventDefault) e.preventDefault();
             const container = e?.target ? e.target.closest('[data-json-editor]') : null;
             if(!container) return;
             const textarea = container.querySelector('textarea[data-codemirror="json"]');
@@ -6419,15 +6571,112 @@
               }
               UI.pushToast(ctx, { title:t('json.copy.success', 'تم نسخ JSON إلى الحافظة'), icon:'📋' });
             } catch(error){
-              UI.pushToast(ctx, { title:t('json.copy.error', 'تعذر نسخ JSON'), message:String(error), icon:'🛑' });
-            }
+            UI.pushToast(ctx, { title:t('json.copy.error', 'تعذر نسخ JSON'), message:String(error), icon:'🛑' });
           }
-        },
-        'erd.form.update':{
-          on:['input','change'],
-          gkeys:['erd:form:update'],
-          handler:(e,ctx)=>{
-            const input = e.target;
+        }
+      },
+      'erd.export.sql.dbtype':{
+        on:['change'],
+        gkeys:['erd:export:sql:dbtype'],
+        handler:(e,ctx)=>{
+          const select = e.target;
+          const rawValue = select?.value || '';
+          const value = rawValue ? String(rawValue).trim().toLowerCase() : 'pgsql';
+          ctx.setState(s=>{
+            const currentForm = s.ui?.form?.sql || {};
+            const previousText = currentForm.text != null ? currentForm.text : (s.data?.sqlPreview || '');
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{
+                  ...(s.ui?.form || {}),
+                  sql:{ text: previousText, dbType: value || 'pgsql' }
+                }
+              }
+            };
+          });
+
+        }
+      },
+      'erd.export.sql.copy':{
+        on:['click'],
+        gkeys:['erd:export:sql:copy'],
+        handler:async (e,ctx)=>{
+          if(e?.preventDefault) e.preventDefault();
+          const state = ctx.getState();
+          const t = createTranslator(state);
+          const text = state.ui?.form?.sql?.text || state.data?.sqlPreview || '';
+          if(!text || !text.trim()){
+            UI.pushToast(ctx, { title:t('toast.exportSql.empty', 'لا يوجد نص SQL متاح'), icon:'⚠️' });
+            return;
+          }
+          const IO = (U.IO || {});
+          try {
+            if(IO && typeof IO.copyText === 'function'){
+              const ok = await IO.copyText(text);
+              if(!ok) throw new Error('copy-failed');
+            } else if(navigator?.clipboard && typeof navigator.clipboard.writeText === 'function'){
+              await navigator.clipboard.writeText(text);
+            } else {
+              const temp = document.createElement('textarea');
+              temp.value = text;
+              temp.setAttribute('readonly', '');
+              temp.style.position = 'absolute';
+              temp.style.left = '-9999px';
+              document.body.appendChild(temp);
+              temp.select();
+              document.execCommand('copy');
+              document.body.removeChild(temp);
+            }
+            UI.pushToast(ctx, { title:t('toast.exportSql.copied', 'تم نسخ نص SQL إلى الحافظة'), icon:'📋' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t('toast.exportSql.copyError', 'تعذر نسخ نص SQL'), message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.export.sql.download':{
+        on:['click'],
+        gkeys:['erd:export:sql:download'],
+        handler:(e,ctx)=>{
+          if(e?.preventDefault) e.preventDefault();
+          const state = ctx.getState();
+          const t = createTranslator(state);
+          const text = state.ui?.form?.sql?.text || state.data?.sqlPreview || '';
+          if(!text || !text.trim()){
+            UI.pushToast(ctx, { title:t('toast.exportSql.empty', 'لا يوجد نص SQL متاح'), icon:'⚠️' });
+            return;
+          }
+          const dbType = state.ui?.form?.sql?.dbType || 'pgsql';
+          const schemaName = state.data?.schemaMeta?.name || 'schema';
+          const baseName = sanitizeSqlIdentifier(schemaName) || 'schema';
+          const filename = `${baseName}_${dbType}.sql`;
+          const IO = (U.IO || {});
+          try {
+            if(IO && typeof IO.download === 'function'){
+              IO.download(text, filename, 'application/sql');
+            } else {
+              const blob = new Blob([text], { type:'application/sql' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }
+            UI.pushToast(ctx, { title:t('toast.exportSql.downloaded', 'تم تنزيل ملف SQL'), icon:'💾' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t('toast.exportSql.downloadError', 'تعذر تنزيل ملف SQL'), message:String(error), icon:'🛑' });
+          }
+        }
+      },
+      'erd.form.update':{
+        on:['input','change'],
+        gkeys:['erd:form:update'],
+        handler:(e,ctx)=>{
+          const input = e.target;
           const formKey = input.getAttribute('data-form');
           const fieldKey = input.getAttribute('data-field');
           const parent = input.getAttribute('data-parent');
@@ -7370,6 +7619,71 @@
               setTimeout(focusFn, 16);
             }
           }
+        }
+      },
+      'erd.columns.fk.toggle':{
+        on:['click'],
+        gkeys:['erd:columns:fk:toggle'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-row]');
+          if(!button) return;
+          const rowKey = button.getAttribute('data-row');
+          const mode = button.getAttribute('data-mode');
+          if(!rowKey || !mode || (mode !== 'onDelete' && mode !== 'onUpdate')) return;
+          ctx.setState(s=>{
+            const columnsForm = s.ui?.form?.columns || {};
+            const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows.slice() : [];
+            const index = rows.findIndex(row => (row.key || row.originalName || row.name) === rowKey);
+            if(index === -1) return s;
+            const currentRow = rows[index] || {};
+            const references = Object.assign({ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' }, currentRow.references || {});
+            const currentValue = String(references[mode] || 'CASCADE').toUpperCase();
+            references[mode] = currentValue === 'CASCADE' ? 'NO ACTION' : 'CASCADE';
+            const nextRow = { ...currentRow, references };
+            rows[index] = nextRow;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows, deleted: Array.isArray(columnsForm.deleted) ? columnsForm.deleted.slice() : [] } }
+              }
+            };
+          });
+
+        }
+      },
+      'erd.columns.fk.remove':{
+        on:['click'],
+        gkeys:['erd:columns:fk:remove'],
+        handler:(e,ctx)=>{
+          const button = e.target.closest('[data-row]');
+          if(!button) return;
+          const rowKey = button.getAttribute('data-row');
+          if(!rowKey) return;
+          const state = ctx.getState();
+          const t = createTranslator(state);
+          let updated = false;
+          ctx.setState(s=>{
+            const columnsForm = s.ui?.form?.columns || {};
+            const rows = Array.isArray(columnsForm.rows) ? columnsForm.rows.slice() : [];
+            const index = rows.findIndex(row => (row.key || row.originalName || row.name) === rowKey);
+            if(index === -1) return s;
+            const currentRow = rows[index] || {};
+            const nextRow = { ...currentRow, references:{ table:'', column:'', onDelete:'CASCADE', onUpdate:'CASCADE' } };
+            rows[index] = nextRow;
+            updated = true;
+            return {
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{ ...(s.ui?.form || {}), columns:{ table: columnsForm.table || '', rows, deleted: Array.isArray(columnsForm.deleted) ? columnsForm.deleted.slice() : [] } }
+              }
+            };
+          });
+          if(updated){
+            UI.pushToast(ctx, { title:t('toast.columns.fk.removed', 'تم إلغاء الربط الأجنبي'), icon:'✅' });
+          }
+
         }
       },
       'erd.columns.save':{
@@ -8340,6 +8654,38 @@
             console.warn('[Mishkah][ERD] failed to create relation', error);
             UI.pushToast(ctx, { title:'فشل إنشاء العلاقة', message:String(error), icon:'🛑' });
           }
+        }
+      },
+      'erd.import.file':{
+        on:['change'],
+        gkeys:['erd:import:file'],
+        handler:async (e,ctx)=>{
+          const input = e.target;
+          if(!input || !input.files || !input.files.length) return;
+          const file = input.files[0];
+          const state = ctx.getState();
+          const t = createTranslator(state);
+          try {
+            const text = await file.text();
+            ctx.setState(s=>({
+              ...s,
+              ui:{
+                ...(s.ui || {}),
+                form:{
+                  ...(s.ui?.form || {}),
+                  import:{ ...(s.ui?.form?.import || {}), text }
+                }
+              }
+            }));
+            scheduleJsonEditorRefresh(document);
+            UI.pushToast(ctx, { title:t('toast.import.file.loaded', 'تم تحميل ملف JSON'), icon:'✅' });
+          } catch(error){
+            UI.pushToast(ctx, { title:t('toast.import.file.error', 'تعذر قراءة ملف JSON'), message:String(error), icon:'🛑' });
+          } finally {
+            try { input.value = ''; }
+            catch(_){ /* ignore */ }
+          }
+
         }
       },
       'erd.import.apply':{
