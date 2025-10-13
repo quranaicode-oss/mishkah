@@ -1,1641 +1,2103 @@
-// mishkah-ui.js — Modern UI (tokens + components + working events)
-(function (w){
-'use strict';
+/*
+ * Mishkah Utils — Orders-Focused Toolkit (v1.0)
+ * -------------------------------------------------------------
+ * مقصد هذا الملف: أدوات خفيفة وعملية تُستعمل داخل orders فقط.
+ * لا يحتوي على أي أدوات تخص النواة (الأحداث/الـVDOM/البناء).
+ * منظم في مجموعات واضحة تُسهّل الاستدعاء والاكتشاف.
+ *
+ * التصميم:
+ *   U = {
+ *     version,
+ *     Type, Num, Time, Control, JSON, Data, Array,
+ *     Id, Crypto, QS,
+ *     Storage, Cookie,
+ *     Net, IO,
+ *     Cache
+ *   }
+ *
+ * ملاحظات:
+ * - لا وجود لـ U.cx أو أي Adapters هنا.
+ * - كل شيء يُعلّق تحت Mishkah.utils (مع دمج دون استبدال).
+ * - جميع الدوال نقية وآمنة قدر الإمكان.
+ */
+(function (window) {
+  'use strict';
 
-const M = w.Mishkah, U = M.utils, h = M.DSL;
-const { tw, token, def, cx } = U.twcss;
+  const U = { version: 'orders-utils v1.0' };
 
-/* ===================== Tokens (Design System) ===================== */
-def({
-  // base & layout
-  'surface':        'bg-[var(--background)] text-[var(--foreground)]',
-  'hstack':         'flex items-center gap-2',
-  'vstack':         'flex flex-col gap-2',
-  'divider':        'h-px bg-[var(--border)]',
-  'ring-base':      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
-  'scrollarea':     'overflow-y-auto overscroll-contain [scrollbar-gutter:stable] pr-2',
-  'split':          'flex items-center justify-between gap-2',
-  'muted':          'text-[var(--muted-foreground)]',
+  // ---------------------------------------------------------------------------
+  // Type — فحوصات أنماط بسيطة
+  // ---------------------------------------------------------------------------
+  const isArr = Array.isArray;
+  const isObj = v => v != null && typeof v === 'object' && !Array.isArray(v);
+  const isStr = v => typeof v === 'string';
+  const isFn  = v => typeof v === 'function';
+  const isNum = v => typeof v === 'number' && !Number.isNaN(v);
 
-  // buttons
-  'btn':            'inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius)] text-sm font-medium transition-colors ring-base disabled:opacity-50 disabled:pointer-events-none',
-  'btn/sm': 'h-9  px-3',
-  'btn/md': 'h-10 px-3',
-  'btn/lg': 'h-11 px-5',
-  'btn/solid':      'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[color-mix(in oklab,var(--primary) 90%, black)]',
-  'btn/soft':       'bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[color-mix(in oklab,var(--secondary) 85%, black)]',
-  'btn/ghost':      'hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
-  'btn/link':       'text-[var(--primary)] underline underline-offset-4 hover:underline',
-  'btn/destructive':'bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:bg-[color-mix(in oklab,var(--destructive) 88%, black)]',
-  'btn/icon': 'w-10 h-10 p-0 aspect-square',
-  'btn/with-icon': 'gap-2',
+  U.Type = { isArr, isObj, isStr, isFn, isNum };
 
-  // badges & chips
-  'badge':          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)]',
-  'badge/ghost':    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-transparent text-[var(--muted-foreground)] border border-[var(--border)]',
-  'chip':           'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm transition-colors cursor-pointer bg-[var(--surface-1)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
-  'chip/active':    'bg-[var(--primary)] text-[var(--foreground)] font-semibold shadow-[var(--shadow)] border border-[color-mix(in oklab,var(--primary) 65%, transparent)] dark:text-[var(--primary-foreground)]',
-  'pill':           'inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs text-[var(--muted-foreground)]',
+  // ---------------------------------------------------------------------------
+  // Num — أعداد ومرافق حسابية
+  // ---------------------------------------------------------------------------
+  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+  const between = (v, min, max) => v >= min && v <= max;
+  const round = (v, p = 0) => { const m = Math.pow(10, p|0); return Math.round((+v) * m) / m; };
+  const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
-  // card / panels
-  'card':           'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
-  'card/soft-1':    'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
-  'card/soft-2':    'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
-  'card/header':    'flex flex-col space-y-1.5 p-6',
-  'card/content':   'p-6 pt-0',
-  'card/footer':    'flex items-center p-6 pt-0',
-  'card/title':     'text-lg font-semibold leading-none tracking-tight',
-  'card/desc':      'text-sm text-[var(--muted-foreground)]',
+  U.Num = { clamp, between, round, randomInt };
 
-  // bars
-  'toolbar':        'sticky top-0 z-[520] flex h-14 w-full shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in oklab,var(--background) 84%, transparent)]/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in oklab,var(--background) 82%, transparent)]/75',
-  'toolbar/section':'flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-  'toolbar/section-end':'flex shrink-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-  'toolbar/group':  'flex shrink-0 items-center gap-2 rounded-full border border-[color-mix(in oklab,var(--border) 70%, transparent)] bg-[color-mix(in oklab,var(--surface-1) 90%, transparent)] px-3 py-1.5 shadow-sm backdrop-blur-sm',
-  'toolbar/group-label': 'text-[10px] font-semibold uppercase tracking-[0.18em] text-[color-mix(in oklab,var(--muted-foreground) 92%, var(--foreground)/35%)]',
-  'footerbar':      'flex shrink-0 items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)]',
-
-  // inputs
-  'input':          'flex h-10 w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:opacity-50 disabled:pointer-events-none',
-  'label':          'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
-
-  // overlay
-  'modal-root':     'fixed inset-0 z-50 grid place-items-center px-4 py-8 sm:py-12 overflow-y-auto',
-  'backdrop':       'absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto',
-  'modal-card':     'relative z-10 max-h-[92vh] flex flex-col overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[0_24px_48px_-16px_rgba(15,23,42,0.45)] pointer-events-auto',
-  'modal/sm':       'w-[min(420px,92vw)]',
-  'modal/md':       'w-[min(640px,94vw)]',
-  'modal/lg':       'w-[min(820px,96vw)]',
-  'modal/xl':       'w-[min(980px,96vw)]',
-  'modal/full':     'w-[100vw] max-h-[94vh]',
-  'modal/header':   'flex items-start justify-between gap-4 border-b border-[var(--border)] bg-[var(--card)] px-6 pt-6 pb-4 backdrop-blur-sm',
-  'modal/body':     'flex-1 overflow-y-auto bg-[var(--card)] px-6 py-5',
-  'modal/footer':   'flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:flex-row',
-
-  // numpad
-  'numpad/root':      'flex flex-col gap-4',
-  'numpad/display':   'rounded-[var(--radius)] border-2 border-[color-mix(in oklab,var(--primary) 45%, transparent)] bg-[color-mix(in oklab,var(--card) 88%, var(--primary)/10%)] px-6 py-6 text-center text-3xl font-semibold tracking-[0.08em] leading-tight text-[var(--foreground)] shadow-[0_22px_48px_-24px_rgba(15,23,42,0.65)] transition-all',
-  'numpad/grid':      'grid grid-cols-3 gap-3',
-  'numpad/key':       'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--foreground)] shadow-[0_18px_40px_-24px_rgba(15,23,42,0.55)] transition-transform duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_26px_48px_-20px_rgba(15,23,42,0.55)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] select-none',
-  'numpad/key-disabled':'inline-flex h-20 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-2xl font-semibold text-[var(--muted-foreground)] opacity-60',
-  'numpad/actions':   'flex items-center gap-3',
-  'numpad/utility':   'inline-flex h-16 flex-1 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-lg font-semibold text-[var(--foreground)] shadow-[0_18px_36px_-22px_rgba(15,23,42,0.55)] transition-transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[0_26px_48px_-18px_rgba(15,23,42,0.55)] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] select-none',
-  'numpad/confirm':   'rounded-2xl shadow-[0_24px_54px_-22px_rgba(59,130,246,0.65)] hover:-translate-y-0.5 active:translate-y-0',
-
-  // tabs
-  'tabs/row':       'flex items-center gap-2 flex-wrap',
-  'tabs/btn':       'px-3 py-1.5 rounded-full hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]',
-  'tabs/btn-active':'bg-[var(--primary)] text-[var(--foreground)] font-semibold shadow-[var(--shadow)] dark:text-[var(--primary-foreground)]',
-
-  // drawer
-  'drawer/side':    'fixed inset-y-0 w-[280px] border-s bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)]',
-  'drawer/body':    'p-4 h-full flex flex-col gap-2',
-
-  // list
-  'list':           'flex flex-col gap-2',
-  'list/item':      'flex items-start gap-3 rounded-[var(--radius)] border border-transparent bg-[var(--surface-1)] px-3 py-2 transition hover:border-[var(--border)]',
-  'list/item-leading': 'flex items-center justify-center rounded-[var(--radius)] bg-[var(--surface-2)] text-xl w-10 h-10',
-  'list/item-content': 'flex flex-col gap-1 text-sm',
-  'list/item-trailing': 'ms-auto flex items-center gap-2 text-sm',
-
-  // empty state
-  'empty':          'flex flex-col items-center justify-center gap-2 text-center py-12 text-[var(--muted-foreground)]',
-
-  // support
-  'badge/status':   'inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full',
-  'status/online':  'bg-emerald-500/15 text-emerald-500',
-  'status/offline': 'bg-rose-500/15 text-rose-400',
-  'status/idle':    'bg-amber-500/15 text-amber-500',
-  'stat/card':      'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-4 flex flex-col gap-3',
-  'stat/value':     'text-2xl font-semibold text-[var(--primary)]',
-  'scroll-panel':   'rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] flex flex-col overflow-hidden',
-  'scroll-panel/head': 'px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-2',
-  'scroll-panel/body': 'flex-1 min-h-0',
-  'scroll-panel/footer': 'px-4 py-3 border-t border-[var(--border)]',
-
-  // toast
-  'toast/host':     'fixed inset-x-0 bottom-4 z-[60] px-3 pointer-events-none',
-  'toast/col':      'flex flex-col gap-2 max-w-[560px] mx-auto pointer-events-none',
-  'toast/item':     'p-3 flex items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-[var(--shadow)] pointer-events-auto'
-});
-
-/* ===================== Helpers ===================== */
-function withClass(attrs, add){ const a=Object.assign({},attrs||{}); a.class = tw(cx(add, a.class||'')); return a }
-
-/* ===================== Components ===================== */
-const UI = {};
-
-/* ===================== Chart.js Bridge & Components ===================== */
-const ChartBridge = (() => {
-  const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : {});
-  const parseSafe = U.JSON && typeof U.JSON.parseSafe === 'function' ? U.JSON.parseSafe : (value => {
-    try { return JSON.parse(value); } catch (_err) { return null; }
-  });
-  const clone = U.JSON && typeof U.JSON.clone === 'function' ? U.JSON.clone : (value => {
-    try { return JSON.parse(JSON.stringify(value)); } catch (_err) { return null; }
-  });
-  const stableStringify = U.JSON && typeof U.JSON.stableStringify === 'function'
-    ? U.JSON.stableStringify
-    : (value => {
-        try { return JSON.stringify(value); } catch (_err) { return ''; }
-      });
-  const deepMerge = U.Data && typeof U.Data.deepMerge === 'function'
-    ? U.Data.deepMerge
-    : ((target, source) => {
-        const base = Object.assign({}, target || {});
-        if (!source || typeof source !== 'object') return base;
-        Object.keys(source).forEach((key) => {
-          const next = source[key];
-          if (next && typeof next === 'object' && !Array.isArray(next)) {
-            base[key] = deepMerge(base[key], next);
-          } else {
-            base[key] = next;
-          }
-        });
-        return base;
-      });
-  const registry = new WeakMap();
-  const scheduled = new Set();
-  const scriptPromises = new Map();
-  let cdnUrl = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js';
-  let fallbackUrl = './vendor/chart.umd.min.js';
-  let libraryPromise = null;
-
-  const warnedPaths = new Set();
-
-  function warnNonSerializable(path, kind) {
-    if (!path) return;
-    const key = Array.isArray(path) ? path.join('.') : String(path);
-    if (warnedPaths.has(key)) return;
-    warnedPaths.add(key);
-    if (M.Auditor && typeof M.Auditor.warn === 'function') {
-      M.Auditor.warn('W-CHART-SERIAL', 'تم تجاهل قيمة غير قابلة للنسخ ضمن إعدادات Chart.js', {
-        path: key,
-        kind: kind || typeof kind
-      });
-    }
+  // ---------------------------------------------------------------------------
+  // Color — تحويلات ألوان بسيطة
+  // ---------------------------------------------------------------------------
+  let colorCanvas = null;
+  let colorCtx = null;
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function'){
+    colorCanvas = document.createElement('canvas');
+    colorCanvas.width = colorCanvas.height = 1;
+    colorCtx = colorCanvas.getContext && colorCanvas.getContext('2d');
   }
-
-  function sanitizeValue(value, path) {
-    if (value == null) return value;
-    const type = typeof value;
-    if (type === 'function') {
-      warnNonSerializable(path, 'function');
+  const clampByte = (v) => Math.max(0, Math.min(255, v|0));
+  const byteToHex = (v) => clampByte(v).toString(16).padStart(2, '0');
+  const toHex = (value) => {
+    if (value == null) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(str)) return str;
+    if (!colorCtx) return null;
+    try {
+      colorCtx.fillStyle = '#000000';
+      colorCtx.fillStyle = str;
+      const normalized = colorCtx.fillStyle;
+      if (/^#[0-9a-f]{6}$/i.test(normalized) || /^#[0-9a-f]{8}$/i.test(normalized)) return normalized;
+      const match = normalized.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([0-9.]+))?\)$/);
+      if (match){
+        const r = clampByte(parseInt(match[1], 10));
+        const g = clampByte(parseInt(match[2], 10));
+        const b = clampByte(parseInt(match[3], 10));
+        if (match[4] != null){
+          const alpha = Math.max(0, Math.min(1, parseFloat(match[4])));
+          const a = Math.round(alpha * 255);
+          return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}${a < 255 ? byteToHex(a) : ''}`;
+        }
+        return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}`;
+      }
+      return normalized;
+    } catch (_err){
       return null;
-    }
-    if (type !== 'object') {
-      return value;
-    }
-    if (value instanceof Date) {
-      return new Date(value.getTime());
-    }
-    if (Array.isArray(value)) {
-      return value.map((item, index) => sanitizeValue(item, (path || []).concat(index)));
-    }
-    const out = {};
-    Object.keys(value).forEach((key) => {
-      out[key] = sanitizeValue(value[key], (path || []).concat(key));
-    });
-    return out;
-  }
-
-  const formatterResolvers = {
-    percent: (descriptor) => {
-      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 0;
-      const suffix = typeof descriptor?.suffix === 'string' ? descriptor.suffix : '%';
-      const scale = Number.isFinite(descriptor?.scale) ? descriptor.scale : 1;
-      return (value) => {
-        const numeric = typeof value === 'number' ? value : parseFloat(value);
-        if (Number.isFinite(numeric)) {
-          const scaled = numeric * scale;
-          const formatted = Number.isFinite(digits) ? scaled.toFixed(digits) : String(scaled);
-          return `${formatted}${suffix}`;
-        }
-        return `${value}${suffix}`;
-      };
-    },
-    currency: (descriptor) => {
-      const currency = typeof descriptor?.currency === 'string' ? descriptor.currency : 'USD';
-      const locale = typeof descriptor?.locale === 'string' ? descriptor.locale : undefined;
-      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 0;
-      const formatter = new Intl.NumberFormat(locale, {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits
-      });
-      return (value) => {
-        const numeric = typeof value === 'number' ? value : parseFloat(value);
-        if (Number.isFinite(numeric)) {
-          return formatter.format(numeric);
-        }
-        return formatter.format(0);
-      };
-    },
-    compact: (descriptor) => {
-      const locale = typeof descriptor?.locale === 'string' ? descriptor.locale : undefined;
-      const digits = Number.isFinite(descriptor?.digits) ? descriptor.digits : 1;
-      const formatter = new Intl.NumberFormat(locale, {
-        notation: 'compact',
-        maximumFractionDigits: digits
-      });
-      return (value) => {
-        const numeric = typeof value === 'number' ? value : parseFloat(value);
-        if (Number.isFinite(numeric)) {
-          return formatter.format(numeric);
-        }
-        return formatter.format(0);
-      };
     }
   };
 
-  function isFormatterDescriptor(value) {
-    return value && typeof value === 'object' && !Array.isArray(value) && typeof value.__chartFormatter === 'string';
+  U.Color = { toHex };
+
+  // ---------------------------------------------------------------------------
+  // Time — وقت وتأخير
+  // ---------------------------------------------------------------------------
+  const now = () => Date.now();
+  const ts = () => new Date().toISOString();
+  const fmt = (d, opts) => new Intl.DateTimeFormat(undefined, opts || { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).format(d instanceof Date ? d : new Date(d));
+  const sleep = ms => new Promise(r => setTimeout(r, ms|0));
+
+  U.Time = { now, ts, fmt, sleep };
+
+  // ---------------------------------------------------------------------------
+  // Control — تدفّق وتنظيم محاولات/زمن
+  // ---------------------------------------------------------------------------
+  const once = fn => { let c=false, val; return (...a)=>{ if(!c){ c=true; val = fn(...a) } return val; } };
+  const nextTick = fn => Promise.resolve().then(fn);
+  const debounce = (fn, wait=250) => { let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), wait); } };
+  const throttle = (fn, wait=250) => { let last=0, pend=null, timer=null; const run=a=>{ last=Date.now(); pend=null; fn(...a) }; return (...a)=>{ const now=Date.now(), rem=wait-(now-last); if(rem<=0) run(a); else { pend=a; clearTimeout(timer); timer=setTimeout(()=>run(pend), rem); } } };
+  const retry = async (fn, { tries=3, base=300, factor=2, jitter=true }={}) => { let a=0, d=base; for(;;){ try{ return await fn(); } catch(e){ a++; if(a>=tries) throw e; const j = jitter ? Math.floor(d*(0.8+Math.random()*0.4)) : d; await sleep(j); d*=factor; } } };
+
+  U.Control = { once, nextTick, debounce, throttle, retry };
+
+  // ---------------------------------------------------------------------------
+  // JSON — JSON آمن وثابت
+  // ---------------------------------------------------------------------------
+  const parseSafe = (s, def=null) => { try{ return JSON.parse(String(s)); } catch(_){ return def; } };
+  const stableStringify = (obj) => { const seen = new WeakSet(); const f = x => { if (x && typeof x === 'object') { if (seen.has(x)) return '"[Circular]"'; seen.add(x); if (Array.isArray(x)) return '['+ x.map(f).join(',') +']'; const keys = Object.keys(x).sort(); return '{' + keys.map(k => JSON.stringify(k)+':'+f(x[k])).join(',') + '}'; } return JSON.stringify(x); }; return f(obj); };
+  const clone = (x) => (typeof structuredClone === 'function') ? structuredClone(x) : parseSafe(JSON.stringify(x));
+
+  U.JSON = { parseSafe, stableStringify, clone };
+
+  // ---------------------------------------------------------------------------
+  // Data — بنى بيانات عامة
+  // ---------------------------------------------------------------------------
+  const deepEqual = (a, b) => {
+    if (a === b) return true;
+    if (typeof a !== typeof b) return false;
+    if (isArr(a) && isArr(b)) { if (a.length !== b.length) return false; for (let i=0;i<a.length;i++) if (!deepEqual(a[i], b[i])) return false; return true; }
+    if (isObj(a) && isObj(b)) { const ka=Object.keys(a), kb=Object.keys(b); if (ka.length !== kb.length) return false; for (const k of ka) if (!deepEqual(a[k], b[k])) return false; return true; }
+    return false;
+  };
+  const deepMerge = (t, s) => { if (!isObj(t) || !isObj(s)) return s; const o = { ...t }; for (const k of Object.keys(s)) o[k] = isObj(s[k]) && isObj(t[k]) ? deepMerge(t[k], s[k]) : s[k]; return o; };
+  const pick = (obj, keys) => { const o={}; for (const k of keys) if (k in obj) o[k]=obj[k]; return o; };
+  const omit = (obj, keys) => { const s=new Set(keys); const o={}; for (const k in obj) if (!s.has(k)) o[k]=obj[k]; return o; };
+  const getPath = (obj, path, def) => { const ks=String(path).split('.'); let cur=obj; for (const k of ks){ if(cur && typeof cur==='object' && k in cur) cur=cur[k]; else return def; } return cur; };
+  const setPath = (obj, path, val) => { const ks=String(path).split('.'); let cur=obj; for(let i=0;i<ks.length-1;i++){ const k=ks[i]; if(!isObj(cur[k])) cur[k]={}; cur=cur[k]; } cur[ks[ks.length-1]]=val; return obj; };
+  const hasPath = (obj, path) => getPath(obj, path, Symbol.for('m.na')) !== Symbol.for('m.na');
+  const defaults = (obj, def) => deepMerge(def, obj);
+  const coalesce = (...vals) => vals.find(v => v!=null);
+  const ensureArray = v => isArr(v) ? v : v==null ? [] : [v];
+  const isEmptyObj = o => isObj(o) && Object.keys(o).length===0;
+
+  U.Data = { deepEqual, deepMerge, pick, omit, getPath, setPath, hasPath, defaults, coalesce, ensureArray, isEmptyObj };
+
+  // ---------------------------------------------------------------------------
+  // Array — أدوات مصفوفات عملية
+  // ---------------------------------------------------------------------------
+  const uniqueBy = (arr, key) => { const set=new Set(); const out=[]; for(const it of arr){ const k=isFn(key)? key(it): it[key]; if(!set.has(k)){ set.add(k); out.push(it); } } return out; };
+  const groupBy = (arr, key) => { const out={}; for(const it of arr){ const k=isFn(key)? key(it): it[key]; (out[k]||(out[k]=[])).push(it); } return out; };
+  const sortBy = (arr, key, dir='asc') => { const a=arr.slice(); const g=isFn(key)? key: (x=>x[key]); a.sort((x,y)=>{ const dx=g(x), dy=g(y); if(dx<dy) return dir==='asc'?-1:1; if(dx>dy) return dir==='asc'?1:-1; return 0; }); return a; };
+  const chunk = (arr, size) => { const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; };
+  const range = (n, s=0) => Array.from({length:n}, (_,i)=> i+s);
+  const sum = arr => arr.reduce((a,b)=> a+(+b||0), 0);
+  const avg = arr => arr.length ? sum(arr)/arr.length : 0;
+  const median = arr => { const a=arr.map(Number).filter(n=>!Number.isNaN(n)).sort((x,y)=>x-y); const l=a.length; if(!l) return 0; const m=Math.floor(l/2); return l%2? a[m] : (a[m-1]+a[m])/2; };
+  const flatten = arr => arr.flat ? arr.flat(Infinity) : arr.reduce((a,b)=> a.concat(isArr(b)? flatten(b): b), []);
+  const compact = arr => arr.filter(Boolean);
+
+  U.Array = { uniqueBy, groupBy, sortBy, chunk, range, sum, avg, median, flatten, compact };
+
+  // ---------------------------------------------------------------------------
+  // Id — معرّفات
+  // ---------------------------------------------------------------------------
+  const uuid = () => { const b=new Uint8Array(16); crypto.getRandomValues(b); b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80; const h=[...b].map(x=>x.toString(16).padStart(2,'0')); return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`; };
+  const uid = (prefix='id') => `${prefix}-${Math.random().toString(36).slice(2,9)}`;
+
+  U.Id = { uuid, uid };
+
+  // ---------------------------------------------------------------------------
+  // Text — تحويل وترميز المعرّفات العربية
+  // ---------------------------------------------------------------------------
+  const ARABIC_CHAR_MAP = {
+    'ا':'a','أ':'a','إ':'i','آ':'aa','ء':'a','ؤ':'u','ئ':'i','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'dh',
+    'ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n',
+    'ه':'h','و':'w','ي':'y','ى':'a','ة':'a','ﻻ':'la','لا':'la','ﻷ':'la','ﻹ':'la','ﻵ':'la','ٱ':'a','پ':'p','چ':'ch','ڤ':'v','گ':'g','ژ':'zh',
+    '۰':'0','٠':'0','۱':'1','١':'1','۲':'2','٢':'2','۳':'3','٣':'3','٤':'4','۴':'4','٥':'5','۵':'5','٦':'6','۶':'6','٧':'7','۷':'7','٨':'8','۸':'8','٩':'9','۹':'9'
+  };
+
+  const stripCombiningMarks = str => typeof str.normalize === 'function'
+    ? str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    : str;
+
+  function transliterateArabic(input){
+    if(input == null) return '';
+    const source = String(input);
+    let buffer = '';
+    for(const ch of source){
+      if(/[A-Za-z0-9]/.test(ch)){ buffer += ch; continue; }
+      if(/\s/.test(ch)){ buffer += ' '; continue; }
+      const mapped = ARABIC_CHAR_MAP[ch];
+      if(mapped != null){ buffer += mapped; continue; }
+      if(/[\-_]/.test(ch)){ buffer += ' '; continue; }
+      const normalized = stripCombiningMarks(ch);
+      if(/[A-Za-z0-9]/.test(normalized)){ buffer += normalized; }
+    }
+    return buffer.replace(/\s+/g, ' ').trim();
   }
 
-  function resolveFormatter(descriptor) {
-    const resolver = formatterResolvers[descriptor?.__chartFormatter];
-    if (typeof resolver === 'function') {
-      return resolver(descriptor);
+  function identifierFromArabic(input, { fallback='item', separator='_' }={}){
+    const base = transliterateArabic(input);
+    const cleaned = stripCombiningMarks(base)
+      .replace(/[^A-Za-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, separator)
+      .toLowerCase();
+    let slug = cleaned.replace(new RegExp(`${separator}{2,}`, 'g'), separator).replace(new RegExp(`^${separator}|${separator}$`, 'g'), '');
+    if(!slug){
+      slug = String(fallback || 'item')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, separator)
+        .replace(new RegExp(`${separator}{2,}`, 'g'), separator)
+        .replace(new RegExp(`^${separator}|${separator}$`, 'g'), '');
+      if(!slug) slug = `item${separator}${uid('slug').slice(5)}`;
     }
+    if(/^\d/.test(slug)) slug = `${separator}${slug}`;
+    return slug || 'item';
+  }
+
+  U.Text = Object.assign({}, U.Text || {}, {
+    transliterateArabic,
+    identifierFromArabic,
+    toIdentifier: identifierFromArabic
+  });
+
+  // ---------------------------------------------------------------------------
+  // Crypto — تشفير خفيف
+  // ---------------------------------------------------------------------------
+  const sha256 = async s => { const enc=new TextEncoder().encode(String(s)); const buf=await crypto.subtle.digest('SHA-256', enc); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); };
+
+  const base64 = {
+  encode(str) {
+    const bytes = new TextEncoder().encode(String(str));
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  },
+  decode(b64) {
+    const bin = atob(String(b64));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  },
+  encodeBytes(uint8) {
+    let bin = "";
+    for (let i = 0; i < uint8.length; i++) bin += String.fromCharCode(uint8[i]);
+    return btoa(bin);
+  },
+  decodeBytes(b64) {
+    const bin = atob(String(b64));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  },
+  // URL-safe Base64 helpers
+  encodeURL(str) {
+    return base64.encode(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/,"");
+  },
+  decodeURL(b64url) {
+    let s = String(b64url).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    return base64.decode(s);
+  },
+  // مكافئات "one-liner" بدون escape/unescape
+  utf8Enc: (s) => base64.encode(s),
+  utf8Dec: (s) => base64.decode(s)
+};
+
+  // تجميع تحت مساحة الأسماء
+  U.Crypto = { sha256, base64 };
+
+
+  // ---------------------------------------------------------------------------
+  // QS — Query String
+  // ---------------------------------------------------------------------------
+  const qs = {
+    parse(s){ const out={}; if(!s) return out; s=String(s).replace(/^\?/,''); for(const part of s.split('&')){ if(!part) continue; const [k,v=''] = part.split('='); const key=decodeURIComponent(k.replace(/\+/g,' ')); const val=decodeURIComponent(v.replace(/\+/g,' ')); if(key in out){ const cur=out[key]; out[key]=Array.isArray(cur)? cur.concat(val): [cur,val]; } else out[key]=val; } return out; },
+    stringify(obj){ const enc=x=>encodeURIComponent(String(x)); const parts=[]; for(const k in obj){ const v=obj[k]; if(v==null) continue; if(Array.isArray(v)) for(const it of v) parts.push(`${enc(k)}=${enc(it)}`); else parts.push(`${enc(k)}=${enc(v)}`); } return parts.length? `?${parts.join('&')}` : ''; }
+  };
+
+  U.QS = qs;
+
+
+
+
+  function createEmitter() {
+    const listeners = new Map();
+    return {
+      on(type, fn) {
+        if (!listeners.has(type)) listeners.set(type, new Set());
+        listeners.get(type).add(fn);
+        return () => listeners.get(type)?.delete(fn);
+      },
+      emit(type, payload) {
+        listeners.get(type)?.forEach(fn => { try { fn(payload); } catch {} });
+      }
+    };
+  }
+
+  // أداة: هل التخزين متاح؟
+  function storageAvailable(kind) {
+    try {
+      const s = root[kind + 'Storage'];
+      if (!s) return false;
+      const t = '__mishkah_test__' + Math.random();
+      s.setItem(t, '1'); s.removeItem(t);
+      return true;
+    } catch { return false; }
+  }
+
+  // تخزين ذاكرة بديل
+  function createMemoryStorage() {
+    const mem = new Map();
+    return {
+      getItem: k => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => { mem.set(k, v); },
+      removeItem: k => { mem.delete(k); },
+      clear: () => { mem.clear(); },
+      key: i => Array.from(mem.keys())[i] ?? null,
+      get length() { return mem.size; }
+    };
+  }
+
+  // تحزيم القيمة مع ميتاداتا (يدعم TTL)
+  function pack(value, opts) {
+    const now = Date.now();
+    const ttl = opts?.ttl ? Number(opts.ttl) : 0; // ms
+    const exp = ttl > 0 ? now + ttl : 0;
+    return JSON.stringify({ v: value, _ts: now, _exp: exp });
+  }
+
+  function unpack(json) {
+    try {
+      const obj = JSON.parse(json);
+      return obj && typeof obj === 'object' ? obj : { v: undefined, _exp: 0 };
+    } catch {
+      // توافق مع قيَم قديمة محفوظة كنص خام
+      return { v: json, _exp: 0 };
+    }
+  }
+  // ---------------------------------------------------------------------------
+  // Storage — Local/Session مع namespace و TTL
+  // ---------------------------------------------------------------------------
+
+  // API الأساس: namespaced storage فوق أي Storage مثل localStorage
+  function createNamespacedStorage(rawStorage, ns, emitter) {
+    const prefix = String(ns || 'mishkah');
+
+    function fullKey(k) { return prefix + ':' + k; }
+
+    function isExpired(meta) {
+      const exp = Number(meta?._exp || 0);
+      return exp > 0 && Date.now() > exp;
+    }
+
+    function get(k, def) {
+      const fk = fullKey(k);
+      const raw = rawStorage.getItem(fk);
+      if (raw == null) return def;
+      const meta = unpack(raw);
+      if (isExpired(meta)) {
+        rawStorage.removeItem(fk);
+        emitter.emit('change', { type: 'expire', key: k, ns: prefix });
+        return def;
+      }
+      return meta.v === undefined ? def : meta.v;
+    }
+
+    function set(k, v, opts) {
+      const fk = fullKey(k);
+      try {
+        rawStorage.setItem(fk, pack(v, opts));
+        emitter.emit('change', { type: 'set', key: k, ns: prefix, value: v, opts });
+        return true;
+      } catch (e) {
+        emitter.emit('change', { type: 'error', key: k, ns: prefix, error: e });
+        return false;
+      }
+    }
+
+    function remove(k) {
+      const fk = fullKey(k);
+      rawStorage.removeItem(fk);
+      emitter.emit('change', { type: 'remove', key: k, ns: prefix });
+    }
+
+    function has(k) {
+      return get(k, '__@@__miss') !== '__@@__miss';
+    }
+
+    function keys() {
+      const out = [];
+      for (let i = 0; i < rawStorage.length; i++) {
+        const k = rawStorage.key(i);
+        if (k && k.startsWith(prefix + ':')) out.push(k.slice(prefix.length + 1));
+      }
+      return out;
+    }
+
+    function entries() {
+      return keys().map(k => [k, get(k)]);
+    }
+
+    function values() {
+      return entries().map(p => p[1]);
+    }
+
+    function clear() {
+      keys().forEach(remove);
+      emitter.emit('change', { type: 'clear', ns: prefix });
+    }
+
+    function sizeBytes() {
+      let total = 0;
+      for (let i = 0; i < rawStorage.length; i++) {
+        const k = rawStorage.key(i);
+        if (!k || !k.startsWith(prefix + ':')) continue;
+        const v = rawStorage.getItem(k) || '';
+        total += (k.length + v.length) * 2; // UTF-16 تقديري
+      }
+      return total;
+    }
+
+    function batchSet(obj, opts) {
+      for (const k in obj) set(k, obj[k], opts);
+    }
+
+    function withPrefix(sub) {
+      return createNamespacedStorage(rawStorage, prefix + ':' + sub, emitter);
+    }
+
+    // وصول خام (لو احتجت)
+    function getRaw(k) { return rawStorage.getItem(fullKey(k)); }
+    function setRaw(k, rawString) {
+      rawStorage.setItem(fullKey(k), rawString);
+      emitter.emit('change', { type: 'setRaw', key: k, ns: prefix });
+    }
+
+    // واجهة الأحداث
+    function on(ev, fn) { return emitter.on(ev, fn); }
+
+    return {
+      // أساسيات
+      get, set, remove, has,
+      // مجموعات
+      keys, entries, values, clear, batchSet,
+      // أدوات
+      withPrefix, sizeBytes,
+      // خام
+      getRaw, setRaw,
+      // أحداث
+      on
+    };
+  }
+
+  // بناء Storage موحّد (local/session) مع Fallback
+  const emitter = createEmitter();
+
+  function make(kind, defaultNs) {
+    const available = storageAvailable(kind);
+    const raw = available ? root[kind + 'Storage'] : createMemoryStorage();
+    return function (ns = defaultNs) {
+      return createNamespacedStorage(raw, ns, emitter);
+    };
+  }
+
+  // لا نكسر الموجود لو موجود مسبقاً
+  U.Storage = Object.assign({}, U.Storage, {
+    local:   make('local',   'mishkah'),
+    session: make('session', 'mishkah:session'),
+    // اشتراك على مستوى كل المخازن لو تحب
+    on: emitter.on
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cookie — إدارة الكوكيز
+  // ---------------------------------------------------------------------------
+  const setCookie = (name, value, { days=7, path='/', domain, sameSite='Lax', secure }={}) => {
+    const d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000);
+    let str = `${encodeURIComponent(name)}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=${path}`;
+    if (domain) str += `;domain=${domain}`;
+    if (sameSite) str += `;samesite=${sameSite}`;
+    if (secure) str += `;secure`;
+    document.cookie = str;
+  };
+  const getCookie = (name) => { const m = document.cookie.match(new RegExp('(^| )'+encodeURIComponent(name)+'=([^;]+)')); return m ? decodeURIComponent(m[2]) : null; };
+  const delCookie = (name, path='/', domain) => { setCookie(name, '', { days:-1, path, domain }); };
+
+  U.Cookie = { set: setCookie, get: getCookie, remove: delCookie };
+
+  // ---------------------------------------------------------------------------
+  // Net — Ajax/Fetch قوي، مع JSON/timeout/retry و client builder
+  // ---------------------------------------------------------------------------
+  class HttpError extends Error { constructor(status, message, response){ super(`HTTP ${status} ${message||''}`.trim()); this.name='HttpError'; this.status=status; this.response=response; } }
+
+  const buildURL = (url, query) => {
+    if (!query || (isObj(query) && Object.keys(query).length===0)) return url;
+    const usp = new URLSearchParams();
+    for (const k in query) {
+      const v = query[k];
+      if (v == null) continue;
+      if (Array.isArray(v)) v.forEach(x => usp.append(k, String(x))); else usp.append(k, String(v));
+    }
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + usp.toString();
+  };
+
+  const parseByType = async (res, responseType) => {
+    if (responseType === 'json') return res.json();
+    if (responseType === 'text') return res.text();
+    if (responseType === 'blob') return res.blob();
+    if (responseType === 'arrayBuffer') return res.arrayBuffer();
+    if (responseType === 'formData') return res.formData();
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+    if (ct.includes('application/json')) return res.json();
+    if (ct.includes('text/')) return res.text();
+    if (ct.includes('application/octet-stream')) return res.arrayBuffer();
+    if (ct.includes('multipart/') || ct.includes('form-data')) return res.formData();
+    return res.blob();
+  };
+
+  const ajax = async (url, opt={}) => {
+    const {
+      method='GET', headers={}, query=null, body,
+      timeout=0, withCredentials=false, responseType=null,
+      retry: rConf = 0, retryBase=300, retryFactor=2, retryJitter=true,
+      signal
+    } = opt;
+
+    const run = async () => {
+      const full = buildURL(url, query);
+      const ctrl = new AbortController();
+      const to = timeout>0 ? setTimeout(()=>ctrl.abort(), timeout) : null;
+      const wantJSON = isObj(body) && !headers['Content-Type'] && !headers['content-type'];
+      const h = wantJSON
+        ? { 'Content-Type':'application/json', 'Accept':'application/json, text/plain, */*', ...headers }
+        : { 'Accept':'application/json, text/plain, */*', ...headers };
+      const b = isObj(body) && h['Content-Type']==='application/json' ? JSON.stringify(body) : body;
+
+      // merge external signal
+      if (signal) {
+        if (signal.aborted) ctrl.abort(); else signal.addEventListener('abort', ()=> ctrl.abort(), { once:true });
+      }
+
+      try {
+        const res = await fetch(full, { method, headers:h, body:b, credentials: withCredentials ? 'include' : 'same-origin', signal: ctrl.signal });
+        if (to) clearTimeout(to);
+        if (!res.ok) {
+          let msg = res.statusText || '';
+          try { const j = await res.clone().json(); msg = j?.message || msg; } catch(_){}
+          throw new HttpError(res.status, msg, res);
+        }
+        return parseByType(res, responseType);
+      } finally { if (to) clearTimeout(to); }
+    };
+
+    if (!rConf) return run();
+    const tries = isNum(rConf) ? rConf : (rConf.tries||3);
+    return retry(run, { tries, base: retryBase, factor: retryFactor, jitter: retryJitter });
+  };
+
+  const methods = ['GET','POST','PUT','PATCH','DELETE','HEAD'];
+  const Net = { ajax };
+  methods.forEach(M => {
+    Net[M.toLowerCase()] = (url, opt={}) => ajax(url, { ...opt, method:M });
+  });
+
+  Net.client = (base, baseHeaders={}) => {
+    const req = (path, opt={}) => ajax(String(base).replace(/\/$/, '') + '/' + String(path).replace(/^\//,''), { ...opt, headers: { ...baseHeaders, ...(opt.headers||{}) } });
+    const api = { request: req };
+    methods.forEach(M => { api[M.toLowerCase()] = (p, opt={}) => req(p, { ...opt, method:M }); });
+    return api;
+  };
+
+  Net.form = (obj) => { const fd = new FormData(); const push=(k,v)=> fd.append(k, v==null?'': String(v)); const walk=(p, v)=>{ if (v==null) { push(p,''); } else if (v instanceof Blob || v instanceof File) { fd.append(p, v); } else if (Array.isArray(v)) { v.forEach((it,i)=> walk(`${p}[${i}]`, it)); } else if (typeof v==='object') { for (const k in v) walk(`${p}.${k}`, v[k]); } else push(p, v); }; for (const k in obj) walk(k, obj[k]); return fd; };
+
+  U.Net = Net;
+  U.HttpError = HttpError;
+
+  // Back-compat اختياري (يمكن حذفه لاحقاً):
+  U.ajax = ajax;
+
+  // ---------------------------------------------------------------------------
+  // IO — تفاعلات نسخ/تحميل بسيطة
+  // ---------------------------------------------------------------------------
+  const copyText = async (text) => { try { await navigator.clipboard.writeText(String(text)); return true; } catch (_) { const ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.top='-1000px'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); } catch(_){ ok=false; } document.body.removeChild(ta); return ok; } };
+  const download = (data, filename='file.txt', mime='application/octet-stream') => { const blob = data instanceof Blob ? data : new Blob([data], { type:mime }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); };
+
+  U.IO = { copyText, download };
+
+  // ---------------------------------------------------------------------------
+  // DOM — مساعدات تركيز ولمسات بصرية
+  // ---------------------------------------------------------------------------
+  const focusById = (id, { scroll=true }={}) => {
+    if (typeof document === 'undefined') return false;
+    const el = document.getElementById(id);
+    if (!el) return false;
+    try { if (typeof el.focus === 'function') el.focus({ preventScroll: !scroll }); }
+    catch (_err) { /* ignore */ }
+    if (scroll && typeof el.scrollIntoView === 'function'){
+      try { el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+      catch(_err){ /* ignore */ }
+    }
+    return true;
+  };
+
+  const flashClass = (id, className, duration=1500) => {
+    if (typeof document === 'undefined') return false;
+    const el = document.getElementById(id);
+    if (!el || !className) return false;
+    el.classList.add(className);
+    if (duration > 0){
+      setTimeout(()=>{
+        try { el.classList.remove(className); }
+        catch(_err){ /* ignore */ }
+      }, duration);
+    }
+    return true;
+  };
+
+  U.DOM = { focusById, flashClass };
+
+  // ---------------------------------------------------------------------------
+  // Cache — واجهة بسيطة على Cache API (اختياري)
+  // ---------------------------------------------------------------------------
+  const Cache = {
+    async get(name, req, fetcher){ if(!('caches' in window)) throw new Error('Cache API not available'); const c=await caches.open(name); const key= typeof req==='string'? new Request(req): req; const hit=await c.match(key); if(hit) return hit.clone(); const res = fetcher? await fetcher(key) : await fetch(key); if(res && res.ok) await c.put(key, res.clone()); return res.clone(); },
+    async put(name, req, res){ if(!('caches' in window)) throw new Error('Cache API not available'); const c=await caches.open(name); await c.put(req, res); return true; },
+    async del(name, req){ if(!('caches' in window)) throw new Error('Cache API not available'); const c=await caches.open(name); return c.delete(req); },
+    async clear(name){ if(!('caches' in window)) throw new Error('Cache API not available'); const keys=await caches.keys(); for(const k of keys){ if(!name || k===name) await caches.delete(k); } }
+  };
+
+  U.Cache = Cache;
+// — i18n helpers (محليّة للصفحة)
+const __i18nCache = new WeakMap();
+
+function buildLangTables(dict) {
+  if (!dict || typeof dict !== 'object') return {};
+  if (__i18nCache.has(dict)) return __i18nCache.get(dict);
+  const tables = {};
+  for (const key of Object.keys(dict)) {
+    const row = dict[key];
+    if (!row || typeof row !== 'object') continue;
+    for (const L of Object.keys(row)) {
+      (tables[L] || (tables[L] = {}))[key] = row[L];
+    }
+  }
+  __i18nCache.set(dict, tables);
+  return tables;
+}
+
+function makeLangLookup(db) {
+  const dict = db?.i18n?.dict || {};
+  const langs = buildLangTables(dict);
+  const fallback = db?.i18n?.fallback || 'en';
+  const current  = db?.env?.lang || db?.i18n?.lang || fallback;
+
+  const TL = (key) => {
+    const v = langs[current]?.[key];
+    if (v != null && v !== '') return String(v);
+    const vEn = langs[fallback]?.[key];
+    return vEn != null && vEn !== '' ? String(vEn) : String(key);
+  };
+
+  return { TL, langs, current, fallback };
+}
+ U.lang ={buildLangTables,makeLangLookup}
+
+
+
+  // ---------------------------------------------------------------------------
+  // التسجيل تحت Mishkah.utils (دمج دون استبدال)
+  // ---------------------------------------------------------------------------
+  window.Mishkah = window.Mishkah || {};
+  window.Mishkah.utils = Object.assign({}, window.Mishkah.utils || {}, U);
+
+})(window);
+
+
+
+//utils-indexeddb.js
+
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) define(['exports'], function (e) { factory(root, e) });
+  else if (typeof module === 'object' && module.exports) factory(root, module.exports);
+  else {
+    root.Mishkah = root.Mishkah || {};
+    root.Mishkah.utils = root.Mishkah.utils || {};
+    factory(root, root.Mishkah.utils);
+  }
+})(typeof self !== 'undefined' ? self : this, function (g, target) {
+  const isFn = v => typeof v === 'function';
+  const isArr = Array.isArray;
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const toArr = v => v == null ? [] : (isArr(v) ? v : [v]);
+  const now = () => Date.now();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const canListDbs = !!(g.indexedDB && g.indexedDB.databases);
+
+  class DBError extends Error { constructor(m, meta) { super(m); this.name = 'DBError'; if (meta) Object.assign(this, meta) } }
+  const wrapErr = e => { if (e instanceof DBError) return e; const n = (e && e.name) || 'IDBError'; const m = (e && e.message) || String(e); return new DBError(m, { code: n, cause: e }) };
+  const reqp = req => new Promise((res, rej) => { req.onsuccess = e => res(e.target.result); req.onerror = e => rej(wrapErr(e.target.error || e)) });
+
+  const keyRange = o => {
+    if (!o) return null;
+    if ('only' in o) return IDBKeyRange.only(o.only);
+    const lo = ('lower' in o) ? o.lower : undefined;
+    const hi = ('upper' in o) ? o.upper : undefined;
+    const loOpen = !!o.lowerOpen, hiOpen = !!o.upperOpen;
+    if (lo == null && hi == null) return null;
+    if (lo != null && hi != null) return IDBKeyRange.bound(lo, hi, loOpen, hiOpen);
+    if (lo != null) return IDBKeyRange.lowerBound(lo, loOpen);
+    return IDBKeyRange.upperBound(hi, hiOpen);
+  };
+
+  class TxWrap {
+    constructor(tx) { this.tx = tx; this.done = new Promise((res, rej) => { tx.oncomplete = () => res(true); tx.onabort = () => rej(wrapErr(tx.error || new Error('Abort'))); tx.onerror = () => rej(wrapErr(tx.error)) }) }
+    store(name) { return this.tx.objectStore(name) }
+    complete() { return this.done }
+  }
+
+  const schemaVersionFromMigrations = migs => { if (!migs) return 1; const keys = Object.keys(migs).map(k => +k).filter(n => !Number.isNaN(n)); return keys.length ? Math.max(...keys) : 1 };
+
+  const computeSchemaDiff = (db, schema) => {
+    const dif = { addStores: [], delStores: [], alter: [] };
+    const wanted = new Set(Object.keys(schema.stores || {}));
+    for (const name of Array.from(db.objectStoreNames || [])) if (!wanted.has(name)) dif.delStores.push(name);
+    for (const [name, def] of Object.entries(schema.stores || {})) {
+      if (!db.objectStoreNames.contains(name)) { dif.addStores.push({ name, def }); continue }
+      const tx = db.transaction([name], 'readonly');
+      const os = tx.objectStore(name);
+      const idxWanted = new Map((def.indices || []).map(ix => [ix.name, ix]));
+      const idxExisting = new Set(Array.from(os.indexNames || []));
+      const addIdx = [], delIdx = [];
+      for (const nm of idxExisting) if (!idxWanted.has(nm)) delIdx.push(nm);
+      for (const [nm, ix] of idxWanted) if (!idxExisting.has(nm)) addIdx.push(ix);
+      if (addIdx.length || delIdx.length) dif.alter.push({ name, addIdx, delIdx });
+    }
+    return dif;
+  };
+
+  const applySchema = (db, tx, schema, migrations, oldVersion, newVersion, strict) => {
+    const stores = (schema && schema.stores) ? schema.stores : {};
+    for (const [name, def] of Object.entries(stores)) {
+      const exists = db.objectStoreNames.contains(name);
+      if (!exists) {
+        const os = db.createObjectStore(name, { keyPath: def.keyPath, autoIncrement: !!def.autoIncrement });
+        toArr(def.indices).forEach(ix => { if (ix && ix.name) os.createIndex(ix.name, ix.keyPath, Object.assign({ unique: false, multiEntry: false }, ix.options || {})) });
+      } else {
+        const os = tx.objectStore(name);
+        if (def.indices) {
+          const existing = new Set(Array.from(os.indexNames || []));
+          const wanted = new Map(def.indices.map(ix => [ix.name, ix]));
+          for (const nm of existing) if (!wanted.has(nm)) os.deleteIndex(nm);
+          for (const [nm, ix] of wanted) if (!existing.has(nm)) os.createIndex(ix.name, ix.keyPath, Object.assign({ unique: false, multiEntry: false }, ix.options || {}));
+        }
+      }
+    }
+    if (strict) for (const name of Array.from(db.objectStoreNames || [])) if (!stores[name]) db.deleteObjectStore(name);
+    if (migrations) {
+      const keys = Object.keys(migrations).map(k => +k).filter(n => !Number.isNaN(n)).sort((a, b) => a - b);
+      for (const v of keys) if (v > oldVersion && v <= newVersion) { const fn = migrations[v]; if (isFn(fn)) fn(db, oldVersion, newVersion, tx) }
+    }
+  };
+
+  class IndexedDBX {
+    constructor(cfg) {
+      const o = cfg || {};
+      this.name = o.name || o.dbName || 'app-db';
+      this.schema = o.schema || { stores: {} };
+      this.migrations = o.migrations || {};
+      this.initialVersion = o.version || Math.max(1, schemaVersionFromMigrations(this.migrations));
+      this.autoBump = o.autoBumpVersion !== false;
+      this.strict = !!o.strictSchema;
+      this.onBlocked = o.onBlocked;
+      this.onUpgradeStart = o.onUpgradeStart;
+      this.onUpgradeEnd = o.onUpgradeEnd;
+      this.onVersionChange = o.onVersionChange;
+      this.broadcast = o.broadcast !== false;
+      this.db = null;
+      this.version = this.initialVersion;
+      this.closed = false;
+      this.channel = null;
+      if (this.broadcast && 'BroadcastChannel' in g) try { this.channel = new BroadcastChannel('idb:' + this.name) } catch (_) {}
+      this.listeners = new Map();
+      this._instrumented = false;
+    }
+
+    async currentVersion() {
+      if (canListDbs) { try { const list = await g.indexedDB.databases(); const entry = (list || []).find(d => d.name === this.name); return entry && entry.version ? entry.version : 0 } catch (_) { return 0 } }
+      try {
+        return await new Promise((res, rej) => { const r = g.indexedDB.open(this.name); r.onsuccess = e => { const d = e.target.result; const v = d.version; d.close(); res(v) }; r.onerror = e => rej(wrapErr(e.target.error || e)) })
+      } catch (_) { return 0 }
+    }
+
+    async open() {
+      if (this.db) return this.db;
+      let ver = Math.max(this.initialVersion, await this.currentVersion() || 1);
+      let attempt = 0;
+      for (;;) {
+        attempt++;
+        try {
+          const db = await this._openVersion(ver);
+          this.db = db; this.version = db.version; this.closed = false;
+          if (this.channel) this.channel.onmessage = e => { const m = e && e.data; if (m && m.t === 'change') this.emit('change', m.d) };
+          return db;
+        } catch (err) {
+          const e = wrapErr(err);
+          const code = e.code || e.name;
+          if ((code === 'VersionError' || code === 'InvalidStateError') && this.autoBump && attempt < 6) { ver = ver + 1; await sleep(40 * attempt); continue }
+          if (code === 'QuotaExceededError') throw new DBError('IndexedDB quota exceeded', { code, hint: 'Free storage or reduce data size' });
+          throw e;
+        }
+      }
+    }
+
+    _openVersion(version) {
+      return new Promise((resolve, reject) => {
+        const req = g.indexedDB.open(this.name, version);
+        req.onblocked = () => { if (isFn(this.onBlocked)) try { this.onBlocked({ reason: 'blocked', name: this.name, version }) } catch (_) {} };
+        req.onupgradeneeded = e => {
+          const db = e.target.result; const oldV = e.oldVersion || 0; const newV = e.newVersion || version; const tx = e.target.transaction;
+          if (isFn(this.onUpgradeStart)) try { this.onUpgradeStart({ db, oldVersion: oldV, newVersion: newV }) } catch (_) {}
+          try { applySchema(db, tx, this.schema, this.migrations, oldV, newV, this.strict) } catch (er) { reject(wrapErr(er)); return }
+          if (isFn(this.onUpgradeEnd)) try { this.onUpgradeEnd({ db, oldVersion: oldV, newVersion: newV }) } catch (_) {}
+        };
+        req.onerror = e => reject(wrapErr(e.target.error || e));
+        req.onsuccess = e => {
+          const db = e.target.result;
+          db.onversionchange = () => { try { if (isFn(this.onVersionChange)) this.onVersionChange({ reason: 'versionchange' }) } catch (_) {} try { db.close(); this.db = null; this.closed = true } catch (_) {} };
+          resolve(db);
+        };
+      });
+    }
+
+    async ensureSchema() {
+      const db = await this.open();
+      const dif = computeSchemaDiff(db, Object.assign({}, this.schema, { stores: this.schema.stores || {} }));
+      const needs = dif.addStores.length || dif.delStores.length || dif.alter.length;
+      if (!needs) return false;
+      const nextV = db.version + 1;
+      db.close(); this.db = null;
+      await new Promise((res, rej) => {
+        const req = g.indexedDB.open(this.name, nextV);
+        req.onupgradeneeded = e => {
+          const updb = e.target.result; const oldV = e.oldVersion || db.version; const newV = e.newVersion || nextV; const tx = e.target.transaction;
+          if (isFn(this.onUpgradeStart)) try { this.onUpgradeStart({ db: updb, oldVersion: oldV, newVersion: newV }) } catch (_) {}
+          try { applySchema(updb, tx, Object.assign({}, this.schema, { strict: this.strict }), this.migrations, oldV, newV, this.strict) } catch (er) { rej(wrapErr(er)); return }
+          if (isFn(this.onUpgradeEnd)) try { this.onUpgradeEnd({ db: updb, oldVersion: oldV, newVersion: newV }) } catch (_) {}
+        };
+        req.onerror = e => rej(wrapErr(e.target.error || e));
+        req.onsuccess = e => { const updb = e.target.result; updb.close(); res(true) };
+      });
+      return true;
+    }
+
+    close() { if (this.db) { try { this.db.close() } catch (_) {} this.db = null; this.closed = true } }
+    async destroy() { this.close(); await new Promise((res, rej) => { const del = g.indexedDB.deleteDatabase(this.name); del.onsuccess = () => res(true); del.onerror = e => rej(wrapErr(e.target.error || e)); del.onblocked = () => res(true) }); return true }
+
+    tx(stores, mode = 'readonly') { return this.open().then(db => new TxWrap(db.transaction(toArr(stores), mode))) }
+
+    async run(stores, mode, fn) {
+      let tw;
+      try {
+        tw = await this.tx(stores, mode);
+        const out = await Promise.resolve(fn(tw));
+        await tw.complete();
+        return out;
+      } catch (err) {
+        try { if (tw && tw.tx) tw.tx.abort() } catch (_) {}
+        throw wrapErr(err);
+      }
+    }
+
+    store(name, mode = 'readonly') { return this.tx(name, mode).then(tw => tw.store(name)) }
+
+    get(store, key) { return this.run(store, 'readonly', tw => reqp(tw.store(store).get(key))) }
+
+    getAll(store, query, count) {
+      return this.run(store, 'readonly', tw => {
+        const os = tw.store(store); const qr = keyRange(query);
+        if ('getAll' in os) return reqp(os.getAll(qr, count));
+        return new Promise((res, rej) => {
+          const out = []; const cur = os.openCursor(qr);
+          cur.onsuccess = e => { const c = e.target.result; if (c) { out.push(c.value); c.continue() } else res(out) };
+          cur.onerror = e => rej(wrapErr(e.target.error || e));
+        });
+      });
+    }
+
+    getAllKeys(store, query, count) {
+      return this.run(store, 'readonly', tw => {
+        const os = tw.store(store); const qr = keyRange(query);
+        if ('getAllKeys' in os) return reqp(os.getAllKeys(qr, count));
+        return new Promise((res, rej) => {
+          const out = []; const cur = os.openKeyCursor(qr);
+          cur.onsuccess = e => { const c = e.target.result; if (c) { out.push(c.primaryKey); c.continue() } else res(out) };
+          cur.onerror = e => rej(wrapErr(e.target.error || e));
+        });
+      });
+    }
+
+    count(store, query) { return this.run(store, 'readonly', tw => reqp(tw.store(store).count(keyRange(query)))) }
+
+    add(store, value, key) { return this.run(store, 'readwrite', tw => reqp(tw.store(store).add(value, key))) }
+    put(store, value, key) { return this.run(store, 'readwrite', tw => reqp(tw.store(store).put(value, key))) }
+
+    upsert(store, key, updater) {
+      return this.run(store, 'readwrite', async tw => {
+        const os = tw.store(store); const cur = await reqp(os.get(key));
+        const val = typeof updater === 'function' ? await updater(cur || null) : updater;
+        return reqp(os.put(val, key));
+      });
+    }
+
+    patch(store, key, patch) {
+      return this.run(store, 'readwrite', async tw => {
+        const os = tw.store(store); const cur = await reqp(os.get(key));
+        const next = Object.assign({}, cur || {}, (typeof patch === 'function' ? patch(cur || {}) : patch) || {});
+        return reqp(os.put(next));
+      });
+    }
+
+    delete(store, key) { return this.run(store, 'readwrite', tw => reqp(tw.store(store).delete(key))) }
+    clear(store) { return this.run(store, 'readwrite', tw => reqp(tw.store(store).clear())) }
+
+    bulkAdd(store, values, chunk = 500) {
+      const vs = toArr(values || []);
+      return this.run(store, 'readwrite', async tw => {
+        const os = tw.store(store);
+        for (let i = 0; i < vs.length; i++) {
+          await reqp(os.add(vs[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
+        return true;
+      });
+    }
+
+    bulkPut(store, values, chunk = 500) {
+      const vs = toArr(values || []);
+      return this.run(store, 'readwrite', async tw => {
+        const os = tw.store(store);
+        for (let i = 0; i < vs.length; i++) {
+          await reqp(os.put(vs[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
+        return true;
+      });
+    }
+
+    bulkDelete(store, keys, chunk = 800) {
+      const ks = toArr(keys || []);
+      return this.run(store, 'readwrite', async tw => {
+        const os = tw.store(store);
+        for (let i = 0; i < ks.length; i++) {
+          await reqp(os.delete(ks[i]));
+          if ((i + 1) % chunk === 0) await sleep(0);
+        }
+        return true;
+      });
+    }
+
+    byIndex(store, index, query, dir = 'next') {
+      return this.run(store, 'readonly', tw => {
+        const os = tw.store(store); const idx = os.index(index);
+        return new Promise((res, rej) => {
+          const out = []; const cur = idx.openCursor(keyRange(query), dir);
+          cur.onsuccess = e => { const c = e.target.result; if (c) { out.push(c.value); c.continue() } else res(out) };
+          cur.onerror = e => rej(wrapErr(e.target.error || e));
+        });
+      });
+    }
+
+    firstByIndex(store, index, query, dir = 'next') {
+      return this.run(store, 'readonly', tw => {
+        const os = tw.store(store); const idx = os.index(index);
+        return new Promise((res, rej) => {
+          const cur = idx.openCursor(keyRange(query), dir);
+          cur.onsuccess = e => { const c = e.target.result; if (c) res(c.value); else res(null) };
+          cur.onerror = e => rej(wrapErr(e.target.error || e));
+        });
+      });
+    }
+
+    query(store) {
+      const ctx = { store, index: null, range: null, dir: 'next', limit: null, map: null, filter: null, offset: 0 };
+      const api = {
+        where(ix, rng) { ctx.index = ix || null; ctx.range = rng || null; return api },
+        direction(d) { ctx.dir = d || 'next'; return api },
+        take(n) { ctx.limit = n | 0; return api },
+        skip(n) { ctx.offset = n | 0; return api },
+        select(fn) { ctx.map = fn; return api },
+        filter(fn) { ctx.filter = fn; return api },
+        async toArray() { return await (ctx.index ? this._viaIndex() : this._viaStore()) },
+        async _viaStore() { return await this._scan(ctx, tw => tw.store(ctx.store).openCursor(keyRange(ctx.range), ctx.dir)) },
+        async _viaIndex() { return await this._scan(ctx, tw => tw.store(ctx.store).index(ctx.index).openCursor(keyRange(ctx.range), ctx.dir)) }
+      };
+      return api;
+    }
+
+    async _scan(ctx, cursorFactory) {
+      return this.run(ctx.store, 'readonly', tw => new Promise((res, rej) => {
+        const out = []; let skipped = 0; let cursor;
+        try { cursor = cursorFactory(tw) } catch (e) { rej(wrapErr(e)); return }
+        cursor.onsuccess = e => {
+          const c = e.target.result;
+          if (!c) return res(out);
+          const v = c.value;
+          if (ctx.filter && !ctx.filter(v)) return c.continue();
+          if (skipped < (ctx.offset || 0)) { skipped++; return c.continue() }
+          out.push(ctx.map ? ctx.map(v) : v);
+          if (ctx.limit && out.length >= ctx.limit) return res(out);
+          c.continue();
+        };
+        cursor.onerror = e => rej(wrapErr(e.target.error || e));
+      }));
+    }
+
+    async exportJSON(stores) {
+      const names = stores && stores.length ? stores : Array.from((await this.open()).objectStoreNames || []);
+      const out = { name: this.name, version: this.version, exportedAt: now(), data: {} };
+      for (const s of names) out.data[s] = await this.getAll(s);
+      return out;
+    }
+
+    async importJSON(payload, mode = 'upsert') {
+      const data = (payload && payload.data) || {};
+      const names = Object.keys(data);
+      for (const s of names) {
+        const rows = toArr(data[s]);
+        if (mode === 'clear') await this.clear(s);
+        await this.bulkPut(s, rows);
+      }
+      return true;
+    }
+
+    on(event, handler) { if (!this.listeners.has(event)) this.listeners.set(event, new Set()); this.listeners.get(event).add(handler); return () => this.off(event, handler) }
+    off(event, handler) { const set = this.listeners.get(event); if (set) { set.delete(handler); if (!set.size) this.listeners.delete(event) } }
+    emit(event, detail) { const set = this.listeners.get(event); if (set) set.forEach(fn => { try { fn(detail) } catch (_) {} }); if (this.channel) { try { this.channel.postMessage({ t: event, d: detail }) } catch (_) {} } }
+
+    async instrumentWrites() { if (this._instrumented) return; this._instrumented = true; const db = await this.open(); db.addEventListener && db.addEventListener('close', () => { this._instrumented = false }) }
+
+    watch(store, handler) { const h = e => { const d = e && e.store ? e : (e && e.detail ? e.detail : e); if (!d || d.store !== store) return; handler(d) }; return this.on('change', h) }
+
+    _emitWrite(store, type, key) { this.emit('change', { store, type, key, ts: now() }) }
+
+    async putEmit(store, value, key) { const k = await this.put(store, value, key); this._emitWrite(store, 'put', key || value?.[this.schema?.stores?.[store]?.keyPath || 'id']); return k }
+    async addEmit(store, value, key) { const k = await this.add(store, value, key); this._emitWrite(store, 'add', key || value?.[this.schema?.stores?.[store]?.keyPath || 'id']); return k }
+    async deleteEmit(store, key) { const k = await this.delete(store, key); this._emitWrite(store, 'delete', key); return k }
+
+    async putWithTTL(store, value, ttlMs, key) { const v = Object.assign({}, value, { _expiresAt: now() + Math.max(0, ttlMs | 0) }); return this.putEmit(store, v, key) }
+    async purgeExpired(store) { const ts = now(); const rows = await this.getAll(store); const kp = this.schema?.stores?.[store]?.keyPath || 'id'; const dead = rows.filter(x => +x._expiresAt > 0 && x._expiresAt <= ts).map(x => x[kp]); if (dead.length) await this.bulkDelete(store, dead); return dead.length }
+  }
+
+  const out = { IndexedDBX, IndexedDB: IndexedDBX, DBError };
+  if (target) Object.assign(target, out);
+  if (typeof module === 'object' && module.exports) Object.assign(module.exports, out);
+  return out;
+});
+
+
+// utils-websocket.js
+(function (window) {
+  const M = window.Mishkah = window.Mishkah || {};
+  const U = M.utils = M.utils || {};
+  const hasIDBX = !!U.IndexedDBX;
+  const BC = ('BroadcastChannel' in window) ? window.BroadcastChannel : null;
+
+  class WSXError extends Error {
+    constructor(message, code, hint, meta) { super(message); this.name = 'WSXError'; this.code = code || 'WSX_ERR'; this.hint = hint || ''; this.meta = meta || {}; }
+  }
+
+  const uuid = () => (U.uuid ? U.uuid() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0, v = c==='x'? r : (r&0x3|0x8); return v.toString(16); }));
+  const now = () => Date.now();
+
+  const defaultSerialize = {
+    encode: (x) => (typeof x === 'string' || x instanceof ArrayBuffer || x instanceof Blob) ? x : JSON.stringify(x),
+    decode: (x) => {
+      if (x == null) return x;
+      if (typeof x === 'string') { try { return JSON.parse(x); } catch(_) { return x; } }
+      return x;
+    }
+  };
+
+  class WebSocketX {
+    constructor(url, opt = {}) {
+      this.url = url;
+      this.protocols = opt.protocols;
+      this.autoReconnect = opt.autoReconnect !== false;
+      this.backoff = Object.assign({ min: 800, max: 20000, factor: 1.8, jitter: 0.3 }, opt.backoff || {});
+      this._attempt = 0;
+
+      this.serializer = opt.serializer || defaultSerialize;
+
+      this.ping = Object.assign({ interval: 15000, send: 'ping', expect: 'pong', timeout: 6000 }, opt.ping || {});
+      this._pingTimer = null;
+      this._pongTimer = null;
+
+      this.auth = Object.assign({ token: opt.token, getToken: opt.getToken, param: 'token', sendOnUrl: true }, opt.auth || {});
+
+      this.requestTimeout = Number.isFinite(opt.requestTimeout) ? opt.requestTimeout : 15000;
+      this.pending = new Map();
+
+      this.handlers = {};
+      this.topicHandlers = new Map();
+
+      this.ws = null;
+      this.state = 'idle';
+      this.lastOpenTs = 0;
+
+      this.clientId = opt.clientId || (localStorage.getItem('wsx_cid') || (localStorage.setItem('wsx_cid', uuid()), localStorage.getItem('wsx_cid')));
+      this.seq = 0;
+      this.lastServerSeq = 0;
+
+      this.queueMode = Object.assign({ persist: 'memory', max: 5000, store: 'ws_outbox' }, opt.queue || {});
+      this._queue = [];
+      this._outboxDB = null;
+
+      this.bc = (opt.broadcast !== false && BC) ? new BC(opt.broadcastName || 'mishkah-wsx') : null;
+      if (this.bc) {
+        this.bc.onmessage = (e) => {
+          const msg = e.data;
+          if (!msg || msg.__from === this.clientId) return;
+          if (msg.type === 'wsx:incoming') this._emit('message', msg.data);
+          else if (msg.type === 'wsx:state') this._emit('state', msg.data);
+        };
+      }
+
+      this.interceptors = { beforeSend: [], onMessage: [] };
+
+      if (hasIDBX && this.queueMode.persist === 'idb') {
+        this._outboxDB = new U.IndexedDBX({
+          name: opt.dbName || 'wsx-db',
+          autoBumpVersion: true,
+          schema: { stores: { [this.queueMode.store]: { keyPath: 'id', indices: [{ name: 'ts', keyPath: 'ts' }] } } }
+        });
+      }
+
+      this._onlineHandler = () => { if (navigator.onLine && this.state !== 'open') this.connect({ waitOpen: false }); };
+      this._offlineHandler = () => { this._emit('state', { state: 'offline' }); };
+      window.addEventListener('online', this._onlineHandler);
+      window.addEventListener('offline', this._offlineHandler);
+
+      this._visHandler = () => { if (!document.hidden && this.state !== 'open') this.connect({ waitOpen: false }); if (document.hidden) this._stopHeartbeat(); else if (this.state === 'open') this._startHeartbeat(); };
+      document.addEventListener('visibilitychange', this._visHandler);
+
+      this._openPromise = null;
+    }
+
+    on(ev, fn) { (this.handlers[ev] || (this.handlers[ev] = [])).push(fn); return () => this.off(ev, fn); }
+    off(ev, fn) { const a = this.handlers[ev]; if (!a) return; const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); }
+    _emit(ev, data) { const a = this.handlers[ev]; if (a) for (const fn of a.slice()) try { fn(data); } catch(e) {} }
+
+    subscribe(topic, fn) { if (!this.topicHandlers.has(topic)) this.topicHandlers.set(topic, new Set()); this.topicHandlers.get(topic).add(fn); return () => this.unsubscribe(topic, fn); }
+    unsubscribe(topic, fn) { const set = this.topicHandlers.get(topic); if (!set) return; set.delete(fn); if (!set.size) this.topicHandlers.delete(topic); }
+
+    use(what) {
+      if (!what) return this;
+      if (what.beforeSend) this.interceptors.beforeSend.push(what.beforeSend);
+      if (what.onMessage) this.interceptors.onMessage.push(what.onMessage);
+      if (what.onOpen) this.on('open', what.onOpen);
+      if (what.onClose) this.on('close', what.onClose);
+      if (what.onError) this.on('error', what.onError);
+      return this;
+    }
+
+    async _persistEnqueue(record) {
+      if (this.queueMode.persist === 'idb' && this._outboxDB) {
+        await this._outboxDB.open(); await this._outboxDB.ensureSchema(); await this._outboxDB.put(this.queueMode.store, record);
+      } else if (this.queueMode.persist === 'local') {
+        const key = 'wsx_outbox_' + this.clientId;
+        const cur = JSON.parse(localStorage.getItem(key) || '[]');
+        cur.push(record);
+        const max = Math.max(1, this.queueMode.max|0);
+        while (cur.length > max) cur.shift();
+        try { localStorage.setItem(key, JSON.stringify(cur)); } catch(_) { while (cur.length > Math.floor(max*0.8)) cur.shift(); try { localStorage.setItem(key, JSON.stringify(cur)); } catch(_) {} }
+      } else {
+        this._queue.push(record);
+        const max = Math.max(1, this.queueMode.max|0);
+        if (this._queue.length > max) this._queue.splice(0, this._queue.length - max);
+      }
+    }
+
+    async _persistDrain(sendFn) {
+      if (this.queueMode.persist === 'idb' && this._outboxDB) {
+        await this._outboxDB.open(); await this._outboxDB.ensureSchema();
+        const rows = await this._outboxDB.byIndex(this.queueMode.store, 'ts', { lower: 0 }) || [];
+        for (const r of rows) { await sendFn(r.payload); await this._outboxDB.delete(this.queueMode.store, r.id); }
+      } else if (this.queueMode.persist === 'local') {
+        const key = 'wsx_outbox_' + this.clientId;
+        const cur = JSON.parse(localStorage.getItem(key) || '[]');
+        for (const r of cur) await sendFn(r.payload);
+        try { localStorage.setItem(key, '[]'); } catch(_) {}
+      } else {
+        while (this._queue.length) { const r = this._queue.shift(); await sendFn(r.payload); }
+      }
+      this._emit('drain', true);
+    }
+
+    _buildUrl() {
+      let u = this.url || '';
+      const needs = this.auth && this.auth.param && this.auth.token && u && /^wss?:/i.test(u) && this.auth.sendOnUrl !== false;
+      if (needs) {
+        const sep = u.includes('?') ? '&' : '?';
+        u = `${u}${sep}${encodeURIComponent(this.auth.param)}=${encodeURIComponent(this.auth.token)}`;
+      }
+      return u;
+    }
+
+    _delayMs() {
+      const { min, max, factor, jitter } = this.backoff;
+      const base = Math.min(max, min * Math.pow(factor, Math.max(0, this._attempt - 1)));
+      const spread = base * (jitter || 0);
+      const rand = (Math.random() * spread * 2) - spread;
+      return Math.max(min, Math.floor(base + rand));
+    }
+
+    async connect(opts = {}) {
+      if (this.state === 'open') return this._openPromise || Promise.resolve(true);
+      if (this.state === 'connecting') return this._openPromise || Promise.resolve(false);
+      if (!navigator.onLine) { this._emit('state', { state: 'offline' }); return Promise.resolve(false); }
+
+      this.state = 'connecting'; this._emit('state', { state: 'connecting' });
+
+      try {
+        if (this.auth && this.auth.getToken && !this.auth.token) {
+          try { this.auth.token = await this.auth.getToken(); } catch(_) {}
+        }
+      } catch(_) {}
+
+      let url = this._buildUrl();
+      try { this.ws = this.protocols ? new WebSocket(url, this.protocols) : new WebSocket(url); }
+      catch (err) { this._scheduleReconnect('constructor-failed', err); return Promise.resolve(false); }
+
+      const waitOpen = opts.waitOpen !== false;
+      this._openPromise = new Promise((resolve) => {
+        let settled = false;
+        const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+
+        this.ws.onopen = async (e) => {
+          this.state = 'open'; this.lastOpenTs = now(); this._attempt = 0; this._emit('open', e); this._emit('state', { state: 'open' });
+          if (this.bc) { try { this.bc.postMessage({ __from: this.clientId, type: 'wsx:state', data: { state: 'open' } }); } catch(_) {} }
+          if (this.auth && this.auth.token && this.auth.sendOnUrl === false) { try { this._rawSend({ type: 'auth', token: this.auth.token, ts: now(), cid: this.clientId }); } catch(_) {} }
+          if (this.lastServerSeq) { try { this._rawSend({ type: 'resume', lastSeq: this.lastServerSeq, ts: now(), cid: this.clientId }); } catch(_) {} } else { try { this._rawSend({ type: 'hello', ts: now(), cid: this.clientId }); } catch(_) {} }
+          await this._persistDrain(async (payload) => { this._rawSend(payload); });
+          while (this._queue.length) { const r = this._queue.shift(); this._rawSend(r.payload); }
+          this._startHeartbeat();
+          done(true);
+        };
+
+        this.ws.onmessage = (e) => {
+          const dataEvt = e.data;
+          if (typeof dataEvt === 'string') { this._onIncoming(this.serializer.decode(dataEvt)); return; }
+          if (dataEvt instanceof Blob) { dataEvt.text().then(t => this._onIncoming(this.serializer.decode(t))).catch(()=>{}); return; }
+          if (dataEvt instanceof ArrayBuffer) { const s = new TextDecoder().decode(new Uint8Array(dataEvt)); this._onIncoming(this.serializer.decode(s)); return; }
+          this._onIncoming(this.serializer.decode(dataEvt));
+        };
+
+        this.ws.onerror = (e) => {
+          this._emit('error', new WSXError('socket-error', 'WSX_SOCKET', 'Underlying WebSocket error', { event: e }));
+        };
+
+        this.ws.onclose = (e) => {
+          this._stopHeartbeat();
+          this._emit('close', e);
+          this.state = 'closed'; this._emit('state', { state: 'closed', reason: e && e.code });
+          if (this.autoReconnect) this._scheduleReconnect('socket-close', e);
+          done(false);
+        };
+
+        if (!waitOpen) resolve(true);
+      });
+
+      if (waitOpen) {
+        const to = Number.isFinite(this.requestTimeout) ? Math.max(2000, this.requestTimeout) : 15000;
+        const race = new Promise((r) => setTimeout(() => r(false), to));
+        return Promise.race([this._openPromise, race]);
+      }
+      return this._openPromise;
+    }
+
+    _startHeartbeat() {
+      if (this.ping.interval <= 0) return;
+      clearInterval(this._pingTimer); clearTimeout(this._pongTimer);
+      this._pingTimer = setInterval(() => {
+        try {
+          if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+          this._rawSend(this.ping.send);
+          clearTimeout(this._pongTimer);
+          this._pongTimer = setTimeout(() => { try { this.ws && this.ws.close(); } catch(_) {} }, this.ping.timeout);
+        } catch(_) {}
+      }, this.ping.interval);
+    }
+
+    _stopHeartbeat() { clearInterval(this._pingTimer); this._pingTimer = null; clearTimeout(this._pongTimer); this._pongTimer = null; }
+
+    _scheduleReconnect(why, meta) {
+      if (!this.autoReconnect) return;
+      this._attempt++; const delay = this._delayMs();
+      this._emit('backoff', { attempt: this._attempt, delay, why, meta });
+      setTimeout(() => this.connect({ waitOpen: false }), delay);
+    }
+
+    async _enqueue(payload) {
+      const record = { id: uuid(), ts: now(), payload };
+      await this._persistEnqueue(record);
+    }
+
+    async send(data) {
+      const payload = (typeof data === 'string' || data instanceof ArrayBuffer || data instanceof Blob) ? data : Object.assign({ ts: now(), cid: this.clientId }, data);
+      for (const fn of this.interceptors.beforeSend) { try { const v = fn(payload); if (v && typeof v === 'object') Object.assign(payload, v); } catch(_) {} }
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try { this._rawSend(payload); } catch(_) { await this._enqueue({ payload }); }
+      } else {
+        await this._enqueue({ payload });
+      }
+    }
+
+    _rawSend(objOrString) {
+      const out = this.serializer.encode(objOrString);
+      this.ws && this.ws.send(out);
+    }
+
+    emit(topic, data) { return this.send({ type: 'event', topic, payload: data, id: uuid(), seq: ++this.seq }); }
+
+    request(route, payload, opts = {}) {
+      const id = uuid();
+      const timeoutMs = Number.isFinite(opts.timeout) ? opts.timeout : this.requestTimeout;
+      const message = { type: 'req', route, payload, id, ts: now(), cid: this.clientId, seq: ++this.seq };
+      const promise = new Promise((resolve, reject) => {
+        const to = setTimeout(() => {
+          this.pending.delete(id);
+          reject(new WSXError('request-timeout', 'WSX_TIMEOUT', `No response for route "${route}" within ${timeoutMs}ms`, { route, id }));
+        }, timeoutMs);
+        this.pending.set(id, { resolve, reject, timeout: to });
+      });
+      this.send(message);
+      return promise;
+    }
+
+    respond(reqId, payload, ok = true) {
+      const msg = { type: 'res', ok, id: reqId, payload, ts: now(), cid: this.clientId, seq: ++this.seq };
+      return this.send(msg);
+    }
+
+    setUrl(url) { this.url = url; if (this.state === 'open') { this.close(); this.connect({ waitOpen: false }); } }
+    setToken(token) { this.auth = Object.assign({}, this.auth, { token }); }
+    setSerializer(serializer) { if (serializer && serializer.encode && serializer.decode) this.serializer = serializer; }
+    status() { return { state: this.state, attempt: this._attempt, lastOpenTs: this.lastOpenTs }; }
+
+    flush() { if (this.state === 'open') return this._persistDrain(async (payload) => { this._rawSend(payload); }); return Promise.resolve(false); }
+    reconnect() { try { this.close(); } catch(_) {} this.autoReconnect = true; return this.connect({ waitOpen: false }); }
+
+    close(code, reason) {
+      this.autoReconnect = false;
+      this._stopHeartbeat();
+      try { this.ws && this.ws.close(code, reason); } catch(_) {}
+    }
+
+    _dispatchTopic(topic, msg) {
+      const set = this.topicHandlers.get(topic);
+      if (set) for (const fn of set) try { fn(msg.payload, msg); } catch(e) {}
+      this._emit('event', msg);
+    }
+
+    _touchPong() { clearTimeout(this._pongTimer); }
+
+    _onIncoming(msg) {
+      if (this.bc) { try { this.bc.postMessage({ __from: this.clientId, type: 'wsx:incoming', data: msg }); } catch(_) {} }
+      for (const fn of this.interceptors.onMessage) { try { const v = fn(msg); if (v && typeof v === 'object') Object.assign(msg, v); } catch(_) {} }
+      if (msg === this.ping.expect || (msg && msg.type === this.ping.expect)) { this._touchPong(); return; }
+      if (msg && msg.type) {
+        if (msg.seq && Number.isFinite(msg.seq) && msg.seq > this.lastServerSeq) this.lastServerSeq = msg.seq;
+        switch (msg.type) {
+          case 'event': if (msg.topic) this._dispatchTopic(msg.topic, msg); this._emit('message', msg); break;
+          case 'req': this._emit('request', msg); break;
+          case 'res': {
+            const pend = this.pending.get(msg.id);
+            if (pend) {
+              clearTimeout(pend.timeout);
+              this.pending.delete(msg.id);
+              msg.ok !== false ? pend.resolve(msg.payload) : pend.reject(new WSXError('request-failed', 'WSX_RESPONSE', 'Server returned an error response', { id: msg.id, payload: msg.payload }));
+            }
+            this._emit('message', msg);
+            break;
+          }
+          default: this._emit('message', msg);
+        }
+      } else {
+        this._emit('message', msg);
+      }
+    }
+  }
+
+  U.WebSocket = WebSocketX;
+  U.WebSocketX = WebSocketX;
+})(window);
+
+
+
+
+
+// twcss.js — Tailwind CDN + CSS Variables + Auto Scaffold + Theme/Language Orders
+(function (w) {
+'use strict';
+
+const M = w.Mishkah = w.Mishkah || {};
+const U = M.utils = M.utils || {};
+
+// ========== Utils ==========
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+const cx = (...xs)=> xs.flat(Infinity).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+
+function normalizeClass(cls) {
+  if (!cls) return '';
+
+  let tokens = cls.split(/\s+/).filter(Boolean);
+
+const groups = {
+  display: /^flex$|^inline-flex$|^grid$|^block$|^inline-block$|^hidden$/,
+  justify: /^justify-(start|end|center|between|around|evenly)$/,
+  items: /^items-(start|end|center|baseline|stretch)$/,
+  content: /^content-(start|end|center|between|around|evenly)$/,
+  textAlign: /^text-(left|right|center|justify|start|end)$/,
+  textSize: /^text-(xs|sm|base|lg|xl|\d+xl)$/,
+  fontWeight: /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/,
+  rounded: /^rounded(-[trbl]{0,2}|-(sm|md|lg|xl|2xl|3xl|full))?$/,
+  shadow: /^shadow(-(sm|md|lg|xl|2xl|inner))?$/,
+  overflow: /^overflow-(auto|hidden|visible|scroll|clip)$/,
+  position: /^(static|fixed|absolute|relative|sticky)$/,
+  inset: /^inset(-[xytrbl])?-.+/,
+  w: /^w-(.+)/,
+  h: /^h-(.+)/,
+  gap: /^gap(-[xy])?-.+/,
+
+  // بدل جروب واحد لـ p… نفصلهم:
+  p:  /^p-(.+)/,
+  px: /^px-(.+)/,
+  py: /^py-(.+)/,
+  pt: /^pt-(.+)/,
+  pr: /^pr-(.+)/,
+  pb: /^pb-(.+)/,
+  pl: /^pl-(.+)/,
+
+  // نفس الفكرة للـ margin إن احتجتها:
+  m:  /^m-(.+)/,
+  mx: /^mx-(.+)/,
+  my: /^my-(.+)/,
+  mt: /^mt-(.+)/,
+  mr: /^mr-(.+)/,
+  mb: /^mb-(.+)/,
+  ml: /^ml-(.+)/,
+};
+
+
+  const lastSeen = {};
+  for (let tok of tokens) {
+    for (let key in groups) {
+      if (groups[key].test(tok)) lastSeen[key] = tok;
+    }
+  }
+
+  let filtered = [];
+  let used = new Set();
+
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    let tok = tokens[i];
+    let keep = true;
+    for (let key in groups) {
+      if (groups[key].test(tok)) {
+        if (used.has(key)) keep = false;
+        else used.add(key);
+      }
+    }
+    if (keep) filtered.unshift(tok);
+  }
+
+  return filtered.join(' ');
+}
+
+
+function tw(strings,...vals){
+const raw = Array.isArray(strings)? String.raw({raw:strings},...vals): strings;
+
+let result =String(raw).trim().replace(/\s+/g,' ');
+
+
+return normalizeClass(result);
+
+
+
+ }
+
+
+
+// ========== Modern Palette (light blues / dark deep-blues + layered surfaces) ==========
+const DEFAULT_PALETTE = {
+  light: {
+    background: 'hsl(214 45% 98%)',
+    foreground: 'hsl(222 47% 12%)',
+    card: 'hsl(0 0% 100%)',
+    'card-foreground': 'hsl(222 47% 12%)',
+    muted: 'hsl(213 32% 94%)',
+    'muted-foreground': 'hsl(215 20% 42%)',
+    primary: 'hsl(222 85% 55%)',
+    'primary-foreground': 'hsl(210 40% 98%)',
+    secondary: 'hsl(214 52% 94%)',
+    'secondary-foreground': 'hsl(222 47% 18%)',
+    accent: 'hsl(214 65% 95%)',
+    'accent-foreground': 'hsl(222 47% 20%)',
+    destructive: 'hsl(0 72% 47%)',
+    'destructive-foreground': 'hsl(0 0% 98%)',
+    border: 'hsl(215 26% 86%)',
+    input: 'hsl(215 26% 86%)',
+    ring: 'hsl(222 85% 55%)',
+    radius: '1rem',
+    shadow: '0 12px 36px rgba(15, 23, 42, 0.12)',
+    'surface-1': 'color-mix(in oklab, var(--background) 88%, white)',
+    'surface-2': 'color-mix(in oklab, var(--background) 82%, white)',
+    'surface-3': 'color-mix(in oklab, var(--background) 76%, white)',
+    'gradient-hero': 'linear-gradient(135deg, hsl(214 80% 97%) 0%, hsl(214 50% 90%) 100%)'
+  },
+  dark: {
+    background: 'hsl(222 47% 9%)',
+    foreground: 'hsl(214 32% 96%)',
+    card: 'hsl(222 42% 12%)',
+    'card-foreground': 'hsl(214 32% 96%)',
+    muted: 'hsl(222 34% 18%)',
+    'muted-foreground': 'hsl(215 18% 72%)',
+    primary: 'hsl(220 90% 66%)',
+    'primary-foreground': 'hsl(222 45% 12%)',
+    secondary: 'hsl(222 28% 20%)',
+    'secondary-foreground': 'hsl(214 32% 96%)',
+    accent: 'hsl(222 32% 24%)',
+    'accent-foreground': 'hsl(214 32% 96%)',
+    destructive: 'hsl(0 70% 52%)',
+    'destructive-foreground': 'hsl(0 0% 98%)',
+    border: 'hsl(217 24% 28%)',
+    input: 'hsl(217 24% 28%)',
+    ring: 'hsl(220 90% 66%)',
+    radius: '1rem',
+    shadow: '0 20px 48px rgba(2, 6, 23, 0.55)',
+    'surface-1': 'color-mix(in oklab, var(--background) 94%, black)',
+    'surface-2': 'color-mix(in oklab, var(--background) 88%, black)',
+    'surface-3': 'color-mix(in oklab, var(--background) 82%, black)',
+    'gradient-hero': 'linear-gradient(135deg, hsl(220 33% 16%) 0%, hsl(220 38% 12%) 100%)'
+  }
+};
+
+// ========== Theme injector ==========
+function ensureStyle(id){ let el=document.getElementById(id); if(!el){ el=document.createElement('style'); el.id=id; document.head.appendChild(el) } return el }
+const MARKDOWN_STYLES = `
+:root {
+  --md-prose-font-family: "Inter", "Cairo", "Noto Sans Arabic", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --md-prose-code-font: "Fira Code", "IBM Plex Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --md-prose-font-size: var(--font-size-body, 1rem);
+  --md-prose-leading: 1.75;
+  --md-prose-flow-space: clamp(1rem, 0.9rem + 0.75vw, 1.65rem);
+  --md-prose-max-width: 72ch;
+  --md-prose-radius: calc(var(--radius, 1rem) * 1.05);
+  --md-prose-elevation: 0 24px 48px -28px rgba(15, 23, 42, 0.28);
+  --md-prose-fg: color-mix(in oklab, var(--foreground) 92%, var(--muted-foreground) 8%);
+  --md-prose-muted: color-mix(in oklab, var(--foreground) 65%, var(--muted-foreground) 35%);
+  --md-prose-heading: color-mix(in oklab, var(--foreground) 96%, var(--primary) 6%);
+  --md-prose-link: color-mix(in oklab, var(--primary) 88%, var(--foreground) 12%);
+  --md-prose-link-hover: color-mix(in oklab, var(--primary) 75%, black 8%);
+  --md-prose-quote-bg: color-mix(in oklab, var(--surface-1) 92%, transparent);
+  --md-prose-quote-border: color-mix(in oklab, var(--primary) 70%, transparent);
+  --md-prose-code-bg: color-mix(in oklab, var(--surface-2) 94%, transparent);
+  --md-prose-code-fg: color-mix(in oklab, var(--foreground) 90%, var(--muted-foreground) 10%);
+  --md-prose-pre-bg: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  --md-prose-pre-border: color-mix(in oklab, var(--border) 70%, transparent);
+  --md-prose-table-border: color-mix(in oklab, var(--border) 75%, transparent);
+  --md-prose-table-header-bg: color-mix(in oklab, var(--surface-2) 55%, var(--primary) 35%);
+  --md-prose-table-header-fg: color-mix(in oklab, var(--primary-foreground) 70%, var(--foreground) 30%);
+  --md-prose-table-row-even: color-mix(in oklab, var(--surface-1) 88%, transparent);
+  --md-prose-hr: color-mix(in oklab, var(--border) 80%, transparent);
+  --md-prose-kbd-bg: color-mix(in oklab, var(--surface-2) 92%, transparent);
+  --md-prose-kbd-border: color-mix(in oklab, var(--border) 65%, transparent);
+}
+.dark {
+  --md-prose-heading: color-mix(in oklab, var(--foreground) 94%, var(--primary) 10%);
+  --md-prose-link-hover: color-mix(in oklab, var(--primary) 72%, white 10%);
+  --md-prose-quote-bg: color-mix(in oklab, var(--surface-1) 70%, transparent);
+  --md-prose-code-bg: color-mix(in oklab, var(--surface-2) 70%, black 14%);
+  --md-prose-pre-bg: color-mix(in oklab, var(--surface-3) 68%, black 18%);
+  --md-prose-pre-border: color-mix(in oklab, var(--border) 60%, transparent);
+  --md-prose-table-header-bg: color-mix(in oklab, var(--surface-2) 45%, var(--primary) 45%);
+  --md-prose-table-row-even: color-mix(in oklab, var(--surface-1) 60%, transparent);
+  --md-prose-kbd-bg: color-mix(in oklab, var(--surface-2) 62%, black 12%);
+}
+.md-prose {
+  position: relative;
+  color: var(--md-prose-fg);
+  font-family: var(--md-prose-font-family);
+  font-size: calc(var(--md-prose-font-size) * var(--user-font-scale, 100) / 100);
+  line-height: var(--md-prose-leading);
+  max-width: var(--md-prose-max-width);
+  width: min(100%, var(--md-prose-max-width));
+  text-wrap: pretty;
+}
+.md-prose > * {
+  margin: 0;
+}
+.md-prose > * + * {
+  margin-top: var(--md-prose-flow-space);
+}
+.md-prose h1,
+.md-prose h2,
+.md-prose h3,
+.md-prose h4,
+.md-prose h5,
+.md-prose h6 {
+  color: var(--md-prose-heading);
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.md-prose h1 {
+  font-size: calc(var(--font-size-heading-1, 2.6rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h2 {
+  font-size: calc(var(--font-size-heading-2, 2.25rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h3 {
+  font-size: calc(var(--font-size-heading-3, 1.75rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h4 {
+  font-size: calc(var(--font-size-scale-xl, 1.35rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h5 {
+  font-size: calc(var(--font-size-scale-lg, 1.1rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose h6 {
+  font-size: calc(var(--font-size-scale-sm, 0.95rem) * var(--user-font-scale, 100) / 100);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+.md-prose p {
+  color: var(--md-prose-fg);
+  font-size: calc(var(--font-size-scale-md, 1rem) * var(--user-font-scale, 100) / 100);
+  line-height: var(--md-prose-leading);
+}
+.md-prose p:has(+ ul),
+.md-prose p:has(+ ol) {
+  margin-bottom: calc(var(--md-prose-flow-space) * 0.5);
+}
+.md-prose ul,
+.md-prose ol {
+  display: grid;
+  gap: calc(var(--md-prose-flow-space) * 0.35);
+  padding-inline-start: 1.35em;
+  margin: 0;
+}
+.md-prose ul ul,
+.md-prose ul ol,
+.md-prose ol ul,
+.md-prose ol ol {
+  margin-top: calc(var(--md-prose-flow-space) * 0.35);
+}
+.md-prose li {
+  color: var(--md-prose-fg);
+  font-size: calc(var(--font-size-scale-md, 1rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose li::marker {
+  color: color-mix(in oklab, var(--primary) 70%, var(--foreground) 30%);
+  font-weight: 600;
+}
+.md-prose blockquote {
+  margin: 0;
+  padding: calc(var(--md-prose-flow-space) * 0.85) calc(var(--md-prose-flow-space));
+  border-radius: var(--md-prose-radius);
+  background: var(--md-prose-quote-bg);
+  border-inline-start: 4px solid var(--md-prose-quote-border);
+  box-shadow: var(--md-prose-elevation);
+  color: var(--md-prose-muted);
+}
+.md-prose blockquote > :first-child {
+  margin-top: 0;
+}
+.md-prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+.md-prose a {
+  color: var(--md-prose-link);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--md-prose-link) 35%, transparent);
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+.md-prose a:hover,
+.md-prose a:focus-visible {
+  color: var(--md-prose-link-hover);
+  border-color: color-mix(in oklab, var(--md-prose-link-hover) 60%, transparent);
+  background: color-mix(in oklab, var(--md-prose-link-hover) 12%, transparent);
+}
+.md-prose code {
+  font-family: var(--md-prose-code-font);
+  background: var(--md-prose-code-bg);
+  color: var(--md-prose-code-fg);
+  padding: 0.15em 0.45em;
+  border-radius: calc(var(--md-prose-radius) * 0.4);
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+}
+.md-prose pre {
+  margin: 0;
+  display: block;
+  background: var(--md-prose-pre-bg);
+  border: 1px solid var(--md-prose-pre-border);
+  border-radius: calc(var(--md-prose-radius) * 0.9);
+  box-shadow: 0 26px 54px -28px rgba(15, 23, 42, 0.35);
+  padding: 1.1rem 1.35rem;
+  overflow: auto;
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+  line-height: 1.65;
+  direction: ltr;
+  text-align: left;
+}
+.md-prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
+}
+.md-prose hr {
+  height: 1px;
+  border: none;
+  background: var(--md-prose-hr);
+  margin: calc(var(--md-prose-flow-space) * 1.2) 0;
+}
+.md-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: calc(var(--md-prose-flow-space) * 1.1) 0;
+  border: 1px solid var(--md-prose-table-border);
+  border-radius: calc(var(--md-prose-radius) * 0.9);
+  overflow: hidden;
+  box-shadow: 0 20px 48px -30px rgba(15, 23, 42, 0.3);
+}
+.md-prose thead {
+  background: var(--md-prose-table-header-bg);
+  color: var(--md-prose-table-header-fg);
+}
+.md-prose th,
+.md-prose td {
+  padding: 0.85em 1.1em;
+  border-bottom: 1px solid var(--md-prose-table-border);
+  text-align: start;
+  font-size: calc(var(--font-size-scale-sm, 0.95rem) * var(--user-font-scale, 100) / 100);
+  vertical-align: top;
+}
+.md-prose tbody tr:nth-child(even) {
+  background: var(--md-prose-table-row-even);
+}
+.md-prose tbody tr:hover {
+  background: color-mix(in oklab, var(--primary) 8%, var(--md-prose-table-row-even) 92%);
+}
+.md-prose strong {
+  font-weight: 700;
+  color: color-mix(in oklab, var(--foreground) 94%, var(--primary) 6%);
+}
+.md-prose em {
+  font-style: italic;
+}
+.md-prose del {
+  opacity: 0.75;
+  text-decoration: line-through;
+}
+.md-prose mark {
+  background: color-mix(in oklab, var(--primary) 25%, var(--surface-1) 75%);
+  padding: 0 0.25em;
+  border-radius: 0.35em;
+}
+.md-prose img,
+.md-prose video,
+.md-prose iframe {
+  max-width: 100%;
+  border-radius: calc(var(--md-prose-radius) * 0.75);
+  box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.25);
+}
+.md-prose figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.md-prose figcaption {
+  font-size: calc(var(--font-size-scale-sm, 0.9rem) * var(--user-font-scale, 100) / 100);
+  color: var(--md-prose-muted);
+  text-align: center;
+}
+.md-prose kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25em 0.55em;
+  border-radius: 0.55em;
+  background: var(--md-prose-kbd-bg);
+  border: 1px solid var(--md-prose-kbd-border);
+  box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.12);
+  font-size: calc(var(--font-size-scale-sm, 0.85rem) * var(--user-font-scale, 100) / 100);
+  font-family: var(--md-prose-code-font);
+  text-transform: uppercase;
+}
+.md-prose details {
+  border: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
+  border-radius: calc(var(--md-prose-radius) * 0.8);
+  background: color-mix(in oklab, var(--surface-1) 90%, transparent);
+  padding: 1rem 1.25rem;
+}
+.md-prose details + details {
+  margin-top: calc(var(--md-prose-flow-space) * 0.5);
+}
+.md-prose summary {
+  cursor: pointer;
+  font-weight: 600;
+  outline: none;
+}
+.md-prose summary::-webkit-details-marker {
+  display: none;
+}
+.md-prose summary::marker {
+  display: none;
+}
+.md-prose summary:focus-visible {
+  outline: 2px solid var(--md-prose-link);
+  outline-offset: 4px;
+}
+.md-prose small {
+  font-size: calc(var(--font-size-scale-xs, 0.8rem) * var(--user-font-scale, 100) / 100);
+  color: var(--md-prose-muted);
+}
+.md-prose sup,
+.md-prose sub {
+  font-size: 0.75em;
+}
+.md-prose sup {
+  vertical-align: super;
+}
+.md-prose sub {
+  vertical-align: sub;
+}
+.md-prose > :first-child {
+  margin-top: 0;
+}
+.md-prose > :last-child {
+  margin-bottom: 0;
+}
+`;
+function ensureMarkdownStyles(){ const el = ensureStyle('twcss-markdown'); if(el.textContent!==MARKDOWN_STYLES) el.textContent = MARKDOWN_STYLES }
+function varBlock(selector, vars){ return selector+'{'+Object.entries(vars).map(([k,v])=>`--${k}:${v};`).join('')+'}' }
+function injectTheme(light, dark){ ensureStyle('twcss-theme').textContent = varBlock(':root', light)+'\n'+varBlock(':root.dark', dark) }
+function setTheme(mode){ document.documentElement.classList.toggle('dark', mode==='dark') }
+function setDir(dir){ document.documentElement.setAttribute('dir', dir||'ltr') }
+
+// ========== Tokens (aliases) ==========
+const TOKENS = {};
+function def(map){ Object.assign(TOKENS, map||{}) }
+function token(name){ return TOKENS[name]||'' }
+
+// ========== Head helpers (Auto scaffold) ==========
+function ensureRoot(id='app'){
+  let el = document.getElementById(id);
+  if(!el){ el=document.createElement('div'); el.id=id; document.body.appendChild(el); }
+  return el;
+}
+function ensureMetaViewport(){
+  if(!document.querySelector('meta[name="viewport"]')){
+    const m=document.createElement('meta'); m.name='viewport'; m.content='width=device-width, initial-scale=1.0'; document.head.appendChild(m);
+  }
+}
+function ensurePreconnectFonts(){
+  if(!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')){
+    const l1=document.createElement('link'); l1.rel='preconnect'; l1.href='https://fonts.googleapis.com'; document.head.appendChild(l1);
+  }
+  if(!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')){
+    const l2=document.createElement('link'); l2.rel='preconnect'; l2.href='https://fonts.gstatic.com'; l2.crossOrigin='anonymous'; document.head.appendChild(l2);
+  }
+}
+function googleFontsURL(fonts){
+  if(!Array.isArray(fonts)||!fonts.length) return null;
+  const families = fonts.map(f=>{
+    const fam = encodeURIComponent(f.family||'');
+    const w = f.weights? `:wght@${f.weights}`: '';
+    return `family=${fam}${w}`;
+  }).join('&');
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+function ensureLink(href, rel='stylesheet', id){
+  if(id && document.getElementById(id)) return;
+  if([].some.call(document.querySelectorAll('link[rel]'), l=> l.href===href && l.rel===rel)) return;
+  const el=document.createElement('link'); if(id) el.id=id; el.rel=rel; el.href=href; document.head.appendChild(el);
+}
+function ensureScript(src, id){
+  return new Promise((resolve)=>{
+    const byId = id && document.getElementById(id);
+    const finalize = ok => { try { resolve(ok); } catch(_){} };
+    const attach = node => {
+      node.addEventListener('load', ()=>{ node.dataset.ready='1'; finalize(true); }, { once:true });
+      node.addEventListener('error', evt=>{
+        node.dataset.ready='0';
+        const auditor = window && window.Mishkah && window.Mishkah.Auditor;
+        if (auditor && typeof auditor.warn === 'function') {
+          auditor.warn('W-TWCSS', 'failed to load Tailwind CDN', { src, error: evt && (evt.error || evt.message || evt.type) });
+        } else if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[Mishkah.twcss] Tailwind CDN failed to load:', src, evt && (evt.error || evt.message || evt.type));
+        }
+        finalize(false);
+      }, { once:true });
+    };
+    if(byId && byId.dataset.ready==='1') return finalize(true);
+    if(byId){ attach(byId); return; }
+    const el=document.createElement('script');
+    if(id) el.id=id;
+    el.src=src;
+    attach(el);
+    document.head.appendChild(el);
+  });
+}
+function scaffold(opts={}){
+  const w = window;
+  const {
+    title, rootId='app',
+    tailwind=true, tailwindSrc='https://cdn.tailwindcss.com',
+    fonts=[ {family:'Inter',weights:'400;600;800'}, {family:'Scheherazade New',weights:'400;700'} ],
+  }=opts;
+
+  if(title) document.title=title;
+  ensureMetaViewport();
+  ensurePreconnectFonts();
+  const href = googleFontsURL(fonts);
+  if(href) ensureLink(href,'stylesheet','gfonts');
+
+  // Tailwind config BEFORE script
+  w.tailwind = w.tailwind || {};
+  w.tailwind.config = Object.assign({ darkMode:'class' }, w.tailwind.config||{});
+
+  const root = ensureRoot(rootId);
+  const ready = tailwind? ensureScript(tailwindSrc,'twcdn'): Promise.resolve(true);
+  return { root, ready };
+}
+
+// ========== Auto ==========
+function auto(db, app, opt={}){
+  // theme vars
+  const env = db.env||{};
+  const user = (env.palette && isObj(env.palette))? env.palette: {};
+  const light = Object.assign({}, DEFAULT_PALETTE.light, user.light||{});
+  const dark  = Object.assign({}, DEFAULT_PALETTE.dark , user.dark ||{});
+  injectTheme(light, dark);
+  ensureMarkdownStyles();
+  setTheme(env.theme==='dark'?'dark':'light');
+  setDir(env.dir || (env.lang==='ar'?'rtl':'ltr'));
+
+  // page scaffold (Auto by default)
+  const useScaffold = opt.pageScaffold!==false;
+  let gate = Promise.resolve(true);
+  if(useScaffold){
+    const s = scaffold({ title: (db.head&&db.head.title)||'Mishkah App', fonts: opt.fonts });
+    gate = s.ready;
+  }
+
+  // wrap mount to wait
+  if(app && app.mount && !app.mount.__twPatched){
+    const _mount = app.mount;
+    app.mount = async function(sel){ await gate; _mount.call(app, sel); };
+    app.mount.__twPatched = true;
+  }
+
+  // orders
+  const orders = {
+    'ui.theme.toggle': {
+      on:['click'], gkeys:['ui:theme-toggle'],
+      handler:(e,ctx)=>{
+        const cur = ctx.getState();
+        const next = cur.env?.theme==='dark'?'light':'dark';
+        setTheme(next);
+        ctx.setState(s=> ({ ...s, env:{ ...(s.env||{}), theme: next } }));
+      }
+    },
+    'ui.lang.ar': {
+      on:['click'], gkeys:['ui:lang-ar'],
+      handler:(e,ctx)=>{ setDir('rtl'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'ar', dir:'rtl'}, i18n:{...(s.i18n||{}), lang:'ar'} })); }
+    },
+    'ui.lang.en': {
+      on:['click'], gkeys:['ui:lang-en'],
+      handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); }
+    }
+  };
+  return { orders };
+}
+
+// ========== Export ==========
+U.twcss = { tw, cx, def, token, auto, setTheme, setDir, PALETTE: DEFAULT_PALETTE };
+
+})(window);
+
+
+
+(function(window){
+  'use strict';
+  const M = window.Mishkah = window.Mishkah || {};
+  const U = M.utils = M.utils || {};
+  
+function getPureJson(data) {
+  if (typeof data !== 'object' || data === null) {
+    console.error("المدخل ليس كائنًا صالحًا.");
     return null;
   }
 
-  function reviveScriptables(target) {
-    if (!target) return target;
-    if (Array.isArray(target)) {
-      for (let i = 0; i < target.length; i += 1) {
-        target[i] = reviveScriptables(target[i]);
-      }
-      return target;
-    }
-    if (typeof target !== 'object') {
-      return target;
-    }
-    if (isFormatterDescriptor(target)) {
-      const fn = resolveFormatter(target);
-      return fn || target;
-    }
-    Object.keys(target).forEach((key) => {
-      const value = target[key];
-      if ((key === 'callback' || key === 'formatter' || key === 'generateLabel' || key === 'label') && isFormatterDescriptor(value)) {
-        const fn = resolveFormatter(value);
-        if (fn) {
-          target[key] = fn;
-          return;
-        }
-      }
-      target[key] = reviveScriptables(value);
-    });
-    return target;
+  function looksLikeKeyValue(str){
+    // أي شيء مثل: en: "x" أو ar: 'y' أو media: {...}
+    return /^\s*[A-Za-z_\u0600-\u06FF][\w\u0600-\u06FF]*\s*:/.test(str);
   }
 
-  function loadScript(url) {
-    if (!url || typeof document === 'undefined') {
-      return Promise.reject(new Error('EMPTY_CHART_SOURCE'));
+  function normalizeLooseJson(input) {
+    let s = String(input).trim();
+
+    // لو يبدأ بمفتاح وليس { أو [ ، لفه داخل {}
+    if (!s.startsWith('{') && !s.startsWith('[') && looksLikeKeyValue(s)) {
+      s = '{' + s + '}';
     }
-    const trimmed = String(url).trim();
-    if (!trimmed) {
-      return Promise.reject(new Error('EMPTY_CHART_SOURCE'));
-    }
-    if (globalObj.Chart && typeof globalObj.Chart === 'function') {
-      return Promise.resolve(globalObj.Chart);
-    }
-    if (scriptPromises.has(trimmed)) {
-      return scriptPromises.get(trimmed);
-    }
-    const promise = new Promise((resolve, reject) => {
-      try {
-        const script = document.createElement('script');
-        script.src = trimmed;
-        script.async = true;
-        script.setAttribute('data-chart-bridge', trimmed);
-        script.onload = () => resolve(globalObj.Chart || null);
-        script.onerror = (err) => reject(err || new Error('CHART_SCRIPT_ERROR'));
-        document.head.appendChild(script);
-      } catch (err) {
-        reject(err);
-      }
-    });
-    const managed = promise.then(
-      (value) => value,
-      (error) => {
-        scriptPromises.delete(trimmed);
-        throw error;
-      }
-    );
-    scriptPromises.set(trimmed, managed);
-    return managed;
+
+    // بدّل الاقتباس الأحادي في القيم إلى مزدوج (بحذر: خارج النصوص المزدوجة بالفعل)
+    // أبسط تقريب: حوّل كل ' إلى " ثم أصلح المزدوج المزدوج لاحقًا
+    // إن كان لديك قيم فيها apostrophes يمكنك تحسين هذا لاحقًا
+    s = s.replace(/'/g, '"');
+
+    // اقتباس المفاتيح غير المُقتبسة (عربية/لاتينية) قبل النقطتين
+    // يلتقط: { en: ..., ar : ... , كلمه: ... }
+    s = s.replace(/([{,\s])([A-Za-z_\u0600-\u06FF][\w\u0600-\u06FF]*)\s*:/g, '$1"$2":');
+
+    // إزالة الفواصل الزائدة قبل الأقواس
+    s = s.replace(/,\s*([}\]])/g, '$1');
+
+    // تطييب الـ backslashes الشاردة فقط حين تسبق علامات خاصة JSON
+    s = s.replace(/\\(?=["\\/bfnrtu])/g, '\\\\');
+
+    return s;
   }
 
-  function tryLoadLibrary() {
-    if (globalObj.Chart && typeof globalObj.Chart === 'function') {
-      return Promise.resolve(globalObj.Chart);
+  function tryParseLoose(str){
+    // المحاولة الأولى مباشرة
+    try { return JSON.parse(str); } catch (_) {}
+    // طبّع ثم جرّب ثانية
+    const normalized = normalizeLooseJson(str);
+    try { return JSON.parse(normalized); }
+    catch (e) {
+      console.error("فشل في التحليل بعد التطبيع:", e.message);
+      // مفيد للتشخيص:
+      // console.log("بعد التطبيع:", normalized);
+      throw e;
     }
-    const sources = [cdnUrl].filter(Boolean);
-    if (fallbackUrl && fallbackUrl !== cdnUrl) {
-      sources.push(fallbackUrl);
-    }
-    let attempt = Promise.reject(new Error('UNINITIALIZED_CHART_LOAD'));
-    sources.forEach((source) => {
-      attempt = attempt.catch(() => loadScript(source).then((lib) => {
-        if (lib && typeof lib === 'function') {
-          return lib;
-        }
-        if (globalObj.Chart && typeof globalObj.Chart === 'function') {
-          return globalObj.Chart;
-        }
-        return Promise.reject(new Error('CHART_GLOBAL_UNAVAILABLE'));
-      }));
-    });
-    return attempt;
   }
 
-  function ensureLibrary() {
-    if (globalObj.Chart && typeof globalObj.Chart === 'function') {
-      return Promise.resolve(globalObj.Chart);
+  function traverse(obj) {
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) obj[i] = traverse(obj[i]);
+      return obj;
     }
-    if (!libraryPromise) {
-      libraryPromise = tryLoadLibrary().catch((err) => {
-        if (M.Auditor && typeof M.Auditor.warn === 'function') {
-          M.Auditor.warn('W-CHART', 'تعذر تحميل مكتبة Chart.js', { error: String(err) });
-        }
-        libraryPromise = null;
-        return null;
-      });
-    }
-    return libraryPromise.then((lib) => {
-      if (lib && typeof lib === 'function') {
-        return lib;
-      }
-      if (globalObj.Chart && typeof globalObj.Chart === 'function') {
-        return globalObj.Chart;
-      }
-      return null;
-    });
-  }
 
-  function encodePayload(payload) {
-    return stableStringify(payload || {});
-  }
-
-  function buildPayload(type, data, options) {
-    const safeData = (data && typeof data === 'object') ? sanitizeValue(data, ['data']) : { labels: [], datasets: [] };
-    if (!Array.isArray(safeData.datasets)) safeData.datasets = [];
-    const baseOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'bottom',
-          labels: {
-            usePointStyle: true,
-            boxWidth: 12,
-            boxHeight: 12
+    for (let key in obj) {
+      const v = obj[key];
+      if (typeof v === 'string') {
+        const str = v.trim();
+        // فقط لو يبدو JSON/JS-Object داخل نص
+        if (
+          (str.startsWith('{') && str.endsWith('}')) ||
+          (str.startsWith('[') && str.endsWith(']')) ||
+          looksLikeKeyValue(str) // مثل: en:"x", ar:"y"
+        ) {
+          try {
+            obj[key] = traverse(tryParseLoose(str));
+          } catch (e) {
+            console.warn(`فشل في تحليل الحقل '${key}': ${e.message}`);
+            // اتركه كسلسلة كما هو، أو عيّنه null حسب رغبتك:
+            // obj[key] = null;
           }
-        }
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { color: 'rgba(71,85,105,0.75)' }
-        },
-        y: {
-          grid: { color: 'rgba(148,163,184,0.18)' },
-          ticks: { color: 'rgba(71,85,105,0.75)', beginAtZero: true }
-        }
-      },
-      elements: {
-        line: { borderWidth: 2, tension: 0.4 },
-        point: { radius: 3, hoverRadius: 6 }
-      }
-    };
-    const safeOptions = (options && typeof options === 'object') ? sanitizeValue(options, ['options']) : {};
-    const merged = deepMerge(baseOptions, safeOptions);
-    return { type, data: safeData, options: merged };
-  }
-
-  function instantiate(node, signature, payload, ChartLib) {
-    if (!node || !ChartLib) return null;
-    const ctx = node.getContext ? node.getContext('2d') : null;
-    if (!ctx) return null;
-    const current = registry.get(node);
-    if (current && current.signature === signature) {
-      return current.instance;
-    }
-    if (current && current.instance && typeof current.instance.destroy === 'function') {
-      try { current.instance.destroy(); } catch (_err) { /* ignore */ }
-    }
-    try {
-      const config = {
-        type: payload.type,
-        data: clone(payload.data),
-        options: clone(payload.options)
-      };
-      reviveScriptables(config.data);
-      reviveScriptables(config.options);
-      const chart = new ChartLib(ctx, config);
-      registry.set(node, { instance: chart, signature });
-      return chart;
-    } catch (err) {
-      if (M.Auditor && typeof M.Auditor.error === 'function') {
-        M.Auditor.error('E-CHART', 'فشل إنشاء الرسم البياني', { error: String(err) });
-      }
-      return null;
-    }
-  }
-
-  function hydrateNow(root) {
-    if (typeof document === 'undefined') return;
-    const scope = (!root || root === document) ? document : root;
-    const nodes = scope.querySelectorAll ? scope.querySelectorAll('[data-m-chart]') : [];
-    if (!nodes.length) return;
-    ensureLibrary().then((ChartLib) => {
-      if (!ChartLib) return;
-      nodes.forEach((node) => {
-        const raw = node.getAttribute('data-m-chart');
-        if (!raw) return;
-        const payload = parseSafe(raw, null);
-        if (!payload || !payload.type) return;
-        instantiate(node, raw, payload, ChartLib);
-      });
-    });
-  }
-
-  function scheduleHydrate(root, attempt = 0) {
-    if (typeof window === 'undefined') return;
-    const key = root || document;
-    if (scheduled.has(key)) return;
-    scheduled.add(key);
-    const run = () => {
-      scheduled.delete(key);
-      const scope = (!root || root === document) ? document : root;
-      const nodes = scope && scope.querySelectorAll ? scope.querySelectorAll('[data-m-chart]') : [];
-      if (!nodes || nodes.length === 0) {
-        if (attempt < 4) {
-          scheduleHydrate(root, attempt + 1);
-        }
-        return;
-      }
-      hydrateNow(root || document);
-    };
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(run);
-    } else {
-      setTimeout(run, 16);
-    }
-  }
-
-  function bindApp(app, mount) {
-    if (!app || typeof document === 'undefined') return null;
-    const resolveRoot = () => {
-      if (typeof mount === 'string') {
-        return document.querySelector(mount) || document;
-      }
-      return mount || document;
-    };
-    const target = resolveRoot();
-
-    let observer = null;
-    function watchForCharts(root) {
-      if (typeof MutationObserver === 'undefined') return;
-      if (observer || !root || root === document) return;
-      if (root.querySelector && root.querySelector('[data-m-chart]')) return;
-      observer = new MutationObserver(() => {
-        if (!root.querySelector('[data-m-chart]')) return;
-        if (observer) {
-          observer.disconnect();
-          observer = null;
-        }
-        scheduleHydrate(root);
-      });
-      observer.observe(root, { childList: true, subtree: true });
-    }
-
-    scheduleHydrate(target);
-    watchForCharts(target);
-
-    const original = app.rebuild;
-    app.rebuild = function patchedRebuild() {
-      const result = original.apply(app, arguments);
-      const root = resolveRoot();
-      scheduleHydrate(root);
-      watchForCharts(root);
-      return result;
-    };
-    return {
-      unbind() {
-        app.rebuild = original;
-        if (observer) {
-          observer.disconnect();
-          observer = null;
-        }
-      }
-    };
-  }
-
-  function setCDN(url) {
-    if (typeof url === 'string' && url.trim()) {
-      cdnUrl = url.trim();
-      libraryPromise = null;
-    }
-  }
-
-  function setFallback(url) {
-    if (typeof url === 'string' && url.trim()) {
-      fallbackUrl = url.trim();
-      libraryPromise = null;
-    }
-  }
-
-  const formatters = {
-    percent: (digits = 0, options = {}) => ({ __chartFormatter: 'percent', digits, suffix: typeof options.suffix === 'string' ? options.suffix : '%', scale: Number.isFinite(options.scale) ? options.scale : 1 }),
-    currency: (currency = 'USD', options = {}) => ({ __chartFormatter: 'currency', currency, locale: options.locale, digits: Number.isFinite(options.digits) ? options.digits : 0 }),
-    compact: (digits = 1, options = {}) => ({ __chartFormatter: 'compact', digits, locale: options.locale })
-  };
-
-  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN, setFallback, formatters };
-})();
-
-function ChartCanvas({ type='line', data, options, attrs={}, height=320, description, id }) {
-  const payload = ChartBridge.buildPayload(type, data, options);
-  const baseClass = cx('mishkah-chart-canvas', tw`block w-full`);
-  const canvasAttrs = withClass(attrs, baseClass);
-  canvasAttrs['data-m-chart'] = ChartBridge.encodePayload(payload);
-  canvasAttrs['data-chart-type'] = type;
-  if (description && !('aria-label' in canvasAttrs)) {
-    canvasAttrs['aria-label'] = description;
-  }
-  if (id && !('id' in canvasAttrs)) {
-    canvasAttrs.id = id;
-  }
-  const style = canvasAttrs.style ? String(canvasAttrs.style) + ';' : '';
-  if (height != null && height !== false) {
-    if (!('height' in canvasAttrs)) canvasAttrs.height = height;
-    canvasAttrs.style = `${style}min-height:${height}px;`; // keep intrinsic height
-  } else if (style) {
-    canvasAttrs.style = style;
-  }
-  if (!('role' in canvasAttrs)) {
-    canvasAttrs.role = 'img';
-  }
-  return h.Embedded.Canvas({ attrs: canvasAttrs });
-}
-
-function createChartFactory(defaultType) {
-  return (config={}) => ChartCanvas(Object.assign({ type: defaultType }, config));
-}
-
-const ChartAPI = Object.assign({
-  Canvas: ChartCanvas,
-  factory: createChartFactory,
-  Line: createChartFactory('line'),
-  Bar: createChartFactory('bar'),
-  Doughnut: createChartFactory('doughnut'),
-  Pie: createChartFactory('pie'),
-  Radar: createChartFactory('radar'),
-  PolarArea: createChartFactory('polarArea')
-}, ChartBridge);
-
-ChartAPI.formatters = Object.assign({}, ChartBridge.formatters);
-
-UI.Chart = ChartAPI;
-UI.Charts = ChartAPI;
-
-
-UI.AppRoot = ({ shell, overlays }) =>
-  h.Containers.Div({ attrs:{ class: tw`${token('surface')} flex h-screen min-h-screen flex-col overflow-hidden` }}, [ shell, ...(overlays||[]) ]);
-
-UI.Toolbar = ({ left=[], right=[] }) => {
-  const leftContent = Array.isArray(left) ? left.filter(Boolean) : [];
-  const rightContent = Array.isArray(right) ? right.filter(Boolean) : [];
-  return h.Containers.Header({ attrs:{ class: tw`${token('toolbar')}`, style:'--toolbar-height:3.5rem;' }}, [
-    h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section')}` }}, leftContent),
-    h.Containers.Div({ attrs:{ class: tw`${token('toolbar/section-end')}` }}, rightContent),
-  ]);
-};
-
-UI.ToolbarGroup = ({ attrs={}, label }, children=[]) => {
-  const content = [];
-  if(label){
-    content.push(h.Text.Span({ attrs:{ class: tw`${token('toolbar/group-label')} mb-1` }}, [label]));
-  }
-  const bodyChildren = (Array.isArray(children) ? children : [children]).filter(Boolean);
-  if(bodyChildren.length){
-    content.push(h.Containers.Div({ attrs:{ class: tw`${token('hstack')} flex-nowrap` }}, bodyChildren));
-  }
-  return h.Containers.Div({ attrs: withClass(attrs, cx('m-toolbar-group', token('toolbar/group'))) }, content);
-};
-
-UI.Footerbar = ({ left=[], right=[] }) =>
-  h.Containers.Footer({ attrs:{ class: tw`${token('footerbar')}` }}, [
-    h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, left),
-    h.Containers.Div({ attrs:{ class: tw`${token('hstack')}` }}, right),
-  ]);
-
-UI.HStack  = ({ attrs }, ch)=> h.Containers.Div({ attrs: withClass(attrs, token('hstack')) }, ch||[]);
-UI.VStack  = ({ attrs }, ch)=> h.Containers.Div({ attrs: withClass(attrs, token('vstack')) }, ch||[]);
-UI.Divider = ()=> h.Containers.Div({ attrs:{ class: tw`${token('divider')}` }});
-
-UI.Button = ({ attrs={}, variant='soft', size='md' }, children)=>
-  h.Forms.Button({ attrs: withClass(attrs, cx(token('btn'), token(`btn/${variant}`), token(`btn/${size}`))) }, children||[]);
-
-UI.Switcher = ({ attrs={}, value, options=[] })=>{
-  const rootAttrs = Object.assign({}, attrs);
-  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} ui-switcher` : 'ui-switcher';
-  const items = (options || []).map((opt, idx)=>{
-    if (!opt) return null;
-    const active = opt.value === value;
-    const optAttrs = Object.assign({ key: opt.key || `switch-opt-${idx}` }, opt.attrs || {});
-    if (opt.gkey) optAttrs.gkey = opt.gkey;
-    if (opt.value != null) optAttrs['data-value'] = opt.value;
-    if (opt.title) optAttrs.title = opt.title;
-    const baseClass = optAttrs.class ? String(optAttrs.class) : '';
-    optAttrs.class = `${baseClass} ${active ? 'active' : ''}`.trim();
-    optAttrs.type = optAttrs.type || 'button';
-    return h.Forms.Button({ attrs: optAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
-  }).filter(Boolean);
-  return h.Containers.Div({ attrs: rootAttrs }, items);
-};
-
-UI.ThemeToggleIcon = ({ theme='light', attrs={} })=>{
-  const isDark = theme === 'dark';
-  const icon = isDark ? '🌙' : '🌞';
-  const title = isDark ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي';
-  const buttonAttrs = Object.assign({}, attrs, {
-    gkey: attrs.gkey || 'ui:theme-toggle',
-    title,
-    'aria-pressed': isDark ? 'true' : 'false',
-    class: cx(token('btn/icon'), 'text-lg', isDark && 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm')
-  });
-  buttonAttrs.type = buttonAttrs.type || 'button';
-  return UI.Button({ attrs: buttonAttrs, variant:'ghost', size:'sm' }, [icon]);
-};
-
-UI.LanguageSwitch = ({ lang='ar', attrs={} })=>{
-  const isAr = lang === 'ar';
-  const isEn = lang === 'en';
-  const rootAttrs = Object.assign({}, attrs);
-  const baseClass = 'inline-flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-1)]/80 p-1 shadow-inner';
-  rootAttrs.class = rootAttrs.class ? tw(cx(baseClass, rootAttrs.class)) : tw(baseClass);
-  const makeAttrs = (active, value)=>({
-    type:'button',
-    gkey: value === 'ar' ? 'ui:lang-ar' : 'ui:lang-en',
-    title: value === 'ar' ? 'العربية' : 'English',
-    'aria-pressed': active ? 'true' : 'false',
-    class: tw(cx(
-      'inline-flex h-7 min-w-[2.75rem] items-center justify-center rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors',
-      active
-        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm'
-        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-    ))
-  });
-  const arButton = h.Forms.Button({ attrs: makeAttrs(isAr, 'ar') }, ['AR']);
-  const enButton = h.Forms.Button({ attrs: makeAttrs(isEn, 'en') }, ['EN']);
-  return h.Containers.Div({ attrs: rootAttrs }, [arButton, enButton]);
-};
-
-UI.SegmentedSwitch = ({ attrs={}, value, options=[] })=>{
-  const rootAttrs = Object.assign({}, attrs);
-  rootAttrs.class = rootAttrs.class ? `${rootAttrs.class} segmented-switch` : 'segmented-switch';
-  const buttons = (options || []).map((opt, idx)=>{
-    if (!opt) return null;
-    const active = opt.value === value;
-    const btnAttrs = Object.assign({ type:'button', key: opt.key || `segment-${idx}` }, opt.attrs || {});
-    if (!('type' in btnAttrs)) btnAttrs.type = 'button';
-    if (opt.gkey && !('gkey' in btnAttrs)) btnAttrs.gkey = opt.gkey;
-    if (opt.value != null) btnAttrs['data-value'] = opt.value;
-    if (opt.title && !('title' in btnAttrs)) btnAttrs.title = opt.title;
-    btnAttrs['aria-pressed'] = active ? 'true' : 'false';
-    const baseClass = btnAttrs.class ? `${btnAttrs.class} ` : '';
-    btnAttrs.class = `${baseClass}segmented-switch__option${active ? ' is-active' : ''}`;
-    return h.Forms.Button({ attrs: btnAttrs }, [opt.label != null ? opt.label : String(opt.value ?? '')]);
-  }).filter(Boolean);
-  return h.Containers.Div({ attrs: rootAttrs }, buttons);
-};
-
-UI.Card = ({ title, description, content, footer, variant='card', attrs={} })=>{
-  const root = token(variant)||token('card');
-  return h.Containers.Section({ attrs: withClass(attrs, root) }, [
-    (title||description) && h.Containers.Div({ attrs:{ class: tw`${token('card/header')}` }}, [
-      title && h.Text.H3({ attrs:{ class: tw`${token('card/title')}` }}, [title]),
-      description && h.Text.P({ attrs:{ class: tw`${token('card/desc')}` }}, [description])
-    ]),
-    content && h.Containers.Div({ attrs:{ class: tw`${token('card/content')}` }}, [content]),
-    footer && h.Containers.Div({ attrs:{ class: tw`${token('card/footer')}` }}, [footer]),
-  ].filter(Boolean))
-};
-
-const SWEET_TONES = {
-  info: {
-    ring: 'shadow-[0_24px_48px_-24px_rgba(59,130,246,0.45)] border-[color-mix(in oklab,var(--border) 55%, transparent)]',
-    gradient: 'linear-gradient(145deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05))'
-  },
-  success: {
-    ring: 'shadow-[0_24px_48px_-24px_rgba(16,185,129,0.55)] border-[rgba(16,185,129,0.25)]',
-    gradient: 'linear-gradient(145deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))'
-  },
-  warning: {
-    ring: 'shadow-[0_24px_48px_-24px_rgba(234,179,8,0.45)] border-[rgba(234,179,8,0.22)]',
-    gradient: 'linear-gradient(145deg, rgba(234,179,8,0.18), rgba(234,179,8,0.08))'
-  },
-  danger: {
-    ring: 'shadow-[0_24px_52px_-24px_rgba(239,68,68,0.55)] border-[rgba(239,68,68,0.28)]',
-    gradient: 'linear-gradient(145deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08))'
-  }
-};
-
-UI.SweetNotice = ({
-  attrs={},
-  tone='info',
-  icon,
-  title,
-  message,
-  hint,
-  actions=[],
-  footer
-})=>{
-  const toneMeta = SWEET_TONES[tone] || SWEET_TONES.info;
-  const rootAttrs = withClass(attrs, cx(
-    'relative overflow-hidden rounded-[var(--radius)] border px-6 py-8 text-center space-y-4 glass-panel sweet-notice-card',
-    toneMeta.ring
-  ));
-  const style = attrs && attrs.style ? String(attrs.style) + ';' : '';
-  rootAttrs.style = style + (toneMeta.gradient ? `background:${toneMeta.gradient};` : '');
-
-  const layers = [
-    h.Containers.Div({ attrs:{ class: tw`pointer-events-none absolute inset-0 opacity-70` }}, [
-      h.Containers.Div({ attrs:{ class: tw`absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.25),transparent_60%)]` }})
-    ])
-  ];
-
-  const body = h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-col items-center gap-3` }}, [
-    icon ? h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]) : null,
-    title ? h.Text.H3({ attrs:{ class: tw`text-2xl font-bold tracking-tight` }}, [title]) : null,
-    message ? h.Text.P({ attrs:{ class:'game-info-text text-center' }}, [message]) : null,
-    hint ? h.Text.P({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [hint]) : null
-  ].filter(Boolean));
-
-  const actionRow = actions && actions.length
-    ? h.Containers.Div({ attrs:{ class: tw`relative z-10 flex flex-wrap items-center justify-center gap-3` }}, actions)
-    : null;
-
-  const footnote = footer
-    ? h.Text.P({ attrs:{ class: tw`relative z-10 text-xs text-[var(--muted-foreground)]` }}, [footer])
-    : null;
-
-  const card = h.Containers.Section({ attrs: rootAttrs }, [...layers, body, actionRow, footnote].filter(Boolean));
-  return h.Containers.Div({ attrs:{ class:'sweet-notice-overlay' }}, [card]);
-};
-
-UI.Input    = ({ attrs }) => h.Inputs.Input({ attrs: withClass(attrs, token('input')) });
-UI.Textarea = ({ attrs }) => h.Inputs.Textarea({ attrs: withClass(attrs, token('input')) });
-UI.Select   = ({ attrs={}, options=[] }) => {
-  const selectAttrs = withClass(attrs, token('input'));
-  const hasValue = Object.prototype.hasOwnProperty.call(selectAttrs, 'value') || Object.prototype.hasOwnProperty.call(selectAttrs, 'defaultValue');
-  const rawCurrentValue = hasValue
-    ? (Object.prototype.hasOwnProperty.call(selectAttrs, 'value') ? selectAttrs.value : selectAttrs.defaultValue)
-    : undefined;
-  const normalizedCurrentValue = rawCurrentValue == null ? undefined : String(rawCurrentValue);
-  return h.Inputs.Select({ attrs: selectAttrs },
-    options.map((o,i)=>{
-      const optionValue = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'value')) ? o.value : o;
-      const optionLabel = (o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'label')) ? o.label : (o == null ? '' : String(o));
-      const optionAttrs = { value: optionValue, key:`opt-${i}` };
-      const optionHasSelected = !!(o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, 'selected'));
-      if(o && typeof o === 'object'){
-        if('disabled' in o) optionAttrs.disabled = !!o.disabled;
-        if(optionHasSelected) optionAttrs.selected = !!o.selected;
-      }
-      if(normalizedCurrentValue !== undefined && optionValue != null && normalizedCurrentValue === String(optionValue) && !optionHasSelected){
-        optionAttrs.selected = true;
-      }
-      return h.Inputs.Option({ attrs: optionAttrs }, [optionLabel]);
-    })
-  );
-};
-UI.Label    = ({ attrs, forId, text }) => {
-  const a=Object.assign({},attrs||{}); if(forId) a.for=forId;
-  return h.Forms.Label({ attrs: withClass(a, token('label')) }, [text||'']);
-};
-UI.NumpadDecimal = ({ attrs={}, value='', placeholder='0', gkey, confirmLabel='OK', confirmAttrs={}, title, inputAttrs={}, allowDecimal=true, masked=false, maskChar='•', maskLength })=>{
-  const rootAttrs = withClass(attrs, token('numpad/root'));
-  rootAttrs['data-numpad-root'] = 'decimal';
-  if(!allowDecimal) rootAttrs['data-numpad-no-decimal'] = 'true';
-  const current = value === undefined || value === null ? '' : String(value);
-  const placeholderLength = Math.max(maskLength || (current ? current.length : 0) || 0, 4);
-  const effectivePlaceholder = masked
-    ? (placeholder && placeholder.length ? placeholder : maskChar.repeat(placeholderLength))
-    : (placeholder || '0');
-  const displayValue = masked
-    ? (current ? maskChar.repeat(current.length) : effectivePlaceholder)
-    : (current !== '' ? current : effectivePlaceholder);
-  const hiddenAttrs = Object.assign({
-    type: masked ? 'password' : 'text',
-    value: current,
-    'data-numpad-input':'true',
-    class: tw`hidden`
-  }, inputAttrs || {});
-  if(gkey) hiddenAttrs.gkey = gkey;
-  const digits = ['7','8','9','4','5','6','1','2','3','0','.'];
-  const confirmVariant = confirmAttrs.variant || 'solid';
-  const confirmSize = confirmAttrs.size || 'md';
-  const confirmButtonAttrs = Object.assign({}, confirmAttrs || {});
-  delete confirmButtonAttrs.variant;
-  delete confirmButtonAttrs.size;
-  if(!('data-numpad-confirm' in confirmButtonAttrs)) confirmButtonAttrs['data-numpad-confirm'] = 'true';
-  if(!('gkey' in confirmButtonAttrs)) confirmButtonAttrs.gkey = 'ui:numpad:decimal:confirm';
-  confirmButtonAttrs.type = confirmButtonAttrs.type || 'button';
-  confirmButtonAttrs.class = tw(cx(
-    token('btn'),
-    token(`btn/${confirmVariant}`),
-    token(`btn/${confirmSize}`),
-    'flex-1 h-16 rounded-2xl text-lg font-semibold transition-transform duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0',
-    token('numpad/confirm'),
-    confirmButtonAttrs.class || ''
-  ));
-  return h.Containers.Div({ attrs: rootAttrs }, [
-    h.Inputs.Input({ attrs: hiddenAttrs }),
-    title ? h.Text.Span({ attrs:{ class: tw`text-sm font-medium` }}, [title]) : null,
-    h.Containers.Div({ attrs:{ class: tw`${token('numpad/display')}`, 'aria-live':'polite' }}, [displayValue || effectivePlaceholder || '']),
-    h.Containers.Div({ attrs:{ class: tw`${token('numpad/grid')}` }},
-      digits.map(key=>{
-        const btnAttrs = { type:'button', gkey:'ui:numpad:decimal:key', 'data-numpad-key':key };
-        let btnClass = token('numpad/key');
-        if(key === '.' && !allowDecimal){
-          btnAttrs.disabled = true;
-          btnClass = token('numpad/key-disabled');
-        }
-        return h.Forms.Button({ attrs: withClass(btnAttrs, btnClass) }, [
-          h.Text.Span({}, [key])
-        ]);
-      })
-    ),
-    h.Containers.Div({ attrs:{ class: tw`${token('numpad/actions')}` }}, [
-      h.Forms.Button({ attrs: withClass({ type:'button', gkey:'ui:numpad:decimal:clear', 'data-numpad-clear':'true' }, token('numpad/utility')) }, ['C']),
-      h.Forms.Button({ attrs: withClass({ type:'button', gkey:'ui:numpad:decimal:backspace', 'data-numpad-backspace':'true' }, token('numpad/utility')) }, ['⌫']),
-      h.Forms.Button({ attrs: confirmButtonAttrs }, [confirmLabel || 'OK'])
-    ])
-  ].filter(Boolean));
-};
-UI.Field = ({ id, label, control, helper }) =>
-  UI.VStack({ attrs:{ class: tw`gap-1` }}, [
-    label && UI.Label({ forId:id, text:label }),
-    control,
-    helper && h.Text.Span({ attrs:{ class: tw`text-xs text-[var(--muted-foreground)]` }}, [helper])
-  ]);
-
-UI.Badge = ({ attrs={}, variant='badge', leading, trailing, text })=>{
-  const parts = [];
-  if (leading) parts.push(h.Text.Span({}, [leading]));
-  if (text) parts.push(typeof text==='string'? text: text);
-  if (trailing) parts.push(h.Text.Span({}, [trailing]));
-  return h.Text.Span({ attrs: withClass(attrs, token(variant)||token('badge')) }, parts);
-};
-
-UI.Chip = ({ label, active=false, attrs={} })=>{
-  const cls = cx(token('chip'), active? token('chip/active'): '');
-  const buttonAttrs = Object.assign({ type:'button' }, attrs||{});
-  if(attrs && Object.prototype.hasOwnProperty.call(attrs, 'gkey')){
-    buttonAttrs.gkey = attrs.gkey;
-  }
-  return h.Forms.Button({ attrs: withClass(buttonAttrs, cls) }, [label]);
-};
-
-UI.ChipGroup = ({ items=[], activeId, attrs={} })=>
-  h.Containers.Div({ attrs: withClass(attrs, tw`flex flex-wrap gap-2`) },
-    items.map((it)=>{
-      const baseAttrs = Object.assign({ 'data-chip-id': it.id }, it.attrs || {});
-      if(!('gkey' in baseAttrs) && it.gkey){
-        baseAttrs.gkey = it.gkey;
-      }
-      return UI.Chip({
-        label: it.label,
-        active: it.id===activeId,
-        attrs: baseAttrs
-      });
-    })
-  );
-
-UI.ScrollArea = ({ attrs={}, children=[] })=>
-  h.Containers.Div({ attrs: withClass(attrs, token('scrollarea')) }, children);
-
-UI.SearchBar = ({ value='', placeholder='', attrs={}, gkeySubmit, onInput, leading='🔍', trailing=[] })=>{
-  const inputAttrs = withClass({
-    type:'search',
-    placeholder,
-    value,
-    gkey:onInput
-  }, tw`bg-transparent border-0 focus:outline-none focus:ring-0 flex-1 text-sm`);
-  const formAttrs = withClass(attrs||{}, tw`flex items-center gap-2 rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 shadow-sm`);
-  if(gkeySubmit) formAttrs.gkey = gkeySubmit;
-  return h.Forms.Form({ attrs: formAttrs }, [
-    leading && h.Text.Span({ attrs:{ class: tw`text-lg opacity-60` }}, [leading]),
-    h.Inputs.Input({ attrs: inputAttrs }),
-    ...(trailing||[])
-  ]);
-};
-
-UI.EmptyState = ({ icon='✨', title, description, actions=[] })=>
-  h.Containers.Div({ attrs:{ class: tw`${token('empty')}` }}, [
-    icon && h.Text.Span({ attrs:{ class: tw`text-4xl` }}, [icon]),
-    title && h.Text.H3({ attrs:{ class: tw`text-lg font-semibold` }}, [title]),
-    description && h.Text.P({ attrs:{ class: tw`${token('muted')} max-w-sm` }}, [description]),
-    actions && actions.length ? h.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 justify-center pt-2` }}, actions) : null
-  ].filter(Boolean));
-
-UI.List = ({ attrs={}, children=[] })=>
-  h.Containers.Div({ attrs: withClass(attrs, token('list')) }, children);
-
-UI.ListItem = ({ leading, content, trailing, attrs={} })=>
-  h.Containers.Div({ attrs: withClass(attrs, token('list/item')) }, [
-    leading && h.Containers.Div({ attrs:{ class: tw`${token('list/item-leading')}` }}, [leading]),
-    h.Containers.Div({ attrs:{ class: tw`${token('list/item-content')}` }}, toChildren(content)),
-    trailing && h.Containers.Div({ attrs:{ class: tw`${token('list/item-trailing')}` }}, toChildren(trailing))
-  ].filter(Boolean));
-
-function toChildren(node){
-  if(node==null) return [];
-  return Array.isArray(node)? node: [node];
-}
-
-UI.QtyStepper = ({ value=1, gkeyDec, gkeyInc, gkeyEdit, size='sm', dataId })=>
-  h.Containers.Div({ attrs:{ class: tw`flex items-center gap-1 bg-[var(--surface-2)] rounded-full px-1 py-1` }}, [
-    UI.Button({ attrs:{ gkey:gkeyDec, 'data-line-id':dataId, class: tw`w-8 h-8` }, size }, ['−']),
-    h.Forms.Button({ attrs:{ type:'button', gkey:gkeyEdit, 'data-line-id':dataId, class: tw`min-w-[48px] text-center text-sm font-semibold` }}, [String(value)]),
-    UI.Button({ attrs:{ gkey:gkeyInc, 'data-line-id':dataId, class: tw`w-8 h-8` }, size }, ['+'])
-  ]);
-
-UI.PriceText = ({ amount=0, currency, locale })=>{
-  let formatted = amount;
-  try {
-    const opts = currency ? { style:'currency', currency } : { style:'decimal', minimumFractionDigits:2, maximumFractionDigits:2 };
-    formatted = new Intl.NumberFormat(locale || document.documentElement.lang || 'ar', opts).format(Number(amount)||0);
-  } catch(_) {
-    formatted = (Number(amount)||0).toFixed(2);
-    if(currency) formatted += ' ' + currency;
-  }
-  return h.Text.Span({ attrs:{ class: tw`font-semibold` }}, [formatted]);
-};
-
-UI.Segmented = ({ items=[], activeId, attrs={} })=>
-  h.Containers.Div({ attrs: withClass(attrs, tw`inline-flex items-center gap-1 rounded-full bg-[var(--surface-2)] p-1`) },
-    items.map(it=>{
-      const active = it.id===activeId;
-      const segmentAttrs = Object.assign({ 'data-segment-id': it.id }, it.attrs || {});
-      if(!('gkey' in segmentAttrs) && it.gkey){
-        segmentAttrs.gkey = it.gkey;
-      }
-      segmentAttrs.class = tw`${segmentAttrs.class||''} ${active? token('chip/active'): ''}`.trim();
-      return UI.Button({
-        attrs: segmentAttrs,
-        variant: active? 'solid': 'ghost', size:'sm'
-      }, [it.label]);
-    })
-  );
-
-UI.StatCard = ({ title, value, meta, footer })=>
-  h.Containers.Div({ attrs:{ class: tw`${token('stat/card')}` }}, [
-    title && h.Text.Span({ attrs:{ class: tw`text-sm ${token('muted')}` }}, [title]),
-    value && h.Text.Span({ attrs:{ class: tw`${token('stat/value')}` }}, [value]),
-    meta && h.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [meta]),
-    footer && h.Containers.Div({ attrs:{ class: tw`pt-2 border-t border-dashed border-[var(--border)] mt-2 text-xs flex items-center gap-2` }}, footer)
-  ].filter(Boolean));
-
-UI.Tabs = ({ items=[], activeId, gkey='ui:tabs:select' })=>{
-  const header = h.Containers.Div({ attrs:{ class: tw`${token('tabs/row')}` }}, items.map(it=>{
-    const active = it.id===activeId;
-    return UI.Button({
-      attrs:{ gkey, 'data-tab-id':it.id, class: tw`${active? token('tabs/btn-active'): token('tabs/btn')}` },
-      variant:'ghost', size:'sm'
-    }, [it.label]);
-  }));
-  const panels = items.map(it=>{
-    const hidden = it.id!==activeId;
-    return h.Containers.Section({ attrs:{ class: tw`${hidden?'hidden':''}`, key:`panel-${it.id}` }}, [
-      typeof it.content==='function'? it.content(): it.content
-    ]);
-  });
-  return UI.VStack({}, [header, ...panels]);
-};
-
-UI.Drawer = ({ open=false, side='start', header, content, closeGkey='ui:drawer:close', panelAttrs={} })=>{
-  if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
-  const isRTL = (document.documentElement.getAttribute('dir')||'ltr')==='rtl';
-  const start = isRTL? 'right-0':'left-0';
-  const end   = isRTL? 'left-0':'right-0';
-  const place = side==='start'? start: end;
-  return h.Containers.Div({ attrs:{ class: tw`${token('modal-root')}` }}, [
-    h.Containers.Div({ attrs:{ class: tw`absolute inset-0`, gkey:closeGkey }}, [
-      h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}` }})
-    ]),
-    h.Containers.Aside({ attrs: withClass(panelAttrs, tw`${token('drawer/side')} ${place}`) }, [
-      h.Containers.Div({ attrs:{ class: tw`${token('drawer/body')}` }}, [ header, content ])
-    ])
-  ]);
-};
-
-UI.Modal = ({ open=false, title, description, content, actions=[], size='md', closeGkey='ui:modal:close', sizeKey=null, sizeOptions=['sm','md','lg','xl','full'], zIndex=null })=>{
-  if(!open) return h.Containers.Div({ attrs:{ class: tw`hidden` }});
-  const uid = Math.random().toString(36).slice(2,8);
-  const titleId = title ? `modal-${uid}-title` : undefined;
-  const descriptionId = description ? `modal-${uid}-desc` : undefined;
-  const normalizedSize = typeof size === 'string' && size ? size : 'md';
-  const optionList = Array.isArray(sizeOptions) && sizeOptions.length ? sizeOptions : ['sm','md','lg','xl','full'];
-  const closeBtn = h.Forms.Button({
-    attrs: withClass({
-      type:'button',
-      gkey:closeGkey,
-      'aria-label':'Close dialog'
-    }, cx(token('btn'), token('btn/ghost'), token('btn/icon')))
-  }, ['✕']);
-  const headerContent = [];
-  if(sizeKey){
-    headerContent.push(
-      UI.HStack({ attrs:{ class: tw`items-center gap-1` }}, optionList.map(opt=>{
-        const active = opt === normalizedSize;
-        return UI.Button({
-          attrs:{
-            gkey:'ui:modal:size',
-            'data-modal-size-key': sizeKey,
-            'data-modal-size': opt,
-            class: tw`${active ? 'opacity-100' : 'opacity-70'} text-[0.75rem]`
-          },
-          variant: active ? 'solid' : 'ghost',
-          size:'xs'
-        }, [opt === 'full' ? '⛶' : opt.toUpperCase()]);
-      }))
-    );
-  }
-  if(title || description){
-    headerContent.push(
-      h.Containers.Div({ attrs:{ class: tw`space-y-1` }}, [
-        title && h.Text.H3({ attrs:{ id:titleId, class: tw`${token('card/title')}` }}, [title]),
-        description && h.Text.P({ attrs:{ id:descriptionId, class: tw`${token('card/desc')}` }}, [description])
-      ].filter(Boolean))
-    );
-  } else {
-    headerContent.push(h.Containers.Div({ attrs:{ class: tw`flex-1` }}, []));
-  }
-  headerContent.push(closeBtn);
-  const actionNodes = (actions||[]).filter(Boolean);
-  const modalAttrs = {
-    class: tw`${token('modal-card')} ${token(`modal/${normalizedSize}`)||token('modal/md')}`,
-    role:'dialog',
-    'aria-modal':'true'
-  };
-  if(titleId) modalAttrs['aria-labelledby'] = titleId;
-  if(descriptionId) modalAttrs['aria-describedby'] = descriptionId;
-  const rootAttrs = { class: tw`${token('modal-root')}`, role:'presentation' };
-  if(zIndex !== null && zIndex !== undefined){
-    let zValue = '';
-    if(typeof zIndex === 'number' && Number.isFinite(zIndex)){
-      zValue = String(zIndex);
-    } else if(typeof zIndex === 'string' && zIndex.trim()){
-      const parsed = Number(zIndex);
-      zValue = Number.isFinite(parsed) ? String(parsed) : zIndex.trim();
-    }
-    if(zValue){
-      const existing = rootAttrs.style ? `${rootAttrs.style};` : '';
-      rootAttrs.style = `${existing}z-index:${zValue};`;
-    }
-  }
-  return h.Containers.Div({ attrs: rootAttrs }, [
-    h.Containers.Div({ attrs:{ class: tw`${token('backdrop')}`, gkey:closeGkey }}, []),
-    h.Containers.Section({ attrs: modalAttrs }, [
-      h.Containers.Div({ attrs:{ class: tw`${token('modal/header')}` }}, headerContent.filter(Boolean)),
-      content ? h.Containers.Div({ attrs:{ class: tw`${token('modal/body')}` }}, [content]) : null,
-      actionNodes.length ? h.Containers.Div({ attrs:{ class: tw`${token('modal/footer')}` }}, actionNodes) : null
-    ].filter(Boolean))
-  ]);
-};
-
-UI.Table = ({ columns=[], rows=[] })=>
-  h.Tables.Table({ attrs:{ class: tw`w-full text-sm border-separate [border-spacing:0_8px]` }}, [
-    h.Tables.Thead({}, [
-      h.Tables.Tr({}, columns.map((c,i)=> h.Tables.Th({ attrs:{ key:`h-${i}`, class: tw`text-right text-[var(--muted-foreground)] font-medium` }}, [c.label])))
-    ]),
-    h.Tables.Tbody({}, rows.map((r,ri)=> h.Tables.Tr({ attrs:{ key:`r-${ri}`, class: tw`bg-[var(--surface-1)] rounded-[var(--radius)] shadow-[var(--shadow)]` }},
-      columns.map((c,ci)=> h.Tables.Td({ attrs:{ key:`c-${ri}-${ci}`, class: tw`px-4 py-2` }}, [String(r[c.key])]))
-    )))
-  ]);
-
-UI.ToastHost = ({ toasts=[] })=>
-  h.Containers.Div({ attrs:{ class: tw`${token('toast/host')}`, 'aria-live':'polite', 'aria-atomic':'true' }}, [
-    h.Containers.Div({ attrs:{ class: tw`${token('toast/col')}` }}, toasts.map((t)=>(
-      h.Containers.Div({ attrs:{ key:`to-${t.id}`, class: tw`${token('toast/item')}` }}, [
-        t.icon && h.Text.Span({}, [t.icon]),
-        h.Containers.Div({}, [
-          h.Text.Span({ attrs:{ class: tw`font-semibold` }}, [t.title||'']),
-          t.message && h.Text.P({ attrs:{ class: tw`text-[var(--muted-foreground)] text-sm` }}, [t.message])
-        ])
-      ])
-    )))
-  ]);
-let _toId=1;
-UI.pushToast = (ctx,{ title, message, icon, ttl=2800 })=>{
-  ctx.setState(s=>{
-    const list=(s.ui?.toasts||[]).concat([{ id:_toId++, title, message, icon }]);
-    return { ...s, ui:{ ...(s.ui||{}), toasts:list } };
-  });
-  const id=_toId-1;
-  setTimeout(()=>{
-    const st=ctx.getState();
-    const list=(st.ui?.toasts||[]).filter(t=> t.id!==id);
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), toasts:list } }));
-  }, ttl);
-};
-
-UI.AppShell = ({ header, sidebar, content, footer })=>
-  h.Containers.Main({ attrs:{ class: tw`min-h-screen` }}, [
-    header,
-    h.Containers.Div({ attrs:{ class: tw`flex` }}, [
-      sidebar && h.Containers.Aside({ attrs:{ class: tw`hidden md:block w-[260px] border-e` }}, [ sidebar ]),
-      h.Containers.Section({ attrs:{ class: tw`flex-1 p-4` }}, [ content ])
-    ]),
-    footer
-  ]);
-UI.CounterCard = ({ value=0, gkeyInc, gkeyDec }) =>
-  UI.Card({
-    content: h.Containers.Div({ attrs:{ class: tw`flex items-center justify-center gap-3` }}, [
-      UI.Button({ attrs:{ gkey:gkeyDec }, variant:'soft', size:'sm' }, ['−']),
-      h.Text.Span({ attrs:{ class: tw`text-xl font-bold` }}, [String(value)]),
-      UI.Button({ attrs:{ gkey:gkeyInc }, variant:'soft', size:'sm' }, ['+']),
-    ])
-  });
-
-
-/* ===================== Built-in Orders (tabs/modal/drawer + routing) ===================== */
-const ORDERS = {
-  'ui.tabs.select': { on:['click'], gkeys:['ui:tabs:select'], handler:(e,ctx)=>{
-    const btn = e.target && (e.target.closest && e.target.closest('[data-tab-id]'));
-    if(!btn) return; const id=btn.getAttribute('data-tab-id');
-    ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), activeTab:id } }));
-  }},
-  'ui.modal.open':  { on:['click'], gkeys:['ui:modal:open'],  handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:true } })); } },
-  'ui.modal.close': { on:['click'], gkeys:['ui:modal:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), modalOpen:false } })); } },
-  'ui.drawer.toggle':{on:['click'], gkeys:['ui:drawer:toggle'],handler:(e,ctx)=>{ const cur=!!ctx.getState().ui?.drawerOpen; ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:!cur } })); } },
-  'ui.drawer.close': {on:['click'], gkeys:['ui:drawer:close'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), drawerOpen:false } })); } },
-
-  // Routing (Dashboard / Inventory / Sales)
-  'route.dashboard': { on:['click'], gkeys:['route:dashboard'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'dashboard' } })); } },
-  'route.inventory': { on:['click'], gkeys:['route:inventory'], handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'inventory' } })); } },
-  'route.sales':     { on:['click'], gkeys:['route:sales'],     handler:(e,ctx)=>{ ctx.setState(s=>({ ...s, ui:{ ...(s.ui||{}), route:'sales' } })); } }
-};
-
-const NOOP = ()=>{};
-const POS_ORDERS = {
-  'pos.menu.search':        { on:['input','change'], gkeys:['pos:menu:search'], handler:NOOP },
-  'pos.menu.category':      { on:['click'], gkeys:['pos:menu:category'], handler:NOOP },
-  'pos.menu.add':           { on:['click'], gkeys:['pos:menu:add'], handler:NOOP },
-  'pos.menu.favorite':      { on:['click'], gkeys:['pos:menu:favorite'], handler:NOOP },
-  'pos.menu.load-more':     { on:['click'], gkeys:['pos:menu:load-more'], handler:NOOP },
-
-  'pos.order.line.inc':     { on:['click'], gkeys:['pos:order:line:inc'], handler:NOOP },
-  'pos.order.line.dec':     { on:['click'], gkeys:['pos:order:line:dec'], handler:NOOP },
-  'pos.order.line.qty':     { on:['click'], gkeys:['pos:order:line:qty'], handler:NOOP },
-  'pos.order.line.actions': { on:['click'], gkeys:['pos:order:line:actions'], handler:NOOP },
-  'pos.order.clear':        { on:['click'], gkeys:['pos:order:clear'], handler:NOOP },
-  'pos.order.discount':     { on:['click'], gkeys:['pos:order:discount'], handler:NOOP },
-  'pos.order.note':         { on:['click'], gkeys:['pos:order:note'], handler:NOOP },
-  'pos.order.save':         { on:['click'], gkeys:['pos:order:save'], handler:NOOP },
-  'pos.order.print':        { on:['click'], gkeys:['pos:order:print'], handler:NOOP },
-
-  'pos.tables.open':        { on:['click'], gkeys:['pos:tables:open'], handler:NOOP },
-  'pos.tables.select':      { on:['click'], gkeys:['pos:tables:select'], handler:NOOP },
-  'pos.tables.merge':       { on:['click'], gkeys:['pos:tables:merge'], handler:NOOP },
-  'pos.tables.release':     { on:['click'], gkeys:['pos:tables:release'], handler:NOOP },
-
-  'pos.payments.open':      { on:['click'], gkeys:['pos:payments:open'], handler:NOOP },
-  'pos.payments.method':    { on:['click'], gkeys:['pos:payments:method'], handler:NOOP },
-  'pos.payments.capture':   { on:['click'], gkeys:['pos:payments:capture'], handler:NOOP },
-  'pos.payments.split':     { on:['click'], gkeys:['pos:payments:split'], handler:NOOP },
-  'pos.payments.close':     { on:['click'], gkeys:['pos:payments:close'], handler:NOOP },
-
-  'pos.returns.open':       { on:['click'], gkeys:['pos:returns:open'], handler:NOOP },
-  'pos.returns.add':        { on:['click'], gkeys:['pos:returns:add'], handler:NOOP },
-
-  'pos.reports.toggle':     { on:['click'], gkeys:['pos:reports:toggle'], handler:NOOP },
-  'pos.reports.filter':     { on:['change'], gkeys:['pos:reports:filter'], handler:NOOP },
-  'pos.reports.export':     { on:['click'], gkeys:['pos:reports:export'], handler:NOOP },
-
-  'pos.indexeddb.sync':     { on:['click'], gkeys:['pos:indexeddb:sync'], handler:NOOP },
-  'pos.indexeddb.flush':    { on:['click'], gkeys:['pos:indexeddb:flush'], handler:NOOP },
-
-  'pos.kds.connect':        { on:['click'], gkeys:['pos:kds:connect'], handler:NOOP },
-  'pos.kds.retry':          { on:['click'], gkeys:['pos:kds:retry'], handler:NOOP },
-  'pos.kds.preview':        { on:['click'], gkeys:['pos:kds:preview'], handler:NOOP },
-
-  'pos.shift.start':       { on:['click'], gkeys:['pos:shift:start'], handler:NOOP },
-  'pos.shift.end':         { on:['click'], gkeys:['pos:shift:end'], handler:NOOP },
-  'pos.session.logout':    { on:['click'], gkeys:['pos:session:logout'], handler:NOOP },
-
-  'pos.shortcuts.help':    { on:['click'], gkeys:['pos:shortcuts:help'], handler:NOOP }
-};
-
-M.UI = UI;
-M.UI.orders = Object.assign({}, ORDERS, POS_ORDERS);
-M.UI.posOrders = POS_ORDERS;
-
-})(window);
-//markdown
-
-
-(function(window){
-  'use strict';
-  const M = window.Mishkah = window.Mishkah || {};
-  const U = M.utils = M.utils || {};
-  const h = M.DSL;
-  const tw = U.twcss.tw;
-
-  const headingTags = [null, h.Text.H1, h.Text.H2, h.Text.H3, h.Text.H4, h.Text.H5, h.Text.H6];
-  const headingClasses = {
-    1: tw`text-4xl sm:text-5xl font-bold tracking-tight`,
-    2: tw`text-3xl sm:text-4xl font-semibold`,
-    3: tw`text-2xl font-semibold`,
-    4: tw`text-xl font-semibold`,
-    5: tw`text-lg font-semibold`,
-    6: tw`text-base font-semibold uppercase tracking-[0.2em]`
-  };
-
-  const isHeading = line => /^ {0,3}#{1,6}\s+/.test(line);
-  const isHr = line => /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line);
-  const isFence = line => /^ {0,3}(```|~~~)/.test(line);
-  const isBlockquote = line => /^ {0,3}>\s?/.test(line);
-  const isListItem = line => /^ {0,3}([\*\+-]|\d+\.)\s+/.test(line);
-  const isTableDivider = line => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line.trim());
-  const hasTablePipe = line => /\|/.test(line || '');
-
-  function splitTableRow(row){
-    let trimmed = String(row||'').trim();
-    if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
-    if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
-    const cells = [];
-    let cur = '';
-    let escape = false;
-    for (const ch of trimmed){
-      if (escape){ cur += ch; escape = false; continue; }
-      if (ch === '\\'){ escape = true; continue; }
-      if (ch === '|'){ cells.push(cur.trim()); cur = ''; continue; }
-      cur += ch;
-    }
-    cells.push(cur.trim());
-    return cells;
-  }
-
-  function parseAlignRow(row){
-    return splitTableRow(row).map(cell => {
-      const value = cell.trim();
-      const left = value.startsWith(':');
-      const right = value.endsWith(':');
-      if (left && right) return 'center';
-      if (right) return 'right';
-      if (left) return 'left';
-      return 'left';
-    });
-  }
-
-  function parseInline(text){
-    const str = String(text||'');
-    if (!str) return [];
-    const pattern = /(!?\[[^\]]*]\([^\)\s]+(?:\s+"[^"]*")?\)|`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^\s][^*]*\*|_[^\s][^_]*_)/g;
-    const tokens = [];
-    let lastIndex = 0;
-    let match;
-    while ((match = pattern.exec(str)) !== null){
-      const index = match.index;
-      if (index > lastIndex){
-        tokens.push({ type:'text', text: str.slice(lastIndex, index) });
-      }
-      const token = match[0];
-      if (token.startsWith('![')){
-        const m = token.match(/^!\[([^\]]*)]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
-        if (m){
-          tokens.push({ type:'image', alt:m[1]||'', src:m[2], title:m[3]||'' });
         } else {
-          tokens.push({ type:'text', text: token });
+          obj[key] = v; // اترك النص العادي
         }
-      } else if (token.startsWith('[')){
-        const m = token.match(/^\[([^\]]*)]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
-        if (m){
-          tokens.push({ type:'link', href:m[2], title:m[3]||'', children: parseInline(m[1]) });
-        } else {
-          tokens.push({ type:'text', text: token });
-        }
-      } else if (token.startsWith('**') || token.startsWith('__')){
-        tokens.push({ type:'strong', children: parseInline(token.slice(2, -2)) });
-      } else if (token.startsWith('~~')){
-        tokens.push({ type:'del', children: parseInline(token.slice(2, -2)) });
-      } else if (token.startsWith('*') || token.startsWith('_')){
-        tokens.push({ type:'em', children: parseInline(token.slice(1, -1)) });
-      } else if (token.startsWith('`')){
-        tokens.push({ type:'code', text: token.slice(1, -1) });
-      } else {
-        tokens.push({ type:'text', text: token });
+      } else if (v && typeof v === 'object') {
+        obj[key] = traverse(v);
       }
-      lastIndex = pattern.lastIndex;
     }
-    if (lastIndex < str.length){
-      tokens.push({ type:'text', text: str.slice(lastIndex) });
-    }
-    return tokens;
+    return obj;
   }
 
-  function renderInlines(tokens, keyPrefix){
-    return (tokens||[]).map((token, idx)=>{
-      const key = `${keyPrefix}-${idx}`;
-      switch (token.type){
-        case 'text':
-          if (typeof token.text === 'string'){
-            const trimmed = token.text.trim();
-            const imagePattern = /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|svg|webp))(\?[^\s]*)?$/i;
-            if (trimmed && imagePattern.test(trimmed)){
-              const match = trimmed.match(imagePattern);
-              const src = match ? match[1] + (match[2] || '') : trimmed;
-              return h.Media.Img({ attrs:{ key:`${key}-img`, src, alt:'', class: tw`inline-block h-6 align-middle rounded-lg shadow-[0_8px_20px_-12px_rgba(79,70,229,0.55)]` } });
-            }
-          }
-          return token.text;
-        case 'strong':
-          return h.Text.Strong({ attrs:{ key }}, renderInlines(token.children, key));
-        case 'em':
-          return h.Text.Em({ attrs:{ key }}, renderInlines(token.children, key));
-        case 'del':
-          return h.Text.Del({ attrs:{ key }}, renderInlines(token.children, key));
-        case 'code':
-          return h.Text.Code({ attrs:{ key, class: tw`text-sm` }}, [token.text]);
-        case 'link':
-          return h.Text.A({ attrs:{ key, href: token.href, target:'_blank', rel:'noopener noreferrer', class: tw`underline decoration-dotted underline-offset-4` }}, renderInlines(token.children, key));
-        case 'image':
-          return h.Media.Img({ attrs:{ key, src: token.src, alt: token.alt || '', title: token.title || '', class: tw`rounded-xl shadow-[var(--shadow)] max-w-full` }});
-        default:
-          return token.text || '';
-      }
-    });
-  }
-
-  function parseBlocks(markdown){
-    const lines = String(markdown||'').replace(/\r\n?/g, '\n').split('\n');
-    const blocks = [];
-    let i = 0;
-    while (i < lines.length){
-      let line = lines[i];
-      if (!line || !line.trim()){ i++; continue; }
-      if (isFence(line)){
-        const fence = line.match(/^ {0,3}(```|~~~)(.*)$/);
-        const lang = fence && fence[2] ? fence[2].trim() : '';
-        i++;
-        const codeLines = [];
-        while (i < lines.length && !isFence(lines[i])){
-          codeLines.push(lines[i]);
-          i++;
-        }
-        if (i < lines.length) i++;
-        blocks.push({ type:'code', lang, code: codeLines.join('\n') });
-        continue;
-      }
-      if (isHr(line)){
-        blocks.push({ type:'hr' });
-        i++;
-        continue;
-      }
-      if (isHeading(line)){
-        const match = line.match(/^ {0,3}(#{1,6})\s+(.*)$/);
-        blocks.push({ type:'heading', level: match[1].length, text: match[2].trim() });
-        i++;
-        continue;
-      }
-      if (isBlockquote(line)){
-        const quoteLines = [];
-        while (i < lines.length && isBlockquote(lines[i])){
-          quoteLines.push(lines[i].replace(/^ {0,3}>\s?/, ''));
-          i++;
-        }
-        blocks.push({ type:'blockquote', blocks: parseBlocks(quoteLines.join('\n')) });
-        continue;
-      }
-      if (hasTablePipe(line) && i + 1 < lines.length && isTableDivider(lines[i+1])){
-        const header = splitTableRow(line);
-        const aligns = parseAlignRow(lines[i+1]);
-        i += 2;
-        const rows = [];
-        while (i < lines.length && hasTablePipe(lines[i]) && !isTableDivider(lines[i])){
-          if (!lines[i].trim()){ i++; break; }
-          rows.push(splitTableRow(lines[i]));
-          i++;
-        }
-        blocks.push({ type:'table', header, aligns, rows });
-        continue;
-      }
-      if (isListItem(line)){
-        const ordered = /\d+\./.test(line);
-        const items = [];
-        while (i < lines.length){
-          const current = lines[i];
-          if (!isListItem(current)) break;
-          const match = current.match(/^ {0,3}([\*\+-]|\d+\.)\s+(.*)$/);
-          i++;
-          const buffer = [match[2]];
-          while (i < lines.length){
-            const next = lines[i];
-            if (!next.trim()){ buffer.push(''); i++; continue; }
-            if (isListItem(next) || isHeading(next) || isFence(next) || isBlockquote(next) || isHr(next) || (hasTablePipe(next) && isTableDivider(lines[i+1]||''))) break;
-            buffer.push(next.replace(/^ {1,4}/, ''));
-            i++;
-          }
-          while (buffer.length && buffer[buffer.length-1] === '') buffer.pop();
-          const text = buffer.join('\n');
-          const taskMatch = text.match(/^\[([ xX])]\s+([\s\S]*)$/);
-          if (taskMatch){
-            items.push({ type:'task', done: taskMatch[1].toLowerCase() === 'x', blocks: parseBlocks(taskMatch[2]) });
-          } else {
-            items.push({ type:'item', blocks: parseBlocks(text) });
-          }
-        }
-        blocks.push({ type:'list', ordered, items });
-        continue;
-      }
-      const paragraph = [line];
-      i++;
-      while (i < lines.length){
-        const next = lines[i];
-        if (!next.trim()){ i++; break; }
-        if (isFence(next) || isHeading(next) || isBlockquote(next) || isListItem(next) || isHr(next) || (hasTablePipe(next) && isTableDivider(lines[i+1]||''))) break;
-        paragraph.push(next);
-        i++;
-      }
-      blocks.push({ type:'paragraph', text: paragraph.join('\n') });
-    }
-    return blocks;
-  }
-
-  function renderBlocks(blocks, keyPrefix){
-    const out = [];
-    (blocks||[]).forEach((block, idx)=>{
-      const key = `${keyPrefix}-${idx}`;
-      switch (block.type){
-        case 'heading': {
-          const level = Math.max(1, Math.min(6, block.level || 1));
-          const Tag = headingTags[level] || h.Text.H3;
-          out.push(Tag({ attrs:{ class: headingClasses[level] || tw`text-xl font-semibold`, key }}, renderInlines(parseInline(block.text), key)));
-          break;
-        }
-        case 'paragraph': {
-          const inlineTokens = parseInline(block.text);
-          out.push(h.Text.P({ attrs:{ class: tw`leading-8 text-[color-mix(in oklab,var(--foreground) 85%, var(--muted-foreground) 15%)]`, key }}, renderInlines(inlineTokens, key)));
-          break;
-        }
-        case 'blockquote': {
-          const children = renderBlocks(block.blocks, `${key}-bq`);
-          out.push(h.Text.Blockquote({ attrs:{ class: tw`space-y-2`, key }}, children.length ? children : [h.Text.P({}, [''])]));
-          break;
-        }
-        case 'list': {
-          const listChildren = (block.items||[]).map((item, itemIdx)=>{
-            const itemKey = `${key}-item-${itemIdx}`;
-            let inner = renderBlocks(item.blocks, itemKey);
-            if (!inner.length) inner = [''];
-            if (item.type === 'task'){
-              inner = [h.Containers.Div({ attrs:{ class: tw`flex items-start gap-3` }}, [
-                h.Inputs.Input({ attrs:{ type:'checkbox', checked:item.done ? 'checked' : undefined, disabled:true, class: tw`mt-1` } }),
-                h.Containers.Div({ attrs:{ class: tw`space-y-2` }}, inner)
-              ])];
-            }
-            return h.Lists.Li({ attrs:{ key:itemKey }}, inner);
-          });
-          const ListTag = block.ordered ? h.Lists.Ol : h.Lists.Ul;
-          out.push(ListTag({ attrs:{ class: tw`space-y-2`, key }}, listChildren));
-          break;
-        }
-        case 'code': {
-          out.push(h.Text.Pre({ attrs:{ class: tw`overflow-auto`, key, 'data-lang': block.lang || undefined }}, [
-            h.Text.Code({ attrs:{ class: tw`block text-sm leading-7` }}, [block.code || ''])
-          ]));
-          break;
-        }
-        case 'table': {
-          const align = (block.aligns || []).map(a => {
-            if (a === 'center') return 'center';
-            if (a === 'right') return 'right';
-            return 'start';
-          });
-          const headerCells = (block.header || []).map((cell, ci)=>
-            h.Tables.Th({ attrs:{ key:`${key}-h-${ci}`, style:`text-align:${align[ci]||'start'};` }}, renderInlines(parseInline(cell), `${key}-h-${ci}`))
-          );
-          const bodyRows = (block.rows || []).map((row, ri)=>
-            h.Tables.Tr({ attrs:{ key:`${key}-r-${ri}` }}, row.map((cell, ci)=>
-              h.Tables.Td({ attrs:{ key:`${key}-c-${ri}-${ci}`, style:`text-align:${align[ci]||'start'};` }}, renderInlines(parseInline(cell), `${key}-c-${ri}-${ci}`))
-            ))
-          );
-          out.push(h.Tables.Table({ attrs:{ class: tw`w-full text-sm`, key }}, [
-            h.Tables.Thead({}, [h.Tables.Tr({ attrs:{ key:`${key}-thead` }}, headerCells)]),
-            h.Tables.Tbody({}, bodyRows)
-          ]));
-          break;
-        }
-        case 'hr': {
-          out.push(h.Containers.Div({ attrs:{ class: tw`h-px bg-[color-mix(in oklab,var(--border) 70%, transparent)] my-10`, key }}));
-          break;
-        }
-        default: {
-          if (block && block.text){
-            out.push(h.Text.P({ attrs:{ key }}, [block.text]));
-          }
-        }
-      }
-    });
-    return out;
-  }
-
-  function joinClass(base, extra){
-    const a = (base || '').trim();
-    const b = (extra || '').trim();
-    if (a && b) return `${a} ${b}`;
-    return a || b || '';
-  }
-
-  function MarkdownRenderer(opts){
-    const content = opts && typeof opts.content === 'string' ? opts.content : '';
-    const className = joinClass(opts && opts.className, tw`md-prose`);
-    if (!content.trim()){
-      return h.Text.P({ attrs:{ class: tw`text-sm text-[var(--muted-foreground)]` }}, ['—']);
-    }
-    const blocks = parseBlocks(content);
-    const children = renderBlocks(blocks, 'md');
-    return h.Containers.Article({ attrs:{ class: className, key:'markdown-article' }}, children);
-  }
-
-  M.UI = M.UI || {};
-  M.UI.Markdown = (opts={}) => MarkdownRenderer(opts);
-  U.UDM = MarkdownRenderer;
-})(window);
-
-
-(function(window){
-  'use strict';
-  const M = window.Mishkah = window.Mishkah || {};
-  const U = M.utils = M.utils || {};
-  function getPureJson(data) {
-    // تحقق من أن المدخل هو كائن
-    if (typeof data !== 'object' || data === null) {
-        console.error("المدخل ليس كائنًا صالحًا.");
-        return null;
-    }
-
-    // دالة تكرارية للتنقل عبر الكائنات والمصفوفات
-    function traverse(obj) {
-        for (let key in obj) {
-            if (typeof obj[key] === 'string') {
-                let str = obj[key].trim();
-
-                // تحقق مما إذا كانت السلسلة تبدء بـ { أو [
-                if ((str.startsWith('{') && str.endsWith('}')) || (str.startsWith('[') && str.endsWith(']'))) {
-                    // حاول تحليل السلسلة كـ JSON
-                    try {
-                        let parsed = JSON.parse(str);
-                        obj[key] = traverse(parsed); // استبدل السلسلة بالكائن أو المصفوفة المحللة
-                    } catch (e) {
-                        // إذا فشل التحليل، حاول إصلاح علامات الاقتباس
-                        let sanitized = sanitizeString(str);
-                        try {
-                            let parsedSanitized = JSON.parse(sanitized);
-                            obj[key] = traverse(parsedSanitized);
-                        } catch (e2) {
-                            console.error(`فشل في تحليل الحقل '${key}':`, e2.message);
-                            console.log("السلسلة بعد الإصلاح:", sanitized);
-                            // يمكنك اختيار ترك السلسلة كما هي أو تعيينها إلى null
-                            // obj[key] = null;
-                        }
-                    }
-                }
-            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                // إذا كان الحقل كائنًا أو مصفوفة، استمر في التنقل
-                obj[key] = traverse(obj[key]);
-            }
-        }
-        return obj;
-    }
-
-    // دالة لإصلاح علامات الاقتباس غير المُهربة داخل السلسلة
-    function sanitizeString(str) {
-        // هروب العلامات المائلة العكسية أولاً
-        let sanitized = str.replace(/\\(?=["\\/bfnrtu])/g, '\\\\');
-
-        // هروب علامات الاقتباس المزدوجة غير المُهربة
-        sanitized = sanitized.replace(/(?<!\\)"/g, '\\"');
-
-        return sanitized;
-    }
-
-    // بدء التنقل عبر الكائن
-    let result = traverse(data);
-
-    return result;
+  // لا تعدّل الأصل (اختياري)
+  const cloned = JSON.parse(JSON.stringify(data));
+  return traverse(cloned);
 }
+
 
   U.helpers = {getPureJson:getPureJson};
   
   
 })(window);
+
+
