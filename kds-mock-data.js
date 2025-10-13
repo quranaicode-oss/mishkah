@@ -764,8 +764,14 @@ const kdsDatabase = {
   }
 };
 
-if (typeof window !== 'undefined') {
-  window.kdsDatabase = kdsDatabase;
-} else if (typeof globalThis !== 'undefined') {
-  globalThis.kdsDatabase = kdsDatabase;
+const root = typeof window !== 'undefined' ? window
+  : (typeof globalThis !== 'undefined' ? globalThis
+    : (typeof global !== 'undefined' ? global : this));
+
+if (root && typeof root === 'object') {
+  root.kdsDatabase = kdsDatabase;
+  const baseDatabase = root.database && typeof root.database === 'object' ? root.database : null;
+  if (baseDatabase) {
+    baseDatabase.kds = kdsDatabase;
+  }
 }
