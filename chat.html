@@ -315,10 +315,19 @@
         if (!input && event) {
           if (event.detail && event.detail.ctx) {
             input = event.detail.ctx;
-          } else if (event.target) {
-            input = event.target;
-          } else if (event.currentTarget) {
-            input = event.currentTarget;
+          } else {
+            var original = unwrapEvent(event);
+            if (original && original.detail && original.detail.ctx) {
+              input = original.detail.ctx;
+            } else if (original && original.target) {
+              input = original.target;
+            } else if (original && original.currentTarget) {
+              input = original.currentTarget;
+            } else if (event.target) {
+              input = event.target;
+            } else if (event.currentTarget) {
+              input = event.currentTarget;
+            }
           }
         }
         if (!input && runtime.lastCtx) {
@@ -355,6 +364,48 @@
         }
         runtime.lastCtx = adapted;
         return adapted;
+      }
+
+      function unwrapEvent(event) {
+        var current = event;
+        var guard = 0;
+        while (
+          current &&
+          current.detail &&
+          (current.detail.event || current.detail.originalEvent || current.detail.nativeEvent) &&
+          guard < 10
+        ) {
+          current =
+            current.detail.event || current.detail.originalEvent || current.detail.nativeEvent || current.detail;
+          guard += 1;
+        }
+        return current || event;
+      }
+
+      function resolveDraftValue(event) {
+        if (!event) {
+          return '';
+        }
+        var detail = event.detail || {};
+        if (typeof detail.value === 'string' && detail.value.trim()) {
+          return detail.value;
+        }
+        if (detail.payload && typeof detail.payload.value === 'string' && detail.payload.value.trim()) {
+          return detail.payload.value;
+        }
+        if (detail.data && typeof detail.data.value === 'string' && detail.data.value.trim()) {
+          return detail.data.value;
+        }
+        if (detail.event) {
+          return resolveDraftValue(detail.event);
+        }
+        if (detail.originalEvent) {
+          return resolveDraftValue(detail.originalEvent);
+        }
+        if (detail.nativeEvent) {
+          return resolveDraftValue(detail.nativeEvent);
+        }
+        return '';
       }
 
       function readState() {
@@ -1111,8 +1162,12 @@
           return;
         }
         var value = '';
-        if (event.target && typeof event.target.value === 'string') {
-          value = event.target.value;
+        var original = unwrapEvent(event);
+        var source = (original && original.target) || event.target;
+        if (source && typeof source.value === 'string') {
+          value = source.value;
+        } else if (event.detail && typeof event.detail.value === 'string') {
+          value = event.detail.value;
         }
         debug('تحديث اسم المستخدم من حقل الإدخال.', { value: value });
         context.set('data.username', value);
@@ -1161,8 +1216,12 @@
           return;
         }
         var value = '';
-        if (event.target && typeof event.target.value === 'string') {
-          value = event.target.value;
+        var original = unwrapEvent(event);
+        var source = (original && original.target) || event.target;
+        if (source && typeof source.value === 'string') {
+          value = source.value;
+        } else if (event.detail && typeof event.detail.value === 'string') {
+          value = event.detail.value;
         }
         debug('تحديث قيمة الرسالة المؤقتة.', { value: value });
         context.set('data.newMessage', value);
@@ -1205,8 +1264,13 @@
       }
 
       function readDraftFromEvent(event) {
+        var original = unwrapEvent(event);
         var source = null;
-        if (event && event.target) {
+        if (original && original.target) {
+          source = original.target;
+        } else if (original && original.currentTarget) {
+          source = original.currentTarget;
+        } else if (event && event.target) {
           source = event.target;
         } else if (event && event.currentTarget) {
           source = event.currentTarget;
@@ -1215,19 +1279,23 @@
         if (input && typeof input.value === 'string') {
           return input.value;
         }
+        var detailValue = resolveDraftValue(event);
+        if (detailValue) {
+          return detailValue;
+        }
         return '';
       }
 
       function messagePayload(ctx, event) {
         var context = ensureContext(ctx, event);
-        if (!context) {
-          error('messagePayload فشل في الحصول على سياق صالح.');
-          return null;
+        var effectiveContext = context || runtime.lastCtx || runtime.app || null;
+        if (!effectiveContext) {
+          warn('messagePayload يعمل دون سياق HTMLx مباشر وسيعتمد على قيم الحدث فقط.');
         }
         var text = '';
-        if (context.get) {
+        if (effectiveContext && typeof effectiveContext.get === 'function') {
           try {
-            text = context.get('data.newMessage') || '';
+            text = effectiveContext.get('data.newMessage') || '';
           } catch (getError) {
             debug('فشل الحصول على قيمة الرسالة من الحالة، سيتم الاعتماد على الحدث.', { error: getError });
             text = '';
@@ -1239,9 +1307,9 @@
         var draftFromEvent = readDraftFromEvent(event);
         if (!text.trim() && typeof draftFromEvent === 'string' && draftFromEvent) {
           text = draftFromEvent;
-          if (context.set) {
+          if (effectiveContext && typeof effectiveContext.set === 'function') {
             try {
-              context.set('data.newMessage', draftFromEvent);
+              effectiveContext.set('data.newMessage', draftFromEvent);
             } catch (syncError) {
               debug('تعذر مزامنة قيمة الرسالة من الحدث مع الحالة.', { error: syncError });
             }
@@ -1252,11 +1320,18 @@
           warn('محاولة إرسال رسالة فارغة تم تجاهلها.');
           return null;
         }
-        var username = context.get ? context.get('data.username') : '';
+        var username =
+          effectiveContext && typeof effectiveContext.get === 'function'
+            ? effectiveContext.get('data.username')
+            : runtime.app && typeof runtime.app.get === 'function'
+              ? runtime.app.get('data.username')
+              : '';
         if (!username) {
           username = generateGuestName();
           warn('لم يتم تعيين اسم مستخدم، تم إنشاء اسم ضيف تلقائي.', { username: username });
-          context.set('data.username', username);
+          if (effectiveContext && typeof effectiveContext.set === 'function') {
+            effectiveContext.set('data.username', username);
+          }
         }
         var clientMessageId = 'msg-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8);
         var payload = {
@@ -1273,16 +1348,12 @@
           event.preventDefault();
         }
         var context = ensureContext(ctx, event);
-        if (!context) {
-          error('sendMessage لم يتمكن من الحصول على سياق HTMLx.');
-          return;
-        }
         var payload = messagePayload(context, event);
         if (!payload) {
           warn('sendMessage لم يحصل على حمولة صالحة، لن يتم الإرسال.');
           return;
         }
-        var socket = connectToChat(context);
+        var socket = connectToChat(context || runtime.lastCtx || runtime.app);
         if (!socket) {
           recordError('ws_missing', 'تعذر الوصول إلى اتصال WebSocket لإرسال الرسالة.', null, { connection: true });
           return;
@@ -1322,7 +1393,13 @@
             metadata: { clientMessageId: payload.clientMessageId, username: payload.user }
           });
         }
-        context.set('data.newMessage', '');
+        if (context && typeof context.set === 'function') {
+          context.set('data.newMessage', '');
+        } else if (runtime.lastCtx && typeof runtime.lastCtx.set === 'function') {
+          runtime.lastCtx.set('data.newMessage', '');
+        } else if (runtime.app && typeof runtime.app.set === 'function') {
+          runtime.app.set('data.newMessage', '');
+        }
         info('تم تصفير حقل الرسالة بعد الإرسال المبدئي.', { payload: payload });
       }
 
