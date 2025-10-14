@@ -1303,12 +1303,122 @@
       }
     };
   }
+  const describeInteractiveNode = (node)=>{
+    if(!node || node.nodeType !== 1) return null;
+    const dataset = {};
+    if(node.dataset){
+      Object.keys(node.dataset).forEach(key=>{ dataset[key] = node.dataset[key]; });
+    }
+    const buildPath = ()=>{
+      const segments = [];
+      let current = node;
+      while(current && current.nodeType === 1 && segments.length < 6){
+        let segment = current.tagName ? current.tagName.toLowerCase() : '';
+        if(current.id){
+          segment += `#${current.id}`;
+        } else if(current.classList && current.classList.length){
+          segment += '.' + Array.from(current.classList).slice(0, 2).join('.');
+        }
+        segments.push(segment);
+        current = current.parentElement;
+      }
+      return segments.reverse().join(' > ');
+    };
+    const textContent = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    return {
+      tag: node.tagName ? node.tagName.toLowerCase() : 'unknown',
+      gkey: node.getAttribute && node.getAttribute('data-m-gkey') || '',
+      key: node.getAttribute && node.getAttribute('data-m-key') || '',
+      classList: node.classList ? Array.from(node.classList) : [],
+      dataset,
+      path: buildPath(),
+      text: textContent.length > 120 ? `${textContent.slice(0, 117)}…` : textContent
+    };
+  };
+
+  const logKdsInteractiveNodes = ()=>{
+    if(typeof document === 'undefined') return [];
+    const root = document.querySelector('#app');
+    if(!root) return [];
+    const nodes = Array.from(root.querySelectorAll('[data-m-gkey]'));
+    const snapshot = nodes.map(describeInteractiveNode).filter(Boolean);
+    if(typeof console !== 'undefined'){
+      if(typeof console.groupCollapsed === 'function'){
+        console.groupCollapsed(`[Mishkah][KDS] Interactive nodes snapshot (${snapshot.length})`);
+        if(typeof console.table === 'function') console.table(snapshot);
+        else console.log(snapshot);
+        console.groupEnd();
+      } else {
+        console.log(`[Mishkah][KDS] Interactive nodes snapshot (${snapshot.length})`, snapshot);
+      }
+    }
+    return snapshot;
+  };
+
+  const logKdsOrdersRegistry = ()=>{
+    const rawOrders = typeof app.getOrders === 'function' ? app.getOrders() : [];
+    const snapshot = rawOrders.map((order, index)=>({
+      index,
+      name: order?.name || '(anonymous)',
+      on: Array.isArray(order?.on) ? order.on.slice() : [],
+      gkeys: Array.isArray(order?.gkeys) ? order.gkeys.slice() : [],
+      keys: Array.isArray(order?.keys) ? order.keys.slice() : [],
+      disabled: !!order?.disabled
+    }));
+    if(typeof console !== 'undefined'){
+      if(typeof console.groupCollapsed === 'function'){
+        console.groupCollapsed(`[Mishkah][KDS] Orders registry snapshot (${snapshot.length})`);
+        snapshot.forEach(entry=> console.log(entry));
+        console.groupEnd();
+      } else {
+        console.log(`[Mishkah][KDS] Orders registry snapshot (${snapshot.length})`, snapshot);
+      }
+    }
+    return snapshot;
+  };
+
+  const scheduleInteractiveSnapshot = ()=>{
+    if(typeof document === 'undefined') return;
+    const run = ()=>{ logKdsInteractiveNodes(); };
+    const invoke = ()=>{
+      if(typeof requestAnimationFrame === 'function') requestAnimationFrame(()=> run());
+      else setTimeout(run, 0);
+    };
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', ()=> invoke(), { once:true });
+    } else {
+      invoke();
+    }
+  };
+
+  const setupKdsDevtools = ()=>{
+    if(typeof window === 'undefined') return;
+    const dev = window.__MishkahKDSDev__ || {};
+    const announced = !!dev.__announced;
+    dev.logOrders = logKdsOrdersRegistry;
+    dev.inspectInteractiveNodes = logKdsInteractiveNodes;
+    dev.getOrders = ()=> (typeof app.getOrders === 'function' ? app.getOrders() : []);
+    dev.snapshot = ()=>({ orders: logKdsOrdersRegistry(), nodes: logKdsInteractiveNodes() });
+    dev.logDomSnapshot = logKdsInteractiveNodes;
+    window.__MishkahKDSDev__ = dev;
+    if(!announced){
+      if(typeof console !== 'undefined'){
+        console.info('%c[Mishkah KDS] Developer helpers ready → use __MishkahKDSDev__.logOrders() and .inspectInteractiveNodes() for diagnostics.', 'color:#38bdf8;font-weight:bold;');
+      }
+      try{
+        Object.defineProperty(dev, '__announced', { value:true, enumerable:false, configurable:true, writable:false });
+      } catch(_err){ dev.__announced = true; }
+    }
+  };
+
   const kdsOrders = {
     'kds.theme.set':{
       on:['click'],
       gkeys:['kds:theme:set'],
       handler:(event, ctx)=>{
-        const theme = event?.currentTarget?.dataset?.theme;
+        const btn = event?.target && event.target.closest('[data-theme]');
+        if(!btn) return;
+        const theme = btn.getAttribute('data-theme');
         if(!theme) return;
         ctx.setState(state=>({
           ...state,
@@ -1320,7 +1430,9 @@
       on:['click'],
       gkeys:['kds:lang:set'],
       handler:(event, ctx)=>{
-        const langValue = event?.currentTarget?.dataset?.lang;
+        const btn = event?.target && event.target.closest('[data-lang]');
+        if(!btn) return;
+        const langValue = btn.getAttribute('data-lang');
         if(!langValue) return;
         ctx.setState(state=>({
           ...state,
@@ -1332,8 +1444,9 @@
       on:['click'],
       gkeys:['kds:tab:switch'],
       handler:(event, ctx)=>{
-        const target = event?.currentTarget;
-        const sectionId = target?.dataset?.sectionId;
+        const btn = event?.target && event.target.closest('[data-section-id]');
+        if(!btn) return;
+        const sectionId = btn.getAttribute('data-section-id');
         if(!sectionId) return;
         ctx.setState(state=>({
           ...state,
@@ -1348,7 +1461,9 @@
       on:['click'],
       gkeys:['kds:job:start'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1363,7 +1478,9 @@
       on:['click'],
       gkeys:['kds:job:finish'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1378,7 +1495,9 @@
       on:['click'],
       gkeys:['kds:delivery:assign'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         ctx.setState(state=>({
           ...state,
@@ -1395,9 +1514,10 @@
       on:['click'],
       gkeys:['kds:delivery:select-driver'],
       handler:(event, ctx)=>{
-        const dataset = event?.currentTarget?.dataset || {};
-        const orderId = dataset.orderId;
-        const driverId = dataset.driverId;
+        const btn = event?.target && event.target.closest('[data-order-id][data-driver-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
+        const driverId = btn.getAttribute('data-driver-id');
         if(!orderId || !driverId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1439,7 +1559,9 @@
       on:['click'],
       gkeys:['kds:delivery:complete'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1474,7 +1596,9 @@
       on:['click'],
       gkeys:['kds:delivery:settle'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let settlementPayload = null;
@@ -1516,7 +1640,10 @@
   };
 
   app.setOrders(Object.assign({}, UI.orders || {}, auto.orders || {}, kdsOrders));
+  logKdsOrdersRegistry();
   app.mount('#app');
+  scheduleInteractiveSnapshot();
+  setupKdsDevtools();
 
   const tick = setInterval(()=>{
     app.setState(state=>({
