@@ -88,7 +88,7 @@
           >
             <div class="flex items-start justify-between gap-2">
               <strong class="text-blue-300">{msg.user || 'مجهول'}</strong>
-              <span class="text-xs text-gray-400">{formatChatTime(msg.createdAt)}</span>
+              <span x-if="msg.createdAtLabel" class="text-xs text-gray-400">{msg.createdAtLabel}</span>
             </div>
             <p class="ml-2 text-sm text-gray-100">{msg.text}</p>
             <p x-if="msg.pending" class="text-xs text-amber-300 mt-1">جاري الإرسال...</p>
@@ -138,7 +138,7 @@
                   {detail}
                 </li>
               </ul>
-              <span class="block text-xs text-gray-500 mt-1">{formatChatTime(err.ts, true)}</span>
+              <span x-if="err.tsLabel" class="block text-xs text-gray-500 mt-1">{err.tsLabel}</span>
             </li>
           </ul>
         </section>
@@ -517,7 +517,7 @@
         }
       }
 
-      function formatChatTime(value, includeSeconds) {
+      function formatDisplayTime(value, includeSeconds) {
         if (!value) {
           return '';
         }
@@ -658,6 +658,7 @@
           meta: meta || null,
           details: extractErrorDetails(meta)
         };
+        entry.tsLabel = formatDisplayTime(entry.ts, true);
         warn(entry.message, { code: entry.code, meta: meta });
         mutateState(function (prev) {
           var base = prev || {};
@@ -673,6 +674,7 @@
               code: entry.code,
               message: entry.message,
               ts: entry.ts,
+              tsLabel: entry.tsLabel,
               details: entry.details
             };
           }
@@ -724,12 +726,14 @@
         if (!text && !pending && !failed) {
           return null;
         }
+        var createdAtLabel = formatDisplayTime(createdAt, false);
         return {
           id: id,
           clientMessageId: clientMessageId,
           user: username || 'مجهول',
           text: text,
           createdAt: createdAt,
+          createdAtLabel: createdAtLabel,
           pending: pending,
           failed: failed
         };
