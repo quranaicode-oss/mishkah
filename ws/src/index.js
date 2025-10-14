@@ -33,6 +33,8 @@ const envSchema = z.object({
   RTC_SIGNAL_PREFIX: z.string().default('rtc:'),
   RTC_SIGNAL_TTL_SECS: z.coerce.number().int().min(5).default(120),
   LOG_LEVEL: z.string().default('info'),
+  ALLOW_DEMO_GUESTS: z.coerce.boolean().default(true),
+  DEMO_GUEST_TOKEN_TTL_SECS: z.coerce.number().int().min(60).max(60 * 60 * 24).default(60 * 60),
 });
 
 let parsedEnv;
@@ -65,6 +67,8 @@ const config = {
   rtcSignalPrefix: parsedEnv.RTC_SIGNAL_PREFIX,
   rtcSignalTtlSecs: parsedEnv.RTC_SIGNAL_TTL_SECS,
   logLevel: parsedEnv.LOG_LEVEL,
+  allowDemoGuests: parsedEnv.ALLOW_DEMO_GUESTS,
+  demoGuestTokenTtlSecs: parsedEnv.DEMO_GUEST_TOKEN_TTL_SECS,
 };
 
 const log = pino({
@@ -234,8 +238,25 @@ function verifyToken(token) {
   }
 }
 
+const CHAT_TOPIC_REGEX = /^chat:[a-z0-9:_-]+$/;
+
 function topicAllowed(topic, isPublish) {
-  return (isPublish ? config.publishRegex : config.subscribeRegex).test(topic);
+  if (!topic || typeof topic !== 'string') {
+    return false;
+  }
+  const regex = isPublish ? config.publishRegex : config.subscribeRegex;
+  if (regex) {
+    if (regex.global || regex.sticky) {
+      regex.lastIndex = 0;
+    }
+    if (regex.test(topic)) {
+      return true;
+    }
+  }
+  if (CHAT_TOPIC_REGEX.test(topic)) {
+    return true;
+  }
+  return false;
 }
 
 function rateLimitExceeded(state) {
@@ -248,9 +269,17 @@ function rateLimitExceeded(state) {
   return state.count > config.messagesPer10s;
 }
 
+function applyCors(res) {
+  res.writeHeader('access-control-allow-origin', '*');
+  res.writeHeader('access-control-allow-headers', 'content-type,authorization');
+  res.writeHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
+  res.writeHeader('access-control-allow-credentials', 'false');
+}
+
 function jsonResponse(res, status, payload = {}) {
   const text = STATUS_TEXT[status] || 'OK';
   res.writeStatus(`${status} ${text}`);
+  applyCors(res);
   res.writeHeader('content-type', 'application/json');
   res.end(JSON.stringify(payload));
 }
@@ -512,6 +541,12 @@ async function processChatHistory(ws, envelope) {
  */
 const app = uWS.App();
 
+app.options('/*', (res) => {
+  res.writeStatus('204 No Content');
+  applyCors(res);
+  res.end();
+});
+
 /**
  * ------------------------------------------------------------
  * Redis bridge setup
@@ -726,6 +761,53 @@ app.post('/api/conversations/:conversationId/voice-notes', (res, req) => {
   });
 });
 
+const demoGuestRequestSchema = z.object({
+  conversationId: z.string().trim().min(3).regex(/^demo:[a-z0-9:_-]+$/i, 'Demo conversation must start with "demo:"'),
+  name: z.string().trim().min(1).max(64).optional(),
+  expiresInSeconds: z.number().int().min(60).max(60 * 60 * 24).optional(),
+});
+
+app.post('/api/demo/guest-token', (res) => {
+  if (!config.allowDemoGuests) {
+    errorResponse(res, 403, 'Guest token issuance is disabled');
+    return;
+  }
+  if (!config.jwtSecret) {
+    errorResponse(res, 500, 'JWT secret is not configured');
+    return;
+  }
+  readJsonBody(res, demoGuestRequestSchema, async (body) => {
+    try {
+      const guestId = `guest-${randomUUID()}`;
+      const displayName = body.name?.trim() || guestId;
+      const ttl = body.expiresInSeconds
+        ? Math.min(body.expiresInSeconds, config.demoGuestTokenTtlSecs)
+        : config.demoGuestTokenTtlSecs;
+      const issuedAt = Math.floor(Date.now() / 1000);
+      const token = jwt.sign(
+        {
+          sub: guestId,
+          roles: ['guest'],
+          demo: true,
+          conversationId: body.conversationId,
+          name: displayName,
+          iat: issuedAt,
+        },
+        config.jwtSecret,
+        { expiresIn: ttl },
+      );
+      jsonResponse(res, 201, {
+        token,
+        expiresIn: ttl,
+        user: { id: guestId, name: displayName, roles: ['guest'] },
+      });
+    } catch (err) {
+      log.error({ err }, 'Failed to issue demo guest token');
+      errorResponse(res, 500, 'Failed to issue demo guest token');
+    }
+  });
+});
+
 app.ws('/*', {
   compression: uWS.DEDICATED_COMPRESSOR_256KB,
   maxPayloadLength: config.maxPayloadBytes,
@@ -812,6 +894,12 @@ async function handleMessage(ws, envelope) {
   switch (type) {
     case 'ping':
       sendJSON(ws, { type: 'pong', ts: nowTs() });
+      break;
+
+    case 'hello':
+      // Mishkah clients send an initial hello frame when opening a connection.
+      // Treat it as a no-op handshake hint instead of surfacing an error.
+      log.debug({ id: ws.id }, 'Received hello frame from client');
       break;
 
     case 'auth':
