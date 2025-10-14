@@ -144,7 +144,8 @@
         "topic": "chat:demo:lobby",
         "connection": {
           "status": "idle",
-          "lastError": null
+          "lastError": null,
+          "user": null
         },
         "errors": []
       }
@@ -252,7 +253,8 @@
         conversationId: 'demo:lobby',
         topic: 'chat:demo:lobby',
         historyLimit: 50,
-        maxErrors: 10
+        maxErrors: 10,
+        tokenEndpoint: null
       };
 
       var runtime = {
@@ -260,7 +262,12 @@
         socket: null,
         lastCtx: null,
         subscriptionRequested: false,
-        historyRequested: false
+        historyRequested: false,
+        authToken: null,
+        authTokenMeta: null,
+        authenticated: false,
+        authenticating: false,
+        authPromise: null
       };
 
       function ensureContext(ctx) {
@@ -312,6 +319,138 @@
         return applied;
       }
 
+      function resetAuthState(options) {
+        var settings = options || {};
+        runtime.authenticated = false;
+        runtime.subscriptionRequested = false;
+        runtime.historyRequested = false;
+        runtime.authenticating = false;
+        runtime.authPromise = null;
+        if (settings.clearToken) {
+          runtime.authToken = null;
+          runtime.authTokenMeta = null;
+          if (runtime.socket && runtime.socket.auth) {
+            runtime.socket.auth.token = null;
+          }
+          mutateState(function (prev) {
+            var base = prev || {};
+            var data = base.data || {};
+            var connection = Object.assign({}, data.connection || {});
+            connection.user = null;
+            return Object.assign({}, base, {
+              data: Object.assign({}, data, { connection: connection })
+            });
+          });
+        }
+      }
+
+      function deriveHttpUrl(url) {
+        if (!url) {
+          return null;
+        }
+        try {
+          var parsed = new URL(url, window.location.href);
+          if (parsed.protocol === 'wss:') {
+            parsed.protocol = 'https:';
+          } else if (parsed.protocol === 'ws:') {
+            parsed.protocol = 'http:';
+          }
+          parsed.hash = '';
+          return parsed.toString().replace(/\/+$/, '');
+        } catch (parseError) {
+          warn('تعذر تحليل رابط WebSocket لتحويله إلى HTTP.', { url: url, error: parseError });
+          return null;
+        }
+      }
+
+      function resolveTokenEndpoint() {
+        if (CHAT_CONFIG.tokenEndpoint) {
+          return CHAT_CONFIG.tokenEndpoint;
+        }
+        var base = deriveHttpUrl(CHAT_CONFIG.url);
+        if (!base) {
+          return null;
+        }
+        return base.replace(/\/+$/, '') + '/api/demo/guest-token';
+      }
+
+      async function ensureAuthToken(context) {
+        if (runtime.authToken) {
+          return runtime.authToken;
+        }
+        if (runtime.authPromise) {
+          return runtime.authPromise;
+        }
+        var activeContext = ensureContext(context || runtime.lastCtx);
+        var username = '';
+        if (activeContext && typeof activeContext.get === 'function') {
+          try {
+            username = activeContext.get('data.username') || '';
+          } catch (_getErr) {
+            username = '';
+          }
+        }
+        if (!username || typeof username !== 'string') {
+          username = generateGuestName();
+          if (activeContext && typeof activeContext.set === 'function') {
+            activeContext.set('data.username', username);
+          }
+        } else {
+          username = username.trim();
+          if (!username) {
+            username = generateGuestName();
+            if (activeContext && typeof activeContext.set === 'function') {
+              activeContext.set('data.username', username);
+            }
+          }
+        }
+        var endpoint = resolveTokenEndpoint();
+        if (!endpoint) {
+          throw new Error('تعذر تحديد عنوان خدمة الرموز.');
+        }
+        info('جارٍ طلب رمز ضيف للدردشة.', { endpoint: endpoint, username: username });
+        runtime.authenticating = true;
+        runtime.authPromise = (async function () {
+          var response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ conversationId: CHAT_CONFIG.conversationId, name: username })
+          });
+          if (!response.ok) {
+            var errorText = '';
+            try {
+              errorText = await response.text();
+            } catch (_textErr) {
+              errorText = '';
+            }
+            throw new Error('فشل طلب رمز الضيف: ' + (errorText || response.statusText || response.status));
+          }
+          var data;
+          try {
+            data = await response.json();
+          } catch (parseErr) {
+            throw new Error('تعذر قراءة استجابة رمز الضيف: ' + parseErr.message);
+          }
+          if (!data || !data.token) {
+            throw new Error('الرد من خدمة الرموز لا يحتوي على رمز صالح.');
+          }
+          runtime.authToken = data.token;
+          runtime.authTokenMeta = {
+            endpoint: endpoint,
+            obtainedAt: Date.now(),
+            expiresIn: data.expiresIn || null,
+            user: data.user || null
+          };
+          return runtime.authToken;
+        })();
+        try {
+          return await runtime.authPromise;
+        } finally {
+          runtime.authenticating = false;
+          runtime.authPromise = null;
+        }
+      }
+
       function extractError(meta) {
         if (!meta) {
           return null;
@@ -354,6 +493,11 @@
           } else if (normalizedError) {
             connection.lastError = normalizedError;
           }
+          if (meta && Object.prototype.hasOwnProperty.call(meta, 'user')) {
+            connection.user = meta.user;
+          } else if (!Object.prototype.hasOwnProperty.call(connection, 'user')) {
+            connection.user = (data.connection && data.connection.user) || null;
+          }
           return Object.assign({}, base, {
             data: Object.assign({}, data, {
               connection: connection
@@ -391,6 +535,23 @@
           });
         });
         return entry;
+      }
+
+      function normalizeUserInfo(rawUser) {
+        if (!rawUser) {
+          return null;
+        }
+        var claims = rawUser.claims || {};
+        var name = rawUser.name || claims.name || claims.username || claims.displayName || '';
+        var identifier = rawUser.id || claims.sub || claims.id || null;
+        if (!name && identifier) {
+          name = identifier;
+        }
+        return {
+          id: identifier,
+          name: name || '',
+          roles: Array.isArray(rawUser.roles) ? rawUser.roles.slice() : []
+        };
       }
 
       function normalizeMessage(raw, hints) {
@@ -467,10 +628,14 @@
       }
 
       function subscribeToChat() {
-        if (!runtime.socket) {
+        if (!runtime.socket || runtime.socket.state !== 'open') {
           return;
         }
         if (runtime.subscriptionRequested) {
+          return;
+        }
+        if (!runtime.authenticated) {
+          debug('تم تجاهل طلب الاشتراك قبل اكتمال المصادقة.');
           return;
         }
         try {
@@ -485,10 +650,14 @@
       }
 
       function requestHistory(force) {
-        if (!runtime.socket) {
+        if (!runtime.socket || runtime.socket.state !== 'open') {
           return;
         }
         if (runtime.historyRequested && !force) {
+          return;
+        }
+        if (!runtime.authenticated) {
+          debug('تم تجاهل طلب السجل قبل اكتمال المصادقة.');
           return;
         }
         try {
@@ -507,6 +676,32 @@
 
       function handleAckMessage(message) {
         if (!message) {
+          return;
+        }
+        if (message.event === 'auth') {
+          runtime.authenticated = true;
+          runtime.subscriptionRequested = false;
+          runtime.historyRequested = false;
+          var normalizedUser = normalizeUserInfo(message.user);
+          if (normalizedUser) {
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var users = Array.isArray(data.users) ? data.users.slice() : [];
+              if (normalizedUser.name && users.indexOf(normalizedUser.name) === -1) {
+                users.push(normalizedUser.name);
+              }
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  users: users,
+                  connection: Object.assign({}, data.connection || {}, { user: normalizedUser })
+                })
+              });
+            });
+          }
+          setConnectionStatus('connected', { resetError: true, user: normalizedUser || null });
+          subscribeToChat();
+          requestHistory(true);
           return;
         }
         if (message.event === 'subscribe') {
@@ -563,6 +758,17 @@
         if (code === 'unauthorized_sub' || code === 'topic_not_allowed') {
           runtime.subscriptionRequested = false;
         }
+        if (code === 'unauthorized_pub') {
+          runtime.authenticated = false;
+        }
+        if (code === 'auth_failed' || code === 'unauthorized' || code === 'token_required' || code === 'unauthorized_pub') {
+          resetAuthState({ clearToken: true });
+          if (runtime.socket && typeof runtime.socket.close === 'function') {
+            try {
+              runtime.socket.close(4401, 'reauth');
+            } catch (_closeErr) {}
+          }
+        }
       }
 
       function handleSocketMessage(message) {
@@ -579,8 +785,22 @@
         debug('رسالة WebSocket واردة', message);
         switch (message.type) {
           case 'hello':
-            subscribeToChat();
-            requestHistory(true);
+            resetAuthState({ clearToken: true });
+            if (runtime.socket && runtime.socket.auth) {
+              runtime.socket.auth.token = null;
+            }
+            (async function () {
+              try {
+                var token = await ensureAuthToken(runtime.lastCtx);
+                if (runtime.socket && runtime.socket.state === 'open') {
+                  runtime.socket.send({ type: 'auth', data: { token: token } });
+                }
+              } catch (reauthErr) {
+                recordError('auth_retry_failed', 'تعذر استكمال المصادقة التلقائية بعد رسالة hello.', reauthErr, {
+                  connection: true
+                });
+              }
+            })();
             break;
           case 'ack':
             handleAckMessage(message);
@@ -608,14 +828,12 @@
         socket.__chatHandlersAttached = true;
         socket.on('open', function () {
           info('تم فتح اتصال WebSocket بنجاح.', { topic: CHAT_CONFIG.topic });
+          resetAuthState();
           setConnectionStatus('connected', { resetError: true });
-          runtime.subscriptionRequested = false;
-          runtime.historyRequested = false;
-          subscribeToChat();
-          requestHistory(true);
         });
         socket.on('close', function (evt) {
           warn('تم إغلاق اتصال WebSocket.', { code: evt && evt.code, reason: evt && evt.reason });
+          resetAuthState();
           setConnectionStatus('disconnected', { error: evt && { code: evt.code || 'closed', message: evt.reason || '' } });
         });
         socket.on('error', function (err) {
@@ -678,7 +896,19 @@
             runtime.socket = new utils.WebSocketX(CHAT_CONFIG.url, {
               autoReconnect: true,
               backoff: { min: 1000, max: 10000, factor: 1.6 },
-              ping: { interval: 20000, send: { type: 'ping' }, expect: { type: 'pong' }, timeout: 8000 }
+              ping: { interval: 20000, send: { type: 'ping' }, expect: { type: 'pong' }, timeout: 8000 },
+              auth: {
+                param: 'token',
+                sendOnUrl: true,
+                getToken: async function () {
+                  try {
+                    return await ensureAuthToken(runtime.lastCtx || context);
+                  } catch (tokenError) {
+                    recordError('token_failed', 'تعذر الحصول على رمز الضيف من الخادم.', tokenError, { connection: true });
+                    throw tokenError;
+                  }
+                }
+              }
             });
           } catch (ctorError) {
             recordError('wsx_init_failed', 'تعذر إنشاء عميل WebSocket.', ctorError, { connection: true });
@@ -688,8 +918,26 @@
         }
         if (runtime.socket.state === 'open') {
           setConnectionStatus('connected', { resetError: true });
-          subscribeToChat();
-          requestHistory(false);
+          if (runtime.authenticated) {
+            subscribeToChat();
+            requestHistory(false);
+          } else {
+            (async function () {
+              try {
+                var token = await ensureAuthToken(runtime.lastCtx || context);
+                if (runtime.socket && runtime.socket.state === 'open') {
+                  if (runtime.socket.auth) {
+                    runtime.socket.auth.token = token;
+                  }
+                  runtime.socket.send({ type: 'auth', data: { token: token } });
+                }
+              } catch (initAuthErr) {
+                recordError('auth_failed_init', 'تعذر تهيئة المصادقة على قناة الدردشة.', initAuthErr, {
+                  connection: true
+                });
+              }
+            })();
+          }
         } else if (runtime.socket.state !== 'connecting') {
           setConnectionStatus('connecting');
           try {
@@ -733,6 +981,7 @@
         } else if (name !== current) {
           context.set('data.username', name);
         }
+        resetAuthState({ clearToken: true });
         context.set('data.joined', true);
         mutateState(function (prev) {
           var base = prev || {};
