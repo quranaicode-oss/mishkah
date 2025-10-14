@@ -23,89 +23,310 @@
     }
   };
 
-  const TEXTS = {
-    ar:{
-      title:'مشكاة — شاشة المطبخ',
-      subtitle:'إدارة التحضير والتسليم لحظيًا',
-      status:{ online:'🟢 متصل', offline:'🔴 غير متصل', syncing:'🔄 مزامنة' },
-      stats:{ total:'إجمالي الأوامر', expedite:'أوامر عاجلة', alerts:'تنبيهات', ready:'جاهز', pending:'قيد التحضير' },
-      tabs:{ prep:'كل الأقسام', expo:'شاشة التجميع', delivery:'تسليم الدليفري', pendingDelivery:'معلقات الدليفري' },
-      empty:{
-        prep:'لا توجد طلبات محفوظة بعد.',
-        station:'لا توجد أوامر لهذا القسم حاليًا.',
-        expo:'لا توجد تذاكر تجميع حالية.',
-        delivery:'لا توجد طلبات دليفري حالية.',
-        pending:'لا توجد طلبات دليفري معلقة للتحصيل.'
+  const TEXT_DICT = {
+    "title": {
+      "ar": "مشكاة — شاشة المطبخ",
+      "en": "Mishkah — Kitchen display"
+    },
+    "subtitle": {
+      "ar": "إدارة التحضير والتسليم لحظيًا",
+      "en": "Live preparation and dispatch management"
+    },
+    "status": {
+      "online": {
+        "ar": "🟢 متصل",
+        "en": "🟢 Online"
       },
-      actions:{
-        start:'بدء التجهيز',
-        finish:'تم التجهيز',
-        assignDriver:'تعيين السائق',
-        delivered:'تم التسليم',
-        settle:'تسوية التحصيل'
+      "offline": {
+        "ar": "🔴 غير متصل",
+        "en": "🔴 Offline"
       },
-      labels:{
-        order:'طلب',
-        table:'طاولة',
-        customer:'عميل',
-        due:'الاستحقاق',
-        timer:'المدة',
-        driver:'السائق',
-        driverPhone:'رقم السائق',
-        notAssigned:'لم يتم التعيين بعد',
-        serviceMode:{ dine_in:'صالة', delivery:'دليفري', takeaway:'تيك أواي', pickup:'استلام' },
-        jobStatus:{ queued:'بانتظار', awaiting:'بانتظار', accepted:'تم القبول', in_progress:'قيد التحضير', cooking:'قيد التحضير', ready:'جاهز', completed:'مكتمل', cancelled:'ملغي', paused:'متوقف' },
-        deliveryStatus:{ pending:'بانتظار التسليم', assigned:'تم تعيين السائق', onRoute:'في الطريق', delivered:'تم التسليم', settled:'تم التحصيل' },
-        expoReady:'جاهز للتسليم',
-        expoPending:'بانتظار الأقسام'
-      },
-      modal:{
-        driverTitle:'اختر السائق المناسب',
-        driverDescription:'حدد السائق المسؤول عن الطلب، وسيتم إعلام نقطة البيع فورًا.',
-        close:'إغلاق'
+      "syncing": {
+        "ar": "🔄 مزامنة",
+        "en": "🔄 Syncing"
       }
     },
-    en:{
-      title:'Mishkah — Kitchen display',
-      subtitle:'Live preparation and dispatch management',
-      status:{ online:'🟢 Online', offline:'🔴 Offline', syncing:'🔄 Syncing' },
-      stats:{ total:'Total jobs', expedite:'Expedite', alerts:'Alerts', ready:'Ready', pending:'In progress' },
-      tabs:{ prep:'All stations', expo:'Expo pass', delivery:'Delivery handoff', pendingDelivery:'Delivery settlements' },
-      empty:{
-        prep:'No orders have been saved yet.',
-        station:'No active tickets for this station.',
-        expo:'No expo tickets at the moment.',
-        delivery:'No delivery orders right now.',
-        pending:'No outstanding delivery settlements.'
+    "stats": {
+      "total": {
+        "ar": "إجمالي الأوامر",
+        "en": "Total jobs"
       },
-      actions:{
-        start:'Start prep',
-        finish:'Mark ready',
-        assignDriver:'Assign driver',
-        delivered:'Delivered',
-        settle:'Settle payment'
+      "expedite": {
+        "ar": "أوامر عاجلة",
+        "en": "Expedite"
       },
-      labels:{
-        order:'Order',
-        table:'Table',
-        customer:'Guest',
-        due:'Due at',
-        timer:'Duration',
-        driver:'Driver',
-        driverPhone:'Driver phone',
-        notAssigned:'Not assigned yet',
-        serviceMode:{ dine_in:'Dine-in', delivery:'Delivery', takeaway:'Takeaway', pickup:'Pickup' },
-        jobStatus:{ queued:'Queued', awaiting:'Awaiting', accepted:'Accepted', in_progress:'Preparing', cooking:'Preparing', ready:'Ready', completed:'Completed', cancelled:'Cancelled', paused:'Paused' },
-        deliveryStatus:{ pending:'Pending dispatch', assigned:'Driver assigned', onRoute:'On the way', delivered:'Delivered', settled:'Settled' },
-        expoReady:'Ready to handoff',
-        expoPending:'Waiting for stations'
+      "alerts": {
+        "ar": "تنبيهات",
+        "en": "Alerts"
       },
-      modal:{
-        driverTitle:'Select a driver',
-        driverDescription:'Choose who will handle the delivery. POS will be notified instantly.',
-        close:'Close'
+      "ready": {
+        "ar": "جاهز",
+        "en": "Ready"
+      },
+      "pending": {
+        "ar": "قيد التحضير",
+        "en": "In progress"
+      }
+    },
+    "tabs": {
+      "prep": {
+        "ar": "كل الأقسام",
+        "en": "All stations"
+      },
+      "expo": {
+        "ar": "شاشة التجميع",
+        "en": "Expo pass"
+      },
+      "delivery": {
+        "ar": "تسليم الدليفري",
+        "en": "Delivery handoff"
+      },
+      "pendingDelivery": {
+        "ar": "معلقات الدليفري",
+        "en": "Delivery settlements"
+      }
+    },
+    "empty": {
+      "prep": {
+        "ar": "لا توجد طلبات محفوظة بعد.",
+        "en": "No orders have been saved yet."
+      },
+      "station": {
+        "ar": "لا توجد أوامر لهذا القسم حاليًا.",
+        "en": "No active tickets for this station."
+      },
+      "expo": {
+        "ar": "لا توجد تذاكر تجميع حالية.",
+        "en": "No expo tickets at the moment."
+      },
+      "delivery": {
+        "ar": "لا توجد طلبات دليفري حالية.",
+        "en": "No delivery orders right now."
+      },
+      "pending": {
+        "ar": "لا توجد طلبات دليفري معلقة للتحصيل.",
+        "en": "No outstanding delivery settlements."
+      }
+    },
+    "actions": {
+      "start": {
+        "ar": "بدء التجهيز",
+        "en": "Start prep"
+      },
+      "finish": {
+        "ar": "تم التجهيز",
+        "en": "Mark ready"
+      },
+      "assignDriver": {
+        "ar": "تعيين السائق",
+        "en": "Assign driver"
+      },
+      "delivered": {
+        "ar": "تم التسليم",
+        "en": "Delivered"
+      },
+      "settle": {
+        "ar": "تسوية التحصيل",
+        "en": "Settle payment"
+      }
+    },
+    "labels": {
+      "order": {
+        "ar": "طلب",
+        "en": "Order"
+      },
+      "table": {
+        "ar": "طاولة",
+        "en": "Table"
+      },
+      "customer": {
+        "ar": "عميل",
+        "en": "Guest"
+      },
+      "due": {
+        "ar": "الاستحقاق",
+        "en": "Due at"
+      },
+      "timer": {
+        "ar": "المدة",
+        "en": "Duration"
+      },
+      "driver": {
+        "ar": "السائق",
+        "en": "Driver"
+      },
+      "driverPhone": {
+        "ar": "رقم السائق",
+        "en": "Driver phone"
+      },
+      "notAssigned": {
+        "ar": "لم يتم التعيين بعد",
+        "en": "Not assigned yet"
+      },
+      "serviceMode": {
+        "dine_in": {
+          "ar": "صالة",
+          "en": "Dine-in"
+        },
+        "delivery": {
+          "ar": "دليفري",
+          "en": "Delivery"
+        },
+        "takeaway": {
+          "ar": "تيك أواي",
+          "en": "Takeaway"
+        },
+        "pickup": {
+          "ar": "استلام",
+          "en": "Pickup"
+        }
+      },
+      "jobStatus": {
+        "queued": {
+          "ar": "بانتظار",
+          "en": "Queued"
+        },
+        "awaiting": {
+          "ar": "بانتظار",
+          "en": "Awaiting"
+        },
+        "accepted": {
+          "ar": "تم القبول",
+          "en": "Accepted"
+        },
+        "in_progress": {
+          "ar": "قيد التحضير",
+          "en": "Preparing"
+        },
+        "cooking": {
+          "ar": "قيد التحضير",
+          "en": "Preparing"
+        },
+        "ready": {
+          "ar": "جاهز",
+          "en": "Ready"
+        },
+        "completed": {
+          "ar": "مكتمل",
+          "en": "Completed"
+        },
+        "cancelled": {
+          "ar": "ملغي",
+          "en": "Cancelled"
+        },
+        "paused": {
+          "ar": "متوقف",
+          "en": "Paused"
+        }
+      },
+      "deliveryStatus": {
+        "pending": {
+          "ar": "بانتظار التسليم",
+          "en": "Pending dispatch"
+        },
+        "assigned": {
+          "ar": "تم تعيين السائق",
+          "en": "Driver assigned"
+        },
+        "onRoute": {
+          "ar": "في الطريق",
+          "en": "On the way"
+        },
+        "delivered": {
+          "ar": "تم التسليم",
+          "en": "Delivered"
+        },
+        "settled": {
+          "ar": "تم التحصيل",
+          "en": "Settled"
+        }
+      },
+      "expoReady": {
+        "ar": "جاهز للتسليم",
+        "en": "Ready to handoff"
+      },
+      "expoPending": {
+        "ar": "بانتظار الأقسام",
+        "en": "Waiting for stations"
+      }
+    },
+    "modal": {
+      "driverTitle": {
+        "ar": "اختر السائق المناسب",
+        "en": "Select a driver"
+      },
+      "driverDescription": {
+        "ar": "حدد السائق المسؤول عن الطلب، وسيتم إعلام نقطة البيع فورًا.",
+        "en": "Choose who will handle the delivery. POS will be notified instantly."
+      },
+      "close": {
+        "ar": "إغلاق",
+        "en": "Close"
+      }
+    },
+    "controls": {
+      "theme": {
+        "ar": "المظهر",
+        "en": "Theme"
+      },
+      "light": {
+        "ar": "نهاري",
+        "en": "Light"
+      },
+      "dark": {
+        "ar": "ليلي",
+        "en": "Dark"
+      },
+      "language": {
+        "ar": "اللغة",
+        "en": "Language"
+      },
+      "arabic": {
+        "ar": "عربي",
+        "en": "Arabic"
+      },
+      "english": {
+        "ar": "إنجليزي",
+        "en": "English"
       }
     }
+  };
+
+  const flattenTextDict = (node, prefix=[])=>{
+    const flat = {};
+    Object.keys(node).forEach(key=>{
+      const value = node[key];
+      const path = prefix.concat(key);
+      if(value && typeof value === 'object' && !Array.isArray(value) && !('ar' in value || 'en' in value)){
+        Object.assign(flat, flattenTextDict(value, path));
+      } else {
+        flat[path.join('.')] = value;
+      }
+    });
+    return flat;
+  };
+
+  const inflateTexts = (node, resolver, prefix=[])=>{
+    if(node && typeof node === 'object' && !Array.isArray(node)){
+      if('ar' in node || 'en' in node){
+        const key = prefix.join('.');
+        return resolver(key);
+      }
+      const out = {};
+      Object.keys(node).forEach(key=>{
+        out[key] = inflateTexts(node[key], resolver, prefix.concat(key));
+      });
+      return out;
+    }
+    return node;
+  };
+
+  const TEXT_FLAT = flattenTextDict(TEXT_DICT);
+
+  const getTexts = (db)=>{
+    const langContext = { env:{ lang: db?.env?.lang }, i18n:{ dict: TEXT_FLAT, fallback:'ar' } };
+    const { TL } = U.lang.makeLangLookup(langContext);
+    return inflateTexts(TEXT_DICT, TL, []);
   };
 
   const STATUS_PRIORITY = { ready:4, completed:4, in_progress:3, cooking:3, accepted:2, queued:1, awaiting:1, paused:0, cancelled:-1 };
@@ -364,9 +585,22 @@
   const renderHeader = (db, t)=>{
     const stats = db.data.jobs.stats || { total:0, expedite:0, alerts:0, ready:0, pending:0 };
     const lang = db.env.lang || 'ar';
+    const theme = db.env.theme || 'dark';
     const now = db.data.now || Date.now();
     const statusState = db.data.sync?.state || 'online';
     const statusLabel = t.status[statusState] || t.status.online;
+    const themeButtonClass = (mode)=> cx(
+      tw`rounded-full px-2 py-1 text-xs font-semibold transition`,
+      theme === mode
+        ? tw`border border-sky-400/60 bg-sky-500/20 text-sky-100`
+        : tw`border border-transparent text-slate-300 hover:text-slate-100`
+    );
+    const langButtonClass = (value)=> cx(
+      tw`rounded-full px-2 py-1 text-xs font-semibold transition`,
+      lang === value
+        ? tw`border border-emerald-400/60 bg-emerald-500/20 text-emerald-100`
+        : tw`border border-transparent text-slate-300 hover:text-slate-100`
+    );
     return D.Containers.Header({ attrs:{ class: tw`px-6 pt-6 pb-4` }}, [
       D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-5 rounded-3xl border border-slate-800/70 bg-slate-900/80 p-6 shadow-xl shadow-slate-950/40 backdrop-blur` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between` }}, [
@@ -377,7 +611,17 @@
           D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
             createBadge(statusLabel, tw`border-sky-400/40 bg-sky-500/10 text-sky-100`),
             createBadge(formatClock(now, lang), tw`border-slate-500/40 bg-slate-800/60 text-slate-100`),
-            createBadge(`${t.stats.total}: ${stats.total}`, tw`border-slate-600/40 bg-slate-800/70 text-slate-100`)
+            createBadge(`${t.stats.total}: ${stats.total}`, tw`border-slate-600/40 bg-slate-800/70 text-slate-100`),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 px-3 py-1` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [t.controls.theme]),
+              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:theme:set', 'data-theme':'light', class: themeButtonClass('light') }}, [t.controls.light]),
+              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:theme:set', 'data-theme':'dark', class: themeButtonClass('dark') }}, [t.controls.dark])
+            ]),
+            D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 px-3 py-1` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [t.controls.language]),
+              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:lang:set', 'data-lang':'ar', class: langButtonClass('ar') }}, [t.controls.arabic]),
+              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:lang:set', 'data-lang':'en', class: langButtonClass('en') }}, [t.controls.english])
+            ])
           ])
         ]),
         D.Containers.Div({ attrs:{ class: tw`grid gap-3 sm:grid-cols-2 xl:grid-cols-4` }}, [
@@ -721,7 +965,7 @@
 
   const AppView = (db)=>{
     const lang = db.env.lang || 'ar';
-    const t = TEXTS[lang] || TEXTS.ar;
+    const t = getTexts(db);
     const now = db.data.now || Date.now();
     return UI.AppRoot({
       shell: D.Containers.Div({ attrs:{ class: tw`flex min-h-screen w-full flex-col bg-slate-950/95 text-slate-100` }}, [
@@ -757,8 +1001,9 @@
   const defaultTab = lockedSection ? (stationMap[sectionParam] ? sectionParam : firstStationId) : 'prep';
 
   const initialState = {
-    head:{ title: TEXTS.ar.title },
+    head:{ title: TEXT_DICT.title.ar },
     env:{ theme:'dark', lang:'ar', dir:'rtl' },
+    i18n:{ dict: TEXT_FLAT, fallback:'ar' },
     data:{
       meta: kdsSource.metadata || {},
       sync:{ state:'online', lastMessage:null },
@@ -782,6 +1027,13 @@
 
   const app = M.app.createApp(initialState, {});
   const auto = U.twcss.auto(initialState, app, { pageScaffold:true });
+
+  const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
+  const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
+  syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken });
+  if(syncClient){
+    syncClient.connect();
+  }
 
   let broadcastChannel = null;
   if(typeof BroadcastChannel !== 'undefined'){
@@ -836,7 +1088,249 @@
     try{ broadcastChannel.postMessage(message); } catch(_err){}
   };
 
+  const mergeJobOrders = (current={}, patch={})=>{
+    const mergeList = (base=[], updates=[], key='id')=>{
+      const map = new Map();
+      base.forEach(item=>{
+        if(!item || item[key] == null) return;
+        map.set(String(item[key]), { ...item });
+      });
+      updates.forEach(item=>{
+        if(!item || item[key] == null) return;
+        const id = String(item[key]);
+        map.set(id, Object.assign({}, map.get(id) || {}, item));
+      });
+      return Array.from(map.values());
+    };
+    return {
+      headers: mergeList(Array.isArray(current.headers) ? current.headers : [], Array.isArray(patch.headers) ? patch.headers : []),
+      details: mergeList(Array.isArray(current.details) ? current.details : [], Array.isArray(patch.details) ? patch.details : []),
+      modifiers: mergeList(Array.isArray(current.modifiers) ? current.modifiers : [], Array.isArray(patch.modifiers) ? patch.modifiers : []),
+      statusHistory: mergeList(Array.isArray(current.statusHistory) ? current.statusHistory : [], Array.isArray(patch.statusHistory) ? patch.statusHistory : [])
+    };
+  };
+
+  const applyRemoteOrder = (appInstance, payload={})=>{
+    if(!payload || !payload.jobOrders) return;
+    appInstance.setState(state=>{
+      const mergedOrders = mergeJobOrders(state.data.jobOrders || {}, payload.jobOrders);
+      const jobRecordsNext = buildJobRecords(mergedOrders);
+      const jobsIndexedNext = indexJobs(jobRecordsNext);
+      const expoTicketsNext = buildExpoTickets(state.data.expoSource, jobsIndexedNext);
+      let deliveriesNext = state.data.deliveries || { assignments:{}, settlements:{} };
+      if(payload.deliveries){
+        const assignments = { ...(deliveriesNext.assignments || {}) };
+        const settlements = { ...(deliveriesNext.settlements || {}) };
+        if(payload.deliveries.assignments){
+          Object.keys(payload.deliveries.assignments).forEach(orderId=>{
+            assignments[orderId] = { ...(assignments[orderId] || {}), ...payload.deliveries.assignments[orderId] };
+          });
+        }
+        if(payload.deliveries.settlements){
+          Object.keys(payload.deliveries.settlements).forEach(orderId=>{
+            settlements[orderId] = { ...(settlements[orderId] || {}), ...payload.deliveries.settlements[orderId] };
+          });
+        }
+        deliveriesNext = { assignments, settlements };
+      }
+      let driversNext = state.data.drivers;
+      if(Array.isArray(payload.drivers)){
+        const existing = Array.isArray(state.data.drivers) ? state.data.drivers : [];
+        const map = new Map(existing.map(driver=> [String(driver.id), driver]));
+        payload.drivers.forEach(driver=>{
+          if(driver && driver.id != null) map.set(String(driver.id), driver);
+        });
+        driversNext = Array.from(map.values());
+      }
+      return {
+        ...state,
+        data:{
+          ...state.data,
+          jobOrders: mergedOrders,
+          jobs: jobsIndexedNext,
+          expoTickets: expoTicketsNext,
+          deliveries: deliveriesNext,
+          drivers: driversNext
+        }
+      };
+    });
+  };
+
+  const createKitchenSync = (appInstance, options={})=>{
+    const WebSocketX = U.WebSocketX || U.WebSocket;
+    const endpoint = options.endpoint;
+    if(!WebSocketX){
+      console.warn('[Mishkah][KDS] WebSocket adapter unavailable. Sync is disabled.');
+    }
+    if(!endpoint){
+      console.warn('[Mishkah][KDS] Missing WebSocket endpoint. Sync is disabled.');
+    }
+    if(!WebSocketX || !endpoint) return null;
+    const topicOrders = options.topicOrders || 'pos:kds:orders';
+    const topicJobs = options.topicJobs || 'kds:jobs:updates';
+    const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
+    const token = options.token;
+    let socket = null;
+    let ready = false;
+    let awaitingAuth = false;
+    const queue = [];
+    const sendEnvelope = (payload)=>{
+      if(!socket) return;
+      if(ready && !awaitingAuth){
+        socket.send(payload);
+      } else {
+        queue.push(payload);
+      }
+    };
+    const flushQueue = ()=>{
+      if(!ready || awaitingAuth) return;
+      while(queue.length){
+        socket.send(queue.shift());
+      }
+    };
+    socket = new WebSocketX(endpoint, {
+      autoReconnect:true,
+      ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
+    });
+    socket.on('open', ()=>{
+      ready = true;
+      console.info('[Mishkah][KDS] Sync connection opened.', { endpoint });
+      if(token){
+        awaitingAuth = true;
+        socket.send({ type:'auth', data:{ token } });
+      } else {
+        socket.send({ type:'subscribe', topic: topicOrders });
+        socket.send({ type:'subscribe', topic: topicJobs });
+        socket.send({ type:'subscribe', topic: topicDelivery });
+        flushQueue();
+      }
+    });
+    socket.on('close', (event)=>{
+      ready = false;
+      awaitingAuth = false;
+      console.warn('[Mishkah][KDS] Sync connection closed.', { code: event?.code, reason: event?.reason });
+    });
+    socket.on('error', (error)=>{
+      ready = false;
+      console.error('[Mishkah][KDS] Sync connection error.', error);
+    });
+    socket.on('message', (msg)=>{
+      if(!msg || typeof msg !== 'object') return;
+      if(msg.type === 'ack'){
+        if(msg.event === 'auth'){
+          awaitingAuth = false;
+          socket.send({ type:'subscribe', topic: topicOrders });
+          socket.send({ type:'subscribe', topic: topicJobs });
+          socket.send({ type:'subscribe', topic: topicDelivery });
+          flushQueue();
+        } else if(msg.event === 'subscribe'){
+          flushQueue();
+        }
+        return;
+      }
+      if(msg.type === 'publish'){
+        if(msg.topic === topicOrders){
+          applyRemoteOrder(appInstance, msg.data || {});
+        }
+        if(msg.topic === topicJobs){
+          const data = msg.data || {};
+          if(data.jobId && data.payload){
+            appInstance.setState(state=> applyJobsUpdate(state, list=> list.map(job=>{
+              if(job.id !== data.jobId) return job;
+              const updated = { ...job, ...data.payload };
+              if(data.payload.startedAt){
+                updated.startedAt = data.payload.startedAt;
+                updated.startMs = parseTime(data.payload.startedAt) || updated.startMs;
+              }
+              if(data.payload.readyAt){
+                updated.readyAt = data.payload.readyAt;
+                updated.readyMs = parseTime(data.payload.readyAt) || updated.readyMs;
+              }
+              if(data.payload.completedAt){
+                updated.completedAt = data.payload.completedAt;
+                updated.completedMs = parseTime(data.payload.completedAt) || updated.completedMs;
+              }
+              if(data.payload.updatedAt){
+                updated.updatedAt = data.payload.updatedAt;
+                updated.updatedMs = parseTime(data.payload.updatedAt) || updated.updatedMs;
+              }
+              return updated;
+            })));
+          }
+        }
+        if(msg.topic === topicDelivery){
+          const data = msg.data || {};
+          if(data.orderId && data.payload){
+            appInstance.setState(state=>{
+              const deliveries = state.data.deliveries || { assignments:{}, settlements:{} };
+              const assignments = { ...(deliveries.assignments || {}) };
+              const settlements = { ...(deliveries.settlements || {}) };
+              if(data.payload.assignment){
+                assignments[data.orderId] = { ...(assignments[data.orderId] || {}), ...data.payload.assignment };
+              }
+              if(data.payload.settlement){
+                settlements[data.orderId] = { ...(settlements[data.orderId] || {}), ...data.payload.settlement };
+              }
+              return {
+                ...state,
+                data:{
+                  ...state.data,
+                  deliveries:{ assignments, settlements }
+                }
+              };
+            });
+          }
+        }
+        return;
+      }
+    });
+    const connect = ()=>{
+      try { socket.connect({ waitOpen:false }); } catch(_err){}
+    };
+    return {
+      connect,
+      publishJobUpdate(update){
+        if(!update || !update.jobId) return;
+        sendEnvelope({ type:'publish', topic: topicJobs, data:update });
+      },
+      publishDeliveryUpdate(update){
+        if(!update || !update.orderId) return;
+        sendEnvelope({ type:'publish', topic: topicDelivery, data:update });
+      },
+      publishOrder(payload){
+        if(!payload) return;
+        sendEnvelope({ type:'publish', topic: topicOrders, data:payload });
+      }
+    };
+  };
+
+  let syncClient = null;
+
   const kdsOrders = {
+    'kds.theme.set':{
+      on:['click'],
+      gkeys:['kds:theme:set'],
+      handler:(event, ctx)=>{
+        const theme = event?.currentTarget?.dataset?.theme;
+        if(!theme) return;
+        ctx.setState(state=>({
+          ...state,
+          env:{ ...(state.env || {}), theme }
+        }));
+      }
+    },
+    'kds.lang.set':{
+      on:['click'],
+      gkeys:['kds:lang:set'],
+      handler:(event, ctx)=>{
+        const langValue = event?.currentTarget?.dataset?.lang;
+        if(!langValue) return;
+        ctx.setState(state=>({
+          ...state,
+          env:{ ...(state.env || {}), lang: langValue, dir: langValue === 'ar' ? 'rtl' : 'ltr' }
+        }));
+      }
+    },
     'kds.tab.switch':{
       on:['click'],
       gkeys:['kds:tab:switch'],
@@ -863,6 +1357,9 @@
         const nowMs = Date.parse(nowIso);
         ctx.setState(state=> applyJobsUpdate(state, list=> list.map(job=> job.id === jobId ? startJob(job, nowIso, nowMs) : job)));
         emitSync({ type:'job:update', jobId, payload:{ status:'in_progress', progressState:'cooking', startedAt: nowIso, updatedAt: nowIso } });
+        if(syncClient){
+          syncClient.publishJobUpdate({ jobId, payload:{ status:'in_progress', progressState:'cooking', startedAt: nowIso, updatedAt: nowIso } });
+        }
       }
     },
     'kds.job.finish':{
@@ -875,6 +1372,9 @@
         const nowMs = Date.parse(nowIso);
         ctx.setState(state=> applyJobsUpdate(state, list=> list.map(job=> job.id === jobId ? finishJob(job, nowIso, nowMs) : job)));
         emitSync({ type:'job:update', jobId, payload:{ status:'ready', progressState:'completed', readyAt: nowIso, completedAt: nowIso, updatedAt: nowIso } });
+        if(syncClient){
+          syncClient.publishJobUpdate({ jobId, payload:{ status:'ready', progressState:'completed', readyAt: nowIso, completedAt: nowIso, updatedAt: nowIso } });
+        }
       }
     },
     'kds.delivery.assign':{
@@ -903,6 +1403,7 @@
         const driverId = dataset.driverId;
         if(!orderId || !driverId) return;
         const nowIso = new Date().toISOString();
+        let assignmentPayload = null;
         ctx.setState(state=>{
           const deliveries = state.data.deliveries || { assignments:{}, settlements:{} };
           const assignments = { ...(deliveries.assignments || {}) };
@@ -916,6 +1417,7 @@
             status: 'assigned',
             assignedAt: assignments[orderId]?.assignedAt || nowIso
           };
+          assignmentPayload = assignments[orderId];
           emitSync({ type:'delivery:update', orderId, payload:{ assignment: assignments[orderId] } });
           return {
             ...state,
@@ -931,6 +1433,9 @@
             }
           };
         });
+        if(syncClient && assignmentPayload){
+          syncClient.publishDeliveryUpdate({ orderId, payload:{ assignment: assignmentPayload } });
+        }
       }
     },
     'kds.delivery.complete':{
@@ -940,6 +1445,8 @@
         const orderId = event?.currentTarget?.dataset?.orderId;
         if(!orderId) return;
         const nowIso = new Date().toISOString();
+        let assignmentPayload = null;
+        let settlementPayload = null;
         ctx.setState(state=>{
           const deliveries = state.data.deliveries || { assignments:{}, settlements:{} };
           const assignments = { ...(deliveries.assignments || {}) };
@@ -949,7 +1456,9 @@
             status:'delivered',
             deliveredAt: nowIso
           };
+          assignmentPayload = assignments[orderId];
           settlements[orderId] = settlements[orderId] || { status:'pending', updatedAt: nowIso };
+          settlementPayload = settlements[orderId];
           emitSync({ type:'delivery:update', orderId, payload:{ assignment: assignments[orderId] } });
           return {
             ...state,
@@ -959,6 +1468,9 @@
             }
           };
         });
+        if(syncClient){
+          syncClient.publishDeliveryUpdate({ orderId, payload:{ assignment: assignmentPayload, settlement: settlementPayload } });
+        }
       }
     },
     'kds.delivery.settle':{
@@ -968,10 +1480,12 @@
         const orderId = event?.currentTarget?.dataset?.orderId;
         if(!orderId) return;
         const nowIso = new Date().toISOString();
+        let settlementPayload = null;
         ctx.setState(state=>{
           const deliveries = state.data.deliveries || { assignments:{}, settlements:{} };
           const settlements = { ...(deliveries.settlements || {}) };
           settlements[orderId] = { ...(settlements[orderId] || {}), status:'settled', settledAt: nowIso };
+          settlementPayload = settlements[orderId];
           emitSync({ type:'delivery:update', orderId, payload:{ settlement: settlements[orderId] } });
           return {
             ...state,
@@ -981,6 +1495,9 @@
             }
           };
         });
+        if(syncClient && settlementPayload){
+          syncClient.publishDeliveryUpdate({ orderId, payload:{ settlement: settlementPayload } });
+        }
       }
     },
     'ui.modal.close':{

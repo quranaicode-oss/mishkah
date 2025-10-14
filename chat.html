@@ -109,29 +109,127 @@
 
   <script>
     (function (global) {
+      var LOG_PREFIX = '%c[Chat Debug]%c ';
+      var LOG_STYLE = 'color:#38bdf8;font-weight:bold;';
+      var LOG_RESET = 'color:inherit;';
+
+      function log(level, message, payload) {
+        if (typeof console === 'undefined') {
+          return;
+        }
+        var logger = typeof console[level] === 'function' ? console[level] : console.log;
+        if (payload !== undefined) {
+          try {
+            logger.call(console, LOG_PREFIX + message, LOG_STYLE, LOG_RESET, payload);
+          } catch (error) {
+            console.error(LOG_PREFIX + 'فشل تسجيل الحمولة debug payload', LOG_STYLE, LOG_RESET, error);
+          }
+        } else {
+          logger.call(console, LOG_PREFIX + message, LOG_STYLE, LOG_RESET);
+        }
+      }
+
+      function info(message, payload) {
+        log('info', message, payload);
+      }
+
+      function warn(message, payload) {
+        log('warn', message, payload);
+      }
+
+      function error(message, payload) {
+        log('error', message, payload);
+      }
+
+      function debug(message, payload) {
+        log('debug', message, payload);
+      }
+
+      var utils = global.Mishkah && global.Mishkah.utils;
+      var OriginalWebSocketX = utils && utils.WebSocketX;
+
+      if (OriginalWebSocketX && !OriginalWebSocketX.__chatDebugWrapped) {
+        var ChatDebugWebSocketX = /*#__PURE__*/ (function (Parent) {
+          function Wrapper(url, options) {
+            info('تهيئة اتصال WebSocket جديد', { url: url, options: options || {} });
+            var instance = new Parent(url, options);
+            try {
+              instance.on('open', function () {
+                info('تم فتح اتصال WebSocket', { url: url });
+              });
+              instance.on('close', function (evt) {
+                warn('تم إغلاق اتصال WebSocket', { url: url, event: evt });
+              });
+              instance.on('error', function (err) {
+                error('خطأ من WebSocket', { url: url, error: err });
+              });
+              instance.on('state', function (state) {
+                debug('تغيرت حالة WebSocket', { url: url, state: state });
+              });
+              instance.on('message', function (message) {
+                debug('رسالة WebSocket واردة', { url: url, message: message });
+              });
+            } catch (hookError) {
+              warn('تعذر ربط مراقب لأحداث WebSocket', hookError);
+            }
+            return instance;
+          }
+
+          Wrapper.prototype = Parent.prototype;
+          if (Object.setPrototypeOf) {
+            Object.setPrototypeOf(Wrapper, Parent);
+          } else if (Wrapper.__proto__) {
+            Wrapper.__proto__ = Parent;
+          }
+          Wrapper.__chatDebugWrapped = true;
+          return Wrapper;
+        })(OriginalWebSocketX);
+
+        if (utils) {
+          utils.WebSocketX = ChatDebugWebSocketX;
+          utils.WebSocket = ChatDebugWebSocketX;
+        }
+        global.__ChatOriginalWebSocketX = OriginalWebSocketX;
+        info('تم تفعيل طبقة مراقبة WebSocketX للصفحة الحالية.');
+      } else if (!OriginalWebSocketX) {
+        warn('تعذر العثور على Mishkah.utils.WebSocketX — لن يتم تسجيل أحداث WebSocket.');
+      }
+
       var agent =
         global.Mishkah &&
         global.Mishkah.HTMLx &&
         global.Mishkah.HTMLx.Agent;
 
       function ensureContext(ctx) {
-        if (!ctx) return null;
+        if (!ctx) {
+          error('تم تمرير سياق فارغ إلى ensureContext.');
+          return null;
+        }
         if (typeof ctx.get === 'function' && typeof ctx.set === 'function') {
           return ctx;
         }
-        if (agent && typeof agent.ContextAdapter === 'function') {
-          return agent.ContextAdapter(ctx);
+        if (!agent || typeof agent.ContextAdapter !== 'function') {
+          error('تعذر تكيف سياق HTMLx، ContextAdapter غير متاح.');
+          return null;
         }
-        return null;
+        var adapted = agent.ContextAdapter(ctx);
+        if (!adapted) {
+          error('فشل ContextAdapter في إرجاع سياق صالح.');
+        }
+        return adapted;
       }
 
       function handleUsernameInput(event, ctx) {
         var context = ensureContext(ctx);
-        if (!context || !event) return;
+        if (!context || !event) {
+          error('handleUsernameInput استقبل سياقًا أو حدثًا غير صالح.', { event: event, ctx: ctx });
+          return;
+        }
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
+        debug('تحديث اسم المستخدم من حقل الإدخال.', { value: value });
         context.set('data.username', value);
       }
 
@@ -140,7 +238,10 @@
           event.preventDefault();
         }
         var context = ensureContext(ctx);
-        if (!context) return;
+        if (!context) {
+          error('لم يتم العثور على سياق صالح عند محاولة الانضمام للدردشة.');
+          return;
+        }
         var current = context.get ? context.get('data.username') : '';
         var name = typeof current === 'string' ? current.trim() : '';
         if (!name) {
@@ -150,21 +251,30 @@
           context.set('data.username', name);
         }
         context.set('data.joined', true);
+        info('تم تنفيذ joinChat وتحديث الحالة.', { username: name });
       }
 
       function updateUsers(userList, ctx) {
         var context = ensureContext(ctx);
-        if (!context) return;
+        if (!context) {
+          error('updateUsers فشل في الحصول على سياق HTMLx.', { users: userList });
+          return;
+        }
         if (Array.isArray(userList)) {
           context.set('data.users', userList);
+          info('تم استلام قائمة المستخدمين وتحديثها.', { count: userList.length, users: userList });
         } else {
           context.set('data.users', []);
+          warn('تم استلام قائمة مستخدمين غير صالحة من الخادم.', { payload: userList });
         }
       }
 
       function appendMessage(message, ctx) {
         var context = ensureContext(ctx);
-        if (!context || !message) return;
+        if (!context || !message) {
+          error('appendMessage استقبل بيانات غير صالحة.', { message: message });
+          return;
+        }
         var currentMessages = context.get ? context.get('data.messages') : [];
         if (!Array.isArray(currentMessages)) {
           currentMessages = [];
@@ -175,32 +285,46 @@
           text: (message.text || '').toString()
         };
         context.set('data.messages', currentMessages.concat([normalized]));
+        info('تم إضافة رسالة جديدة إلى السجل.', normalized);
       }
 
       function handleMessageInput(event, ctx) {
         var context = ensureContext(ctx);
-        if (!context || !event) return;
+        if (!context || !event) {
+          error('handleMessageInput استقبل سياقًا أو حدثًا غير صالح.', { event: event });
+          return;
+        }
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
+        debug('تحديث قيمة الرسالة المؤقتة.', { value: value });
         context.set('data.newMessage', value);
       }
 
       function messagePayload(ctx) {
         var context = ensureContext(ctx);
-        if (!context) return null;
+        if (!context) {
+          error('messagePayload فشل في الحصول على سياق صالح.');
+          return null;
+        }
         var text = context.get ? context.get('data.newMessage') : '';
         var value = typeof text === 'string' ? text.trim() : '';
-        if (!value) return null;
+        if (!value) {
+          warn('محاولة إرسال رسالة فارغة تم تجاهلها.');
+          return null;
+        }
         var username = context.get ? context.get('data.username') : '';
         if (!username) {
           username = generateGuestName();
+          warn('لم يتم تعيين اسم مستخدم، تم إنشاء اسم ضيف تلقائي.', { username: username });
         }
-        return {
+        var payload = {
           user: username,
           text: value
         };
+        debug('تم تحضير الحمولة الخاصة بإرسال الرسالة.', payload);
+        return payload;
       }
 
       function sendMessage(event, ctx) {
@@ -208,10 +332,17 @@
           event.preventDefault();
         }
         var context = ensureContext(ctx);
-        if (!context) return;
+        if (!context) {
+          error('sendMessage لم يتمكن من الحصول على سياق HTMLx.');
+          return;
+        }
         var payload = messagePayload(context);
-        if (!payload) return;
+        if (!payload) {
+          warn('sendMessage لم يحصل على حمولة صالحة، لن يتم الإرسال.');
+          return;
+        }
         context.set('data.newMessage', '');
+        info('تم تصفير حقل الرسالة بعد الإرسال المبدئي.', { payload: payload });
       }
 
       function generateGuestName() {
