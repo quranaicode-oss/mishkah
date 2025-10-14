@@ -1201,8 +1201,12 @@
         return {
           available:false,
           async saveOrder(){ return false; },
+          async saveTempOrder(){ return false; },
           async listOrders(){ return []; },
           async getOrder(){ return null; },
+          async getTempOrder(){ return null; },
+          async listTempOrders(){ return []; },
+          async deleteTempOrder(){ return false; },
           async markSync(){ return false; },
           async bootstrap(){ return false; },
           async getActiveShift(){ return null; },
@@ -1220,6 +1224,7 @@
 
       const SHIFT_STORE = 'shifts';
       const META_STORE = 'posMeta';
+      const TEMP_STORE = 'order_temp';
 
       const db = new IndexedDBX({
         name,
@@ -1246,7 +1251,13 @@
                 { name:'by_pos_status', keyPath:['posId','isClosed'] }
               ]
             },
-            [META_STORE]:{ keyPath:'id' }
+            [META_STORE]:{ keyPath:'id' },
+            [TEMP_STORE]:{
+              keyPath:'id',
+              indices:[
+                { name:'by_updated', keyPath:'updatedAt' }
+              ]
+            }
           }
         }
       });
@@ -1519,6 +1530,107 @@
         return true;
       }
 
+      function sanitizeTempOrder(order){
+        if(!order || !order.id) return null;
+        const now = Date.now();
+        const type = order.type || 'dine_in';
+        const normalizedDiscount = normalizeDiscount(order.discount);
+        const normalizedLines = Array.isArray(order.lines)
+          ? order.lines.map(line=> ({
+              ...line,
+              discount: normalizeDiscount(line.discount)
+            }))
+          : [];
+        const normalizedNotes = Array.isArray(order.notes)
+          ? order.notes.map(note=> ({ ...note }))
+          : [];
+        const normalizedPayments = Array.isArray(order.payments)
+          ? order.payments.map(pay=> ({ ...pay, amount: Number(pay.amount) || 0 }))
+          : [];
+        const payload = {
+          ...order,
+          id: order.id,
+          type,
+          status: order.status || 'open',
+          fulfillmentStage: order.fulfillmentStage || order.stage || 'new',
+          paymentState: order.paymentState || 'unpaid',
+          tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
+          guests: Number.isFinite(order.guests) ? Number(order.guests) : 0,
+          totals: order.totals && typeof order.totals === 'object' ? { ...order.totals } : {},
+          discount: normalizedDiscount,
+          notes: normalizedNotes,
+          lines: normalizedLines,
+          payments: normalizedPayments,
+          customerId: order.customerId || null,
+          customerAddressId: order.customerAddressId || null,
+          customerName: order.customerName || '',
+          customerPhone: order.customerPhone || '',
+          customerAddress: order.customerAddress || '',
+          customerAreaId: order.customerAreaId || null,
+          createdAt: order.createdAt || now,
+          updatedAt: order.updatedAt || now,
+          savedAt: order.savedAt || now,
+          isPersisted:false,
+          allowAdditions: order.allowAdditions !== undefined ? !!order.allowAdditions : true,
+          lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : false,
+          posId: order.posId || order.metadata?.posId || null,
+          posLabel: order.posLabel || order.metadata?.posLabel || null,
+          posNumber: Number.isFinite(order.posNumber) ? Number(order.posNumber)
+            : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null)
+        };
+        return {
+          id: payload.id,
+          payload,
+          createdAt: payload.createdAt,
+          updatedAt: payload.updatedAt
+        };
+      }
+
+      async function saveTempOrder(order){
+        if(!order || !order.id) throw new Error('Order payload requires an id');
+        await ensureReady();
+        const record = sanitizeTempOrder(order);
+        if(!record) return false;
+        await db.put(TEMP_STORE, record);
+        return true;
+      }
+
+      function hydrateTempRecord(record){
+        if(!record) return null;
+        const payload = record.payload || record.data || null;
+        if(!payload) return null;
+        return {
+          ...payload,
+          id: record.id,
+          createdAt: payload.createdAt || record.createdAt || Date.now(),
+          updatedAt: payload.updatedAt || record.updatedAt || Date.now(),
+          savedAt: payload.savedAt || record.updatedAt || Date.now(),
+          isPersisted:false
+        };
+      }
+
+      async function getTempOrder(orderId){
+        if(!orderId) return null;
+        await ensureReady();
+        const record = await db.get(TEMP_STORE, orderId);
+        return hydrateTempRecord(record);
+      }
+
+      async function listTempOrders(){
+        await ensureReady();
+        const records = await db.getAll(TEMP_STORE);
+        return records.map(hydrateTempRecord).filter(Boolean);
+      }
+
+      async function deleteTempOrder(orderId){
+        if(!orderId) return false;
+        await ensureReady();
+        try {
+          await db.delete(TEMP_STORE, orderId);
+        } catch(_err){ return false; }
+        return true;
+      }
+
       async function listOrders(options={}){
         await ensureReady();
         const headers = await db.getAll('orders');
@@ -1591,8 +1703,12 @@
       return {
         available:true,
         saveOrder,
+        saveTempOrder,
         listOrders,
         getOrder,
+        getTempOrder,
+        listTempOrders,
+        deleteTempOrder,
         markSync,
         bootstrap,
         getActiveShift,
@@ -2028,7 +2144,103 @@
       };
     }
 
-    const posDB = createIndexedDBAdapter('mishkah-pos', 3);
+    const posDB = createIndexedDBAdapter('mishkah-pos', 4);
+
+    function installTempOrderWatcher(){
+      if(!posDB.available) return;
+      if(!M || !M.Guardian || typeof M.Guardian.runPreflight !== 'function') return;
+      if(M.Guardian.runPreflight.__posTempWatcher) return;
+      const originalRunPreflight = M.Guardian.runPreflight.bind(M.Guardian);
+      const signatureCache = new Map();
+
+      const computeSignature = (order, paymentsState)=>{
+        if(!order) return '';
+        const totals = order.totals || {};
+        const discount = normalizeDiscount(order.discount);
+        const resolvedPayments = Array.isArray(paymentsState?.split) && paymentsState.split.length
+          ? paymentsState.split
+          : (Array.isArray(order.payments) ? order.payments : []);
+        const lines = Array.isArray(order.lines)
+          ? order.lines.map(line=> [
+              line.id || line.itemId || '',
+              Number(line.qty) || 0,
+              Number(line.total) || 0,
+              Number(line.updatedAt) || 0
+            ].join(':')).join('|')
+          : '';
+        const payments = resolvedPayments
+          .map(pay=> [pay.method || pay.id || '', Number(pay.amount) || 0].join(':'))
+          .join('|');
+        const notes = Array.isArray(order.notes)
+          ? order.notes.map(note=> note.id || note.message || '').join('|')
+          : '';
+        const tableIds = Array.isArray(order.tableIds) ? order.tableIds.join(',') : '';
+        return [
+          order.id || '',
+          Number(order.updatedAt) || 0,
+          order.status || '',
+          order.fulfillmentStage || '',
+          order.paymentState || '',
+          discount ? `${discount.type}:${discount.value}` : 'null',
+          `${Number(totals.subtotal)||0}:${Number(totals.due)||0}:${Number(totals.total)||0}`,
+          lines,
+          payments,
+          notes,
+          tableIds,
+          Number(order.guests) || 0
+        ].join('#');
+      };
+
+      const persistTempOrder = (order, paymentsState)=>{
+        if(!order || !order.id) return;
+        const payments = Array.isArray(paymentsState?.split) && paymentsState.split.length
+          ? paymentsState.split
+          : (Array.isArray(order.payments) ? order.payments : []);
+        const payload = { ...order, payments };
+        const signature = computeSignature(payload, paymentsState);
+        if(signatureCache.get(order.id) === signature) return;
+        signatureCache.set(order.id, signature);
+        Promise.resolve(posDB.saveTempOrder(payload))
+          .catch(err=> console.warn('[Mishkah][POS] temp order persist failed', err));
+      };
+
+      const cleanupTempOrder = (orderId)=>{
+        if(!orderId) return;
+        signatureCache.delete(orderId);
+        Promise.resolve(posDB.deleteTempOrder(orderId))
+          .catch(err=> console.warn('[Mishkah][POS] temp order cleanup failed', err));
+      };
+
+      M.Guardian.runPreflight = function(stage, payload, ctx){
+        if(stage === 'state' && payload && typeof payload === 'object'){
+          try {
+            const nextState = payload.next || null;
+            const prevState = payload.prev || null;
+            const nextOrder = nextState?.data?.order || null;
+            const prevOrder = prevState?.data?.order || null;
+            const paymentsState = nextState?.data?.payments || null;
+            if(prevOrder && prevOrder.id){
+              if(!nextOrder || nextOrder.id !== prevOrder.id || nextOrder.isPersisted){
+                cleanupTempOrder(prevOrder.id);
+              }
+            }
+            if(nextOrder && nextOrder.id){
+              if(nextOrder.isPersisted){
+                cleanupTempOrder(nextOrder.id);
+              } else {
+                persistTempOrder(nextOrder, paymentsState);
+              }
+            }
+          } catch(err){
+            console.warn('[Mishkah][POS] temp order watcher failed', err);
+          }
+        }
+        return originalRunPreflight(stage, payload, ctx);
+      };
+      M.Guardian.runPreflight.__posTempWatcher = true;
+    }
+
+    installTempOrderWatcher();
     const preferencesStore = U.Storage && U.Storage.local ? U.Storage.local('mishkah-pos') : null;
     const savedModalSizes = preferencesStore ? (preferencesStore.get('modalSizes', {}) || {}) : {};
     const savedThemePrefs = preferencesStore ? (preferencesStore.get('themePrefs', {}) || {}) : {};
@@ -2680,7 +2892,33 @@
     }
 
     const initialTotals = calculateTotals([], settings, 'dine_in', {});
-    const initialOrderId = await generateOrderId();
+    let tempOrderDraft = null;
+    if(posDB.available){
+      try {
+        const tempOrders = await posDB.listTempOrders();
+        if(Array.isArray(tempOrders) && tempOrders.length){
+          tempOrders.sort((a,b)=> (b?.updatedAt || 0) - (a?.updatedAt || 0));
+          tempOrderDraft = tempOrders[0];
+        }
+      } catch(error){
+        console.warn('[Mishkah][POS] temp order load failed', error);
+      }
+    }
+    const baseOrderType = tempOrderDraft?.type || 'dine_in';
+    const initialOrderId = tempOrderDraft?.id || await generateOrderId();
+    const initialOrderLines = tempOrderDraft ? cloneDeep(tempOrderDraft.lines || []) : [];
+    const initialOrderNotes = tempOrderDraft ? cloneDeep(tempOrderDraft.notes || []) : [];
+    const initialOrderPayments = tempOrderDraft ? cloneDeep(tempOrderDraft.payments || []) : [];
+    const initialOrderTables = tempOrderDraft && Array.isArray(tempOrderDraft.tableIds)
+      ? tempOrderDraft.tableIds.slice()
+      : [];
+    const initialOrderDiscount = normalizeDiscount(tempOrderDraft?.discount);
+    const draftTotalsSource = tempOrderDraft && tempOrderDraft.totals && typeof tempOrderDraft.totals === 'object'
+      ? { ...tempOrderDraft.totals }
+      : (tempOrderDraft
+        ? calculateTotals(initialOrderLines, settings, baseOrderType, { orderDiscount: initialOrderDiscount })
+        : initialTotals);
+    const draftPaymentSnapshot = summarizePayments(draftTotalsSource, initialOrderPayments);
     let activeShift = null;
     let shiftHistoryFromDb = SHIFT_HISTORY_SEED.slice();
     if(posDB.available){
@@ -2746,33 +2984,35 @@
         },
         order:{
           id: initialOrderId,
-          status:'open',
-          fulfillmentStage:'new',
-          paymentState:'unpaid',
-          type:'dine_in',
-          tableIds:[],
-          guests:0,
-          lines:[],
-          notes:[],
-          discount:null,
-          totals: initialTotals,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          allowAdditions:true,
-          lockLineEdits:false,
+          status: tempOrderDraft?.status || 'open',
+          fulfillmentStage: tempOrderDraft?.fulfillmentStage || tempOrderDraft?.stage || 'new',
+          paymentState: draftPaymentSnapshot.state || 'unpaid',
+          type: baseOrderType,
+          tableIds: initialOrderTables,
+          guests: Number.isFinite(tempOrderDraft?.guests)
+            ? Number(tempOrderDraft.guests)
+            : (baseOrderType === 'dine_in' ? 0 : (tempOrderDraft?.guests || 0)),
+          lines: initialOrderLines,
+          notes: initialOrderNotes,
+          discount: initialOrderDiscount,
+          totals: draftTotalsSource,
+          createdAt: tempOrderDraft?.createdAt || Date.now(),
+          updatedAt: tempOrderDraft?.updatedAt || Date.now(),
+          allowAdditions: tempOrderDraft?.allowAdditions !== undefined ? !!tempOrderDraft.allowAdditions : true,
+          lockLineEdits: tempOrderDraft?.lockLineEdits !== undefined ? !!tempOrderDraft.lockLineEdits : false,
           isPersisted:false,
-          origin:'pos',
-          shiftId: activeShift?.id || null,
-          posId: POS_INFO.id,
-          posLabel: POS_INFO.label,
-          posNumber: POS_INFO.number,
-          payments:[],
-          customerId:null,
-          customerAddressId:null,
-          customerName:'',
-          customerPhone:'',
-          customerAddress:'',
-          customerAreaId:null
+          origin: tempOrderDraft?.origin || 'pos',
+          shiftId: tempOrderDraft?.shiftId || activeShift?.id || null,
+          posId: tempOrderDraft?.posId || POS_INFO.id,
+          posLabel: tempOrderDraft?.posLabel || POS_INFO.label,
+          posNumber: Number.isFinite(Number(tempOrderDraft?.posNumber)) ? Number(tempOrderDraft.posNumber) : POS_INFO.number,
+          payments: initialOrderPayments,
+          customerId: tempOrderDraft?.customerId || null,
+          customerAddressId: tempOrderDraft?.customerAddressId || null,
+          customerName: tempOrderDraft?.customerName || '',
+          customerPhone: tempOrderDraft?.customerPhone || '',
+          customerAddress: tempOrderDraft?.customerAddress || '',
+          customerAreaId: tempOrderDraft?.customerAreaId || null
         },
         orderStages,
         orderStatuses,
@@ -2787,8 +3027,10 @@
         auditTrail,
         payments:{
           methods: clonePaymentMethods(PAYMENT_METHODS),
-          activeMethod: (PAYMENT_METHODS[0] && PAYMENT_METHODS[0].id) ? PAYMENT_METHODS[0].id : 'cash',
-          split:[]
+          activeMethod: (initialOrderPayments.length
+            ? (initialOrderPayments[initialOrderPayments.length - 1]?.method || initialOrderPayments[0]?.method)
+            : (PAYMENT_METHODS[0] && PAYMENT_METHODS[0].id)) || 'cash',
+          split: initialOrderPayments
         },
         customers: createInitialCustomers(),
         customerAreas: CAIRO_DISTRICTS,
@@ -3089,6 +3331,9 @@
       }
       try{
         await posDB.saveOrder(orderPayload);
+        if(posDB.available && typeof posDB.deleteTempOrder === 'function'){
+          try { await posDB.deleteTempOrder(orderPayload.id); } catch(_tempErr){ }
+        }
         if(kdsSync && typeof kdsSync.publishOrder === 'function'){
           kdsSync.publishOrder(orderPayload, state);
         }
