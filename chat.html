@@ -106,6 +106,7 @@
             placeholder="اكتب رسالتك..."
             value="{state.data.newMessage}"
             oninput="handleMessageInput(event, ctx)"
+            data-chat-draft
           />
           <button
             type="submit"
@@ -271,19 +272,31 @@
       };
 
       function ensureContext(ctx) {
-        if (!ctx) {
-          error('تم تمرير سياق فارغ إلى ensureContext.');
+        var input = ctx;
+        if (!input) {
+          if (runtime.lastCtx) {
+            return runtime.lastCtx;
+          }
+          if (runtime.app) {
+            input = runtime.app;
+          }
+        }
+        if (!input) {
+          error('تم تمرير سياق فارغ إلى ensureContext وفشل تحديد سياق بديل.');
           return null;
         }
-        if (typeof ctx.get === 'function' && typeof ctx.set === 'function') {
-          runtime.lastCtx = ctx;
-          return ctx;
+        if (typeof input.get === 'function' && typeof input.set === 'function') {
+          runtime.lastCtx = input;
+          return input;
         }
         if (!agent || typeof agent.ContextAdapter !== 'function') {
           error('تعذر تكيف سياق HTMLx، ContextAdapter غير متاح.');
           return null;
         }
-        var adapted = agent.ContextAdapter(ctx);
+        var adapted = agent.ContextAdapter(input);
+        if (!adapted && runtime.app && input !== runtime.app) {
+          adapted = agent.ContextAdapter(runtime.app);
+        }
         if (!adapted) {
           error('فشل ContextAdapter في إرجاع سياق صالح.');
           return null;
@@ -1014,14 +1027,86 @@
         context.set('data.newMessage', value);
       }
 
-      function messagePayload(ctx) {
+      function hasDraftAttribute(node) {
+        return !!(node && typeof node.hasAttribute === 'function' && node.hasAttribute('data-chat-draft'));
+      }
+
+      function findDraftInput(source) {
+        if (hasDraftAttribute(source)) {
+          return source;
+        }
+        if (source && typeof source.closest === 'function') {
+          var direct = source.closest('[data-chat-draft]');
+          if (direct) {
+            return direct;
+          }
+          var form = source.closest('form');
+          if (form && typeof form.querySelector === 'function') {
+            var fromForm = form.querySelector('[data-chat-draft]');
+            if (fromForm) {
+              return fromForm;
+            }
+          }
+        }
+        if (typeof document !== 'undefined' && document) {
+          var active = document.activeElement;
+          if (hasDraftAttribute(active)) {
+            return active;
+          }
+          if (typeof document.querySelector === 'function') {
+            var fallback = document.querySelector('[data-chat-draft]');
+            if (fallback) {
+              return fallback;
+            }
+          }
+        }
+        return null;
+      }
+
+      function readDraftFromEvent(event) {
+        var source = null;
+        if (event && event.target) {
+          source = event.target;
+        } else if (event && event.currentTarget) {
+          source = event.currentTarget;
+        }
+        var input = findDraftInput(source);
+        if (input && typeof input.value === 'string') {
+          return input.value;
+        }
+        return '';
+      }
+
+      function messagePayload(ctx, event) {
         var context = ensureContext(ctx);
         if (!context) {
           error('messagePayload فشل في الحصول على سياق صالح.');
           return null;
         }
-        var text = context.get ? context.get('data.newMessage') : '';
-        var value = typeof text === 'string' ? text.trim() : '';
+        var text = '';
+        if (context.get) {
+          try {
+            text = context.get('data.newMessage') || '';
+          } catch (getError) {
+            debug('فشل الحصول على قيمة الرسالة من الحالة، سيتم الاعتماد على الحدث.', { error: getError });
+            text = '';
+          }
+        }
+        if (typeof text !== 'string') {
+          text = '';
+        }
+        var draftFromEvent = readDraftFromEvent(event);
+        if (!text.trim() && typeof draftFromEvent === 'string' && draftFromEvent) {
+          text = draftFromEvent;
+          if (context.set) {
+            try {
+              context.set('data.newMessage', draftFromEvent);
+            } catch (syncError) {
+              debug('تعذر مزامنة قيمة الرسالة من الحدث مع الحالة.', { error: syncError });
+            }
+          }
+        }
+        var value = text.trim();
         if (!value) {
           warn('محاولة إرسال رسالة فارغة تم تجاهلها.');
           return null;
@@ -1051,7 +1136,7 @@
           error('sendMessage لم يتمكن من الحصول على سياق HTMLx.');
           return;
         }
-        var payload = messagePayload(context);
+        var payload = messagePayload(context, event);
         if (!payload) {
           warn('sendMessage لم يحصل على حمولة صالحة، لن يتم الإرسال.');
           return;
