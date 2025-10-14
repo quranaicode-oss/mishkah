@@ -1416,7 +1416,9 @@
       on:['click'],
       gkeys:['kds:theme:set'],
       handler:(event, ctx)=>{
-        const theme = event?.currentTarget?.dataset?.theme;
+        const btn = event?.target && event.target.closest('[data-theme]');
+        if(!btn) return;
+        const theme = btn.getAttribute('data-theme');
         if(!theme) return;
         ctx.setState(state=>({
           ...state,
@@ -1428,7 +1430,9 @@
       on:['click'],
       gkeys:['kds:lang:set'],
       handler:(event, ctx)=>{
-        const langValue = event?.currentTarget?.dataset?.lang;
+        const btn = event?.target && event.target.closest('[data-lang]');
+        if(!btn) return;
+        const langValue = btn.getAttribute('data-lang');
         if(!langValue) return;
         ctx.setState(state=>({
           ...state,
@@ -1440,8 +1444,9 @@
       on:['click'],
       gkeys:['kds:tab:switch'],
       handler:(event, ctx)=>{
-        const target = event?.currentTarget;
-        const sectionId = target?.dataset?.sectionId;
+        const btn = event?.target && event.target.closest('[data-section-id]');
+        if(!btn) return;
+        const sectionId = btn.getAttribute('data-section-id');
         if(!sectionId) return;
         ctx.setState(state=>({
           ...state,
@@ -1456,7 +1461,9 @@
       on:['click'],
       gkeys:['kds:job:start'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1471,7 +1478,9 @@
       on:['click'],
       gkeys:['kds:job:finish'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1486,7 +1495,9 @@
       on:['click'],
       gkeys:['kds:delivery:assign'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         ctx.setState(state=>({
           ...state,
@@ -1503,9 +1514,10 @@
       on:['click'],
       gkeys:['kds:delivery:select-driver'],
       handler:(event, ctx)=>{
-        const dataset = event?.currentTarget?.dataset || {};
-        const orderId = dataset.orderId;
-        const driverId = dataset.driverId;
+        const btn = event?.target && event.target.closest('[data-order-id][data-driver-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
+        const driverId = btn.getAttribute('data-driver-id');
         if(!orderId || !driverId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1547,7 +1559,9 @@
       on:['click'],
       gkeys:['kds:delivery:complete'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1582,7 +1596,9 @@
       on:['click'],
       gkeys:['kds:delivery:settle'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let settlementPayload = null;
