@@ -369,7 +369,7 @@
           customer_edit_action:'تعديل البيانات', customer_use_existing:'اختر من العملاء', customer_form_reset:'إعادة تعيين',
           customer_edit:'تعديل العميل', customer_remove_address:'حذف العنوان',
           avg_ticket:'متوسط الفاتورة', top_selling:'الأكثر مبيعًا', sales_today:'مبيعات اليوم', save_order:'حفظ الطلب',
-          settle_and_print:'تحصيل وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
+          settle_and_print:'تحصيل وطباعة', finish_order:'إنهاء الطلب', finish_and_print:'إنهاء وطباعة', print:'طباعة فقط', notes:'ملاحظات', discount_action:'خصم', clear:'مسح', new_order:'طلب جديد',
           balance_due:'المتبقي غير المسدد', exchange_due:'باقي الفكة',
           line_modifiers:'الإضافات والمنزوعات', line_modifiers_title:'تعديل الإضافات والمنزوعات', line_modifiers_addons:'الإضافات', line_modifiers_removals:'المنزوعات', line_modifiers_apply:'تطبيق التعديلات', line_modifiers_empty:'لا توجد خيارات متاحة', line_modifiers_free:'بدون رسوم', line_modifiers_missing:'السطر غير متاح', line_modifiers_unit:'السعر للوحدة',
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
@@ -426,7 +426,7 @@
         },
         toast:{
           item_added:'تمت إضافة الصنف', quantity_updated:'تم تحديث الكمية', cart_cleared:'تم مسح الطلب',
-          order_saved:'تم حفظ الطلب محليًا', sync_complete:'تم تحديث المزامنة', payment_recorded:'تم تسجيل الدفعة',
+          order_saved:'تم حفظ الطلب محليًا', order_finalized:'تم إنهاء الطلب', sync_complete:'تم تحديث المزامنة', payment_recorded:'تم تسجيل الدفعة',
           amount_required:'من فضلك أدخل قيمة صحيحة', indexeddb_missing:'IndexedDB غير متاحة في هذا المتصفح',
           indexeddb_error:'تعذر حفظ البيانات محليًا', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
           discount_stub:'سيتم تفعيل الخصومات لاحقًا', notes_updated:'تم تحديث الملاحظات', add_note:'أدخل ملاحظة ترسل للمطبخ',
@@ -502,7 +502,7 @@
           customer_edit_action:'Edit details', customer_use_existing:'Choose an existing customer', customer_form_reset:'Reset form',
           customer_edit:'Edit customer', customer_remove_address:'Remove address',
           avg_ticket:'Average ticket', top_selling:'Top seller', sales_today:'Sales today', save_order:'Save order',
-          settle_and_print:'Settle & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
+          settle_and_print:'Settle & print', finish_order:'Finish order', finish_and_print:'Finish & print', print:'Print only', notes:'Notes', discount_action:'Discount', clear:'Clear',
           new_order:'New order', balance_due:'Outstanding balance', exchange_due:'Change due', line_modifiers:'Add-ons & removals', line_modifiers_title:'Customize add-ons & removals', line_modifiers_addons:'Add-ons', line_modifiers_removals:'Removals', line_modifiers_apply:'Apply changes', line_modifiers_empty:'No options available', line_modifiers_free:'No charge', line_modifiers_missing:'Line is no longer available', line_modifiers_unit:'Unit price', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
           light:'Light', dark:'Dark', language:'Language', arabic:'Arabic', english:'English', service_type:'Service type',
           guests:'Guests', kds:'Kitchen display', status_online:'Online', status_offline:'Offline', status_idle:'Idle',
@@ -558,7 +558,7 @@
         },
         toast:{
           item_added:'Item added to cart', quantity_updated:'Quantity updated', cart_cleared:'Cart cleared',
-          order_saved:'Order stored locally', sync_complete:'Sync completed', payment_recorded:'Payment recorded',
+          order_saved:'Order stored locally', order_finalized:'Order finalized', sync_complete:'Sync completed', payment_recorded:'Payment recorded',
           amount_required:'Enter a valid amount', indexeddb_missing:'IndexedDB is not available in this browser',
           indexeddb_error:'Failed to persist locally', print_stub:'Printer integration coming soon',
           discount_stub:'Discount workflow coming soon', notes_updated:'Notes updated', add_note:'Add a note for the kitchen',
@@ -2847,7 +2847,8 @@
         shift:{ showPin:false, pin:'', openingFloat: SHIFT_OPEN_FLOAT_DEFAULT, showSummary:false, viewShiftId:null, activeTab:'summary' },
         customer:{ open:false, mode:'search', search:'', keypad:'', selectedCustomerId:null, selectedAddressId:null, form:createEmptyCustomerForm() },
         orderNav:{ showPad:false, value:'' },
-        lineModifiers:{ lineId:null, addOns:[], removals:[] }
+        lineModifiers:{ lineId:null, addOns:[], removals:[] },
+        pendingAction:null
       }
     };
 
@@ -2982,6 +2983,195 @@
 
     function getOrderTypeConfig(type){
       return ORDER_TYPES.find(o=> o.id === type) || ORDER_TYPES[0];
+    }
+
+    function normalizeSaveMode(value, orderType){
+      const base = (value || '').toString().toLowerCase();
+      switch(base){
+        case 'save-only':
+        case 'draft':
+        case 'save-draft':
+          return 'draft';
+        case 'finalize-print':
+        case 'finish-print':
+          return 'finalize-print';
+        case 'finalize':
+        case 'finish':
+          return 'finalize';
+        case 'save-print':
+          return orderType === 'dine_in' ? 'draft' : 'finalize-print';
+        default:
+          return base || 'draft';
+      }
+    }
+
+    async function persistOrderFlow(ctx, rawMode, options={}){
+      const state = ctx.getState();
+      const t = getTexts(state);
+      if(!posDB.available){
+        UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
+        return { status:'error', reason:'indexeddb' };
+      }
+      const currentShift = state.data.shift?.current;
+      if(!currentShift){
+        UI.pushToast(ctx, { title:t.toast.shift_required, icon:'🔒' });
+        ctx.setState(s=>({
+          ...s,
+          ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'' } }
+        }));
+        return { status:'error', reason:'shift' };
+      }
+      const order = state.data.order || {};
+      const orderType = order.type || 'dine_in';
+      const mode = normalizeSaveMode(rawMode, orderType);
+      const requiresPayment = mode === 'finalize' || mode === 'finalize-print';
+      const finalize = requiresPayment;
+      const openPrint = mode === 'finalize-print';
+      const now = Date.now();
+      const safeLines = (order.lines || []).map(line=>({
+        ...line,
+        locked:true,
+        status: line.status || 'draft',
+        notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
+        discount: normalizeDiscount(line.discount),
+        updatedAt: now
+      }));
+      const totals = calculateTotals(safeLines, state.data.settings || {}, orderType, { orderDiscount: order.discount });
+      const paymentSplit = Array.isArray(state.data.payments?.split) ? state.data.payments.split : [];
+      const normalizedPayments = paymentSplit.map(entry=>({
+        id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
+        method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
+        amount: round(Number(entry.amount) || 0)
+      })).filter(entry=> entry.amount > 0);
+      const paymentSummary = summarizePayments(totals, normalizedPayments);
+      const outstanding = paymentSummary.remaining;
+      if(requiresPayment && outstanding > 0 && !options.skipPaymentCheck){
+        ctx.setState(s=>({
+          ...s,
+          ui:{
+            ...(s.ui || {}),
+            modals:{ ...(s.ui?.modals || {}), payments:true },
+            paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount: outstanding ? String(outstanding) : '', method: s.data.payments?.activeMethod || 'cash' },
+            pendingAction:{ type:'finalize', mode, orderId: order.id, createdAt: now }
+          }
+        }));
+        UI.pushToast(ctx, { title:t.ui.payments, message:t.ui.balance_due, icon:'💳' });
+        return { status:'pending-payment', mode };
+      }
+      const typeConfig = getOrderTypeConfig(orderType);
+      const status = finalize ? 'finalized' : (order.status || 'open');
+      const finalizeStage = finalize
+        ? (orderType === 'dine_in' ? 'closed' : 'delivered')
+        : (order.fulfillmentStage || 'new');
+      const allowAdditions = finalize ? false : !!typeConfig.allowsLineAdditions;
+      const orderNotes = Array.isArray(order.notes) ? order.notes : (order.notes ? [order.notes] : []);
+      const orderPayload = {
+        ...order,
+        status,
+        fulfillmentStage: finalizeStage,
+        lines: safeLines,
+        notes: orderNotes,
+        updatedAt: now,
+        savedAt: now,
+        totals,
+        payments: normalizedPayments,
+        discount: normalizeDiscount(order.discount),
+        shiftId: currentShift.id,
+        posId: order.posId || POS_INFO.id,
+        posLabel: order.posLabel || POS_INFO.label,
+        posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
+        isPersisted:true,
+        paymentState: paymentSummary.state
+      };
+      if(finalize){
+        orderPayload.finalizedAt = now;
+        orderPayload.finishedAt = now;
+      }
+      try{
+        await posDB.saveOrder(orderPayload);
+        if(kdsSync && typeof kdsSync.publishOrder === 'function'){
+          kdsSync.publishOrder(orderPayload, state);
+        }
+        await posDB.markSync();
+        const latestOrders = await posDB.listOrders({ onlyActive:true });
+        ctx.setState(s=>{
+          const data = s.data || {};
+          const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
+          const historyIndex = history.findIndex(entry=> entry.id === orderPayload.id);
+          const seq = historyIndex >= 0 ? (history[historyIndex].seq || historyIndex + 1) : history.length + 1;
+          const historyEntry = { ...orderPayload, seq, payments: orderPayload.payments.map(pay=> ({ ...pay })) };
+          if(historyIndex >= 0){
+            history[historyIndex] = historyEntry;
+          } else {
+            history.push(historyEntry);
+          }
+          let nextShift = data.shift?.current ? { ...data.shift.current } : null;
+          if(nextShift){
+            const summary = summarizeShiftOrders(history, { ...nextShift, orders: Array.isArray(nextShift.orders) ? nextShift.orders.slice() : [] });
+            nextShift = {
+              ...nextShift,
+              totalsByType: summary.totalsByType,
+              paymentsByMethod: summary.paymentsByMethod,
+              totalSales: summary.totalSales,
+              orders: summary.orders,
+              countsByType: summary.countsByType,
+              ordersCount: summary.ordersCount,
+              closingCash: round((nextShift.openingFloat || 0) + (summary.paymentsByMethod.cash || 0))
+            };
+          }
+          const uiBase = s.ui || {};
+          const modals = { ...(uiBase.modals || {}) };
+          if(openPrint){
+            modals.print = true;
+          }
+          const nextUi = {
+            ...uiBase,
+            modals,
+            paymentDraft:{ ...(uiBase.paymentDraft || {}), amount:'' },
+            pendingAction:null
+          };
+          if(openPrint){
+            nextUi.print = { ...(uiBase.print || {}), docType: data.print?.docType || 'customer', size: data.print?.size || 'thermal_80' };
+          }
+          return {
+            ...s,
+            data:{
+              ...data,
+              order:{
+                ...orderPayload,
+                allowAdditions,
+                lockLineEdits:true
+              },
+              ordersQueue: latestOrders,
+              ordersHistory: history,
+              payments:{ ...(data.payments || {}), split:[] },
+              shift:{ ...(data.shift || {}), current: nextShift },
+              status:{
+                ...data.status,
+                indexeddb:{ state:'online', lastSync: now }
+              }
+            },
+            ui: nextUi
+          };
+        });
+        await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+        const toastKey = finalize ? 'order_finalized' : 'order_saved';
+        UI.pushToast(ctx, { title:t.toast[toastKey], icon: finalize ? '✅' : '💾' });
+        return { status:'saved', mode };
+      } catch(error){
+        UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
+        ctx.setState(s=>({
+          ...s,
+          data:{
+            ...s.data,
+            status:{
+              ...s.data.status,
+              indexeddb:{ state:'offline', lastSync: s.data.status?.indexeddb?.lastSync || null }
+            }
+          }
+        }));
+        return { status:'error', reason:'persist', error };
+      }
     }
 
     function statusBadge(db, state, label){
@@ -3602,9 +3792,16 @@
       const currencyLabel = getCurrencySymbol(db);
       const order = db.data.order || {};
       const orderType = order.type || 'dine_in';
-      const isPersisted = !!order.isPersisted;
-      const saveMode = (orderType === 'dine_in' && !isPersisted) ? 'save-only' : 'save-print';
-      const saveLabel = (orderType === 'dine_in' && !isPersisted) ? t.ui.save_order : t.ui.settle_and_print;
+      const isTakeaway = orderType === 'takeaway';
+      const isDelivery = orderType === 'delivery';
+      const isFinalized = order.status === 'finalized' || order.status === 'closed';
+      const deliveredStage = order.fulfillmentStage === 'delivered' || order.fulfillmentStage === 'closed';
+      const canShowSave = !isFinalized && (!isDelivery || !deliveredStage) && (!isTakeaway || !deliveredStage);
+      const canShowFinish = !isFinalized && (!isDelivery || !deliveredStage);
+      const finishMode = isTakeaway ? 'finalize-print' : 'finalize';
+      const finishLabel = isTakeaway ? t.ui.finish_and_print : t.ui.finish_order;
+      const showPrintButton = !isTakeaway || isFinalized;
+      const saveLabel = t.ui.save_order;
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${currencyLabel}`]),
         D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
@@ -3617,16 +3814,27 @@
         D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🆕']),
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.new_order])
       ]));
-      const saveButton = UI.Button({
-        attrs:{ gkey:'pos:order:save', 'data-save-mode':saveMode, class: tw`min-w-[180px] flex items-center justify-center gap-2` },
-        variant:'solid',
-        size:'md'
-      }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [saveLabel])]);
-      primaryActions.push(saveButton);
-      primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
-        D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🖨️']),
-        D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.print])
-      ]));
+      if(canShowSave){
+        const saveButton = UI.Button({
+          attrs:{ gkey:'pos:order:save', 'data-save-mode':'draft', class: tw`min-w-[160px] flex items-center justify-center gap-2` },
+          variant:'solid',
+          size:'md'
+        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [saveLabel])]);
+        primaryActions.push(saveButton);
+      }
+      if(canShowFinish){
+        primaryActions.push(UI.Button({
+          attrs:{ gkey:'pos:order:save', 'data-save-mode':finishMode, class: tw`min-w-[180px] flex items-center justify-center gap-2` },
+          variant:'solid',
+          size:'md'
+        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [finishLabel])]);
+      }
+      if(showPrintButton){
+        primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
+          D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['🖨️']),
+          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [t.ui.print])
+        ]));
+      }
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
@@ -5909,8 +6117,6 @@
         on:['click'],
         gkeys:['pos:order:new'],
         handler: async (e,ctx)=>{
-          const trigger = e.target.closest('[data-save-mode]');
-          const mode = trigger?.getAttribute('data-save-mode') || 'save-only';
           const state = ctx.getState();
           const t = getTexts(state);
           const newId = await generateOrderId();
@@ -5956,6 +6162,10 @@
                 },
                 payments:{ ...(data.payments || {}), split:[] },
                 tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
+              },
+              ui:{
+                ...(s.ui || {}),
+                pendingAction:null
               }
             };
           });
@@ -6138,159 +6348,9 @@
         on:['click'],
         gkeys:['pos:order:save'],
         handler: async (e,ctx)=>{
-          const state = ctx.getState();
-          const t = getTexts(state);
           const trigger = e.target.closest('[data-save-mode]');
-          const mode = trigger?.getAttribute('data-save-mode') || 'save-only';
-          if(!posDB.available){
-            UI.pushToast(ctx, { title:t.toast.indexeddb_missing, icon:'⚠️' });
-            return;
-          }
-          const currentShift = state.data.shift?.current;
-          if(!currentShift){
-            UI.pushToast(ctx, { title:t.toast.shift_required, icon:'🔒' });
-            ctx.setState(s=>({
-              ...s,
-              ui:{ ...(s.ui || {}), shift:{ ...(s.ui?.shift || {}), showPin:true, pin:'' } }
-            }));
-            return;
-          }
-          const order = state.data.order || {};
-          const now = Date.now();
-          const safeLines = (order.lines || []).map(line=>({
-            ...line,
-            locked:true,
-            status: line.status || 'draft',
-            notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
-            discount: normalizeDiscount(line.discount),
-            updatedAt: now
-          }));
-          const totals = calculateTotals(safeLines, state.data.settings || {}, order.type || 'dine_in', { orderDiscount: order.discount });
-          const paymentSplit = Array.isArray(state.data.payments?.split) ? state.data.payments.split : [];
-          const dueAmount = round(Number(totals?.due || 0));
-          const normalizedPayments = paymentSplit.map(entry=>({
-            id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
-            method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
-            amount: round(Number(entry.amount) || 0)
-          })).filter(entry=> entry.amount > 0);
-          const effectivePayments = normalizedPayments.length ? normalizedPayments : [{
-            id:`pm-${now.toString(36)}`,
-            method: state.data.payments?.activeMethod || 'cash',
-            amount: round(Number(totals?.due || 0))
-          }];
-          const paymentSummary = summarizePayments(totals, effectivePayments);
-          const outstanding = paymentSummary.remaining;
-          const paidAmount = paymentSummary.paid;
-          if(mode === 'save-print' && outstanding > 0){
-            ctx.setState(s=>({
-              ...s,
-              ui:{
-                ...(s.ui || {}),
-                modals:{ ...(s.ui?.modals || {}), payments:true },
-                paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount: outstanding ? String(outstanding) : '' }
-              }
-            }));
-            UI.pushToast(ctx, { title:t.ui.payments, message:t.ui.balance_due, icon:'💳' });
-            return;
-          }
-          const orderPayload = {
-            ...order,
-            lines: safeLines,
-            notes: Array.isArray(order.notes) ? order.notes : (order.notes ? [order.notes] : []),
-            updatedAt: now,
-            savedAt: now,
-            totals,
-            payments: effectivePayments,
-            discount: normalizeDiscount(order.discount),
-            shiftId: currentShift.id,
-            posId: order.posId || POS_INFO.id,
-            posLabel: order.posLabel || POS_INFO.label,
-            posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
-            isPersisted:true,
-            paymentState: paymentSummary.state
-          };
-          try{
-            await posDB.saveOrder(orderPayload);
-            if(kdsSync && typeof kdsSync.publishOrder === 'function'){
-              kdsSync.publishOrder(orderPayload, state);
-            }
-            await posDB.markSync();
-            const latestOrders = await posDB.listOrders({ onlyActive:true });
-            const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
-            ctx.setState(s=>{
-              const data = s.data || {};
-              const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
-              const historyIndex = history.findIndex(entry=> entry.id === orderPayload.id);
-              const seq = historyIndex >= 0 ? (history[historyIndex].seq || historyIndex + 1) : history.length + 1;
-              const historyEntry = { ...orderPayload, seq, payments: orderPayload.payments.map(pay=> ({ ...pay })) };
-              if(historyIndex >= 0){
-                history[historyIndex] = historyEntry;
-              } else {
-                history.push(historyEntry);
-              }
-              let nextShift = data.shift?.current ? { ...data.shift.current } : null;
-              if(nextShift){
-                const summary = summarizeShiftOrders(history, { ...nextShift, orders: Array.isArray(nextShift.orders) ? nextShift.orders.slice() : [] });
-                nextShift = {
-                  ...nextShift,
-                  totalsByType: summary.totalsByType,
-                  paymentsByMethod: summary.paymentsByMethod,
-                  totalSales: summary.totalSales,
-                  orders: summary.orders,
-                  countsByType: summary.countsByType,
-                  ordersCount: summary.ordersCount,
-                  closingCash: round((nextShift.openingFloat || 0) + (summary.paymentsByMethod.cash || 0))
-                };
-              }
-              return {
-                ...s,
-                data:{
-                  ...data,
-                  order:{
-                    ...orderPayload,
-                    allowAdditions: !!typeConfig.allowsLineAdditions,
-                    lockLineEdits:true
-                  },
-                  ordersQueue: latestOrders,
-                  ordersHistory: history,
-                  payments:{ ...(data.payments || {}), split:[] },
-                  shift:{ ...(data.shift || {}), current: nextShift },
-                  status:{
-                    ...data.status,
-                    indexeddb:{ state:'online', lastSync: now }
-                  }
-                },
-                ui:{
-                  ...(s.ui || {}),
-                  paymentDraft:{ ...(s.ui?.paymentDraft || {}), amount:'' }
-                }
-              };
-            });
-            await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
-            if(mode === 'save-print'){
-              ctx.setState(s=>({
-                ...s,
-                ui:{
-                  ...(s.ui || {}),
-                  modals:{ ...(s.ui?.modals || {}), print:true },
-                  print:{ ...(s.ui?.print || {}), docType:s.data.print?.docType || 'customer', size:s.data.print?.size || 'thermal_80' }
-                }
-              }));
-            }
-            UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
-          } catch(error){
-            UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
-            ctx.setState(s=>({
-              ...s,
-              data:{
-                ...s.data,
-                status:{
-                  ...s.data.status,
-                  indexeddb:{ state:'offline', lastSync: s.data.status?.indexeddb?.lastSync || null }
-                }
-              }
-            }));
-          }
+          const mode = trigger?.getAttribute('data-save-mode') || 'draft';
+          await persistOrderFlow(ctx, mode);
         }
       },
       'pos.shift.open':{
@@ -8358,7 +8418,7 @@
       'pos.payments.capture':{
         on:['click'],
         gkeys:['pos:payments:capture'],
-        handler:(e,ctx)=>{
+        handler: async (e,ctx)=>{
           const state = ctx.getState();
           const t = getTexts(state);
           const amount = parseFloat(state.ui?.paymentDraft?.amount);
@@ -8367,12 +8427,19 @@
             return;
           }
           const method = state.data.payments.activeMethod || 'cash';
+          const pending = state.ui?.pendingAction;
+          let finalizeMode = null;
+          let shouldFinalize = false;
           ctx.setState(s=>{
             const data = s.data || {};
             const nextSplit = (data.payments?.split || []).concat([{ id:`pm-${Date.now()}`, method, amount: round(amount) }]);
             const order = data.order || {};
             const totals = order.totals || {};
             const paymentSnapshot = summarizePayments(totals, nextSplit);
+            if(pending && pending.orderId === order.id && paymentSnapshot.remaining <= 0){
+              shouldFinalize = true;
+              finalizeMode = pending.mode || 'finalize';
+            }
             return {
               ...s,
               data:{
@@ -8386,10 +8453,18 @@
                   paymentState: paymentSnapshot.state
                 }
               },
-              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false }, paymentDraft:{ amount:'' } }
+              ui:{
+                ...(s.ui || {}),
+                modals:{ ...(s.ui?.modals || {}), payments:false },
+                paymentDraft:{ amount:'', method },
+                pendingAction: (pending && pending.orderId === order.id && paymentSnapshot.remaining <= 0) ? null : pending
+              }
             };
           });
           UI.pushToast(ctx, { title:t.toast.payment_recorded, icon:'💰' });
+          if(shouldFinalize && finalizeMode){
+            await persistOrderFlow(ctx, finalizeMode, { skipPaymentCheck:true });
+          }
         }
       },
       'pos.payments.split':{
