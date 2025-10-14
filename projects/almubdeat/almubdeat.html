@@ -374,17 +374,26 @@
                       {
                         attrs: {
                           class:
-                            'relative overflow-hidden rounded-2xl aspect-[9/16] bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-4xl'
+                            'relative overflow-hidden rounded-2xl aspect-[9/16] bg-slate-200 dark:bg-slate-800 flex items-center justify-center'
                         }
                       },
                       [
                         media.type === 'video'
-                          ? D.Text.Span({ attrs: { class: 'text-sm font-medium opacity-80' } }, [
-                              '🎬 ',
-                              (media.duration ? `${media.duration}s` : ''),
-                              ' / ',
-                              localize(post.title)
-                            ])
+                          ? (() => {
+                              const videoAttrs = {
+                                src: media.url,
+                                class: 'w-full h-full object-cover',
+                                autoplay: true,
+                                muted: true,
+                                loop: true,
+                                playsinline: true,
+                                controls: true
+                              };
+                              if (media.poster) {
+                                videoAttrs.poster = media.poster;
+                              }
+                              return D.Media.Video({ attrs: videoAttrs });
+                            })()
                           : D.Media.Img({
                               attrs: {
                                 src: media.url,
