@@ -1030,7 +1030,7 @@
 
   const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
   const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
-  syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken });
+  const syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken });
   if(syncClient){
     syncClient.connect();
   }
@@ -1303,9 +1303,6 @@
       }
     };
   }
-
-  let syncClient = null;
-
   const kdsOrders = {
     'kds.theme.set':{
       on:['click'],
