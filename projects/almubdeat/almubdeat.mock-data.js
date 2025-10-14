@@ -84,6 +84,10 @@
           en: 'Atelier designer crafting gowns that narrate every occasion.'
         },
         badges: ['verified', 'top-rated'],
+        avatarUrl:
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=640&q=80',
+        coverUrl:
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80',
         social: {
           instagram: 'https://instagram.com/lulwaatelier',
           tiktok: 'https://www.tiktok.com/@lulwaatelier',
@@ -107,6 +111,10 @@
           en: 'Pastry chef designing luxurious hospitality experiences.'
         },
         badges: ['verified', 'artisan'],
+        avatarUrl:
+          'https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&fit=crop&w=640&q=80',
+        coverUrl:
+          'https://images.unsplash.com/photo-1504753793650-d4a2b783c15e?auto=format&fit=crop&w=1400&q=80',
         social: {
           instagram: 'https://instagram.com/nesmasweetstudio',
           snapchat: 'https://snapchat.com/add/nesmasweets',
@@ -130,6 +138,10 @@
           en: 'Experience designer weaving spaces with local artistry.'
         },
         badges: ['verified', 'experience-guru'],
+        avatarUrl:
+          'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=640&q=80',
+        coverUrl:
+          'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80',
         social: {
           instagram: 'https://instagram.com/danainteriors',
           linkedin: 'https://linkedin.com/in/danainteriors',
@@ -153,7 +165,11 @@
         },
         priceRange: { min: 6800, max: 12800, currency: 'SAR' },
         media: [
-          { type: 'image', url: 'https://images.mishkah.dev/almubdeat/gown-cover.jpg', aspectRatio: '3:4' }
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1080&q=80',
+            aspectRatio: '3:4'
+          }
         ]
       },
       {
@@ -167,7 +183,11 @@
         },
         priceRange: { min: 1200, max: 1950, currency: 'SAR' },
         media: [
-          { type: 'image', url: 'https://images.mishkah.dev/almubdeat/abaya-mint.jpg', aspectRatio: '2:3' }
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1080&q=80',
+            aspectRatio: '2:3'
+          }
         ]
       },
       {
@@ -181,8 +201,17 @@
         },
         priceRange: { min: 320, max: 480, currency: 'SAR' },
         media: [
-          { type: 'image', url: 'https://images.mishkah.dev/almubdeat/tart-saffron.jpg', aspectRatio: '1:1' },
-          { type: 'video', url: 'https://videos.mishkah.dev/almubdeat/tart-showcase.mp4', aspectRatio: '9:16', duration: 18 }
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1080&q=80',
+            aspectRatio: '1:1'
+          },
+          {
+            type: 'video',
+            url: 'https://cdn.coverr.co/videos/coverr-cake-decoration-4225/1080p.mp4',
+            aspectRatio: '9:16',
+            duration: 18
+          }
         ]
       },
       {
@@ -196,7 +225,11 @@
         },
         priceRange: { min: 540, max: 790, currency: 'SAR' },
         media: [
-          { type: 'image', url: 'https://images.mishkah.dev/almubdeat/velvet-box.jpg', aspectRatio: '4:3' }
+          {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=1080&q=80',
+            aspectRatio: '4:3'
+          }
         ]
       }
     ],
@@ -262,7 +295,12 @@
         },
         categoryId: 'atelier-fashion',
         productId: 'product-royal-gown',
-        media: { url: 'https://videos.mishkah.dev/almubdeat/gown-reel.mp4', type: 'video', duration: 22, aspectRatio: '9:16' },
+        media: {
+          url: 'https://cdn.coverr.co/videos/coverr-fashion-designer-working-on-dress-0159/1080p.mp4',
+          type: 'video',
+          duration: 22,
+          aspectRatio: '9:16'
+        },
         pricing: { label: { ar: 'ابتداءً من 6,800 ر.س', en: 'From 6,800 SAR' } },
         cta: {
           label: { ar: 'احجزي استشارة تصميم', en: 'Book design consult' },
@@ -283,7 +321,11 @@
         },
         categoryId: 'artisan-delights',
         productId: 'product-velvet-box',
-        media: { url: 'https://images.mishkah.dev/almubdeat/velvet-box.jpg', type: 'image', aspectRatio: '4:3' },
+        media: {
+          url: 'https://images.unsplash.com/photo-1528825871115-3581a5387919?auto=format&fit=crop&w=1080&q=80',
+          type: 'image',
+          aspectRatio: '4:3'
+        },
         pricing: { label: { ar: '540 - 790 ر.س', en: '540 - 790 SAR' } },
         cta: {
           label: { ar: 'اطلب الآن', en: 'Order now' },
@@ -304,7 +346,12 @@
         },
         categoryId: 'experience-services',
         serviceId: 'service-interior-suite',
-        media: { url: 'https://videos.mishkah.dev/almubdeat/color-masterclass.mp4', type: 'video', duration: 28, aspectRatio: '9:16' },
+        media: {
+          url: 'https://cdn.coverr.co/videos/coverr-interior-design-team-discussing-2511/1080p.mp4',
+          type: 'video',
+          duration: 28,
+          aspectRatio: '9:16'
+        },
         pricing: { label: { ar: 'جلسة جماعية بـ 980 ر.س', en: 'Group session 980 SAR' } },
         cta: {
           label: { ar: 'احجز مقعدك', en: 'Reserve your seat' },
@@ -325,7 +372,11 @@
         },
         categoryId: 'artisan-delights',
         productId: 'product-saffron-tart',
-        media: { url: 'https://images.mishkah.dev/almubdeat/tart-saffron.jpg', type: 'image', aspectRatio: '1:1' },
+        media: {
+          url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1080&q=80',
+          type: 'image',
+          aspectRatio: '1:1'
+        },
         pricing: { label: { ar: 'ابتداءً من 320 ر.س', en: 'From 320 SAR' } },
         cta: {
           label: { ar: 'احجز التذوق', en: 'Schedule tasting' },

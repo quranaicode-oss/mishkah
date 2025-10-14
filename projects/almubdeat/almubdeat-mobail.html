@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>منصة المبدعات — تجربة الهاتف</title>
+    <meta
+      name="description"
+      content="نسخة هاتفية لمنصة المبدعات مع بروفايل مبدعة وتايملاين ريلز حية بالصور والفيديوهات الحقيقية."
+    />
+    <script src="../../mishkah-utils.js"></script>
+    <script src="../../mishkah.core.js"></script>
+    <script src="../../mishkah-ui.js"></script>
+    <script src="./almubdeat.schema.js"></script>
+    <script src="./almubdeat.mock-data.js"></script>
+  </head>
+  <body class="antialiased bg-slate-900 text-white">
+    <div id="app"></div>
+
+    <script>
+      (function () {
+        const M = window.Mishkah;
+        const dataset = window.AlmubdeatMockData || {};
+
+        const database = {
+          head: {
+            title: 'منصة المبدعات — تجربة الهاتف',
+            description:
+              'استعرض بروفايل مبدعة مختارة مع أبرز الخدمات ومنشورات الريلز بالصور والفيديوهات الحقيقية.'
+          },
+          env: {
+            theme: 'dark',
+            lang: 'ar',
+            dir: 'rtl'
+          },
+          i18n: {
+            lang: 'ar',
+            fallback: 'en',
+            dict: {}
+          },
+          data: Object.assign({}, dataset)
+        };
+
+        M.app.setBody(function (db, D) {
+          const { current } = M.utils.lang.makeLangLookup(db);
+          const lang = current || 'ar';
+          const localize = (value) => {
+            if (value == null) return '';
+            if (typeof value === 'string') return value;
+            if (typeof value === 'object') {
+              return value[lang] || value[db.i18n?.fallback || 'en'] || Object.values(value)[0] || '';
+            }
+            return String(value);
+          };
+
+          const formatAmount = (amount, currency) => {
+            if (typeof amount !== 'number' || Number.isNaN(amount)) return '';
+            const locale = lang === 'ar' ? 'ar-SA' : 'en-US';
+            const suffix = currency === 'SAR' ? 'ر.س' : currency || '';
+            return `${amount.toLocaleString(locale)}${suffix ? ` ${suffix}` : ''}`;
+          };
+
+          const creators = Array.isArray(db.data?.creators) ? db.data.creators : [];
+          const posts = Array.isArray(db.data?.posts) ? db.data.posts : [];
+          const products = Array.isArray(db.data?.products) ? db.data.products : [];
+          const services = Array.isArray(db.data?.services) ? db.data.services : [];
+          const brand = db.data?.brand || {};
+
+          const primaryCreator = creators[0] || {};
+          const creatorName = localize(primaryCreator.displayName || brand.name || 'المبدعات');
+          const reels = posts
+            .filter((post) => post.type === 'reel' && post.creatorId === primaryCreator.id)
+            .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+
+          const highlightProductCards = (primaryCreator.highlights?.products || [])
+            .map((productId) => products.find((item) => item.id === productId))
+            .filter(Boolean)
+            .map((product) =>
+              D.Containers.Article(
+                {
+                  attrs: {
+                    class:
+                      'rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 py-3 flex items-center gap-3'
+                  }
+                },
+                [
+                  (product.media || [])?.[0]?.url
+                    ? D.Media.Img({
+                        attrs: {
+                          src: product.media[0].url,
+                          alt: localize(product.title),
+                          class: 'w-16 h-16 rounded-xl object-cover'
+                        }
+                      })
+                    : null,
+                  D.Containers.Div({}, [
+                    D.Text.P({ attrs: { class: 'text-sm font-semibold' } }, [localize(product.title)]),
+                    D.Text.P({ attrs: { class: 'text-xs opacity-70 mt-1 leading-snug' } }, [
+                      localize(product.description)
+                    ]),
+                    product.priceRange
+                      ? D.Text.P({ attrs: { class: 'text-xs opacity-60 mt-1' } }, [
+                          (() => {
+                            const minLabel = formatAmount(
+                              product.priceRange.min,
+                              product.priceRange.currency
+                            );
+                            const maxLabel = formatAmount(
+                              product.priceRange.max,
+                              product.priceRange.currency
+                            );
+                            if (minLabel && maxLabel) {
+                              return `${minLabel} - ${maxLabel}`;
+                            }
+                            return minLabel || maxLabel || '';
+                          })()
+                        ])
+                      : null
+                  ])
+                ].filter(Boolean)
+              )
+            );
+
+          const highlightServiceCards = (primaryCreator.highlights?.services || [])
+            .map((serviceId) => services.find((item) => item.id === serviceId))
+            .filter(Boolean)
+            .map((service) =>
+              D.Containers.Article(
+                {
+                  attrs: {
+                    class:
+                      'rounded-2xl border border-white/10 bg-gradient-to-l from-white/10 to-transparent px-4 py-3 space-y-2'
+                  }
+                },
+                [
+                  D.Text.P({ attrs: { class: 'text-sm font-semibold' } }, [localize(service.title)]),
+                  D.Text.P({ attrs: { class: 'text-xs opacity-70 leading-snug' } }, [
+                    localize(service.summary)
+                  ]),
+                  Array.isArray(service.packages)
+                    ? D.Lists.Ul(
+                        {
+                          attrs: { class: 'text-xs opacity-70 space-y-1 list-disc list-inside' }
+                        },
+                        service.packages.map((pkg) =>
+                          D.Lists.Li({}, [
+                            `${localize(pkg.name)} • ${formatAmount(pkg.price, 'SAR')}`
+                          ])
+                        )
+                      )
+                    : null
+                ].filter(Boolean)
+              )
+            );
+
+          const statusBar = D.Containers.Div(
+            {
+              attrs: {
+                class: 'flex items-center justify-between text-[0.7rem] tracking-[0.2em] text-white/60'
+              }
+            },
+            [D.Text.Span({}, ['١٠:٢٤']), D.Text.Span({}, ['5G ▴']), D.Text.Span({}, ['82% 🔋'])]
+          );
+
+          const profileHeader = D.Containers.Section(
+            {
+              attrs: { class: 'space-y-4' }
+            },
+            [
+              primaryCreator.coverUrl
+                ? D.Containers.Div(
+                    {
+                      attrs: {
+                        class:
+                          'relative h-48 rounded-3xl overflow-hidden border border-white/10 shadow-lg shadow-slate-950/40'
+                      }
+                    },
+                    [
+                      D.Media.Img({
+                        attrs: {
+                          src: primaryCreator.coverUrl,
+                          alt: `${creatorName} cover`,
+                          class: 'w-full h-full object-cover'
+                        }
+                      }),
+                      D.Containers.Div({
+                        attrs: {
+                          class: 'absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/40 to-transparent'
+                        }
+                      }),
+                      D.Containers.Div(
+                        {
+                          attrs: {
+                            class: 'absolute bottom-4 inset-x-4 flex items-center gap-3'
+                          }
+                        },
+                        [
+                          primaryCreator.avatarUrl
+                            ? D.Media.Img({
+                                attrs: {
+                                  src: primaryCreator.avatarUrl,
+                                  alt: creatorName,
+                                  class:
+                                    'w-16 h-16 rounded-2xl border-4 border-white/80 object-cover shadow-lg shadow-slate-900/50'
+                                }
+                              })
+                            : D.Text.Span({ attrs: { class: 'text-3xl' } }, ['✨']),
+                          D.Containers.Div({ attrs: { class: 'space-y-1' } }, [
+                            D.Text.H1({ attrs: { class: 'text-lg font-semibold' } }, [creatorName]),
+                            primaryCreator.city
+                              ? D.Text.P({ attrs: { class: 'text-xs text-white/70' } }, [
+                                  localize(primaryCreator.city)
+                                ])
+                              : null,
+                            D.Text.P({ attrs: { class: 'text-xs text-amber-300' } }, [
+                              `${primaryCreator.rating || '4.9'} ★`
+                            ])
+                          ])
+                        ]
+                      )
+                    ]
+                  )
+                : null,
+              primaryCreator.headline
+                ? D.Text.P({ attrs: { class: 'text-sm leading-relaxed text-white/75' } }, [
+                    localize(primaryCreator.headline)
+                  ])
+                : null,
+              Array.isArray(primaryCreator.badges)
+                ? D.Containers.Div(
+                    { attrs: { class: 'flex flex-wrap gap-2 text-xs text-white/70' } },
+                    primaryCreator.badges.map((badge) =>
+                      D.Text.Span({
+                        attrs: {
+                          class:
+                            'px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur font-medium tracking-wide'
+                        }
+                      }, [badge])
+                    )
+                  )
+                : null
+            ].filter(Boolean)
+          );
+
+          const metricsRow = Array.isArray(brand.stats) && brand.stats.length
+            ? D.Containers.Div(
+                {
+                  attrs: {
+                    class:
+                      'grid grid-cols-3 gap-2 text-center text-xs text-white/70 bg-white/5 rounded-2xl border border-white/10 p-3'
+                  }
+                },
+                brand.stats.map((stat) =>
+                  D.Containers.Div(
+                    { attrs: { class: 'space-y-1' } },
+                    [
+                      D.Text.P({ attrs: { class: 'text-base font-semibold text-white' } }, [stat.value]),
+                      D.Text.P({ attrs: { class: 'leading-snug' } }, [localize(stat.label)])
+                    ]
+                  )
+                )
+              )
+            : null;
+
+          const highlightsSection = D.Containers.Section(
+            {
+              attrs: { class: 'space-y-3' }
+            },
+            [
+              D.Text.H2({ attrs: { class: 'text-sm font-semibold text-white/80' } }, ['مختارات البروفايل']),
+              highlightProductCards.length
+                ? D.Containers.Div({ attrs: { class: 'space-y-2' } }, highlightProductCards)
+                : null,
+              highlightServiceCards.length
+                ? D.Containers.Div({ attrs: { class: 'space-y-2' } }, highlightServiceCards)
+                : null,
+              !highlightProductCards.length && !highlightServiceCards.length
+                ? D.Containers.Div(
+                    {
+                      attrs: {
+                        class: 'rounded-2xl border border-dashed border-white/20 text-center text-xs py-6 text-white/50'
+                      }
+                    },
+                    [D.Text.Span({}, ['لا توجد مختارات مثبتة حالياً.'])]
+                  )
+                : null
+            ].filter(Boolean)
+          );
+
+          const timelineSection = D.Containers.Section(
+            { attrs: { class: 'space-y-3 pb-4' } },
+            [
+              D.Containers.Div(
+                {
+                  attrs: { class: 'flex items-center justify-between' }
+                },
+                [
+                  D.Text.H2({ attrs: { class: 'text-sm font-semibold text-white/80' } }, ['ريلز حديثة']),
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      class: 'text-[0.7rem] px-3 py-1 rounded-full bg-white/10 border border-white/20',
+                      gkey: 'ui:theme-toggle'
+                    }
+                  }, ['تبديل الثيم', ' 🌓'])
+                ]
+              ),
+              reels.length
+                ? D.Containers.Div(
+                    { attrs: { class: 'space-y-3' } },
+                    reels.map((post) => {
+                      const media = post.media || {};
+                      const videoCard = media.url
+                        ? D.Containers.Div(
+                            {
+                              attrs: {
+                                class:
+                                  'overflow-hidden rounded-3xl border border-white/10 aspect-[9/16] bg-black shadow-lg shadow-slate-950/40'
+                              }
+                            },
+                            [
+                              (() => {
+                                if (media.type === 'video') {
+                                  const attrs = {
+                                    src: media.url,
+                                    class: 'w-full h-full object-cover',
+                                    autoplay: true,
+                                    muted: true,
+                                    loop: true,
+                                    playsinline: true,
+                                    controls: true
+                                  };
+                                  if (media.poster) {
+                                    attrs.poster = media.poster;
+                                  }
+                                  return D.Media.Video({ attrs });
+                                }
+                                return D.Media.Img({
+                                  attrs: {
+                                    src: media.url,
+                                    alt: localize(post.title),
+                                    class: 'w-full h-full object-cover'
+                                  }
+                                });
+                              })()
+                            ]
+                          )
+                        : null;
+
+                      return D.Containers.Article(
+                        {
+                          attrs: {
+                            class:
+                              'space-y-3 rounded-3xl bg-white/5 border border-white/10 p-3 backdrop-blur'
+                          }
+                        },
+                        [
+                          videoCard,
+                          D.Text.P({ attrs: { class: 'text-sm font-semibold' } }, [localize(post.title)]),
+                          D.Text.P({ attrs: { class: 'text-xs text-white/70 leading-relaxed' } }, [
+                            localize(post.caption)
+                          ]),
+                          post.pricing?.label
+                            ? D.Text.P({ attrs: { class: 'text-xs text-emerald-300' } }, [
+                                localize(post.pricing.label)
+                              ])
+                            : null,
+                          post.engagement
+                            ? D.Containers.Div(
+                                {
+                                  attrs: {
+                                    class: 'flex items-center justify-between text-[0.7rem] text-white/60'
+                                  }
+                                },
+                                [
+                                  D.Text.Span({}, [`❤️ ${post.engagement.likes}`]),
+                                  D.Text.Span({}, [`💾 ${post.engagement.saves}`]),
+                                  D.Text.Span({}, [`🔁 ${post.engagement.shares}`])
+                                ]
+                              )
+                            : null,
+                          post.cta?.label
+                            ? D.Forms.Button(
+                                {
+                                  attrs: {
+                                    type: 'button',
+                                    class:
+                                      'w-full text-xs py-2 rounded-2xl bg-emerald-500 text-white font-semibold'
+                                  }
+                                },
+                                [localize(post.cta.label)]
+                              )
+                            : null
+                        ].filter(Boolean)
+                      );
+                    })
+                  )
+                : D.Containers.Div(
+                    {
+                      attrs: {
+                        class: 'rounded-3xl border border-dashed border-white/20 text-center py-6 text-xs text-white/50'
+                      }
+                    },
+                    [D.Text.Span({}, ['لا توجد ريلز لعرضها حالياً.'])]
+                  )
+            ]
+          );
+
+          const bottomNav = D.Containers.Nav(
+            {
+              attrs: {
+                class:
+                  'fixed inset-x-0 bottom-0 mx-auto max-w-sm px-6 pb-6'
+              }
+            },
+            [
+              D.Containers.Div(
+                {
+                  attrs: {
+                    class:
+                      'flex items-center justify-between rounded-3xl bg-black/60 backdrop-blur border border-white/10 px-5 py-3 text-xs text-white/70'
+                  }
+                },
+                [
+                  D.Text.A({ attrs: { href: '#', class: 'flex flex-col items-center gap-1 text-white' } }, [
+                    '🏠',
+                    D.Text.Span({}, ['الرئيسية'])
+                  ]),
+                  D.Text.A({ attrs: { href: '#', class: 'flex flex-col items-center gap-1' } }, [
+                    '🎞️',
+                    D.Text.Span({}, ['ريلز'])
+                  ]),
+                  D.Text.A({ attrs: { href: '#', class: 'flex flex-col items-center gap-1' } }, [
+                    '🛍️',
+                    D.Text.Span({}, ['المتجر'])
+                  ]),
+                  D.Text.A({ attrs: { href: '#', class: 'flex flex-col items-center gap-1' } }, [
+                    '💬',
+                    D.Text.Span({}, ['الرسائل'])
+                  ])
+                ]
+              )
+            ]
+          );
+
+          return D.Containers.Main(
+            {
+              attrs: {
+                class:
+                  'min-h-screen bg-[var(--background)] text-[var(--foreground)] flex justify-center px-4 pb-24 pt-10'
+              }
+            },
+            [
+              D.Containers.Div(
+                {
+                  attrs: {
+                    class:
+                      'w-full max-w-sm space-y-6 bg-gradient-to-b from-slate-900 via-slate-950 to-black/90 rounded-3xl border border-white/10 px-5 py-6 relative'
+                  }
+                },
+                [statusBar, profileHeader, metricsRow, highlightsSection, timelineSection, bottomNav]
+              )
+            ]
+          );
+        });
+
+        const orders = {};
+
+        const app = M.app.createApp(database, orders);
+        const twx = M.utils.twcss.auto(database, app);
+        app.setOrders(Object.assign({}, orders, twx.orders));
+        app.mount('#app');
+      })();
+    </script>
+  </body>
+</html>
