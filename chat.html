@@ -41,38 +41,62 @@
     </div>
 
     <div
-      class="container mx-auto p-4 flex gap-4 h-screen"
+      class="container mx-auto p-4 flex flex-col lg:flex-row gap-4 h-screen"
       x-if="state.data.joined"
-      m-ws-connect="main_socket"
-      m-ws-url="wss://ws.mas.com.eg"
     >
 
-      <aside class="w-1/4 bg-gray-800 p-4 rounded-lg">
-        <h2 class="font-bold mb-2">المتصلون الآن</h2>
-        <ul m-ws-on:user-list-update="updateUsers(event.detail.payload, ctx)">
-          <li
-            x-for="user, idx in state.data.users"
-            data-m-key="{user.id || idx}"
-            class="py-1 border-b border-gray-700 last:border-0"
-          >
-            {user.name || user}
-          </li>
-        </ul>
+      <aside class="w-full lg:w-1/4 bg-gray-800 p-4 rounded-lg flex flex-col gap-4 overflow-y-auto">
+        <div class="space-y-2">
+          <h2 class="font-bold text-lg">المحادثة الحالية</h2>
+          <p class="text-sm text-gray-400">الموضوع: {state.data.topic}</p>
+          <p class="text-sm text-gray-300">
+            حالة الاتصال:
+            <strong
+              class="{state.data.connection.status === 'connected' ? 'text-emerald-400' : state.data.connection.status === 'error' ? 'text-rose-400' : 'text-sky-300'}"
+            >
+              {state.data.connection.status}
+            </strong>
+          </p>
+          <p x-if="state.data.connection.lastError" class="text-sm text-rose-300">
+            آخر خطأ: {state.data.connection.lastError.message || state.data.connection.lastError.code}
+          </p>
+        </div>
+
+        <div class="flex-1">
+          <h3 class="font-semibold mb-2 text-sm text-gray-200">المتصلون الآن</h3>
+          <ul>
+            <li
+              x-for="user, idx in state.data.users"
+              data-m-key="{user.id || idx}"
+              class="py-1 border-b border-gray-700 last:border-0"
+            >
+              {user.name || user}
+            </li>
+            <li x-if="!state.data.users.length" class="py-1 text-sm text-gray-500">
+              لا توجد أسماء بعد — سيظهر المشاركون بعد إرسال الرسائل.
+            </li>
+          </ul>
+        </div>
       </aside>
 
-      <main class="w-3/4 flex flex-col gap-4">
-        <div
-          class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto"
-          m-ws-on:new-message="appendMessage(event.detail.payload, ctx)"
-        >
+      <main class="flex-1 flex flex-col gap-4 overflow-hidden">
+        <div class="flex-1 bg-gray-800 p-4 rounded-lg overflow-y-auto">
           <div
             x-for="msg, msgIdx in state.data.messages"
-            data-m-key="{msg.id || msgIdx}"
+            data-m-key="{msg.clientMessageId || msg.id || msgIdx}"
             class="mb-3"
           >
-            <strong class="text-blue-300">{msg.user || 'مجهول'}:</strong>
-            <span class="ml-2">{msg.text}</span>
+            <div class="flex items-start justify-between gap-2">
+              <strong class="text-blue-300">{msg.user || 'مجهول'}</strong>
+              <span class="text-xs text-gray-400">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+            </div>
+            <p class="ml-2 text-sm text-gray-100">{msg.text}</p>
+            <p x-if="msg.pending" class="text-xs text-amber-300 mt-1">جاري الإرسال...</p>
+            <p x-if="msg.failed" class="text-xs text-rose-400 mt-1">تعذر تسليم الرسالة.</p>
           </div>
+          <p x-if="!state.data.messages.length" class="text-sm text-gray-500">
+            لا توجد رسائل حتى الآن. كن أول من يبدأ الحديث!
+          </p>
         </div>
 
         <form class="flex gap-2" onsubmit="sendMessage(event, ctx)">
@@ -87,11 +111,25 @@
             type="submit"
             class="bg-green-600 p-2 rounded hover:bg-green-700"
             data-m-gkey="chat:send"
-            m-ws-emit:send-message="messagePayload(ctx)"
           >
             إرسال
           </button>
         </form>
+
+        <section x-if="state.data.errors.length" class="bg-rose-950/40 border border-rose-800/40 rounded-lg p-4">
+          <h3 class="font-semibold text-rose-200 mb-2">الأخطاء الأخيرة</h3>
+          <ul class="space-y-2 text-sm">
+            <li
+              x-for="err, idx in state.data.errors"
+              data-m-key="{err.id || idx}"
+              class="border-b border-rose-900/40 pb-2 last:border-0 last:pb-0"
+            >
+              <strong class="text-rose-300">{err.code}</strong>
+              <span class="ml-2 text-gray-200">{err.message}</span>
+              <span class="block text-xs text-gray-500 mt-1">{err.ts ? new Date(err.ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+            </li>
+          </ul>
+        </section>
       </main>
     </div>
 
@@ -101,7 +139,14 @@
         "username": "",
         "users": [],
         "messages": [],
-        "newMessage": ""
+        "newMessage": "",
+        "conversationId": "demo:lobby",
+        "topic": "chat:demo:lobby",
+        "connection": {
+          "status": "idle",
+          "lastError": null
+        },
+        "errors": []
       }
     </script>
 
@@ -109,29 +154,561 @@
 
   <script>
     (function (global) {
+      var LOG_PREFIX = '%c[Chat Debug]%c ';
+      var LOG_STYLE = 'color:#38bdf8;font-weight:bold;';
+      var LOG_RESET = 'color:inherit;';
+
+      function log(level, message, payload) {
+        if (typeof console === 'undefined') {
+          return;
+        }
+        var logger = typeof console[level] === 'function' ? console[level] : console.log;
+        if (payload !== undefined) {
+          try {
+            logger.call(console, LOG_PREFIX + message, LOG_STYLE, LOG_RESET, payload);
+          } catch (error) {
+            console.error(LOG_PREFIX + 'فشل تسجيل الحمولة debug payload', LOG_STYLE, LOG_RESET, error);
+          }
+        } else {
+          logger.call(console, LOG_PREFIX + message, LOG_STYLE, LOG_RESET);
+        }
+      }
+
+      function info(message, payload) {
+        log('info', message, payload);
+      }
+
+      function warn(message, payload) {
+        log('warn', message, payload);
+      }
+
+      function error(message, payload) {
+        log('error', message, payload);
+      }
+
+      function debug(message, payload) {
+        log('debug', message, payload);
+      }
+
+      var utils = global.Mishkah && global.Mishkah.utils;
+      var OriginalWebSocketX = utils && utils.WebSocketX;
+
+      if (OriginalWebSocketX && !OriginalWebSocketX.__chatDebugWrapped) {
+        var ChatDebugWebSocketX = /*#__PURE__*/ (function (Parent) {
+          function Wrapper(url, options) {
+            info('تهيئة اتصال WebSocket جديد', { url: url, options: options || {} });
+            var instance = new Parent(url, options);
+            try {
+              instance.on('open', function () {
+                info('تم فتح اتصال WebSocket', { url: url });
+              });
+              instance.on('close', function (evt) {
+                warn('تم إغلاق اتصال WebSocket', { url: url, event: evt });
+              });
+              instance.on('error', function (err) {
+                error('خطأ من WebSocket', { url: url, error: err });
+              });
+              instance.on('state', function (state) {
+                debug('تغيرت حالة WebSocket', { url: url, state: state });
+              });
+              instance.on('message', function (message) {
+                debug('رسالة WebSocket واردة', { url: url, message: message });
+              });
+            } catch (hookError) {
+              warn('تعذر ربط مراقب لأحداث WebSocket', hookError);
+            }
+            return instance;
+          }
+
+          Wrapper.prototype = Parent.prototype;
+          if (Object.setPrototypeOf) {
+            Object.setPrototypeOf(Wrapper, Parent);
+          } else if (Wrapper.__proto__) {
+            Wrapper.__proto__ = Parent;
+          }
+          Wrapper.__chatDebugWrapped = true;
+          return Wrapper;
+        })(OriginalWebSocketX);
+
+        if (utils) {
+          utils.WebSocketX = ChatDebugWebSocketX;
+          utils.WebSocket = ChatDebugWebSocketX;
+        }
+        global.__ChatOriginalWebSocketX = OriginalWebSocketX;
+        info('تم تفعيل طبقة مراقبة WebSocketX للصفحة الحالية.');
+      } else if (!OriginalWebSocketX) {
+        warn('تعذر العثور على Mishkah.utils.WebSocketX — لن يتم تسجيل أحداث WebSocket.');
+      }
+
       var agent =
         global.Mishkah &&
         global.Mishkah.HTMLx &&
         global.Mishkah.HTMLx.Agent;
 
+      var utils = global.Mishkah && global.Mishkah.utils;
+
+      var CHAT_CONFIG = {
+        url: 'wss://ws.mas.com.eg',
+        conversationId: 'demo:lobby',
+        topic: 'chat:demo:lobby',
+        historyLimit: 50,
+        maxErrors: 10
+      };
+
+      var runtime = {
+        app: null,
+        socket: null,
+        lastCtx: null,
+        subscriptionRequested: false,
+        historyRequested: false
+      };
+
       function ensureContext(ctx) {
-        if (!ctx) return null;
+        if (!ctx) {
+          error('تم تمرير سياق فارغ إلى ensureContext.');
+          return null;
+        }
         if (typeof ctx.get === 'function' && typeof ctx.set === 'function') {
+          runtime.lastCtx = ctx;
           return ctx;
         }
-        if (agent && typeof agent.ContextAdapter === 'function') {
-          return agent.ContextAdapter(ctx);
+        if (!agent || typeof agent.ContextAdapter !== 'function') {
+          error('تعذر تكيف سياق HTMLx، ContextAdapter غير متاح.');
+          return null;
+        }
+        var adapted = agent.ContextAdapter(ctx);
+        if (!adapted) {
+          error('فشل ContextAdapter في إرجاع سياق صالح.');
+          return null;
+        }
+        runtime.lastCtx = adapted;
+        return adapted;
+      }
+
+      function readState() {
+        if (runtime.app && typeof runtime.app.getState === 'function') {
+          return runtime.app.getState();
+        }
+        if (runtime.lastCtx && typeof runtime.lastCtx.getState === 'function') {
+          return runtime.lastCtx.getState();
         }
         return null;
       }
 
+      function mutateState(updater) {
+        var applied = false;
+        if (runtime.app && typeof runtime.app.setState === 'function') {
+          runtime.app.setState(updater);
+          applied = true;
+        }
+        if (!applied && runtime.lastCtx && typeof runtime.lastCtx.setState === 'function') {
+          runtime.lastCtx.setState(updater);
+          applied = true;
+        }
+        return applied;
+      }
+
+      function extractError(meta) {
+        if (!meta) {
+          return null;
+        }
+        if (meta instanceof Error) {
+          return { code: meta.code || 'error', message: meta.message };
+        }
+        if (typeof meta === 'string') {
+          return { code: 'error', message: meta };
+        }
+        if (meta.code || meta.message || meta.reason) {
+          return {
+            code: meta.code || meta.status || 'error',
+            message: meta.message || meta.reason || String(meta.code || 'error')
+          };
+        }
+        if (meta.error) {
+          return extractError(meta.error);
+        }
+        if (meta.ts && meta.code && meta.message) {
+          return { code: meta.code, message: meta.message, ts: meta.ts };
+        }
+        try {
+          return { code: meta.code || 'error', message: JSON.stringify(meta) };
+        } catch (_err) {
+          return { code: 'error', message: String(meta) };
+        }
+      }
+
+      function setConnectionStatus(status, meta) {
+        var normalizedError = status === 'error' ? extractError(meta) : extractError(meta && meta.error);
+        var resetError = status === 'connected' || (meta && meta.resetError);
+        mutateState(function (prev) {
+          var base = prev || {};
+          var data = base.data || {};
+          var connection = Object.assign({}, data.connection || {});
+          connection.status = status;
+          if (resetError) {
+            connection.lastError = null;
+          } else if (normalizedError) {
+            connection.lastError = normalizedError;
+          }
+          return Object.assign({}, base, {
+            data: Object.assign({}, data, {
+              connection: connection
+            })
+          });
+        });
+      }
+
+      function recordError(code, message, meta, options) {
+        var entry = {
+          id: 'err-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8),
+          code: code || 'unknown',
+          message: message || 'حدث خطأ غير معروف.',
+          ts: new Date().toISOString(),
+          meta: meta || null
+        };
+        warn(entry.message, { code: entry.code, meta: meta });
+        mutateState(function (prev) {
+          var base = prev || {};
+          var data = base.data || {};
+          var errors = Array.isArray(data.errors) ? data.errors.slice() : [];
+          errors.unshift(entry);
+          if (errors.length > CHAT_CONFIG.maxErrors) {
+            errors = errors.slice(0, CHAT_CONFIG.maxErrors);
+          }
+          var connection = Object.assign({}, data.connection || {});
+          if (options && options.connection) {
+            connection.lastError = { code: entry.code, message: entry.message, ts: entry.ts };
+          }
+          return Object.assign({}, base, {
+            data: Object.assign({}, data, {
+              errors: errors,
+              connection: connection
+            })
+          });
+        });
+        return entry;
+      }
+
+      function normalizeMessage(raw, hints) {
+        var source = raw || {};
+        var fallback = hints || {};
+        var metadata = source.metadata || fallback.metadata || {};
+        var username = metadata.username || metadata.user || fallback.username || source.user || '';
+        var text = source.ciphertext || source.text || fallback.text || '';
+        if (text != null && typeof text !== 'string') {
+          try {
+            text = String(text);
+          } catch (_err) {
+            text = '';
+          }
+        }
+        var createdAt = source.createdAt || source.ts || fallback.createdAt || new Date().toISOString();
+        var clientMessageId = metadata.clientMessageId || fallback.clientMessageId || null;
+        var id = source.id || fallback.id || null;
+        var failed = Boolean(fallback.failed);
+        var pending = Boolean(fallback.pending) && !source.id && !failed;
+        if (!text && !pending && !failed) {
+          return null;
+        }
+        return {
+          id: id,
+          clientMessageId: clientMessageId,
+          user: username || 'مجهول',
+          text: text,
+          createdAt: createdAt,
+          pending: pending,
+          failed: failed
+        };
+      }
+
+      function applyIncomingMessage(raw, hints) {
+        var normalized = normalizeMessage(raw, hints || {});
+        if (!normalized) {
+          return;
+        }
+        mutateState(function (prev) {
+          var base = prev || {};
+          var data = base.data || {};
+          var messages = Array.isArray(data.messages) ? data.messages.slice() : [];
+          var idx = -1;
+          if (normalized.clientMessageId) {
+            idx = messages.findIndex(function (msg) {
+              return msg && msg.clientMessageId === normalized.clientMessageId;
+            });
+          }
+          if (idx === -1 && normalized.id) {
+            idx = messages.findIndex(function (msg) {
+              return msg && msg.id === normalized.id;
+            });
+          }
+          if (idx !== -1) {
+            messages[idx] = Object.assign({}, messages[idx], normalized);
+          } else {
+            messages.push(normalized);
+          }
+          if (messages.length > 200) {
+            messages = messages.slice(messages.length - 200);
+          }
+          var users = Array.isArray(data.users) ? data.users.slice() : [];
+          if (normalized.user && users.indexOf(normalized.user) === -1) {
+            users.push(normalized.user);
+          }
+          return Object.assign({}, base, {
+            data: Object.assign({}, data, {
+              messages: messages,
+              users: users
+            })
+          });
+        });
+      }
+
+      function subscribeToChat() {
+        if (!runtime.socket) {
+          return;
+        }
+        if (runtime.subscriptionRequested) {
+          return;
+        }
+        try {
+          runtime.socket.send({ type: 'subscribe', topic: CHAT_CONFIG.topic });
+          runtime.subscriptionRequested = true;
+          info('تم إرسال طلب الاشتراك في الدردشة.', { topic: CHAT_CONFIG.topic });
+        } catch (sendError) {
+          runtime.subscriptionRequested = false;
+          recordError('subscribe_failed', 'تعذر إرسال طلب الاشتراك في الدردشة.', sendError, { connection: true });
+          setConnectionStatus('error', sendError);
+        }
+      }
+
+      function requestHistory(force) {
+        if (!runtime.socket) {
+          return;
+        }
+        if (runtime.historyRequested && !force) {
+          return;
+        }
+        try {
+          runtime.socket.send({
+            type: 'chat:history',
+            conversationId: CHAT_CONFIG.conversationId,
+            limit: CHAT_CONFIG.historyLimit
+          });
+          runtime.historyRequested = true;
+          info('تم طلب سجل الرسائل.', { limit: CHAT_CONFIG.historyLimit });
+        } catch (historyError) {
+          runtime.historyRequested = false;
+          recordError('history_failed', 'تعذر طلب سجل الرسائل من الخادم.', historyError);
+        }
+      }
+
+      function handleAckMessage(message) {
+        if (!message) {
+          return;
+        }
+        if (message.event === 'subscribe') {
+          info('تم تأكيد الاشتراك في موضوع الدردشة.', { topic: message.topic });
+        } else if (message.event === 'chat:send' && message.message) {
+          applyIncomingMessage(message.message, {});
+        }
+      }
+
+      function handlePublishMessage(message) {
+        if (!message || message.topic !== CHAT_CONFIG.topic) {
+          return;
+        }
+        applyIncomingMessage(message.data || {}, {});
+      }
+
+      function handleHistoryMessage(message) {
+        if (!message || message.conversationId !== CHAT_CONFIG.conversationId) {
+          return;
+        }
+        var list = Array.isArray(message.messages) ? message.messages : [];
+        mutateState(function (prev) {
+          var base = prev || {};
+          var data = base.data || {};
+          var users = Array.isArray(data.users) ? data.users.slice() : [];
+          var normalizedMessages = list
+            .map(function (item) {
+              return normalizeMessage(item, {});
+            })
+            .filter(Boolean)
+            .sort(function (a, b) {
+              return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+            });
+          var userSet = new Set(users);
+          normalizedMessages.forEach(function (msg) {
+            if (msg.user) {
+              userSet.add(msg.user);
+            }
+          });
+          return Object.assign({}, base, {
+            data: Object.assign({}, data, {
+              messages: normalizedMessages,
+              users: Array.from(userSet)
+            })
+          });
+        });
+      }
+
+      function handleServerError(message) {
+        var code = message && message.code ? message.code : 'server_error';
+        var text = message && message.message ? message.message : 'أبلغ الخادم عن خطأ غير معروف.';
+        recordError(code, text, message, { connection: true });
+        setConnectionStatus('error', { code: code, message: text });
+        if (code === 'unauthorized_sub' || code === 'topic_not_allowed') {
+          runtime.subscriptionRequested = false;
+        }
+      }
+
+      function handleSocketMessage(message) {
+        if (!message) {
+          return;
+        }
+        if (typeof message === 'string') {
+          try {
+            message = JSON.parse(message);
+          } catch (_err) {
+            return;
+          }
+        }
+        debug('رسالة WebSocket واردة', message);
+        switch (message.type) {
+          case 'hello':
+            subscribeToChat();
+            requestHistory(true);
+            break;
+          case 'ack':
+            handleAckMessage(message);
+            break;
+          case 'publish':
+            handlePublishMessage(message);
+            break;
+          case 'chat:history':
+            handleHistoryMessage(message);
+            break;
+          case 'error':
+            handleServerError(message);
+            break;
+          case 'pong':
+            break;
+          default:
+            debug('رسالة غير معالجة من الخادم', message);
+        }
+      }
+
+      function attachSocketHandlers(socket) {
+        if (!socket || socket.__chatHandlersAttached) {
+          return;
+        }
+        socket.__chatHandlersAttached = true;
+        socket.on('open', function () {
+          info('تم فتح اتصال WebSocket بنجاح.', { topic: CHAT_CONFIG.topic });
+          setConnectionStatus('connected', { resetError: true });
+          runtime.subscriptionRequested = false;
+          runtime.historyRequested = false;
+          subscribeToChat();
+          requestHistory(true);
+        });
+        socket.on('close', function (evt) {
+          warn('تم إغلاق اتصال WebSocket.', { code: evt && evt.code, reason: evt && evt.reason });
+          setConnectionStatus('disconnected', { error: evt && { code: evt.code || 'closed', message: evt.reason || '' } });
+        });
+        socket.on('error', function (err) {
+          recordError('socket_error', 'حدث خطأ في قناة WebSocket.', err, { connection: true });
+          setConnectionStatus('error', err);
+        });
+        socket.on('state', function (state) {
+          debug('تغيرت حالة WebSocket', { state: state });
+        });
+        socket.on('message', function (msg) {
+          handleSocketMessage(msg);
+        });
+      }
+
+      function syncConfigWithState() {
+        var state = readState();
+        if (!state || !state.data) {
+          return;
+        }
+        var data = state.data;
+        if (typeof data.conversationId === 'string' && data.conversationId) {
+          CHAT_CONFIG.conversationId = data.conversationId;
+        }
+        if (typeof data.topic === 'string' && data.topic) {
+          CHAT_CONFIG.topic = data.topic;
+        } else if (CHAT_CONFIG.conversationId) {
+          CHAT_CONFIG.topic = 'chat:' + CHAT_CONFIG.conversationId;
+        }
+        mutateState(function (prev) {
+          var base = prev || {};
+          var prevData = base.data || {};
+          if (
+            prevData.topic === CHAT_CONFIG.topic &&
+            prevData.conversationId === CHAT_CONFIG.conversationId
+          ) {
+            return base;
+          }
+          return Object.assign({}, base, {
+            data: Object.assign({}, prevData, {
+              topic: CHAT_CONFIG.topic,
+              conversationId: CHAT_CONFIG.conversationId
+            })
+          });
+        });
+      }
+
+      function connectToChat(ctx) {
+        var context = ensureContext(ctx || runtime.lastCtx);
+        if (!context) {
+          error('connectToChat لم يتمكن من تهيئة سياق HTMLx صالح.');
+          return null;
+        }
+        syncConfigWithState();
+        if (!utils || typeof utils.WebSocketX !== 'function') {
+          recordError('wsx_unavailable', 'Mishkah.utils.WebSocketX غير متاح.', null, { connection: true });
+          return null;
+        }
+        if (!runtime.socket) {
+          try {
+            runtime.socket = new utils.WebSocketX(CHAT_CONFIG.url, {
+              autoReconnect: true,
+              backoff: { min: 1000, max: 10000, factor: 1.6 },
+              ping: { interval: 20000, send: { type: 'ping' }, expect: { type: 'pong' }, timeout: 8000 }
+            });
+          } catch (ctorError) {
+            recordError('wsx_init_failed', 'تعذر إنشاء عميل WebSocket.', ctorError, { connection: true });
+            return null;
+          }
+          attachSocketHandlers(runtime.socket);
+        }
+        if (runtime.socket.state === 'open') {
+          setConnectionStatus('connected', { resetError: true });
+          subscribeToChat();
+          requestHistory(false);
+        } else if (runtime.socket.state !== 'connecting') {
+          setConnectionStatus('connecting');
+          try {
+            runtime.socket.connect({ waitOpen: false });
+          } catch (connectError) {
+            recordError('ws_connect_failed', 'تعذر بدء اتصال WebSocket.', connectError, { connection: true });
+            setConnectionStatus('error', connectError);
+          }
+        }
+        return runtime.socket;
+      }
+
       function handleUsernameInput(event, ctx) {
         var context = ensureContext(ctx);
-        if (!context || !event) return;
+        if (!context || !event) {
+          error('handleUsernameInput استقبل سياقًا أو حدثًا غير صالح.', { event: event, ctx: ctx });
+          return;
+        }
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
+        debug('تحديث اسم المستخدم من حقل الإدخال.', { value: value });
         context.set('data.username', value);
       }
 
@@ -140,7 +717,10 @@
           event.preventDefault();
         }
         var context = ensureContext(ctx);
-        if (!context) return;
+        if (!context) {
+          error('لم يتم العثور على سياق صالح عند محاولة الانضمام للدردشة.');
+          return;
+        }
         var current = context.get ? context.get('data.username') : '';
         var name = typeof current === 'string' ? current.trim() : '';
         if (!name) {
@@ -150,57 +730,63 @@
           context.set('data.username', name);
         }
         context.set('data.joined', true);
-      }
-
-      function updateUsers(userList, ctx) {
-        var context = ensureContext(ctx);
-        if (!context) return;
-        if (Array.isArray(userList)) {
-          context.set('data.users', userList);
-        } else {
-          context.set('data.users', []);
-        }
-      }
-
-      function appendMessage(message, ctx) {
-        var context = ensureContext(ctx);
-        if (!context || !message) return;
-        var currentMessages = context.get ? context.get('data.messages') : [];
-        if (!Array.isArray(currentMessages)) {
-          currentMessages = [];
-        }
-        var normalized = {
-          id: message.id || 'msg-' + Date.now(),
-          user: message.user || 'مجهول',
-          text: (message.text || '').toString()
-        };
-        context.set('data.messages', currentMessages.concat([normalized]));
+        mutateState(function (prev) {
+          var base = prev || {};
+          var data = base.data || {};
+          var users = Array.isArray(data.users) ? data.users.slice() : [];
+          if (users.indexOf(name) === -1) {
+            users.push(name);
+          }
+          return Object.assign({}, base, {
+            data: Object.assign({}, data, {
+              users: users
+            })
+          });
+        });
+        info('تم تنفيذ joinChat وتحديث الحالة.', { username: name });
+        connectToChat(context);
       }
 
       function handleMessageInput(event, ctx) {
         var context = ensureContext(ctx);
-        if (!context || !event) return;
+        if (!context || !event) {
+          error('handleMessageInput استقبل سياقًا أو حدثًا غير صالح.', { event: event });
+          return;
+        }
         var value = '';
         if (event.target && typeof event.target.value === 'string') {
           value = event.target.value;
         }
+        debug('تحديث قيمة الرسالة المؤقتة.', { value: value });
         context.set('data.newMessage', value);
       }
 
       function messagePayload(ctx) {
         var context = ensureContext(ctx);
-        if (!context) return null;
+        if (!context) {
+          error('messagePayload فشل في الحصول على سياق صالح.');
+          return null;
+        }
         var text = context.get ? context.get('data.newMessage') : '';
         var value = typeof text === 'string' ? text.trim() : '';
-        if (!value) return null;
+        if (!value) {
+          warn('محاولة إرسال رسالة فارغة تم تجاهلها.');
+          return null;
+        }
         var username = context.get ? context.get('data.username') : '';
         if (!username) {
           username = generateGuestName();
+          warn('لم يتم تعيين اسم مستخدم، تم إنشاء اسم ضيف تلقائي.', { username: username });
+          context.set('data.username', username);
         }
-        return {
+        var clientMessageId = 'msg-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8);
+        var payload = {
           user: username,
-          text: value
+          text: value,
+          clientMessageId: clientMessageId
         };
+        debug('تم تحضير الحمولة الخاصة بإرسال الرسالة.', payload);
+        return payload;
       }
 
       function sendMessage(event, ctx) {
@@ -208,9 +794,55 @@
           event.preventDefault();
         }
         var context = ensureContext(ctx);
-        if (!context) return;
+        if (!context) {
+          error('sendMessage لم يتمكن من الحصول على سياق HTMLx.');
+          return;
+        }
         var payload = messagePayload(context);
-        if (!payload) return;
+        if (!payload) {
+          warn('sendMessage لم يحصل على حمولة صالحة، لن يتم الإرسال.');
+          return;
+        }
+        var socket = connectToChat(context);
+        if (!socket) {
+          recordError('ws_missing', 'تعذر الوصول إلى اتصال WebSocket لإرسال الرسالة.', null, { connection: true });
+          return;
+        }
+        applyIncomingMessage(null, {
+          clientMessageId: payload.clientMessageId,
+          username: payload.user,
+          text: payload.text,
+          pending: true,
+          createdAt: new Date().toISOString(),
+          metadata: { clientMessageId: payload.clientMessageId, username: payload.user }
+        });
+        try {
+          socket.send({
+            type: 'chat:send',
+            conversationId: CHAT_CONFIG.conversationId,
+            data: {
+              ciphertext: payload.text,
+              keyId: null,
+              metadata: {
+                username: payload.user,
+                clientMessageId: payload.clientMessageId,
+                via: 'htmlx-demo'
+              }
+            }
+          });
+          info('تم إرسال الرسالة إلى الخادم.', { clientMessageId: payload.clientMessageId });
+        } catch (sendError) {
+          recordError('send_failed', 'تعذر إرسال الرسالة إلى الخادم.', sendError);
+          applyIncomingMessage(null, {
+            clientMessageId: payload.clientMessageId,
+            username: payload.user,
+            text: payload.text,
+            pending: false,
+            failed: true,
+            createdAt: new Date().toISOString(),
+            metadata: { clientMessageId: payload.clientMessageId, username: payload.user }
+          });
+        }
         context.set('data.newMessage', '');
       }
 
@@ -238,12 +870,12 @@
 
       global.handleUsernameInput = handleUsernameInput;
       global.joinChat = joinChat;
-      global.updateUsers = updateUsers;
-      global.appendMessage = appendMessage;
       global.handleMessageInput = handleMessageInput;
       global.messagePayload = messagePayload;
       global.sendMessage = sendMessage;
       global.generateGuestName = generateGuestName;
+      global.connectToChat = connectToChat;
+      global.chatRuntime = runtime;
       global.chatOrders = chatOrders;
     })(window);
   </script>
@@ -255,6 +887,10 @@
     };
 
     Mishkah.app.make(chatDatabase, { orders: window.chatOrders || {} }).then(app => {
+      window.__chatApp = app;
+      if (window.chatRuntime) {
+        window.chatRuntime.app = app;
+      }
       console.log('Mishkah HTMLx WebSocket App Initialized!');
     });
   </script>
