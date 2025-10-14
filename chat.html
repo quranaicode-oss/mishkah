@@ -127,6 +127,17 @@
             >
               <strong class="text-rose-300">{err.code}</strong>
               <span class="ml-2 text-gray-200">{err.message}</span>
+              <ul
+                x-if="err.details && err.details.length"
+                class="mt-2 space-y-1 text-xs text-rose-200 list-disc list-inside"
+              >
+                <li
+                  x-for="detail, detailIdx in err.details"
+                  data-m-key="{detailIdx + '-' + (detail || 'detail')}"
+                >
+                  {detail}
+                </li>
+              </ul>
               <span class="block text-xs text-gray-500 mt-1">{err.ts ? new Date(err.ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
             </li>
           </ul>
@@ -532,13 +543,96 @@
         });
       }
 
+      function extractErrorDetails(meta) {
+        if (!meta) {
+          return [];
+        }
+        var candidates = [];
+        if (Array.isArray(meta.details)) {
+          candidates = candidates.concat(meta.details);
+        }
+        if (Array.isArray(meta.errors)) {
+          candidates = candidates.concat(meta.errors);
+        }
+        if (Array.isArray(meta.issues)) {
+          candidates = candidates.concat(meta.issues);
+        }
+        if (meta.meta) {
+          if (Array.isArray(meta.meta.details)) {
+            candidates = candidates.concat(meta.meta.details);
+          }
+          if (Array.isArray(meta.meta.errors)) {
+            candidates = candidates.concat(meta.meta.errors);
+          }
+          if (Array.isArray(meta.meta.issues)) {
+            candidates = candidates.concat(meta.meta.issues);
+          }
+        }
+        if (meta.error) {
+          var nested = extractErrorDetails(meta.error);
+          if (nested.length) {
+            candidates = candidates.concat(nested);
+          }
+        }
+        return candidates
+          .map(function (item) {
+            if (!item) {
+              return null;
+            }
+            if (typeof item === 'string') {
+              return item.trim();
+            }
+            if (item instanceof Error) {
+              return (item.message || '').trim();
+            }
+            var parts = [];
+            if (Array.isArray(item.path) && item.path.length) {
+              parts.push(item.path.join('.'));
+            }
+            if (item.message) {
+              parts.push(item.message);
+            } else if (item.code) {
+              parts.push(item.code);
+            }
+            if (!parts.length && typeof item === 'object') {
+              try {
+                return JSON.stringify(item);
+              } catch (_err) {
+                return String(item);
+              }
+            }
+            return parts.join(': ').trim();
+          })
+          .filter(function (value, index, all) {
+            if (!value) {
+              return false;
+            }
+            return all.indexOf(value) === index;
+          });
+      }
+
       function recordError(code, message, meta, options) {
+        var normalizedMessage = '';
+        if (message != null) {
+          normalizedMessage = String(message).trim();
+        }
+        if (!normalizedMessage && meta && meta.message != null) {
+          try {
+            normalizedMessage = String(meta.message).trim();
+          } catch (_coerceErr) {
+            normalizedMessage = '';
+          }
+        }
+        if (!normalizedMessage) {
+          normalizedMessage = 'حدث خطأ غير معروف.';
+        }
         var entry = {
           id: 'err-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8),
           code: code || 'unknown',
-          message: message || 'حدث خطأ غير معروف.',
+          message: normalizedMessage,
           ts: new Date().toISOString(),
-          meta: meta || null
+          meta: meta || null,
+          details: extractErrorDetails(meta)
         };
         warn(entry.message, { code: entry.code, meta: meta });
         mutateState(function (prev) {
@@ -551,7 +645,12 @@
           }
           var connection = Object.assign({}, data.connection || {});
           if (options && options.connection) {
-            connection.lastError = { code: entry.code, message: entry.message, ts: entry.ts };
+            connection.lastError = {
+              code: entry.code,
+              message: entry.message,
+              ts: entry.ts,
+              details: entry.details
+            };
           }
           return Object.assign({}, base, {
             data: Object.assign({}, data, {
