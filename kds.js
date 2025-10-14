@@ -650,14 +650,14 @@
     const tabs = buildTabs(db, t);
     const active = db.data.filters.activeTab;
     if(!tabs.length) return null;
-    return D.Containers.Nav({ attrs:{ class: tw`mb-5 flex flex-wrap gap-3` }}, [
+    return D.Containers.Nav({ attrs:{ class: tw`mb-3 flex flex-wrap gap-2` }}, [
       ...tabs.map(tab=> D.Forms.Button({
         attrs:{
           type:'button',
           'data-m-gkey':'kds:tab:switch',
           'data-section-id': tab.id,
           class: cx(
-            tw`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition`,
+            tw`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition`,
             tab.id === active
               ? tw`border-sky-400/60 bg-sky-500/20 text-sky-50 shadow-lg shadow-sky-900/40`
               : tw`border-slate-700/70 bg-slate-900/60 text-slate-300 hover:text-slate-100`
@@ -665,7 +665,7 @@
         }
       }, [
         D.Text.Span(null, [tab.label]),
-        typeof tab.count === 'number' ? D.Text.Span({ attrs:{ class: tw`inline-flex min-w-[2rem] justify-center rounded-full bg-slate-800/70 px-2 py-0.5 text-xs font-bold text-slate-200` }}, [String(tab.count)]) : null
+        typeof tab.count === 'number' ? D.Text.Span({ attrs:{ class: tw`inline-flex min-w-[1.75rem] justify-center rounded-full bg-slate-800/70 px-1.5 py-0.5 text-xs font-bold text-slate-200` }}, [String(tab.count)]) : null
       ].filter(Boolean)))
     ]);
   };
@@ -1156,7 +1156,7 @@
     });
   };
 
-  const createKitchenSync = (appInstance, options={})=>{
+  function createKitchenSync(appInstance, options={}){
     const WebSocketX = U.WebSocketX || U.WebSocket;
     const endpoint = options.endpoint;
     if(!WebSocketX){
@@ -1302,7 +1302,7 @@
         sendEnvelope({ type:'publish', topic: topicOrders, data:payload });
       }
     };
-  };
+  }
 
   let syncClient = null;
 
