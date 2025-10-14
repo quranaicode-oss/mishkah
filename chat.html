@@ -88,7 +88,7 @@
           >
             <div class="flex items-start justify-between gap-2">
               <strong class="text-blue-300">{msg.user || 'مجهول'}</strong>
-              <span class="text-xs text-gray-400">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+              <span x-if="msg.createdAtLabel" class="text-xs text-gray-400">{msg.createdAtLabel}</span>
             </div>
             <p class="ml-2 text-sm text-gray-100">{msg.text}</p>
             <p x-if="msg.pending" class="text-xs text-amber-300 mt-1">جاري الإرسال...</p>
@@ -127,7 +127,18 @@
             >
               <strong class="text-rose-300">{err.code}</strong>
               <span class="ml-2 text-gray-200">{err.message}</span>
-              <span class="block text-xs text-gray-500 mt-1">{err.ts ? new Date(err.ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+              <ul
+                x-if="err.details && err.details.length"
+                class="mt-2 space-y-1 text-xs text-rose-200 list-disc list-inside"
+              >
+                <li
+                  x-for="detail, detailIdx in err.details"
+                  data-m-key="{detailIdx + '-' + (detail || 'detail')}"
+                >
+                  {detail}
+                </li>
+              </ul>
+              <span x-if="err.tsLabel" class="block text-xs text-gray-500 mt-1">{err.tsLabel}</span>
             </li>
           </ul>
         </section>
@@ -506,6 +517,30 @@
         }
       }
 
+      function formatDisplayTime(value, includeSeconds) {
+        if (!value) {
+          return '';
+        }
+        var date = value instanceof Date ? value : new Date(value);
+        if (!date || isNaN(date.getTime())) {
+          return '';
+        }
+        var options = { hour: '2-digit', minute: '2-digit' };
+        if (includeSeconds) {
+          options.second = '2-digit';
+        }
+        try {
+          return date.toLocaleTimeString('ar-EG', options);
+        } catch (formatError) {
+          warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', {
+            value: value,
+            includeSeconds: includeSeconds,
+            error: formatError
+          });
+          return '';
+        }
+      }
+
       function setConnectionStatus(status, meta) {
         var normalizedError = status === 'error' ? extractError(meta) : extractError(meta && meta.error);
         var resetError = status === 'connected' || (meta && meta.resetError);
@@ -532,14 +567,98 @@
         });
       }
 
+      function extractErrorDetails(meta) {
+        if (!meta) {
+          return [];
+        }
+        var candidates = [];
+        if (Array.isArray(meta.details)) {
+          candidates = candidates.concat(meta.details);
+        }
+        if (Array.isArray(meta.errors)) {
+          candidates = candidates.concat(meta.errors);
+        }
+        if (Array.isArray(meta.issues)) {
+          candidates = candidates.concat(meta.issues);
+        }
+        if (meta.meta) {
+          if (Array.isArray(meta.meta.details)) {
+            candidates = candidates.concat(meta.meta.details);
+          }
+          if (Array.isArray(meta.meta.errors)) {
+            candidates = candidates.concat(meta.meta.errors);
+          }
+          if (Array.isArray(meta.meta.issues)) {
+            candidates = candidates.concat(meta.meta.issues);
+          }
+        }
+        if (meta.error) {
+          var nested = extractErrorDetails(meta.error);
+          if (nested.length) {
+            candidates = candidates.concat(nested);
+          }
+        }
+        return candidates
+          .map(function (item) {
+            if (!item) {
+              return null;
+            }
+            if (typeof item === 'string') {
+              return item.trim();
+            }
+            if (item instanceof Error) {
+              return (item.message || '').trim();
+            }
+            var parts = [];
+            if (Array.isArray(item.path) && item.path.length) {
+              parts.push(item.path.join('.'));
+            }
+            if (item.message) {
+              parts.push(item.message);
+            } else if (item.code) {
+              parts.push(item.code);
+            }
+            if (!parts.length && typeof item === 'object') {
+              try {
+                return JSON.stringify(item);
+              } catch (_err) {
+                return String(item);
+              }
+            }
+            return parts.join(': ').trim();
+          })
+          .filter(function (value, index, all) {
+            if (!value) {
+              return false;
+            }
+            return all.indexOf(value) === index;
+          });
+      }
+
       function recordError(code, message, meta, options) {
+        var normalizedMessage = '';
+        if (message != null) {
+          normalizedMessage = String(message).trim();
+        }
+        if (!normalizedMessage && meta && meta.message != null) {
+          try {
+            normalizedMessage = String(meta.message).trim();
+          } catch (_coerceErr) {
+            normalizedMessage = '';
+          }
+        }
+        if (!normalizedMessage) {
+          normalizedMessage = 'حدث خطأ غير معروف.';
+        }
         var entry = {
           id: 'err-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8),
           code: code || 'unknown',
-          message: message || 'حدث خطأ غير معروف.',
+          message: normalizedMessage,
           ts: new Date().toISOString(),
-          meta: meta || null
+          meta: meta || null,
+          details: extractErrorDetails(meta)
         };
+        entry.tsLabel = formatDisplayTime(entry.ts, true);
         warn(entry.message, { code: entry.code, meta: meta });
         mutateState(function (prev) {
           var base = prev || {};
@@ -551,7 +670,13 @@
           }
           var connection = Object.assign({}, data.connection || {});
           if (options && options.connection) {
-            connection.lastError = { code: entry.code, message: entry.message, ts: entry.ts };
+            connection.lastError = {
+              code: entry.code,
+              message: entry.message,
+              ts: entry.ts,
+              tsLabel: entry.tsLabel,
+              details: entry.details
+            };
           }
           return Object.assign({}, base, {
             data: Object.assign({}, data, {
@@ -601,12 +726,14 @@
         if (!text && !pending && !failed) {
           return null;
         }
+        var createdAtLabel = formatDisplayTime(createdAt, false);
         return {
           id: id,
           clientMessageId: clientMessageId,
           user: username || 'مجهول',
           text: text,
           createdAt: createdAt,
+          createdAtLabel: createdAtLabel,
           pending: pending,
           failed: failed
         };
