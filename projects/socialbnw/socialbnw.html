@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مسوقات الأعمال — شبكة SocialBNW</title>
+    <meta
+      name="description"
+      content="شبكة اجتماعية للمسوقات تربط الحملات الرقمية بتنشيط التجزئة والشراكات الصناعية."
+    />
+    <script src="../../mishkah-utils.js"></script>
+    <script src="../../mishkah.core.js"></script>
+    <script src="../../mishkah-ui.js"></script>
+    <script src="./socialbnw.schema.js"></script>
+    <script src="./socialbnw.mock-data.js"></script>
+  </head>
+  <body class="antialiased bg-slate-50 dark:bg-slate-950">
+    <div id="app"></div>
+
+    <script>
+      (function () {
+        const M = window.Mishkah;
+        const U = M.utils;
+        const dataset = (window.SocialBNW && window.SocialBNW.mockData) || {};
+        const brandNameDict = (window.SocialBNW && window.SocialBNW.brandName) || {
+          ar: 'مسوقات الأعمال',
+          en: 'Business Promoters Network'
+        };
+        const brandSlug = (window.SocialBNW && window.SocialBNW.brandSlug) || 'socialbnw';
+        const designTokens = (window.SocialBNW && window.SocialBNW.designTokens) || {};
+        const categories = Array.isArray(dataset.categories) ? dataset.categories : [];
+        const creators = Array.isArray(dataset.creators) ? dataset.creators : [];
+        const firstCreatorId = creators[0]?.id || null;
+
+        const brandMeta = dataset.brand || {};
+        const brandTitleAr = brandNameDict.ar || brandMeta.name?.ar;
+        const initialDescription = brandMeta.tagline?.ar || brandMeta.tagline?.en || brandNameDict.en;
+
+        const database = {
+          head: {
+            title: `${brandTitleAr || brandNameDict.en} — شبكة SocialBNW`,
+            description: initialDescription
+          },
+          env: {
+            theme: 'light',
+            lang: 'ar',
+            dir: 'rtl',
+            palette: designTokens,
+            pwa: {
+              enabled: true,
+              manifestInline: true,
+              manifest: {
+                name: `${brandNameDict.ar || brandNameDict.en} — SocialBNW`,
+                short_name: brandMeta.shortName?.ar || brandNameDict.ar || 'شبكة الأعمال',
+                description: initialDescription,
+                dir: 'rtl',
+                lang: 'ar',
+                start_url: './socialbnw.html',
+                display: 'standalone',
+                theme_color: designTokens.light?.primary || '#2563eb',
+                background_color: designTokens.light?.background || '#f8fafc'
+              },
+              icons: [
+                { src: './pwa/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+                { src: './pwa/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' }
+              ],
+              assets: ['./socialbnw.html', './socialbnw.mock-data.js', './socialbnw.schema.js'],
+              offlineFallback: './socialbnw.html',
+              runtimeCaching: [
+                { pattern: '^https://images\\.unsplash\\.com/', strategy: 'staleWhileRevalidate', sameOrigin: false },
+                { pattern: '^https://assets\\.mixkit\\.co/', strategy: 'cacheFirst', sameOrigin: false }
+              ],
+              cache: { prefix: `${brandSlug}-pwa`, version: 'v1' },
+              registerDelay: 400,
+              sw: {
+                inline: true,
+                strategy: 'networkFirst',
+                cleanupPrefix: `${brandSlug}-pwa`
+              }
+            }
+          },
+          i18n: {
+            lang: 'ar',
+            fallback: 'en',
+            dict: {
+              brandName: brandNameDict,
+              navExplore: { ar: 'الموجز', en: 'Explore' },
+              navCreators: { ar: 'المسوقات', en: 'Marketers' },
+              navTimeline: { ar: 'الخلاصة', en: 'Timeline' },
+              navCollections: { ar: 'الحزم المتكاملة', en: 'Collections' },
+              navProfiles: { ar: 'ملفات المسوقات', en: 'Profiles' },
+              filtersCategoryTitle: { ar: 'التصنيفات', en: 'Categories' },
+              filtersContentTitle: { ar: 'نوع المحتوى', en: 'Content type' },
+              filtersAll: { ar: 'الكل', en: 'All' },
+              filtersReels: { ar: 'ريلز مرئية', en: 'Reels' },
+              filtersPosts: { ar: 'منشورات', en: 'Posts' },
+              heroInstallTitle: {
+                ar: 'تجربة SocialBNW المتكاملة',
+                en: 'Complete SocialBNW experience'
+              },
+              heroInstallMessage: brandMeta.install?.message || {
+                ar: 'ثبّت المنصة للبقاء على اطلاع بالملفات.',
+                en: 'Install to stay close to the files.'
+              },
+              heroInstallHelper: brandMeta.install?.helper || {
+                ar: 'تحكم في عامل الخدمة من لوحة التحكم بالأسفل.',
+                en: 'Manage the service worker from the control center below.'
+              },
+              featuresTitle: { ar: 'لماذا SocialBNW؟', en: 'Why SocialBNW?' },
+              creatorsTitle: { ar: 'ملخص المسوقات', en: 'Marketer highlights' },
+              creatorsSubtitle: {
+                ar: 'بروفايلات موثوقة مع خطط حملات جاهزة وتواصل مباشر.',
+                en: 'Verified profiles with ready-to-launch playbooks and direct contact.'
+              },
+              profileTitle: { ar: 'ملف المسوقة', en: 'Marketer profile' },
+              profileSpecialties: { ar: 'مجالات التركيز', en: 'Focus areas' },
+              profileMetrics: { ar: 'مؤشرات أساسية', en: 'Key metrics' },
+              profilePortfolio: { ar: 'ملف الأعمال', en: 'Portfolio' },
+              profileTestimonials: { ar: 'شهادات العملاء', en: 'Client testimonials' },
+              timelineTitle: { ar: 'الخلاصة الحية', en: 'Live timeline' },
+              timelineSubtitle: {
+                ar: 'ريلز وتقارير لحملات جارية عبر القطاعات.',
+                en: 'Reels and status reports from ongoing campaigns.'
+              },
+              collectionsTitle: { ar: 'حزم الحملة', en: 'Campaign bundles' },
+              emptyState: {
+                ar: 'لا توجد منشورات مطابقة للتصفية الحالية.',
+                en: 'No posts match the selected filters.'
+              },
+              viewProfile: { ar: 'عرض الملف', en: 'View profile' },
+              contactCreator: { ar: 'تواصل مباشر', en: 'Contact' },
+              highlightServices: { ar: 'خدمات مميزة', en: 'Signature services' },
+              highlightProducts: { ar: 'أصول جاهزة', en: 'Ready assets' },
+              metricsTitle: { ar: 'أرقام موثوقة', en: 'Trusted numbers' },
+              pwaRefresh: { ar: 'تحديث ملفات التثبيت', en: 'Refresh install files' },
+              pwaClear: { ar: 'مسح التخزين المؤقت', en: 'Clear cached data' }
+            }
+          },
+          data: Object.assign({}, dataset, {
+            brand: Object.assign({}, dataset.brand, { name: brandNameDict }),
+            filters: { category: 'all', contentType: 'all' },
+            selectedCreatorId: firstCreatorId
+          })
+        };
+
+        const categoryGKeys = ['filters:category:set:all'].concat(categories.map((cat) => `filters:category:set:${cat.id}`));
+        const contentGKeys = ['filters:content:set:all', 'filters:content:set:reel', 'filters:content:set:post'];
+        const profileGKeys = creators.map((creator) => `creators:profile:open:${creator.id}`);
+
+        M.app.setBody(function (db, D) {
+          const { TL, current } = M.utils.lang.makeLangLookup(db);
+          const lang = current || 'ar';
+          const fallbackLang = db.i18n?.fallback || 'en';
+          const localize = (value) => {
+            if (value == null) return '';
+            if (typeof value === 'string' || typeof value === 'number') return value;
+            if (typeof value === 'object') {
+              if (Array.isArray(value)) return value.map(localize).join('، ');
+              return value[lang] || value[fallbackLang] || Object.values(value)[0] || '';
+            }
+            return String(value);
+          };
+
+          const brand = db.data?.brand || {};
+          const stats = Array.isArray(brand.stats) ? brand.stats : [];
+          const features = Array.isArray(db.data?.features) ? db.data.features : [];
+          const creatorsList = Array.isArray(db.data?.creators) ? db.data.creators : [];
+          const services = Array.isArray(db.data?.services) ? db.data.services : [];
+          const products = Array.isArray(db.data?.products) ? db.data.products : [];
+          const profiles = Array.isArray(db.data?.profiles) ? db.data.profiles : [];
+          const posts = Array.isArray(db.data?.posts) ? db.data.posts : [];
+          const collections = Array.isArray(db.data?.collections) ? db.data.collections : [];
+          const filters = db.data?.filters || { category: 'all', contentType: 'all' };
+          const selectedCreatorId = db.data?.selectedCreatorId || creatorsList[0]?.id;
+
+          const orderedPosts = posts
+            .slice()
+            .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+
+          const filteredPosts = orderedPosts.filter((post) => {
+            const categoryMatch = filters.category === 'all' || post.categoryId === filters.category;
+            const contentMatch = filters.contentType === 'all' || post.type === filters.contentType;
+            return categoryMatch && contentMatch;
+          });
+
+          const categoryButtons = [
+            D.Forms.Button(
+              {
+                attrs: {
+                  type: 'button',
+                  gkey: 'filters:category:set:all',
+                  'data-category': 'all',
+                  class:
+                    'px-3 py-2 rounded-2xl border transition-colors text-sm ' +
+                    (filters.category === 'all'
+                      ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow'
+                      : 'bg-white/5 border-white/10 dark:bg-white/5 text-[var(--foreground)]/70 hover:bg-white/10')
+                }
+              },
+              [D.Text.Span({ attrs: { t: 'filtersAll' } })]
+            )
+          ].concat(
+            categories.map((cat) =>
+              D.Forms.Button(
+                {
+                  attrs: {
+                    type: 'button',
+                    gkey: `filters:category:set:${cat.id}`,
+                    'data-category': cat.id,
+                    class:
+                      'px-3 py-2 rounded-2xl border transition-colors flex items-center gap-2 text-sm ' +
+                      (filters.category === cat.id
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow'
+                        : 'bg-white/5 border-white/10 dark:bg-white/5 text-[var(--foreground)]/70 hover:bg-white/10')
+                  }
+                },
+                [
+                  D.Text.Span({ attrs: { class: 'text-lg' } }, [cat.icon || '✨']),
+                  D.Text.Span({ attrs: { class: 'font-medium' } }, [localize(cat.title)])
+                ]
+              )
+            )
+          );
+
+          const contentButtons = [
+            { id: 'all', labelKey: 'filtersAll' },
+            { id: 'reel', labelKey: 'filtersReels' },
+            { id: 'post', labelKey: 'filtersPosts' }
+          ].map((entry) =>
+            D.Forms.Button(
+              {
+                attrs: {
+                  type: 'button',
+                  gkey: `filters:content:set:${entry.id}`,
+                  'data-content': entry.id,
+                  class:
+                    'px-3 py-2 rounded-xl border text-sm transition-colors ' +
+                    (filters.contentType === entry.id
+                      ? 'bg-[var(--secondary)] text-[var(--secondary-foreground)] border-[var(--secondary)] shadow'
+                      : 'bg-white/5 border-white/10 dark:bg-white/5 text-[var(--foreground)]/70 hover:bg-white/10')
+                }
+              },
+              [D.Text.Span({ attrs: { t: entry.labelKey } })]
+            )
+          );
+
+          const statsGrid = stats.length
+            ? D.Lists.Ul(
+                { attrs: { class: 'grid gap-4 sm:grid-cols-3 mt-6' } },
+                stats.map((item) =>
+                  D.Lists.Li(
+                    {
+                      attrs: {
+                        class:
+                          'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-4 backdrop-blur'
+                      }
+                    },
+                    [
+                      D.Text.P({ attrs: { class: 'text-3xl font-semibold text-[var(--primary)]' } }, [localize(item.value)]),
+                      D.Text.P({ attrs: { class: 'text-sm opacity-75' } }, [localize(item.label)])
+                    ]
+                  )
+                )
+              )
+            : null;
+
+          const featuresSection = D.Containers.Section(
+            { attrs: { class: 'py-10 px-6 lg:px-16 space-y-6' } },
+            [
+              D.Text.H2({ attrs: { t: 'featuresTitle', class: 'text-2xl font-bold' } }),
+              D.Lists.Ul(
+                { attrs: { class: 'grid gap-4 md:grid-cols-3' } },
+                features.map((feature) =>
+                  D.Lists.Li(
+                    {
+                      attrs: {
+                        class:
+                          'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/75 dark:bg-slate-900/50 p-6 backdrop-blur flex flex-col gap-3'
+                      }
+                    },
+                    [
+                      D.Text.Span({ attrs: { class: 'text-3xl' } }, [feature.icon || '✨']),
+                      D.Text.H3({ attrs: { class: 'text-lg font-semibold' } }, [localize(feature.title)]),
+                      D.Text.P({ attrs: { class: 'text-sm opacity-75 leading-relaxed' } }, [localize(feature.description)])
+                    ]
+                  )
+                )
+              )
+            ].concat(statsGrid ? [statsGrid] : [])
+          );
+
+          const creatorsCards = D.Lists.Ul(
+            { attrs: { class: 'grid gap-5 md:grid-cols-2 xl:grid-cols-3' } },
+            creatorsList.map((creator) =>
+              D.Lists.Li(
+                {
+                  attrs: {
+                    class:
+                      'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-6 backdrop-blur flex flex-col gap-3'
+                  }
+                },
+                [
+                  D.Text.H3({ attrs: { class: 'text-xl font-semibold' } }, [localize(creator.displayName)]),
+                  D.Text.P({ attrs: { class: 'text-sm text-[var(--foreground)]/75' } }, [localize(creator.headline)]),
+                  D.Text.P({ attrs: { class: 'text-xs text-[var(--foreground)]/60' } }, [
+                    `⭐ ${creator.rating?.toFixed ? creator.rating.toFixed(2) : creator.rating || '4.9'} • ${localize(
+                      creator.city
+                    )}`
+                  ]),
+                  creator.badges && creator.badges.length
+                    ? D.Text.P({ attrs: { class: 'text-xs text-[var(--foreground)]/50' } }, [
+                        creator.badges.map((badge) => `#${badge}`).join(' ')
+                      ])
+                    : null,
+                  D.Containers.Div(
+                    { attrs: { class: 'flex flex-wrap gap-2 mt-2' } },
+                    [
+                      D.Forms.Button(
+                        {
+                          attrs: {
+                            type: 'button',
+                            gkey: `creators:profile:open:${creator.id}`,
+                            'data-creator': creator.id,
+                            class:
+                              'px-3 py-2 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-medium shadow'
+                          }
+                        },
+                        [D.Text.Span({ attrs: { t: 'viewProfile' } })]
+                      ),
+                      creator.social?.whatsapp
+                        ? D.Text.A(
+                            {
+                              attrs: {
+                                href: creator.social.whatsapp,
+                                target: '_blank',
+                                rel: 'noopener',
+                                class:
+                                  'px-3 py-2 rounded-xl border text-xs font-medium border-[var(--primary)] text-[var(--primary)]'
+                              }
+                            },
+                            [D.Text.Span({ attrs: { t: 'contactCreator' } })]
+                          )
+                        : null
+                    ].filter(Boolean)
+                  ),
+                  creator.highlights?.services?.length
+                    ? D.Containers.Div(
+                        { attrs: { class: 'mt-3 space-y-1 text-xs' } },
+                        [
+                          D.Text.P({ attrs: { t: 'highlightServices', class: 'font-semibold opacity-70' } }),
+                          D.Lists.Ul(
+                            { attrs: { class: 'space-y-1' } },
+                            creator.highlights.services.map((serviceId) => {
+                              const service = services.find((srv) => srv.id === serviceId);
+                              return D.Lists.Li({}, [localize(service?.title || serviceId)]);
+                            })
+                          )
+                        ]
+                      )
+                    : null,
+                  creator.highlights?.products?.length
+                    ? D.Containers.Div(
+                        { attrs: { class: 'space-y-1 text-xs' } },
+                        [
+                          D.Text.P({ attrs: { t: 'highlightProducts', class: 'font-semibold opacity-70' } }),
+                          D.Lists.Ul(
+                            { attrs: { class: 'space-y-1' } },
+                            creator.highlights.products.map((productId) => {
+                              const product = products.find((prd) => prd.id === productId);
+                              return D.Lists.Li({}, [localize(product?.title || productId)]);
+                            })
+                          )
+                        ]
+                      )
+                    : null
+                ].filter(Boolean)
+              )
+            )
+          );
+
+          const selectedCreator = creatorsList.find((creator) => creator.id === selectedCreatorId) || creatorsList[0] || {};
+          const selectedProfile = profiles.find((profile) => profile.creatorId === selectedCreator.id) || {};
+
+          const profileSpecialties = Array.isArray(selectedProfile.specialties) ? selectedProfile.specialties : [];
+          const profileMetrics = Array.isArray(selectedProfile.metrics) ? selectedProfile.metrics : [];
+          const profilePortfolio = Array.isArray(selectedProfile.portfolio) ? selectedProfile.portfolio : [];
+          const profileTestimonials = Array.isArray(selectedProfile.testimonials) ? selectedProfile.testimonials : [];
+
+          const profileSection = D.Containers.Section(
+            { attrs: { id: 'profiles', class: 'py-10 px-6 lg:px-16 space-y-6 bg-white/70 dark:bg-slate-900/40 rounded-[40px]' } },
+            [
+              D.Containers.Div(
+                { attrs: { class: 'flex flex-col lg:flex-row gap-6' } },
+                [
+                  selectedProfile.coverImage
+                    ? D.Media.Img({
+                        attrs: {
+                          src: selectedProfile.coverImage,
+                          alt: localize(selectedCreator.displayName || brand.name || brandNameDict),
+                          class: 'w-full lg:w-1/2 h-64 lg:h-auto object-cover rounded-3xl shadow'
+                        }
+                      })
+                    : null,
+                  D.Containers.Div(
+                    { attrs: { class: 'flex-1 space-y-4' } },
+                    [
+                      D.Text.H2({ attrs: { t: 'profileTitle', class: 'text-2xl font-bold' } }),
+                      D.Text.H3({ attrs: { class: 'text-xl font-semibold' } }, [
+                        localize(selectedCreator.displayName || brand.name)
+                      ]),
+                      D.Text.P({ attrs: { class: 'text-sm opacity-75 leading-relaxed' } }, [
+                        localize(selectedProfile.about || selectedCreator.headline)
+                      ]),
+                      selectedCreator.social
+                        ? D.Containers.Div(
+                            { attrs: { class: 'flex flex-wrap gap-2 text-xs' } },
+                            Object.keys(selectedCreator.social).map((channel) =>
+                              D.Text.A({
+                                attrs: {
+                                  href: selectedCreator.social[channel],
+                                  target: '_blank',
+                                  rel: 'noopener',
+                                  class:
+                                    'px-3 py-2 rounded-xl border border-[var(--secondary)] text-[var(--secondary)] hover:bg-[var(--secondary)]/10 transition'
+                                }
+                              }, [channel])
+                            )
+                          )
+                        : null
+                    ]
+                  )
+                ].filter(Boolean)
+              ),
+              profileSpecialties.length
+                ? D.Containers.Div(
+                    { attrs: { class: 'space-y-2' } },
+                    [
+                      D.Text.H3({ attrs: { t: 'profileSpecialties', class: 'text-lg font-semibold' } }),
+                      D.Lists.Ul(
+                        { attrs: { class: 'flex flex-wrap gap-2 text-xs' } },
+                        profileSpecialties.map((item) =>
+                          D.Lists.Li(
+                            { attrs: { class: 'px-3 py-2 rounded-2xl bg-[var(--muted)]/40 dark:bg-[var(--muted)]/20' } },
+                            [localize(item)]
+                          )
+                        )
+                      )
+                    ]
+                  )
+                : null,
+              profileMetrics.length
+                ? D.Containers.Div(
+                    { attrs: { class: 'space-y-3' } },
+                    [
+                      D.Text.H3({ attrs: { t: 'profileMetrics', class: 'text-lg font-semibold' } }),
+                      D.Lists.Ul(
+                        { attrs: { class: 'grid gap-4 sm:grid-cols-2' } },
+                        profileMetrics.map((metric) =>
+                          D.Lists.Li(
+                            {
+                              attrs: {
+                                class:
+                                  'rounded-2xl border border-white/10 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 p-4 backdrop-blur'
+                              }
+                            },
+                            [
+                              D.Text.P({ attrs: { class: 'text-sm opacity-70' } }, [localize(metric.label)]),
+                              D.Text.P({ attrs: { class: 'text-xl font-semibold text-[var(--secondary)]' } }, [
+                                localize(metric.value)
+                              ])
+                            ]
+                          )
+                        )
+                      )
+                    ]
+                  )
+                : null,
+              profilePortfolio.length
+                ? D.Containers.Div(
+                    { attrs: { class: 'space-y-3' } },
+                    [
+                      D.Text.H3({ attrs: { t: 'profilePortfolio', class: 'text-lg font-semibold' } }),
+                      D.Lists.Ul(
+                        { attrs: { class: 'grid gap-4 md:grid-cols-2' } },
+                        profilePortfolio.map((entry) =>
+                          D.Lists.Li(
+                            {
+                              attrs: {
+                                class:
+                                  'rounded-3xl overflow-hidden border border-white/10 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur'
+                              }
+                            },
+                            [
+                              entry.media
+                                ? D.Media.Img({
+                                    attrs: {
+                                      src: entry.media,
+                                      alt: localize(entry.title),
+                                      class: 'w-full h-48 object-cover'
+                                    }
+                                  })
+                                : null,
+                              D.Text.P({ attrs: { class: 'p-4 text-sm font-medium' } }, [localize(entry.title)])
+                            ]
+                          )
+                        )
+                      )
+                    ]
+                  )
+                : null,
+              profileTestimonials.length
+                ? D.Containers.Div(
+                    { attrs: { class: 'space-y-3' } },
+                    [
+                      D.Text.H3({ attrs: { t: 'profileTestimonials', class: 'text-lg font-semibold' } }),
+                      D.Lists.Ul(
+                        { attrs: { class: 'space-y-3' } },
+                        profileTestimonials.map((testimonial) =>
+                          D.Lists.Li(
+                            {
+                              attrs: {
+                                class:
+                                  'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5 backdrop-blur'
+                              }
+                            },
+                            [
+                              D.Text.P({ attrs: { class: 'text-sm leading-relaxed' } }, [localize(testimonial.quote)]),
+                              D.Text.P({ attrs: { class: 'text-xs opacity-60 mt-2' } }, [localize(testimonial.client)])
+                            ]
+                          )
+                        )
+                      )
+                    ]
+                  )
+                : null
+            ].filter(Boolean)
+          );
+
+          const timelineCards = filteredPosts.map((post) => {
+            const creator = creatorsList.find((item) => item.id === post.creatorId) || {};
+            const relatedProduct = products.find((product) => product.id === post.productId);
+            const relatedService = services.find((service) => service.id === post.serviceId);
+            const media = post.media || {};
+            const priceLabel = localize(post.pricing?.label);
+            const badgeText = post.type === 'reel' ? TL('filtersReels') : TL('filtersPosts');
+
+            return D.Containers.Article(
+              {
+                attrs: {
+                  class:
+                    'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/85 dark:bg-slate-900/50 p-5 flex flex-col gap-4 backdrop-blur'
+                }
+              },
+              [
+                D.Containers.Div({ attrs: { class: 'flex items-center justify-between gap-3' } }, [
+                  D.Text.P({ attrs: { class: 'text-sm font-semibold' } }, [localize(post.title)]),
+                  D.Text.Span({
+                    attrs: {
+                      class:
+                        'text-xs px-3 py-1 rounded-full bg-[var(--accent)]/20 text-[var(--accent-foreground)] border border-[var(--accent)]/50'
+                    }
+                  }, [badgeText])
+                ]),
+                media.url
+                  ? D.Containers.Div(
+                      {
+                        attrs: {
+                          class: 'relative overflow-hidden rounded-2xl bg-slate-200 dark:bg-slate-800'
+                        }
+                      },
+                      [
+                        media.type === 'video'
+                          ? D.Media.Video({
+                              attrs: {
+                                src: media.url,
+                                poster: media.poster || undefined,
+                                controls: true,
+                                class: 'w-full h-full aspect-video object-cover rounded-2xl'
+                              }
+                            })
+                          : D.Media.Img({
+                              attrs: {
+                                src: media.url,
+                                alt: localize(post.title),
+                                class: 'w-full h-full object-cover rounded-2xl'
+                              }
+                            })
+                      ]
+                    )
+                  : null,
+                D.Text.P({ attrs: { class: 'text-sm opacity-80 leading-relaxed' } }, [localize(post.caption)]),
+                priceLabel ? D.Text.P({ attrs: { class: 'text-sm font-semibold text-[var(--secondary)]' } }, [priceLabel]) : null,
+                creator.displayName
+                  ? D.Text.P({ attrs: { class: 'text-xs text-[var(--foreground)]/60' } }, [
+                      `${localize(creator.displayName)} • ${creator.rating || '4.9'} ⭐`
+                    ])
+                  : null,
+                relatedProduct
+                  ? D.Text.P({ attrs: { class: 'text-xs opacity-70' } }, [
+                      `${TL('highlightProducts')}: ${localize(relatedProduct.title)}`
+                    ])
+                  : null,
+                relatedService
+                  ? D.Text.P({ attrs: { class: 'text-xs opacity-70' } }, [
+                      `${TL('highlightServices')}: ${localize(relatedService.title)}`
+                    ])
+                  : null,
+                D.Containers.Div(
+                  { attrs: { class: 'flex flex-wrap items-center gap-2 text-xs opacity-70' } },
+                  (post.tags || []).map((tag) =>
+                    D.Text.Span({
+                      attrs: {
+                        class: 'px-2 py-1 rounded-full border border-white/10 dark:border-slate-800'
+                      }
+                    }, [`#${tag}`])
+                  )
+                ),
+                post.cta?.label
+                  ? D.Text.A(
+                      {
+                        attrs: {
+                          href: post.cta?.link || '#',
+                          target: '_blank',
+                          rel: 'noopener',
+                          class:
+                            'inline-flex justify-center px-4 py-2 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-medium'
+                        }
+                      },
+                      [localize(post.cta.label)]
+                    )
+                  : null
+              ].filter(Boolean)
+            );
+          });
+
+          const timelineSection = D.Containers.Section(
+            { attrs: { id: 'timeline', class: 'py-10 px-6 lg:px-16 space-y-6' } },
+            [
+              D.Containers.Div({}, [
+                D.Text.H2({ attrs: { t: 'timelineTitle', class: 'text-2xl font-bold' } }),
+                D.Text.P({ attrs: { t: 'timelineSubtitle', class: 'text-sm opacity-75 mt-2 max-w-3xl' } })
+              ]),
+              D.Containers.Div({ attrs: { class: 'flex flex-wrap gap-2' } }, contentButtons),
+              timelineCards.length
+                ? D.Lists.Ul({ attrs: { class: 'grid gap-5 md:grid-cols-2 xl:grid-cols-3' } }, timelineCards)
+                : D.Text.P({ attrs: { t: 'emptyState', class: 'text-sm opacity-70' } })
+            ]
+          );
+
+          const collectionsSection = D.Containers.Section(
+            { attrs: { id: 'collections', class: 'py-10 px-6 lg:px-16 space-y-6' } },
+            [
+              D.Text.H2({ attrs: { t: 'collectionsTitle', class: 'text-2xl font-bold' } }),
+              D.Lists.Ul(
+                { attrs: { class: 'grid gap-5 md:grid-cols-2' } },
+                collections.map((collection) =>
+                  D.Lists.Li(
+                    {
+                      attrs: {
+                        class:
+                          'rounded-3xl border border-white/10 dark:border-slate-800 bg-white/75 dark:bg-slate-900/50 overflow-hidden backdrop-blur flex flex-col'
+                      }
+                    },
+                    [
+                      collection.heroImage
+                        ? D.Media.Img({
+                            attrs: {
+                              src: collection.heroImage,
+                              alt: localize(collection.title),
+                              class: 'w-full h-48 object-cover'
+                            }
+                          })
+                        : null,
+                      D.Containers.Div(
+                        { attrs: { class: 'p-5 space-y-2' } },
+                        [
+                          D.Text.H3({ attrs: { class: 'text-lg font-semibold' } }, [localize(collection.title)]),
+                          D.Text.P({ attrs: { class: 'text-sm opacity-75 leading-relaxed' } }, [
+                            localize(collection.description)
+                          ]),
+                          D.Lists.Ul(
+                            { attrs: { class: 'text-xs space-y-1' } },
+                            collection.items.map((itemId) => {
+                              const match = services.find((srv) => srv.id === itemId) || products.find((prd) => prd.id === itemId);
+                              return D.Lists.Li({}, [localize(match?.title || match?.name || itemId)]);
+                            })
+                          )
+                        ]
+                      )
+                    ]
+                  )
+                )
+              )
+            ]
+          );
+
+          const heroSection = D.Containers.Section(
+            { attrs: { id: 'explore', class: 'py-12 px-6 lg:px-16 space-y-6 bg-white/80 dark:bg-slate-900/50 rounded-[40px]' } },
+            [
+              D.Text.H1({ attrs: { class: 'text-3xl font-bold tracking-tight' } }, [localize(brand.name || brandNameDict)]),
+              D.Text.P({ attrs: { class: 'text-lg text-[var(--foreground)]/70 max-w-3xl leading-relaxed' } }, [
+                localize(brand.hero?.highlight || brand.tagline)
+              ]),
+              D.Text.P({ attrs: { class: 'text-sm text-[var(--foreground)]/60 max-w-3xl leading-relaxed' } }, [
+                localize(brand.hero?.supporting)
+              ]),
+              D.Containers.Div(
+                { attrs: { class: 'flex flex-wrap gap-3' } },
+                [
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      class:
+                        'px-5 py-3 rounded-2xl bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold shadow'
+                    }
+                  }, [localize(brand.hero?.ctaPrimary)]),
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      class:
+                        'px-5 py-3 rounded-2xl border border-[var(--primary)] text-[var(--primary)] font-semibold'
+                    }
+                  }, [localize(brand.hero?.ctaSecondary)])
+                ]
+              ),
+              D.Containers.Div(
+                {
+                  attrs: {
+                    class:
+                      'mt-6 rounded-3xl border border-white/10 dark:border-slate-800 bg-[var(--muted)]/20 dark:bg-[var(--muted)]/10 p-5 backdrop-blur'
+                  }
+                },
+                [
+                  D.Text.H3({ attrs: { t: 'heroInstallTitle', class: 'text-lg font-semibold mb-2' } }),
+                  D.Text.P({ attrs: { t: 'heroInstallMessage', class: 'text-sm opacity-75' } }),
+                  D.Text.P({ attrs: { t: 'heroInstallHelper', class: 'text-xs opacity-60 mt-2' } })
+                ]
+              )
+            ]
+          );
+
+          const topNav = D.Containers.Header(
+            {
+              attrs: {
+                class:
+                  'sticky top-0 z-20 backdrop-blur bg-white/80 dark:bg-slate-950/80 border-b border-white/10 dark:border-slate-900'
+              }
+            },
+            [
+              D.Containers.Div(
+                { attrs: { class: 'max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4' } },
+                [
+                  D.Text.Span({ attrs: { class: 'text-lg font-semibold' } }, [localize(brand.name || brandNameDict)]),
+                  D.Containers.Nav(
+                    { attrs: { class: 'hidden md:flex items-center gap-4 text-sm opacity-75' } },
+                    [
+                      D.Text.A({ attrs: { href: '#explore', t: 'navExplore', class: 'hover:opacity-100 transition' } }),
+                      D.Text.A({ attrs: { href: '#creators', t: 'navCreators', class: 'hover:opacity-100 transition' } }),
+                      D.Text.A({ attrs: { href: '#profiles', t: 'navProfiles', class: 'hover:opacity-100 transition' } }),
+                      D.Text.A({ attrs: { href: '#timeline', t: 'navTimeline', class: 'hover:opacity-100 transition' } }),
+                      D.Text.A({ attrs: { href: '#collections', t: 'navCollections', class: 'hover:opacity-100 transition' } })
+                    ]
+                  ),
+                  D.Containers.Div(
+                    { attrs: { class: 'flex items-center gap-2' } },
+                    [
+                      D.Forms.Button({
+                        attrs: {
+                          type: 'button',
+                          gkey: 'ui:lang-ar',
+                          class: 'px-3 py-2 rounded-xl border text-xs'
+                        }
+                      }, ['AR']),
+                      D.Forms.Button({
+                        attrs: {
+                          type: 'button',
+                          gkey: 'ui:lang-en',
+                          class: 'px-3 py-2 rounded-xl border text-xs'
+                        }
+                      }, ['EN']),
+                      D.Forms.Button({
+                        attrs: {
+                          type: 'button',
+                          gkey: 'ui:theme-toggle',
+                          class: 'px-3 py-2 rounded-xl border text-xs'
+                        }
+                      }, ['🌓'])
+                    ]
+                  )
+                ]
+              )
+            ]
+          );
+
+          const categorySection = D.Containers.Section(
+            { attrs: { id: 'categories', class: 'py-10 px-6 lg:px-16 space-y-5' } },
+            [
+              D.Containers.Div({ attrs: { class: 'flex flex-wrap items-center justify-between gap-4' } }, [
+                D.Containers.Div({}, [
+                  D.Text.H2({ attrs: { t: 'filtersCategoryTitle', class: 'text-2xl font-bold' } }),
+                  D.Text.P({ attrs: { class: 'text-sm opacity-70 mt-2 max-w-2xl' } }, [
+                    localize({
+                      ar: 'اختر فئة لاكتشاف عروض المسوقات في مختلف القطاعات.',
+                      en: 'Pick a category to explore marketer offerings across industries.'
+                    })
+                  ])
+                ]),
+                D.Containers.Div({ attrs: { class: 'flex flex-wrap gap-2' } }, categoryButtons)
+              ])
+            ]
+          );
+
+          const creatorsSection = D.Containers.Section(
+            { attrs: { id: 'creators', class: 'py-10 px-6 lg:px-16 space-y-6' } },
+            [
+              D.Containers.Div({}, [
+                D.Text.H2({ attrs: { t: 'creatorsTitle', class: 'text-2xl font-bold' } }),
+                D.Text.P({ attrs: { t: 'creatorsSubtitle', class: 'text-sm opacity-75 mt-2 max-w-3xl' } })
+              ]),
+              creatorsCards
+            ]
+          );
+
+          const pwaControlPanel = D.Containers.Section(
+            { attrs: { class: 'py-8 px-6 lg:px-16 space-y-3 bg-white/80 dark:bg-slate-900/50 rounded-[32px]' } },
+            [
+              D.Text.H3({ attrs: { class: 'text-lg font-semibold' } }, [localize(brand.install?.message || TL('heroInstallTitle'))]),
+              D.Text.P({ attrs: { class: 'text-sm opacity-75' } }, [localize(brand.install?.helper || TL('heroInstallHelper'))]),
+              D.Containers.Div(
+                { attrs: { class: 'flex flex-wrap gap-3 text-xs' } },
+                [
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      gkey: 'pwa:sw:refresh',
+                      class:
+                        'px-4 py-2 rounded-xl bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium shadow'
+                    }
+                  }, [D.Text.Span({ attrs: { t: 'pwaRefresh' } })]),
+                  D.Forms.Button({
+                    attrs: {
+                      type: 'button',
+                      gkey: 'pwa:cache:clear',
+                      class:
+                        'px-4 py-2 rounded-xl border border-[var(--secondary)] text-[var(--secondary)] font-medium'
+                    }
+                  }, [D.Text.Span({ attrs: { t: 'pwaClear' } })])
+                ]
+              )
+            ]
+          );
+
+          return D.Containers.Main(
+            { attrs: { class: 'min-h-screen text-[var(--foreground)] bg-[var(--background)] space-y-6 pb-16' } },
+            [topNav, heroSection, categorySection, featuresSection, creatorsSection, profileSection, timelineSection, collectionsSection, pwaControlPanel]
+          );
+        });
+
+        const orders = {
+          'filters.category.set': {
+            on: ['click'],
+            gkeys: categoryGKeys,
+            handler: (event, context) => {
+              const target = event.target.closest('[data-category]');
+              if (!target) return;
+              const categoryId = target.getAttribute('data-category') || 'all';
+              context.setState((state) => ({
+                ...state,
+                data: {
+                  ...(state.data || {}),
+                  filters: { ...(state.data?.filters || {}), category: categoryId }
+                }
+              }));
+            }
+          },
+          'filters.content.set': {
+            on: ['click'],
+            gkeys: contentGKeys,
+            handler: (event, context) => {
+              const target = event.target.closest('[data-content]');
+              if (!target) return;
+              const contentType = target.getAttribute('data-content') || 'all';
+              context.setState((state) => ({
+                ...state,
+                data: {
+                  ...(state.data || {}),
+                  filters: { ...(state.data?.filters || {}), contentType }
+                }
+              }));
+            }
+          },
+          'creators.profile.open': {
+            on: ['click'],
+            gkeys: profileGKeys,
+            handler: (event, context) => {
+              const target = event.target.closest('[data-creator]');
+              if (!target) return;
+              const creatorId = target.getAttribute('data-creator');
+              context.setState((state) => ({
+                ...state,
+                data: {
+                  ...(state.data || {}),
+                  selectedCreatorId: creatorId
+                }
+              }));
+            }
+          }
+        };
+
+        const app = M.app.createApp(database, orders);
+        const twx = U.twcss.auto(database, app, {
+          fonts: [
+            { family: 'Inter', weights: '400;600;700' },
+            { family: 'Cairo', weights: '400;700' }
+          ]
+        });
+        app.setOrders(Object.assign({}, orders, twx.orders));
+        app.mount('#app');
+      })();
+    </script>
+  </body>
+</html>
