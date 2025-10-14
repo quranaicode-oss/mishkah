@@ -1947,6 +1947,19 @@ function scaffold(opts={}){
 function auto(db, app, opt={}){
   // theme vars
   const env = db.env||{};
+  let pwaOrders = {};
+  try {
+    if (U.pwa && typeof U.pwa.auto === 'function') {
+      const outcome = U.pwa.auto(db, app, opt && opt.pwa);
+      if (outcome && outcome.orders && typeof outcome.orders === 'object') {
+        pwaOrders = outcome.orders;
+      }
+    }
+  } catch (err) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[Mishkah.pwa.auto] failed to initialize PWA layer:', err);
+    }
+  }
   const user = (env.palette && isObj(env.palette))? env.palette: {};
   const light = Object.assign({}, DEFAULT_PALETTE.light, user.light||{});
   const dark  = Object.assign({}, DEFAULT_PALETTE.dark , user.dark ||{});
@@ -1971,7 +1984,7 @@ function auto(db, app, opt={}){
   }
 
   // orders
-  const orders = {
+  const orders = Object.assign({}, pwaOrders, {
     'ui.theme.toggle': {
       on:['click'], gkeys:['ui:theme-toggle'],
       handler:(e,ctx)=>{
@@ -1989,12 +2002,539 @@ function auto(db, app, opt={}){
       on:['click'], gkeys:['ui:lang-en'],
       handler:(e,ctx)=>{ setDir('ltr'); ctx.setState(s=> ({ ...s, env:{...(s.env||{}), lang:'en', dir:'ltr'}, i18n:{...(s.i18n||{}), lang:'en'} })); }
     }
-  };
+  });
   return { orders };
 }
 
 // ========== Export ==========
 U.twcss = { tw, cx, def, token, auto, setTheme, setDir, PALETTE: DEFAULT_PALETTE };
+
+// ========== PWA Auto ==========
+const DEFAULT_PWA_CONFIG = {
+  enabled: false,
+  manifestUrl: './manifest.json',
+  manifest: null,
+  manifestInline: true,
+  icons: [],
+  themeColor: '#0f172a',
+  backgroundColor: '#ffffff',
+  display: 'standalone',
+  startUrl: './',
+  description: '',
+  lang: 'ar',
+  dir: 'auto',
+  scope: './',
+  assets: [],
+  offlineFallback: null,
+  runtimeCaching: [],
+  exposeEnv: true,
+  injectHead: true,
+  registerOnMount: true,
+  registerOnLoad: false,
+  registerDelay: 0,
+  cache: { prefix: 'mishkah-pwa', version: 'v1' },
+  sw: {
+    inline: true,
+    url: './service-worker.js',
+    strategy: 'networkFirst',
+    scope: './',
+    skipWaiting: true,
+    clientsClaim: true,
+    cleanupPrefix: 'mishkah-pwa',
+    networkTimeout: 8000,
+    registrationOptions: {}
+  }
+};
+
+function cloneConfig(source){
+  if (!source) return {};
+  try { return U.JSON.clone(source); }
+  catch(_err){ return JSON.parse(JSON.stringify(source)); }
+}
+
+function normalizeIcon(icon){
+  if (!icon) return null;
+  if (typeof icon === 'string') {
+    return { rel: 'icon', src: icon, href: icon };
+  }
+  if (!isObj(icon)) return null;
+  const rel = icon.rel || (icon.purpose === 'maskable' ? 'mask-icon' : 'icon');
+  const href = icon.href || icon.src || '';
+  if (!href) return null;
+  return {
+    rel,
+    href,
+    src: icon.src || href,
+    type: icon.type || (href.endsWith('.svg') ? 'image/svg+xml' : undefined),
+    sizes: icon.sizes || icon.size || undefined,
+    purpose: icon.purpose || undefined
+  };
+}
+
+function uniqueStrings(arr){
+  const out = [];
+  const seen = new Set();
+  for (const item of arr) {
+    const val = typeof item === 'string' ? item : '';
+    if (!val || seen.has(val)) continue;
+    seen.add(val);
+    out.push(val);
+  }
+  return out;
+}
+
+function normalizeRuntimeRule(entry, fallbackStrategy, defaultCacheName){
+  if (!entry) return null;
+  if (typeof entry === 'string') {
+    return { pattern: entry, strategy: fallbackStrategy, method: 'GET', sameOrigin: true };
+  }
+  if (!isObj(entry)) return null;
+  const pattern = entry.pattern || entry.url || entry.pathname || entry.route;
+  if (!pattern) return null;
+  const method = (entry.method || 'GET').toUpperCase();
+  const strategy = entry.strategy || fallbackStrategy;
+  return {
+    pattern: pattern,
+    strategy: strategy,
+    method: method,
+    sameOrigin: entry.sameOrigin !== false,
+    cacheName: entry.cacheName || defaultCacheName
+  };
+}
+
+function ensureMeta(name, content){
+  if (typeof document === 'undefined' || !document.head) return;
+  if (!name) return;
+  let meta = document.head.querySelector(`meta[name="${name}"]`);
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', name);
+    document.head.appendChild(meta);
+  }
+  if (content != null) meta.setAttribute('content', content);
+}
+
+function ensureLinkElement(rel, href, attrs){
+  if (typeof document === 'undefined' || !document.head) return null;
+  let selector = `link[rel="${rel}"]`;
+  if (attrs && attrs.sizes) selector += `[sizes="${attrs.sizes}"]`;
+  let link = document.head.querySelector(selector);
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', rel);
+    document.head.appendChild(link);
+  }
+  if (href) link.setAttribute('href', href);
+  if (attrs) {
+    Object.keys(attrs).forEach((key)=>{
+      if (key === 'href' || key === 'rel') return;
+      const val = attrs[key];
+      if (val == null) {
+        link.removeAttribute(key);
+      } else {
+        link.setAttribute(key, val);
+      }
+    });
+  }
+  return link;
+}
+
+function toRegExpSource(value){
+  if (value == null) return null;
+  try {
+    const reg = value instanceof RegExp ? value : new RegExp(String(value));
+    return reg.source;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function normalizePwaConfig(db, envConfig, runtimeOpt){
+  const env = (db && db.env) || {};
+  const base = cloneConfig(DEFAULT_PWA_CONFIG);
+  const merged = U.Data.deepMerge(base, cloneConfig(envConfig));
+  const overrides = runtimeOpt && isObj(runtimeOpt) ? cloneConfig(runtimeOpt) : {};
+  const config = U.Data.deepMerge(merged, overrides);
+
+  const explicitEnabled = overrides.enabled;
+  const envFlag = env.isPwa ?? env.isPWA;
+  const finalEnabled = explicitEnabled != null ? !!explicitEnabled : (config.enabled != null ? !!config.enabled : !!(envFlag || (env.pwa && env.pwa.enabled)));
+  config.enabled = finalEnabled;
+
+  const cache = config.cache || {};
+  const prefix = cache.prefix || (config.sw && config.sw.cleanupPrefix) || 'mishkah-pwa';
+  const version = (cache.version != null ? String(cache.version) : (config.sw && config.sw.version)) || 'v1';
+  const cacheName = config.cacheName || (config.sw && config.sw.cacheName) || `${prefix}-${version}`;
+  config.cache = Object.assign({}, cache, { prefix, version });
+  config.cacheName = cacheName;
+  config.cachePrefix = prefix;
+  config.cacheVersion = version;
+
+  const sw = config.sw = config.sw || {};
+  if (sw.inline == null) sw.inline = !sw.url;
+  sw.url = sw.url || './service-worker.js';
+  sw.scope = sw.scope || config.scope || './';
+  sw.strategy = sw.strategy || config.strategy || 'networkFirst';
+  sw.cleanupPrefix = sw.cleanupPrefix || prefix;
+  sw.cacheName = cacheName;
+  sw.networkTimeout = typeof sw.networkTimeout === 'number' ? sw.networkTimeout : 8000;
+
+  const manifestObj = isObj(config.manifest) ? cloneConfig(config.manifest) : null;
+  const icons = ensureArray(config.icons).map(normalizeIcon).filter(Boolean);
+  const manifestIcons = icons
+    .filter(icon => icon.rel === 'icon' || icon.rel === 'apple-touch-icon' || icon.rel === 'mask-icon')
+    .map(icon => ({
+      src: icon.src || icon.href,
+      sizes: icon.sizes,
+      type: icon.type,
+      purpose: icon.purpose
+    })).filter(icon => !!icon.src);
+
+  const head = db && db.head ? db.head : {};
+  const inferredName = (manifestObj && manifestObj.name) || head.title || 'Mishkah App';
+  const manifest = manifestObj || {
+    name: inferredName,
+    short_name: (manifestObj && manifestObj.short_name) || inferredName.slice(0, 12),
+    start_url: config.startUrl || './',
+    display: config.display || 'standalone',
+    background_color: config.backgroundColor,
+    theme_color: config.themeColor,
+    description: config.description || head.description || ''
+  };
+  if (!Array.isArray(manifest.icons) || !manifest.icons.length) {
+    manifest.icons = manifestIcons;
+  }
+  if (!manifest.start_url && config.startUrl) {
+    manifest.start_url = config.startUrl;
+  }
+  if (!manifest.display && config.display) {
+    manifest.display = config.display;
+  }
+  if (config.lang && !manifest.lang) manifest.lang = config.lang;
+  if (config.dir && !manifest.dir) manifest.dir = config.dir;
+
+  config.manifestObject = manifest;
+  config.icons = icons;
+
+  const assets = ensureArray(config.assets);
+  const derivedAssets = [];
+  const manifestUrl = config.manifestUrl || './manifest.json';
+  if (manifestUrl) derivedAssets.push(manifestUrl);
+  if (config.startUrl) derivedAssets.push(config.startUrl);
+  icons.forEach(icon => {
+    const href = icon.href || icon.src;
+    if (href && !/^https?:/i.test(href)) derivedAssets.push(href);
+  });
+  if (config.offlineFallback && !/^https?:/i.test(config.offlineFallback)) derivedAssets.push(config.offlineFallback);
+  config.precacheAssets = uniqueStrings(assets.concat(derivedAssets));
+
+  const runtimeRules = ensureArray(config.runtimeCaching)
+    .map(entry => normalizeRuntimeRule(entry, sw.strategy, cacheName))
+    .filter(Boolean)
+    .map(rule => Object.assign({}, rule, { pattern: toRegExpSource(rule.pattern) || '.*' }));
+  config.runtimeCaching = runtimeRules;
+
+  if (config.offlineFallback && !config.precacheAssets.includes(config.offlineFallback)) {
+    config.precacheAssets.push(config.offlineFallback);
+  }
+
+  if (env.pwa == null || typeof env.pwa !== 'object') env.pwa = {};
+  env.pwa = U.Data.deepMerge(env.pwa, {
+    enabled: config.enabled,
+    manifestUrl: manifestUrl,
+    cacheName: cacheName,
+    assets: config.precacheAssets.slice(),
+    sw: Object.assign({}, env.pwa.sw || {}, {
+      cacheName: cacheName,
+      version: version,
+      strategy: sw.strategy,
+      scope: sw.scope,
+      inline: !!sw.inline,
+      url: sw.url
+    })
+  });
+
+  config.manifestUrl = manifestUrl;
+  config.state = env.pwa;
+
+  return config;
+}
+
+function ensureManifestLink(config){
+  if (typeof document === 'undefined' || !document.head) return;
+  if (!config.enabled || config.injectHead === false) return;
+  let href = config.manifestUrl;
+  if (config.manifestInline !== false && config.manifestObject) {
+    if (!config.__manifestObjectUrl) {
+      const json = JSON.stringify(config.manifestObject, null, 2);
+      const blob = new Blob([json], { type: 'application/manifest+json' });
+      config.__manifestObjectUrl = URL.createObjectURL(blob);
+    }
+    href = config.__manifestObjectUrl;
+  }
+  ensureLinkElement('manifest', href);
+}
+
+function ensureIconsLinks(config){
+  if (!config.enabled || !config.icons || typeof document === 'undefined') return;
+  config.icons.forEach(icon => {
+    const attrs = {};
+    if (icon.type) attrs.type = icon.type;
+    if (icon.sizes) attrs.sizes = icon.sizes;
+    if (icon.purpose) attrs.purpose = icon.purpose;
+    ensureLinkElement(icon.rel || 'icon', icon.href || icon.src, attrs);
+  });
+}
+
+function attachAfterMount(app, fn){
+  if (!app || typeof app.mount !== 'function' || typeof fn !== 'function') return;
+  const current = app.mount;
+  if (current.__mishkahAfterHooks) {
+    current.__mishkahAfterHooks.push(fn);
+    return;
+  }
+  function patched(selector){
+    const result = current.call(app, selector);
+    const run = ()=>{ try { fn(); } catch(err){ if (console && console.error) console.error('[Mishkah.pwa] hook error', err); } };
+    if (result && typeof result.then === 'function') {
+      result.then(run).catch(err=>{ if (console && console.error) console.error('[Mishkah.pwa] mount promise rejected', err); run(); });
+    } else {
+      run();
+    }
+    return result;
+  }
+  Object.keys(current).forEach(key=>{ patched[key] = current[key]; });
+  if (current.__twPatched) patched.__twPatched = current.__twPatched;
+  patched.__mishkahAfterHooks = [fn];
+  app.mount = patched;
+}
+
+function buildServiceWorkerSource(config){
+  const payload = {
+    cacheName: config.cacheName,
+    precache: config.precacheAssets,
+    runtime: config.runtimeCaching,
+    cleanupPrefix: config.sw.cleanupPrefix || config.cachePrefix,
+    offlineFallback: config.offlineFallback || null,
+    skipWaiting: config.sw.skipWaiting !== false,
+    clientsClaim: config.sw.clientsClaim !== false,
+    defaultStrategy: (config.sw.strategy || 'networkFirst'),
+    networkTimeout: config.sw.networkTimeout || 0
+  };
+
+  return `'use strict';\n` +
+`const CONFIG = ${JSON.stringify(payload)};\n` +
+`const toRegExp = (pattern) => { try { return pattern ? new RegExp(pattern) : null; } catch (_err) { return null; } };\n` +
+`const RUNTIME_RULES = (CONFIG.runtime || []).map(rule => ({\n` +
+`  pattern: toRegExp(rule.pattern),\n` +
+`  strategy: (rule.strategy || CONFIG.defaultStrategy || 'networkFirst').toLowerCase(),\n` +
+`  method: (rule.method || 'GET').toUpperCase(),\n` +
+`  sameOrigin: rule.sameOrigin !== false,\n` +
+`  cacheName: rule.cacheName || CONFIG.cacheName\n` +
+`}));\n` +
+`const PRECACHE = Array.isArray(CONFIG.precache) ? CONFIG.precache : [];\n` +
+`const CLEANUP_PREFIX = CONFIG.cleanupPrefix || CONFIG.cacheName;\n` +
+`const NETWORK_TIMEOUT = CONFIG.networkTimeout || 0;\n` +
+`function timeoutPromise(ms){ return new Promise((_, reject)=> setTimeout(()=> reject(new Error('timeout')), ms)); }\n` +
+`async function precacheAll(){\n` +
+`  const cache = await caches.open(CONFIG.cacheName);\n` +
+`  await cache.addAll(PRECACHE);\n` +
+`}\n` +
+`function cleanupOldCaches(){\n` +
+`  return caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith(CLEANUP_PREFIX) && key !== CONFIG.cacheName).map(key => caches.delete(key))));\n` +
+`}\n` +
+`self.addEventListener('install', event => {\n` +
+`  event.waitUntil(precacheAll().then(()=>{ if (CONFIG.skipWaiting !== false && self.skipWaiting) return self.skipWaiting(); }));\n` +
+`});\n` +
+`self.addEventListener('activate', event => {\n` +
+`  event.waitUntil(cleanupOldCaches().then(()=>{ if (CONFIG.clientsClaim !== false && self.clients && self.clients.claim) return self.clients.claim(); }));\n` +
+`});\n` +
+`const STRATEGIES = {\n` +
+`  'cachefirst': async (request, cacheName) => {\n` +
+`    const cache = await caches.open(cacheName);\n` +
+`    const cached = await cache.match(request);\n` +
+`    if (cached) return cached;\n` +
+`    const response = await fetch(request);\n` +
+`    if (response && response.ok) cache.put(request, response.clone());\n` +
+`    return response;\n` +
+`  },\n` +
+`  'networkfirst': async (request, cacheName) => {\n` +
+`    const cache = await caches.open(cacheName);\n` +
+`    try {\n` +
+`      const network = fetch(request);\n` +
+`      const response = NETWORK_TIMEOUT > 0 ? await Promise.race([network, timeoutPromise(NETWORK_TIMEOUT)]) : await network;\n` +
+`      if (response && response.ok) cache.put(request, response.clone());\n` +
+`      return response;\n` +
+`    } catch (err) {\n` +
+`      const cached = await cache.match(request);\n` +
+`      if (cached) return cached;\n` +
+`      throw err;\n` +
+`    }\n` +
+`  },\n` +
+`  'stalewhilerevalidate': async (request, cacheName) => {\n` +
+`    const cache = await caches.open(cacheName);\n` +
+`    const cached = await cache.match(request);\n` +
+`    const network = fetch(request).then(response => { if (response && response.ok) cache.put(request, response.clone()); return response; }).catch(()=>null);\n` +
+`    return cached || network.then(res => res || cached);\n` +
+`  }\n` +
+`};\n` +
+`function pickStrategy(name){\n` +
+`  const key = (name || CONFIG.defaultStrategy || 'networkFirst').toLowerCase().replace(/\s+/g, '');\n` +
+`  return STRATEGIES[key] || STRATEGIES.networkfirst;\n` +
+`}\n` +
+`function matchRule(url, method){\n` +
+`  return RUNTIME_RULES.find(rule => {\n` +
+`    if (rule.method && rule.method !== method) return false;\n` +
+`    if (rule.sameOrigin && url.origin !== self.location.origin) return false;\n` +
+`    if (rule.pattern && !rule.pattern.test(url.href)) return false;\n` +
+`    return true;\n` +
+`  }) || null;\n` +
+`}\n` +
+`self.addEventListener('fetch', event => {\n` +
+`  const request = event.request;\n` +
+`  if (!request || request.method !== 'GET') return;\n` +
+`  const url = new URL(request.url);\n` +
+`  const rule = matchRule(url, request.method);\n` +
+`  const strategy = pickStrategy(rule && rule.strategy);\n` +
+`  const cacheName = rule && rule.cacheName ? rule.cacheName : CONFIG.cacheName;\n` +
+`  const responder = strategy(request, cacheName, url);\n` +
+`  event.respondWith(responder.catch(err => {\n` +
+`    if (CONFIG.offlineFallback && url.origin === self.location.origin) {\n` +
+`      return caches.match(CONFIG.offlineFallback).then(res => res || Promise.reject(err));\n` +
+`    }\n` +
+`    throw err;\n` +
+`  }));\n` +
+`});\n`;
+}
+
+function ensureServiceWorkerUrl(config){
+  if (!config.enabled) return null;
+  if (!config.sw.inline) return config.sw.url;
+  if (!config.__swObjectUrl) {
+    const source = buildServiceWorkerSource(config);
+    config.__swObjectUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+  }
+  return config.__swObjectUrl;
+}
+
+function registerServiceWorker(config){
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return Promise.resolve(null);
+  if (!config || !config.enabled) return Promise.resolve(null);
+  const url = ensureServiceWorkerUrl(config);
+  if (!url) return Promise.resolve(null);
+  const opts = Object.assign({}, config.sw.registrationOptions || {});
+  if (config.sw.scope) opts.scope = config.sw.scope;
+  return navigator.serviceWorker.register(url, opts).then(reg => {
+    return reg;
+  });
+}
+
+function clearCaches(config){
+  if (typeof caches === 'undefined') return Promise.resolve(false);
+  if (!config) return Promise.resolve(false);
+  const prefix = config.cachePrefix || config.cacheName;
+  return caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith(prefix)).map(key => caches.delete(key))))
+    .then(results => results.some(Boolean));
+}
+
+function exposeEnv(config){
+  if (!config || config.exposeEnv === false) return;
+  if (typeof window === 'undefined') return;
+  const root = window.Mishkah = window.Mishkah || {};
+  const env = root.env = root.env || {};
+  env.PWA = {
+    ENABLED: !!config.enabled,
+    CACHE_NAME: config.cacheName,
+    PRECACHE_ASSETS: config.precacheAssets.slice(),
+    RUNTIME_CACHING: config.runtimeCaching.map(rule => Object.assign({}, rule)),
+    OFFLINE_FALLBACK: config.offlineFallback || null,
+    STRATEGY: config.sw.strategy,
+    SCOPE: config.sw.scope,
+    MANIFEST_URL: config.manifestUrl,
+    REGISTER_ON_MOUNT: config.registerOnMount !== false,
+    VERSION: config.cacheVersion
+  };
+}
+
+function scheduleRegistration(config){
+  if (!config || !config.enabled) return Promise.resolve(null);
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  if (!window.__mishkahPwaRegisterQueue) window.__mishkahPwaRegisterQueue = new Map();
+  if (window.__mishkahPwaRegisterQueue.has(config.cacheName)) {
+    return window.__mishkahPwaRegisterQueue.get(config.cacheName);
+  }
+  const exec = () => registerServiceWorker(config).finally(() => {
+    window.__mishkahPwaRegisterQueue.delete(config.cacheName);
+  });
+  const promise = new Promise((resolve) => {
+    const launch = () => exec().then(resolve).catch(err => { if (console && console.error) console.error('[Mishkah.pwa] registration failed', err); resolve(null); });
+    if (config.registerDelay && config.registerDelay > 0) {
+      setTimeout(launch, config.registerDelay);
+    } else {
+      launch();
+    }
+  });
+  window.__mishkahPwaRegisterQueue.set(config.cacheName, promise);
+  return promise;
+}
+
+function autoPwa(db, app, options){
+  const env = (db && db.env) || {};
+  const raw = env.pwa || env.PWA || {};
+  const config = normalizePwaConfig(db || {}, raw, options || {});
+
+  if (config.exposeEnv !== false) exposeEnv(config);
+
+  if (!config.enabled) {
+    return { config, orders: {} };
+  }
+
+  if (config.injectHead !== false) {
+    ensureMeta('theme-color', config.themeColor);
+    ensureManifestLink(config);
+    ensureIconsLinks(config);
+  }
+
+  const doRegister = () => scheduleRegistration(config);
+
+  if (config.registerOnMount !== false) {
+    attachAfterMount(app, () => {
+      if (typeof window !== 'undefined') {
+        if (document && document.readyState === 'complete') {
+          doRegister();
+        } else {
+          window.addEventListener('load', () => doRegister(), { once: true });
+        }
+      }
+    });
+  } else if (config.registerOnLoad) {
+    window.addEventListener('load', () => doRegister(), { once: true });
+  }
+
+  const orders = {
+    'pwa.sw.refresh': {
+      on: ['click'],
+      gkeys: ['pwa:sw:refresh'],
+      handler: () => { doRegister(); }
+    },
+    'pwa.cache.clear': {
+      on: ['click'],
+      gkeys: ['pwa:cache:clear'],
+      handler: () => { clearCaches(config); }
+    }
+  };
+
+  return { config, orders };
+}
+
+U.pwa = {
+  auto: autoPwa,
+  normalizeConfig: normalizePwaConfig,
+  ensureManifestLink,
+  buildServiceWorkerSource,
+  register: registerServiceWorker,
+  clearCaches
+};
 
 })(window);
 
