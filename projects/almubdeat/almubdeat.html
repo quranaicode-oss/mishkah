@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>منصة المبدعات — تجربة PWA على مشكاة</title>
     <meta name="description" content="سوق إلكتروني ومنصة تواصل اجتماعي احترافية للمبدعات مع دعم كامل للغة العربية والإنجليزية." />
-    <meta name="theme-color" content="#0f172a" />
-    <link rel="manifest" href="./pwa/manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="./pwa/icons/icon-192.svg" />
-
     <script src="../../mishkah-utils.js"></script>
     <script src="../../mishkah.core.js"></script>
     <script src="../../mishkah-ui.js"></script>
@@ -36,20 +32,40 @@
             dir: 'rtl',
             pwa: {
               enabled: true,
+              manifestInline: true,
+              manifestUrl: './pwa/manifest.json',
               manifest: {
                 name: 'منصة المبدعات — Almubdeat PWA',
                 short_name: 'المبدعات',
+                description:
+                  'منصة اجتماعية وتجارية للمبدعات تدعم التثبيت والعمل دون اتصال عبر مشكاة.',
                 theme_color: '#0f172a',
                 background_color: '#f8fafc',
-                start_url: './almubdeat.html'
+                start_url: './almubdeat.html',
+                display: 'standalone'
               },
+              icons: [
+                { src: './pwa/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+                { src: './pwa/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' }
+              ],
               assets: [
                 './almubdeat.html',
                 './almubdeat.mock-data.js',
-                './pwa/manifest.json',
-                './pwa/service-worker.js'
+                './almubdeat.schema.js'
               ],
-              sw: { strategy: 'cacheFirst', version: 'almubdeat-pwa-v1' }
+              offlineFallback: './almubdeat.html',
+              runtimeCaching: [
+                { pattern: '^https://fonts\\.gstatic\\.com/', strategy: 'cacheFirst', sameOrigin: false },
+                { pattern: '^https://fonts\\.googleapis\\.com/', strategy: 'staleWhileRevalidate', sameOrigin: false }
+              ],
+              cache: { prefix: 'almubdeat-pwa', version: 'v1' },
+              registerDelay: 500,
+              sw: {
+                inline: true,
+                strategy: 'cacheFirst',
+                scope: './',
+                cleanupPrefix: 'almubdeat-pwa'
+              }
             }
           },
           i18n: {
@@ -674,14 +690,5 @@
       })();
     </script>
 
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('./pwa/service-worker.js').catch(function (error) {
-            console.error('Service worker registration failed', error);
-          });
-        });
-      }
-    </script>
   </body>
 </html>
