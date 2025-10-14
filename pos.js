@@ -455,7 +455,13 @@
           printer_name_required:'يرجى إدخال اسم الطابعة', browser_popup_blocked:'يرجى السماح بالنوافذ المنبثقة لإتمام التصدير',
           browser_print_opened:'تم فتح أداة الطباعة في المتصفح', shift_open_success:'تم فتح الوردية بنجاح',
           shift_close_success:'تم إغلاق الوردية بنجاح', shift_pin_invalid:'الرقم السري غير صحيح',
-          shift_required:'يجب فتح الوردية قبل حفظ الطلب', order_nav_not_found:'لم يتم العثور على فاتورة بهذا الرقم'
+          shift_required:'يجب فتح الوردية قبل حفظ الطلب', order_nav_not_found:'لم يتم العثور على فاتورة بهذا الرقم',
+          enter_order_discount:'أدخل قيمة الخصم على الطلب (مثال: 10 أو 5%)',
+          enter_line_discount:'أدخل خصم هذا البند (مثال: 10 أو 5%)',
+          discount_applied:'تم تطبيق الخصم',
+          discount_removed:'تمت إزالة الخصم',
+          discount_invalid:'قيمة خصم غير صالحة',
+          discount_limit:'الحد الأقصى للخصم هو %limit%%'
         }
       },
       en:{
@@ -580,7 +586,13 @@
           printer_added:'Printer added', printer_removed:'Printer removed', printer_exists:'Printer already exists',
           printer_name_required:'Please enter a printer name', browser_popup_blocked:'Allow pop-ups to finish the export',
           browser_print_opened:'Browser print dialog opened', shift_open_success:'Shift opened successfully', shift_close_success:'Shift closed successfully',
-          shift_pin_invalid:'Invalid PIN', shift_required:'Please open a shift before saving the order', order_nav_not_found:'No invoice matches that number'
+          shift_pin_invalid:'Invalid PIN', shift_required:'Please open a shift before saving the order', order_nav_not_found:'No invoice matches that number',
+          enter_order_discount:'Enter order discount (e.g. 10 or 5%)',
+          enter_line_discount:'Enter line discount (e.g. 10 or 5%)',
+          discount_applied:'Discount updated',
+          discount_removed:'Discount cleared',
+          discount_invalid:'Invalid discount value',
+          discount_limit:'Discount cannot exceed %limit%%'
         }
       }
     };
@@ -644,16 +656,63 @@
       return round(base + modifierDelta);
     }
 
+    function normalizeDiscount(discount){
+      if(!discount || typeof discount !== 'object') return null;
+      const type = discount.type === 'percent' ? 'percent' : (discount.type === 'amount' ? 'amount' : null);
+      const rawValue = Number(discount.value);
+      const value = Number.isFinite(rawValue) ? Math.max(0, rawValue) : 0;
+      if(!type || value <= 0) return null;
+      if(type === 'percent'){
+        return { type, value: Math.min(100, value) };
+      }
+      return { type, value };
+    }
+
+    function parseDiscountInput(raw, baseAmount, maxPercent){
+      if(raw == null) return { discount:null };
+      const text = String(raw).trim();
+      if(!text) return { discount:null };
+      const normalizedMax = Number.isFinite(maxPercent) && maxPercent > 0 ? maxPercent : null;
+      const sanitized = text.replace(',', '.');
+      if(sanitized.endsWith('%')){
+        const percentValue = parseFloat(sanitized.slice(0, -1));
+        if(!Number.isFinite(percentValue) || percentValue <= 0) return { error:'invalid' };
+        const percent = Math.min(100, Math.max(0, percentValue));
+        if(normalizedMax != null && percent > normalizedMax) return { error:'limit', limit: normalizedMax };
+        return { discount:{ type:'percent', value: percent } };
+      }
+      const amountValue = parseFloat(sanitized);
+      if(!Number.isFinite(amountValue) || amountValue <= 0) return { error:'invalid' };
+      if(normalizedMax != null && baseAmount > 0){
+        const percentEquivalent = (amountValue / baseAmount) * 100;
+        if(percentEquivalent > normalizedMax + 0.0001) return { error:'limit', limit: normalizedMax };
+      }
+      return { discount:{ type:'amount', value: amountValue } };
+    }
+
+    function computeLineDiscountAmount(line, grossTotal){
+      if(!line) return 0;
+      const discount = normalizeDiscount(line.discount);
+      if(!discount) return 0;
+      if(discount.type === 'percent'){
+        return round(grossTotal * (discount.value / 100));
+      }
+      return round(Math.min(discount.value, grossTotal));
+    }
+
     function applyLinePricing(line){
       if(!line) return line;
       const unitPrice = getLineUnitPrice(line);
       const qty = Number(line.qty) || 0;
       const base = Number(line.basePrice != null ? line.basePrice : line.price) || 0;
+      const grossTotal = round(unitPrice * qty);
+      const discountAmount = computeLineDiscountAmount(line, grossTotal);
+      const netTotal = Math.max(0, grossTotal - discountAmount);
       return {
         ...line,
         basePrice: round(base),
         price: unitPrice,
-        total: round(unitPrice * qty)
+        total: netTotal
       };
     }
 
@@ -662,29 +721,75 @@
       return applyLinePricing({ ...line, ...(updates || {}) });
     }
 
-    function calculateTotals(lines, cfg, type){
-      const subtotal = (lines || []).reduce((sum, line)=>{
+    function calculateTotals(lines, cfg, type, options={}){
+      let grossSubtotal = 0;
+      let netSubtotal = 0;
+      let lineDiscountTotal = 0;
+      (lines || []).forEach(line=>{
+        if(!line) return;
         const qty = Number(line.qty) || 0;
         const unit = getLineUnitPrice(line);
+        const gross = round(qty * unit);
         const fallbackTotal = Number(line.total);
-        if(Number.isFinite(fallbackTotal)) return sum + fallbackTotal;
-        return sum + qty * unit;
-      }, 0);
+        const net = Number.isFinite(fallbackTotal) ? fallbackTotal : gross;
+        grossSubtotal += gross;
+        netSubtotal += net;
+        lineDiscountTotal += Math.max(0, gross - net);
+      });
+      const normalizedOrderDiscount = normalizeDiscount(options.orderDiscount);
+      const orderDiscountBase = netSubtotal;
+      const orderDiscountAmount = normalizedOrderDiscount
+        ? normalizedOrderDiscount.type === 'percent'
+          ? round(orderDiscountBase * (normalizedOrderDiscount.value / 100))
+          : round(Math.min(normalizedOrderDiscount.value, orderDiscountBase))
+        : 0;
+      const subtotalAfterDiscount = Math.max(0, netSubtotal - orderDiscountAmount);
       const serviceRate = type === 'dine_in' ? (cfg.service_charge_rate || 0) : 0;
-      const service = subtotal * serviceRate;
-      const vatBase = subtotal + service;
+      const service = subtotalAfterDiscount * serviceRate;
+      const vatBase = subtotalAfterDiscount + service;
       const vat = vatBase * (cfg.tax_rate || 0);
       const deliveryFee = type === 'delivery' ? (cfg.default_delivery_fee || 0) : 0;
-      const discount = 0;
-      const due = subtotal + service + vat + deliveryFee - discount;
+      const discount = lineDiscountTotal + orderDiscountAmount;
+      const due = subtotalAfterDiscount + service + vat + deliveryFee;
       return {
-        subtotal: round(subtotal),
+        subtotal: round(netSubtotal),
         service: round(service),
         vat: round(vat),
         discount: round(discount),
         deliveryFee: round(deliveryFee),
         due: round(due)
       };
+    }
+
+    function getActivePaymentEntries(order, paymentsState){
+      const split = Array.isArray(paymentsState?.split) ? paymentsState.split.filter(entry=> entry && Number(entry.amount) > 0) : [];
+      if(split.length) return split;
+      return Array.isArray(order?.payments) ? order.payments.filter(entry=> entry && Number(entry.amount) > 0) : [];
+    }
+
+    function summarizePayments(totals, entries){
+      const due = round(Number(totals?.due || 0));
+      const paid = round((entries || []).reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
+      const remaining = Math.max(0, round(due - paid));
+      let state = 'unpaid';
+      if(paid > 0 && remaining > 0) state = 'partial';
+      if(paid >= due && due > 0) state = 'paid';
+      if(due === 0 && paid === 0) state = 'unpaid';
+      return { due, paid, remaining, state };
+    }
+
+    function notesToText(notes, separator=' • '){
+      if(!notes) return '';
+      const entries = Array.isArray(notes) ? notes : [notes];
+      return entries
+        .map(entry=>{
+          if(!entry) return '';
+          if(typeof entry === 'string') return entry.trim();
+          if(typeof entry === 'object' && entry.message) return String(entry.message).trim();
+          return '';
+        })
+        .filter(Boolean)
+        .join(separator);
     }
 
     function normalizeOrderTypeId(value){
@@ -891,6 +996,7 @@
         total: round(price * quantity),
         modifiers: overrides?.modifiers || [],
         notes: overrides?.notes || [],
+        discount: normalizeDiscount(overrides?.discount),
         status: overrides?.status || 'draft',
         stage: overrides?.stage || 'new',
         kitchenSection: overrides?.kitchenSection || item.kitchenSection || null,
@@ -999,9 +1105,12 @@
       const preset = sizePresets[size] || sizePresets.thermal_80;
       const dirAttr = db.env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
       const tablesLine = tablesNames.length ? `${escapeHTML(t.ui.tables)}: ${escapeHTML(tablesNames.join(', '))}` : '';
+      const guestLine = order.type === 'dine_in' && (order.guests || 0) > 0
+        ? `${escapeHTML(t.ui.guests)}: ${order.guests}`
+        : '';
       const orderMeta = [
         `${escapeHTML(t.ui.order_id)} ${escapeHTML(order.id || '—')}`,
-        `${escapeHTML(t.ui.guests)}: ${order.guests || 0}`,
+        guestLine,
         tablesLine,
         formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
       ].filter(Boolean).map(val=> `<p class="meta">${escapeHTML(val)}</p>`).join('');
@@ -1267,22 +1376,23 @@
       }
 
       function hydrateLine(record){
-        return {
-          id: record.id,
-          itemId: record.itemId,
-          name: record.name,
-          description: record.description,
-          qty: record.qty,
-          price: record.price,
-          total: record.total,
-          status: record.status,
-          stage: record.stage,
-          kitchenSection: record.kitchenSection,
-          locked: !!record.locked,
-          notes: Array.isArray(record.notes) ? record.notes : [],
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt
-        };
+      return {
+        id: record.id,
+        itemId: record.itemId,
+        name: record.name,
+        description: record.description,
+        qty: record.qty,
+        price: record.price,
+        total: record.total,
+        status: record.status,
+        stage: record.stage,
+        kitchenSection: record.kitchenSection,
+        locked: !!record.locked,
+        notes: Array.isArray(record.notes) ? record.notes : [],
+        discount: normalizeDiscount(record.discount),
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
+      };
       }
 
       async function hydrateOrder(header){
@@ -1302,6 +1412,7 @@
             authorName: note.authorName,
             createdAt: note.createdAt
           })),
+          discount: normalizeDiscount(header.discount),
           events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
         };
       }
@@ -1325,6 +1436,7 @@
           tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
           guests: order.guests || 0,
           totals: order.totals || {},
+          discount: normalizeDiscount(order.discount),
           createdAt: order.createdAt || now,
           updatedAt: order.updatedAt || now,
           savedAt: order.savedAt || now,
@@ -1342,7 +1454,8 @@
             notesCount: Array.isArray(order.notes) ? order.notes.length : 0,
             posId: normalizedPosId,
             posLabel: normalizedPosLabel,
-            posNumber: normalizedPosNumber
+            posNumber: normalizedPosNumber,
+            discount: normalizeDiscount(order.discount)
           }
         };
 
@@ -1368,6 +1481,7 @@
           kitchenSection: line.kitchenSection || null,
           locked: line.locked !== undefined ? !!line.locked : header.lockLineEdits,
           notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
+          discount: normalizeDiscount(line.discount),
           createdAt: line.createdAt || header.createdAt,
           updatedAt: line.updatedAt || header.updatedAt
         }));
@@ -1699,7 +1813,7 @@
           completedAt:null,
           expoAt:null,
           syncChecksum:`${order.id}-${stationId}`,
-          notes:Array.isArray(line.notes) ? line.notes.join('; ') : (line.notes || ''),
+          notes: notesToText(line.notes, '; '),
           meta:{ orderSource:'pos', kdsTab: stationId },
           createdAt: createdIso,
           updatedAt: updatedIso
@@ -1744,7 +1858,7 @@
           updatedAt: updatedIso,
           itemNameAr: localizeValue(nameSource, 'ar', fallbackNameAr),
           itemNameEn: localizeValue(nameSource, 'en', fallbackNameEn),
-          prepNotes: Array.isArray(line.notes) ? line.notes.join('; ') : (line.notes || '')
+          prepNotes: notesToText(line.notes, '; ')
         };
         jobDetails.push(detail);
         const modifiers = ensureList(line.modifiers).filter(Boolean);
@@ -2253,6 +2367,7 @@
       const stageId = raw.stage_id || raw.stageId || context.stageId || 'new';
       const statusId = raw.status_id || raw.statusId || 'draft';
       const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, context.actorId)).filter(Boolean) : [];
+      const discount = normalizeDiscount(raw.discount);
       const kitchenSection = raw.kitchen_section_id || raw.kitchenSectionId || menuItem?.kitchenSection || context.kitchenSection || null;
       return {
         id: raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`,
@@ -2267,6 +2382,7 @@
         kitchenSection,
         locked: raw.locked !== undefined ? !!raw.locked : (orderStageMap.get(stageId)?.lockLineEdits ?? true),
         notes,
+        discount,
         createdAt: toMillis(raw.created_at || raw.createdAt, context.createdAt),
         updatedAt: toMillis(raw.updated_at || raw.updatedAt, context.updatedAt)
       };
@@ -2288,7 +2404,8 @@
       const lockLineEdits = header.locked_line_edits !== undefined ? !!header.locked_line_edits : (orderStageMap.get(stageId)?.lockLineEdits ?? true);
       const lineContext = { orderId:id, stageId, createdAt, updatedAt };
       const lines = Array.isArray(raw.lines) ? raw.lines.map(line=> normalizeOrderLine(line, lineContext)).filter(Boolean) : [];
-      const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId);
+      const discount = normalizeDiscount(raw.discount || header.discount);
+      const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId, { orderDiscount: discount });
       const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, raw.author_id || header.author_id)).filter(Boolean) : [];
       const payments = Array.isArray(raw.payments)
         ? raw.payments.map(entry=>({
@@ -2304,7 +2421,9 @@
         at: toMillis(evt.at, createdAt),
         actorId: evt.actor_id || evt.actorId || 'system'
       })) : [];
-      const normalizedTotals = totals && typeof totals === 'object' ? totals : calculateTotals(lines, settings, typeId);
+      const normalizedTotals = totals && typeof totals === 'object'
+        ? totals
+        : calculateTotals(lines, settings, typeId, { orderDiscount: discount });
       return {
         id,
         status: statusId,
@@ -2316,6 +2435,7 @@
         totals: normalizedTotals,
         lines,
         notes,
+        discount,
         payments,
         events,
         createdAt,
@@ -2559,7 +2679,7 @@
       return allocateInvoiceId();
     }
 
-    const initialTotals = calculateTotals([], settings, 'dine_in');
+    const initialTotals = calculateTotals([], settings, 'dine_in', {});
     const initialOrderId = await generateOrderId();
     let activeShift = null;
     let shiftHistoryFromDb = SHIFT_HISTORY_SEED.slice();
@@ -2631,9 +2751,10 @@
           paymentState:'unpaid',
           type:'dine_in',
           tableIds:[],
-          guests:2,
+          guests:0,
           lines:[],
           notes:[],
+          discount:null,
           totals: initialTotals,
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -3082,7 +3203,7 @@
             ])
           ]),
           UI.ScrollArea({
-            attrs:{ class: tw`${token('scroll-panel/body')} h-full w-full px-3 pb-3` },
+            attrs:{ class: tw`${token('scroll-panel/body')} h-full w-full px-3 pb-3`, 'data-menu-scroll':'true' },
             children:[
               isLoadingRemote
                 ? MenuSkeletonGrid(8)
@@ -3112,7 +3233,16 @@
       const t = getTexts(db);
       const lang = db.env.lang;
       const modifiers = Array.isArray(line.modifiers) ? line.modifiers : [];
-      const notes = Array.isArray(line.notes) ? line.notes.filter(Boolean).join(' • ') : (line.notes || '');
+      const notes = notesToText(line.notes);
+      const discountInfo = normalizeDiscount(line.discount);
+      const discountLabel = discountInfo
+        ? (discountInfo.type === 'percent'
+            ? `${discountInfo.value}%`
+            : `− ${formatCurrencyValue(db, discountInfo.value)}`)
+        : '';
+      const discountRow = discountInfo
+        ? D.Text.Span({ attrs:{ class: tw`text-[10px] sm:text-xs ${token('muted')}` }}, [`${t.ui.discount_action}: ${discountLabel}`])
+        : null;
       const modifiersRow = modifiers.length
         ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]` }}, modifiers.map(mod=>{
             const delta = Number(mod.priceChange || mod.price_change || 0) || 0;
@@ -3130,7 +3260,8 @@
         content:[
           D.Text.Strong({}, [localize(line.name, lang)]),
           modifiersRow,
-          notesRow
+          notesRow,
+          discountRow
         ].filter(Boolean),
         trailing:[
           UI.QtyStepper({ value: line.qty, gkeyDec:'pos:order:line:dec', gkeyInc:'pos:order:line:inc', gkeyEdit:'pos:order:line:qty', dataId: line.id }),
@@ -3143,7 +3274,25 @@
             },
             variant:'ghost',
             size:'sm'
-          }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['➕/➖'])])
+          }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['➕/➖'])]),
+          UI.Button({
+            attrs:{
+              gkey:'pos:order:line:note',
+              'data-line-id':line.id,
+              title: t.ui.notes
+            },
+            variant:'ghost',
+            size:'sm'
+          }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['📝'])]),
+          UI.Button({
+            attrs:{
+              gkey:'pos:order:line:discount',
+              'data-line-id':line.id,
+              title: t.ui.discount_action
+            },
+            variant:'ghost',
+            size:'sm'
+          }, [D.Text.Span({ attrs:{ class: tw`text-lg` }}, ['٪'])])
         ]
       });
     }
@@ -3151,12 +3300,10 @@
     function TotalsSection(db){
       const t = getTexts(db);
       const totals = db.data.order.totals || {};
-      const paymentsState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
-      const orderPayments = Array.isArray(db.data.order?.payments) ? db.data.order.payments : [];
-      const paymentsEntries = paymentsState.length ? paymentsState : orderPayments;
-      const totalDue = round(Number(totals.due || 0));
-      const totalPaid = round(paymentsEntries.reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
-      const remaining = Math.max(0, round(totalDue - totalPaid));
+      const paymentsEntries = getActivePaymentEntries(db.data.order, db.data.payments);
+      const paymentSnapshot = summarizePayments(totals, paymentsEntries);
+      const totalPaid = paymentSnapshot.paid;
+      const remaining = paymentSnapshot.remaining;
       const rows = [
         { label:t.ui.subtotal, value: totals.subtotal },
         { label:t.ui.service, value: totals.service },
@@ -3228,6 +3375,16 @@
       });
     }
 
+    function computeGuestsForTables(tableIds, tables){
+      if(!Array.isArray(tableIds) || !tableIds.length) return 0;
+      const lookup = new Map((tables || []).map(table=> [String(table.id), table]));
+      return tableIds.reduce((sum, id)=>{
+        const table = lookup.get(String(id));
+        const capacity = Number(table?.capacity);
+        return Number.isFinite(capacity) ? sum + Math.max(0, capacity) : sum;
+      }, 0);
+    }
+
     function tableStateLabel(t, runtime){
       if(runtime.state === 'disactive') return t.ui.tables_state_disactive;
       if(runtime.state === 'maintenance') return t.ui.tables_state_maintenance;
@@ -3248,16 +3405,18 @@
 
     function PaymentSummary(db){
       const t = getTexts(db);
-      const splitState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
-      const fallbackPayments = Array.isArray(db.data.order?.payments) ? db.data.order.payments : [];
-      const split = splitState.length ? splitState : fallbackPayments;
+      const split = getActivePaymentEntries(db.data.order, db.data.payments);
       const methods = (db.data.payments?.methods && db.data.payments.methods.length)
         ? db.data.payments.methods
         : PAYMENT_METHODS;
-      const due = db.data.order.totals?.due || 0;
-      const totalPaid = split.reduce((sum, entry)=> sum + (Number(entry.amount)||0), 0);
-      const remaining = Math.max(0, round(due - totalPaid));
-      const change = Math.max(0, round(totalPaid - due));
+      const totals = db.data.order.totals || {};
+      const snapshot = summarizePayments(totals, split);
+      const totalPaid = snapshot.paid;
+      const remaining = snapshot.remaining;
+      const change = Math.max(0, round(snapshot.paid - snapshot.due));
+      const paymentStateId = db.data.order?.paymentState || 'unpaid';
+      const paymentState = db.data.orderPaymentStates?.find(state=> state.id === paymentStateId);
+      const paymentStateLabel = paymentState ? localize(paymentState.name, db.env.lang) : paymentStateId;
       const balanceSummary = remaining > 0 || change > 0
         ? D.Containers.Div({ attrs:{ class: tw`space-y-2 rounded-[var(--radius)] bg-[color-mix(in oklab,var(--surface-2) 92%, transparent)] px-3 py-2 text-sm` }}, [
             remaining > 0 ? UI.HStack({ attrs:{ class: tw`${token('split')} font-semibold text-[var(--accent-foreground)]` }}, [
@@ -3274,6 +3433,7 @@
         variant:'card/soft-1',
         title: t.ui.split_payments,
         content: D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, [
+          UI.Badge({ text: paymentStateLabel, variant:'badge/ghost' }),
           balanceSummary,
           ...split.map(entry=>{
             const method = methods.find(m=> m.id === entry.method);
@@ -3409,7 +3569,9 @@
                           UI.Button({ attrs:{ gkey:'pos:tables:open', class: tw`h-8 w-8 rounded-full border border-dashed border-[var(--border)]` }, variant:'ghost', size:'sm' }, ['＋'])
                         ])
                       : D.Text.Span({}, [localize(getOrderTypeConfig(order.type).label, db.env.lang)]),
-                    D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
+                    order.type === 'dine_in' && (order.guests || 0) > 0
+                      ? D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`])
+                      : null
                   ]),
                   D.Containers.Div({ attrs:{ class: tw`flex-1 min-h-0 w-full` }}, [
                     UI.ScrollArea({
@@ -3765,7 +3927,7 @@
             D.Text.Span({}, [priceLabel])
           ]);
         });
-        const notes = Array.isArray(line.notes) ? line.notes.filter(Boolean).join(' • ') : (line.notes || '');
+      const notes = notesToText(line.notes);
         const notesRow = notes
           ? D.Text.Span({ attrs:{ class: tw`block ps-6 text-[11px] text-neutral-400` }}, [`📝 ${notes}`])
           : null;
@@ -3810,7 +3972,7 @@
         D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
         D.Containers.Div({ attrs:{ class: previewDetailsClass }}, [
           D.Text.Span({}, [`${t.ui.order_id} ${order.id || '—'}`]),
-          D.Text.Span({}, [`${t.ui.guests}: ${order.guests || 0}`]),
+          (order.type === 'dine_in' && (order.guests || 0) > 0) ? D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`]) : null,
           tablesNames.length ? D.Text.Span({}, [`${t.ui.tables}: ${tablesNames.join(', ')}`]) : null,
           D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })])
         ].filter(Boolean)),
@@ -4131,7 +4293,9 @@
           case 'lines': return order.lines ? order.lines.length : 0;
           case 'notes': return order.notes ? order.notes.length : 0;
           case 'total': {
-            const totals = order.totals && typeof order.totals === 'object' ? order.totals : calculateTotals(order.lines || [], settings, order.type || 'dine_in');
+            const totals = order.totals && typeof order.totals === 'object'
+              ? order.totals
+              : calculateTotals(order.lines || [], settings, order.type || 'dine_in', { orderDiscount: order.discount });
             return Number(totals?.due || 0);
           }
           case 'updatedAt':
@@ -4191,7 +4355,9 @@
         const stageMeta = orderStageMap.get(order.fulfillmentStage) || null;
         const statusMeta = orderStatusMap.get(order.status) || null;
         const paymentMeta = orderPaymentMap.get(order.paymentState) || null;
-        const totals = order.totals && typeof order.totals === 'object' ? order.totals : calculateTotals(order.lines || [], settings, order.type || 'dine_in');
+        const totals = order.totals && typeof order.totals === 'object'
+          ? order.totals
+          : calculateTotals(order.lines || [], settings, order.type || 'dine_in', { orderDiscount: order.discount });
         const totalDue = Number(totals?.due || 0);
         const paidAmount = round((Array.isArray(order.payments) ? order.payments : []).reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
         const remainingAmount = Math.max(0, round(totalDue - paidAmount));
@@ -4204,7 +4370,7 @@
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.Badge({ text: localize(statusMeta?.name || { ar: order.status, en: order.status }, db.env.lang), variant:'badge/ghost' })]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [localize(paymentMeta?.name || { ar: order.paymentState || '', en: order.paymentState || '' }, db.env.lang)]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [tableNames || '—']),
-          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.guests || 0)]),
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [order.type === 'dine_in' && (order.guests || 0) > 0 ? String(order.guests) : '—']),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.lines ? order.lines.length : 0)]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm text-center` }}, [String(order.notes ? order.notes.length : 0)]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: totalDue, currency:getCurrency(db), locale:getLocale(db) })]),
@@ -4256,7 +4422,8 @@
         ...order,
         lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
         notes: Array.isArray(order.notes) ? order.notes.map(note=> ({ ...note })) : [],
-        payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
+        payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : [],
+        discount: normalizeDiscount(order.discount)
       };
       ctx.setState(s=>{
         const data = s.data || {};
@@ -4275,7 +4442,9 @@
         }
         const totals = safeOrder.totals && typeof safeOrder.totals === 'object'
           ? { ...safeOrder.totals }
-          : calculateTotals(safeOrder.lines || [], data.settings || {}, safeOrder.type || 'dine_in');
+          : calculateTotals(safeOrder.lines || [], data.settings || {}, safeOrder.type || 'dine_in', { orderDiscount: safeOrder.discount });
+        const paymentEntries = getActivePaymentEntries({ ...safeOrder, totals }, nextPayments);
+        const paymentSnapshot = summarizePayments(totals, paymentEntries);
         return {
           ...s,
           data:{
@@ -4284,6 +4453,7 @@
               ...(data.order || {}),
               ...safeOrder,
               totals,
+              paymentState: paymentSnapshot.state,
               allowAdditions: safeOrder.allowAdditions !== undefined ? safeOrder.allowAdditions : !!typeConfig.allowsLineAdditions,
               lockLineEdits: safeOrder.lockLineEdits !== undefined ? safeOrder.lockLineEdits : true,
               isPersisted: safeOrder.isPersisted !== undefined ? safeOrder.isPersisted : true
@@ -5258,7 +5428,9 @@
             } else {
               lines.push(createOrderLine(item, 1, { kitchenSection: item.kitchenSection }));
             }
-            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            const totals = calculateTotals(lines, data.settings || {}, order.type, { orderDiscount: order.discount });
+            const paymentEntries = getActivePaymentEntries({ ...order, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
             return {
               ...s,
               data:{
@@ -5267,6 +5439,7 @@
                   ...order,
                   lines,
                   totals,
+                  paymentState: paymentSnapshot.state,
                   updatedAt: Date.now(),
                   allowAdditions: allowAdditions
                 }
@@ -5316,6 +5489,11 @@
         on:['click'],
         gkeys:['pos:menu:load-more'],
         handler:(e,ctx)=>{
+          const scroller = document.querySelector('[data-menu-scroll="true"]');
+          if(scroller && typeof scroller.scrollBy === 'function'){
+            scroller.scrollBy({ top: scroller.clientHeight || 400, behavior:'smooth' });
+            return;
+          }
           const t = getTexts(ctx.getState());
           UI.pushToast(ctx, { title:t.toast.load_more_stub, icon:'ℹ️' });
         }
@@ -5342,12 +5520,14 @@
               if(l.id !== lineId) return l;
               return updateLineWithPricing(l, { qty: (l.qty || 0) + 1, updatedAt: Date.now() });
             });
-            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            const totals = calculateTotals(lines, data.settings || {}, order.type, { orderDiscount: order.discount });
+            const paymentEntries = getActivePaymentEntries({ ...order, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
             return {
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals, updatedAt: Date.now() }
+                order:{ ...order, lines, totals, paymentState: paymentSnapshot.state, updatedAt: Date.now() }
               }
             };
           });
@@ -5380,12 +5560,14 @@
               if(line.qty <= 1) continue;
               lines.push(updateLineWithPricing(line, { qty: line.qty - 1, updatedAt: Date.now() }));
             }
-            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            const totals = calculateTotals(lines, data.settings || {}, order.type, { orderDiscount: order.discount });
+            const paymentEntries = getActivePaymentEntries({ ...order, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
             return {
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals, updatedAt: Date.now() }
+                order:{ ...order, lines, totals, paymentState: paymentSnapshot.state, updatedAt: Date.now() }
               }
             };
           });
@@ -5415,12 +5597,14 @@
               if(line.id !== lineId) return line;
               return updateLineWithPricing(line, { qty, updatedAt: Date.now() });
             });
-            const totals = calculateTotals(lines, data.settings || {}, order.type);
+            const totals = calculateTotals(lines, data.settings || {}, order.type, { orderDiscount: order.discount });
+            const paymentEntries = getActivePaymentEntries({ ...order, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
             return {
               ...s,
               data:{
                 ...data,
-                order:{ ...order, lines, totals, updatedAt: Date.now() }
+                order:{ ...order, lines, totals, paymentState: paymentSnapshot.state, updatedAt: Date.now() }
               }
             };
           });
@@ -5456,6 +5640,137 @@
               lineModifiers:{ lineId, addOns:selectedAddOns, removals:selectedRemovals }
             }
           }));
+        }
+      },
+      'pos.order.line.note':{
+        on:['click'],
+        gkeys:['pos:order:line:note'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          const line = (order.lines || []).find(entry=> entry.id === lineId);
+          if(!line){
+            UI.pushToast(ctx, { title:t.toast.order_nav_not_found, icon:'❓' });
+            return;
+          }
+          if(line.locked || (order.isPersisted && order.lockLineEdits) || (line.status && line.status !== 'draft')){
+            UI.pushToast(ctx, { title:t.toast.line_locked, icon:'🔒' });
+            return;
+          }
+          const currentNote = notesToText(line.notes);
+          const input = window.prompt(t.toast.add_note, currentNote);
+          if(input == null) return;
+          const trimmed = input.trim();
+          const now = Date.now();
+          const user = state.data.user || {};
+          const noteEntry = trimmed
+            ? {
+              id: `note-${now.toString(36)}`,
+              message: trimmed,
+              authorId: user.id || user.role || 'pos',
+              authorName: user.name || '',
+              createdAt: now
+            }
+            : null;
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const nextOrder = data.order || {};
+            const lines = (nextOrder.lines || []).map(item=>{
+              if(item.id !== lineId) return item;
+              const baseNotes = Array.isArray(item.notes) ? item.notes.filter(Boolean) : [];
+              const nextNotes = noteEntry ? baseNotes.concat([noteEntry]) : [];
+              return updateLineWithPricing(item, { notes: nextNotes, updatedAt: now });
+            });
+            const totals = calculateTotals(lines, data.settings || {}, nextOrder.type, { orderDiscount: nextOrder.discount });
+            const paymentEntries = getActivePaymentEntries({ ...nextOrder, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{
+                  ...nextOrder,
+                  lines,
+                  totals,
+                  paymentState: paymentSnapshot.state,
+                  updatedAt: now
+                }
+              }
+            };
+          });
+          UI.pushToast(ctx, { title:t.toast.notes_updated, icon:'📝' });
+        }
+      },
+      'pos.order.line.discount':{
+        on:['click'],
+        gkeys:['pos:order:line:discount'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-line-id]');
+          if(!btn) return;
+          const lineId = btn.getAttribute('data-line-id');
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          const line = (order.lines || []).find(entry=> entry.id === lineId);
+          if(!line){
+            UI.pushToast(ctx, { title:t.toast.order_nav_not_found, icon:'❓' });
+            return;
+          }
+          if(line.locked || (order.isPersisted && order.lockLineEdits) || (line.status && line.status !== 'draft')){
+            UI.pushToast(ctx, { title:t.toast.line_locked, icon:'🔒' });
+            return;
+          }
+          const unitPrice = getLineUnitPrice(line);
+          const baseAmount = Math.max(0, round(unitPrice * (Number(line.qty) || 0)));
+          const allowedRate = Number(state.data.user?.allowedDiscountRate);
+          const currentDiscount = normalizeDiscount(line.discount);
+          const defaultValue = currentDiscount
+            ? currentDiscount.type === 'percent'
+              ? `${currentDiscount.value}%`
+              : String(currentDiscount.value)
+            : '';
+          const input = window.prompt(t.toast.enter_line_discount, defaultValue);
+          if(input == null) return;
+          const { discount, error, limit } = parseDiscountInput(input, baseAmount, allowedRate);
+          if(error === 'invalid'){
+            UI.pushToast(ctx, { title:t.toast.discount_invalid, icon:'⚠️' });
+            return;
+          }
+          if(error === 'limit'){
+            const message = t.toast.discount_limit.replace('%limit%', String(Math.round((limit + Number.EPSILON) * 100) / 100));
+            UI.pushToast(ctx, { title:message, icon:'⚠️' });
+            return;
+          }
+          const now = Date.now();
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const nextOrder = data.order || {};
+            const lines = (nextOrder.lines || []).map(item=>{
+              if(item.id !== lineId) return item;
+              return updateLineWithPricing(item, { discount: normalizeDiscount(discount), updatedAt: now });
+            });
+            const totals = calculateTotals(lines, data.settings || {}, nextOrder.type, { orderDiscount: nextOrder.discount });
+            const paymentEntries = getActivePaymentEntries({ ...nextOrder, lines, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{
+                  ...nextOrder,
+                  lines,
+                  totals,
+                  paymentState: paymentSnapshot.state,
+                  updatedAt: now
+                }
+              }
+            };
+          });
+          UI.pushToast(ctx, { title: discount ? t.toast.discount_applied : t.toast.discount_removed, icon: discount ? '✅' : '♻️' });
         }
       },
       'pos.order.line.modifiers.toggle':{
@@ -5529,12 +5844,14 @@
             if(item.id !== lineId) return item;
             return updateLineWithPricing(item, { modifiers: nextModifiers, updatedAt: Date.now() });
           });
-          const totals = calculateTotals(lines, state.data.settings || {}, order.type);
+          const totals = calculateTotals(lines, state.data.settings || {}, order.type, { orderDiscount: order.discount });
+          const paymentEntries = getActivePaymentEntries({ ...order, lines, totals }, state.data.payments);
+          const paymentSnapshot = summarizePayments(totals, paymentEntries);
           ctx.setState(s=>({
             ...s,
             data:{
               ...s.data,
-              order:{ ...order, lines, totals, updatedAt: Date.now() }
+              order:{ ...order, lines, totals, paymentState: paymentSnapshot.state, updatedAt: Date.now() }
             },
             ui:{
               ...(s.ui || {}),
@@ -5565,16 +5882,23 @@
         handler:(e,ctx)=>{
           const t = getTexts(ctx.getState());
           if(!window.confirm(t.toast.confirm_clear)) return;
-            ctx.setState(s=>{
-              const data = s.data || {};
-              const order = data.order || {};
-              const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
-              const totals = calculateTotals([], data.settings || {}, order.type);
-              return {
-                ...s,
-                data:{
-                  ...data,
-                order:{ ...order, lines:[], totals }
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const order = data.order || {};
+            const totals = calculateTotals([], data.settings || {}, order.type, { orderDiscount: null });
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{
+                  ...order,
+                  lines:[],
+                  totals,
+                  discount:null,
+                  paymentState:'unpaid',
+                  updatedAt: Date.now()
+                },
+                payments:{ ...(data.payments || {}), split:[] }
               }
             };
           });
@@ -5595,7 +5919,7 @@
             const order = data.order || {};
             const type = order.type || 'dine_in';
             const typeConfig = getOrderTypeConfig(type);
-            const totals = calculateTotals([], data.settings || {}, type);
+            const totals = calculateTotals([], data.settings || {}, type, { orderDiscount: null });
             return {
               ...s,
               data:{
@@ -5609,8 +5933,10 @@
                   type,
                   lines:[],
                   notes:[],
+                  discount:null,
                   totals,
                   tableIds:[],
+                  guests: type === 'dine_in' ? 0 : order.guests || 0,
                   createdAt: Date.now(),
                   updatedAt: Date.now(),
                   allowAdditions: !!typeConfig.allowsLineAdditions,
@@ -5640,8 +5966,53 @@
         on:['click'],
         gkeys:['pos:order:discount'],
         handler:(e,ctx)=>{
-          const t = getTexts(ctx.getState());
-          UI.pushToast(ctx, { title:t.toast.discount_stub, icon:'💡' });
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const order = state.data.order || {};
+          const lines = order.lines || [];
+          const baseTotals = calculateTotals(lines, state.data.settings || {}, order.type || 'dine_in', { orderDiscount: null });
+          const baseSubtotal = baseTotals.subtotal || 0;
+          const allowedRate = Number(state.data.user?.allowedDiscountRate);
+          const currentDiscount = normalizeDiscount(order.discount);
+          const defaultValue = currentDiscount
+            ? currentDiscount.type === 'percent'
+              ? `${currentDiscount.value}%`
+              : String(currentDiscount.value)
+            : '';
+          const input = window.prompt(t.toast.enter_order_discount, defaultValue);
+          if(input == null) return;
+          const { discount, error, limit } = parseDiscountInput(input, baseSubtotal, allowedRate);
+          if(error === 'invalid'){
+            UI.pushToast(ctx, { title:t.toast.discount_invalid, icon:'⚠️' });
+            return;
+          }
+          if(error === 'limit'){
+            const message = t.toast.discount_limit.replace('%limit%', String(Math.round((limit + Number.EPSILON) * 100) / 100));
+            UI.pushToast(ctx, { title:message, icon:'⚠️' });
+            return;
+          }
+          const now = Date.now();
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const nextOrder = data.order || {};
+            const totals = calculateTotals(nextOrder.lines || [], data.settings || {}, nextOrder.type || 'dine_in', { orderDiscount: discount });
+            const paymentEntries = getActivePaymentEntries({ ...nextOrder, discount, totals }, data.payments);
+            const paymentSnapshot = summarizePayments(totals, paymentEntries);
+            return {
+              ...s,
+              data:{
+                ...data,
+                order:{
+                  ...nextOrder,
+                  discount: normalizeDiscount(discount),
+                  totals,
+                  paymentState: paymentSnapshot.state,
+                  updatedAt: now
+                }
+              }
+            };
+          });
+          UI.pushToast(ctx, { title: discount ? t.toast.discount_applied : t.toast.discount_removed, icon: discount ? '✅' : '♻️' });
         }
       },
       'pos.order.table.remove':{
@@ -5690,19 +6061,14 @@
           ctx.setState(s=>{
             const data = s.data || {};
             const order = data.order || {};
-            const lines = (order.lines || []).map(line=> ({
-              ...line,
-              notes: Array.isArray(line.notes) ? line.notes.concat([noteEntry]) : line.notes ? [line.notes, noteEntry] : [noteEntry],
-              updatedAt: now
-            }));
+            const notes = Array.isArray(order.notes) ? order.notes.concat([noteEntry]) : [noteEntry];
             return {
               ...s,
               data:{
                 ...data,
                 order:{
                   ...order,
-                  notes: Array.isArray(order.notes) ? order.notes.concat([noteEntry]) : [noteEntry],
-                  lines,
+                  notes,
                   updatedAt: now
                 }
               }
@@ -5748,7 +6114,14 @@
             if(type === 'dine_in' && !nextOrder.tableId){
               nextOrder.table = null;
             }
-            nextOrder.totals = calculateTotals(lines, data.settings || {}, type);
+            nextOrder.discount = normalizeDiscount(order.discount);
+            nextOrder.totals = calculateTotals(lines, data.settings || {}, type, { orderDiscount: nextOrder.discount });
+            const paymentEntries = getActivePaymentEntries(nextOrder, data.payments);
+            const paymentSnapshot = summarizePayments(nextOrder.totals, paymentEntries);
+            nextOrder.paymentState = paymentSnapshot.state;
+            nextOrder.guests = type === 'dine_in'
+              ? (nextOrder.guests || computeGuestsForTables(nextOrder.tableIds || [], data.tables || []))
+              : 0;
             return {
               ...s,
               data:{
@@ -5789,13 +6162,25 @@
             locked:true,
             status: line.status || 'draft',
             notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
+            discount: normalizeDiscount(line.discount),
             updatedAt: now
           }));
-          const totals = calculateTotals(safeLines, state.data.settings || {}, order.type || 'dine_in');
+          const totals = calculateTotals(safeLines, state.data.settings || {}, order.type || 'dine_in', { orderDiscount: order.discount });
           const paymentSplit = Array.isArray(state.data.payments?.split) ? state.data.payments.split : [];
           const dueAmount = round(Number(totals?.due || 0));
-          const paidAmount = round(paymentSplit.reduce((sum, entry)=> sum + (Number(entry.amount) || 0), 0));
-          const outstanding = Math.max(0, round(dueAmount - paidAmount));
+          const normalizedPayments = paymentSplit.map(entry=>({
+            id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
+            method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
+            amount: round(Number(entry.amount) || 0)
+          })).filter(entry=> entry.amount > 0);
+          const effectivePayments = normalizedPayments.length ? normalizedPayments : [{
+            id:`pm-${now.toString(36)}`,
+            method: state.data.payments?.activeMethod || 'cash',
+            amount: round(Number(totals?.due || 0))
+          }];
+          const paymentSummary = summarizePayments(totals, effectivePayments);
+          const outstanding = paymentSummary.remaining;
+          const paidAmount = paymentSummary.paid;
           if(mode === 'save-print' && outstanding > 0){
             ctx.setState(s=>({
               ...s,
@@ -5808,16 +6193,6 @@
             UI.pushToast(ctx, { title:t.ui.payments, message:t.ui.balance_due, icon:'💳' });
             return;
           }
-          const normalizedPayments = paymentSplit.map(entry=>({
-            id: entry.id || `pm-${Math.random().toString(36).slice(2,8)}`,
-            method: entry.method || entry.id || state.data.payments?.activeMethod || 'cash',
-            amount: round(Number(entry.amount) || 0)
-          })).filter(entry=> entry.amount > 0);
-          const effectivePayments = normalizedPayments.length ? normalizedPayments : [{
-            id:`pm-${now.toString(36)}`,
-            method: state.data.payments?.activeMethod || 'cash',
-            amount: round(Number(totals?.due || 0))
-          }];
           const orderPayload = {
             ...order,
             lines: safeLines,
@@ -5826,11 +6201,13 @@
             savedAt: now,
             totals,
             payments: effectivePayments,
+            discount: normalizeDiscount(order.discount),
             shiftId: currentShift.id,
             posId: order.posId || POS_INFO.id,
             posLabel: order.posLabel || POS_INFO.label,
             posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
-            isPersisted:true
+            isPersisted:true,
+            paymentState: paymentSummary.state
           };
           try{
             await posDB.saveOrder(orderPayload);
@@ -7321,7 +7698,7 @@
           const t = getTexts(state);
           const reservation = (state.data.reservations || []).find(res=> res.id === resId);
           if(!reservation) return;
-          const totals = calculateTotals([], state.data.settings || {}, 'dine_in');
+          const totals = calculateTotals([], state.data.settings || {}, 'dine_in', { orderDiscount: null });
           const dineInConfig = getOrderTypeConfig('dine_in');
           const newId = await generateOrderId();
           const newOrder = {
@@ -7619,14 +7996,19 @@
           const isAssigned = currentTables.has(tableId);
           if(isAssigned){
             if(!window.confirm(t.ui.table_confirm_release)) return;
-            ctx.setState(s=>({
-              ...s,
-              data:{
-                ...s.data,
-                tableLocks:(s.data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock),
-                order:{ ...(s.data.order || {}), tableIds:(s.data.order?.tableIds || []).filter(id=> id !== tableId), updatedAt: Date.now() }
-              }
-            }));
+            ctx.setState(s=>{
+              const data = s.data || {};
+              const currentIds = (data.order?.tableIds || []).filter(id=> id !== tableId);
+              const guests = computeGuestsForTables(currentIds, data.tables || []);
+              return {
+                ...s,
+                data:{
+                  ...data,
+                  tableLocks:(data.tableLocks || []).map(lock=> lock.tableId === tableId && lock.orderId === order.id ? { ...lock, active:false } : lock),
+                  order:{ ...(data.order || {}), tableIds: currentIds, guests, updatedAt: Date.now() }
+                }
+              };
+            });
             UI.pushToast(ctx, { title:t.toast.table_unlocked, icon:'🔓' });
             return;
           }
@@ -7634,14 +8016,19 @@
             if(!window.confirm(t.toast.table_locked_other)) return;
           }
           if(currentTables.size && !window.confirm(t.ui.table_multi_orders)) return;
-          ctx.setState(s=>({
-            ...s,
-            data:{
-              ...s.data,
-              tableLocks:[...(s.data.tableLocks || []), { id:`lock-${Date.now().toString(36)}`, tableId, orderId: order.id, lockedBy: s.data.user?.id || 'pos-user', lockedAt: Date.now(), source:'pos', active:true }],
-              order:{ ...(s.data.order || {}), tableIds:Array.from(new Set([...(s.data.order?.tableIds || []), tableId])), updatedAt: Date.now() }
-            }
-          }));
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const nextIds = Array.from(new Set([...(data.order?.tableIds || []), tableId]));
+            const guests = computeGuestsForTables(nextIds, data.tables || []);
+            return {
+              ...s,
+              data:{
+                ...data,
+                tableLocks:[...(data.tableLocks || []), { id:`lock-${Date.now().toString(36)}`, tableId, orderId: order.id, lockedBy: data.user?.id || 'pos-user', lockedAt: Date.now(), source:'pos', active:true }],
+                order:{ ...(data.order || {}), tableIds: nextIds, guests, updatedAt: Date.now() }
+              }
+            };
+          });
           UI.pushToast(ctx, { title:t.toast.table_locked_now, icon:'🔒' });
         }
       },
@@ -7980,17 +8367,28 @@
             return;
           }
           const method = state.data.payments.activeMethod || 'cash';
-          ctx.setState(s=>({
-            ...s,
-            data:{
-              ...s.data,
-              payments:{
-                ...(s.data.payments || {}),
-                split:(s.data.payments?.split || []).concat([{ id:`pm-${Date.now()}`, method, amount: round(amount) }])
-              }
-            },
-            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false }, paymentDraft:{ amount:'' } }
-          }));
+          ctx.setState(s=>{
+            const data = s.data || {};
+            const nextSplit = (data.payments?.split || []).concat([{ id:`pm-${Date.now()}`, method, amount: round(amount) }]);
+            const order = data.order || {};
+            const totals = order.totals || {};
+            const paymentSnapshot = summarizePayments(totals, nextSplit);
+            return {
+              ...s,
+              data:{
+                ...data,
+                payments:{
+                  ...(data.payments || {}),
+                  split: nextSplit
+                },
+                order:{
+                  ...order,
+                  paymentState: paymentSnapshot.state
+                }
+              },
+              ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), payments:false }, paymentDraft:{ amount:'' } }
+            };
+          });
           UI.pushToast(ctx, { title:t.toast.payment_recorded, icon:'💰' });
         }
       },
