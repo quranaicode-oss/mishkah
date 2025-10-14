@@ -177,8 +177,49 @@ function parseJSONMessage(message, isBinary) {
   }
 }
 
+function normalizeToken(rawToken) {
+  if (!rawToken) {
+    return null;
+  }
+  const candidates = Array.isArray(rawToken) ? rawToken : [rawToken];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') {
+      continue;
+    }
+    const trimmed = candidate.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (/^bearer\s+/i.test(trimmed)) {
+      const withoutPrefix = trimmed.replace(/^bearer\s+/i, '').trim();
+      if (withoutPrefix) {
+        return withoutPrefix;
+      }
+      continue;
+    }
+    return trimmed;
+  }
+  return null;
+}
+
+function extractEnvelopeToken(envelope) {
+  if (!envelope || typeof envelope !== 'object') {
+    return null;
+  }
+  const fromData = normalizeToken(envelope?.data?.token);
+  if (fromData) {
+    return fromData;
+  }
+  const fromRoot = normalizeToken(envelope.token || envelope.authToken);
+  if (fromRoot) {
+    return fromRoot;
+  }
+  return null;
+}
+
 function verifyToken(token) {
-  if (!token) {
+  const normalized = normalizeToken(token);
+  if (!normalized) {
     return null;
   }
   if (!config.jwtSecret) {
@@ -186,7 +227,7 @@ function verifyToken(token) {
     return null;
   }
   try {
-    return jwt.verify(token, config.jwtSecret);
+    return jwt.verify(normalized, config.jwtSecret);
   } catch (err) {
     log.debug({ err }, 'Failed to verify JWT token');
     return null;
@@ -691,7 +732,18 @@ app.ws('/*', {
   idleTimeout: config.idleTimeoutSecs,
   maxBackpressure: config.maxBackpressureBytes,
   upgrade: (res, req, context) => {
-    const token = req.getQuery('token') || req.getHeader('sec-websocket-protocol') || null;
+    const queryToken = normalizeToken(req.getQuery('token'));
+    const protocolHeader = req.getHeader('sec-websocket-protocol');
+    const protocolToken = protocolHeader
+      ? normalizeToken(
+        protocolHeader
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean),
+      )
+      : null;
+    const headerAuth = normalizeToken(req.getHeader('authorization'));
+    const token = queryToken || protocolToken || headerAuth || null;
     res.upgrade(
       { token },
       req.getHeader('sec-websocket-key'),
@@ -821,7 +873,7 @@ async function handleMessage(ws, envelope) {
 }
 
 function handleAuth(ws, envelope) {
-  const token = envelope?.data?.token;
+  const token = extractEnvelopeToken(envelope);
   if (!token) {
     sendJSON(ws, { type: 'error', code: 'token_required', message: 'Authentication token is required.' });
     return;
