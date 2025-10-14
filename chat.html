@@ -55,6 +55,7 @@
           "newMessage": "",
           "conversationId": "demo:lobby",
           "topic": "chat:demo:lobby",
+          "messageKeyId": "chat:demo:plaintext",
           "connection": {
             "status": "idle",
             "lastError": null,
@@ -285,7 +286,8 @@
             topic: 'chat:demo:lobby',
             historyLimit: 50,
             maxErrors: 10,
-            tokenEndpoint: null
+            tokenEndpoint: null,
+            keyId: 'chat:demo:plaintext'
           };
 
           function ensureContext(ctx, event) {
@@ -405,8 +407,30 @@
               store.authenticated = false;
               throw new Error('أداة الشبكة غير متاحة للحصول على رمز الضيف.');
             }
+            var contextRef = ensureContext(context);
+            var preferredName = '';
+            if (contextRef && typeof contextRef.get === 'function') {
+              try { preferredName = contextRef.get('data.username') || ''; } catch (_err) { preferredName = ''; }
+            }
+            if (!preferredName) {
+              preferredName = generateGuestName();
+              if (contextRef && typeof contextRef.set === 'function') {
+                try { contextRef.set('data.username', preferredName); } catch (_syncErr) {}
+              }
+            }
+            var tokenBody = {
+              conversationId: CHAT_CONFIG.conversationId || 'demo:lobby'
+            };
+            if (preferredName) {
+              tokenBody.name = preferredName;
+            }
             store.authenticating = true;
-            store.authPromise = fetcher(endpoint, { method: 'POST', responseType: 'json', timeout: 8000 })
+            store.authPromise = fetcher(endpoint, {
+              method: 'POST',
+              responseType: 'json',
+              timeout: 8000,
+              body: tokenBody
+            })
               .then(function (response) {
                 if (!response || !response.token) {
                   throw new Error('استجابة الرمز غير صالحة.');
@@ -414,6 +438,23 @@
                 store.authToken = response.token;
                 store.authTokenMeta = response;
                 store.authenticated = true;
+                var normalizedUser = normalizeUserInfo(response.user);
+                if (normalizedUser) {
+                  mutateState(function (prev) {
+                    var base = prev || {};
+                    var data = base.data || {};
+                    var users = Array.isArray(data.users) ? data.users.slice() : [];
+                    if (normalizedUser.name && users.indexOf(normalizedUser.name) === -1) {
+                      users.push(normalizedUser.name);
+                    }
+                    return Object.assign({}, base, {
+                      data: Object.assign({}, data, {
+                        users: users,
+                        connection: Object.assign({}, data.connection || {}, { user: normalizedUser })
+                      })
+                    });
+                  });
+                }
                 return response.token;
               })
               .catch(function (fetchError) {
@@ -861,6 +902,9 @@
             } else if (CHAT_CONFIG.conversationId) {
               CHAT_CONFIG.topic = 'chat:' + CHAT_CONFIG.conversationId;
             }
+            if (typeof data.messageKeyId === 'string' && data.messageKeyId.trim()) {
+              CHAT_CONFIG.keyId = data.messageKeyId.trim();
+            }
             mutateState(function (prev) {
               var base = prev || {};
               var prevData = base.data || {};
@@ -1122,10 +1166,23 @@
               context.set('data.username', username);
             }
             var clientMessageId = 'msg-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2, 8);
+            var keyId = '';
+            if (context.get) {
+              try { keyId = context.get('data.messageKeyId') || ''; } catch (_keyErr) { keyId = ''; }
+            }
+            if (typeof keyId !== 'string' || !keyId.trim()) {
+              keyId = CHAT_CONFIG.keyId || 'chat:demo:plaintext';
+            } else {
+              keyId = keyId.trim();
+            }
+            if (context.set) {
+              try { context.set('data.messageKeyId', keyId); } catch (_persistErr) {}
+            }
             var payload = {
               user: username,
               text: value,
-              clientMessageId: clientMessageId
+              clientMessageId: clientMessageId,
+              keyId: keyId
             };
             debug('تم تحضير الحمولة الخاصة بإرسال الرسالة.', payload);
             return payload;
@@ -1161,6 +1218,7 @@
             try {
               var messageData = {
                 ciphertext: payload.text,
+                keyId: payload.keyId,
                 metadata: {
                   username: payload.user,
                   clientMessageId: payload.clientMessageId,
