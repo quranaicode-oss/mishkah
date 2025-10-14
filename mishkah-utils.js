@@ -2102,6 +2102,12 @@ function normalizeRuntimeRule(entry, fallbackStrategy, defaultCacheName){
   };
 }
 
+function ensureArrayCompat(value){
+  if (typeof ensureArray === 'function') return ensureArray(value);
+  if (U && U.Data && typeof U.Data.ensureArray === 'function') return U.Data.ensureArray(value);
+  return Array.isArray(value) ? value : value == null ? [] : [value];
+}
+
 function ensureMeta(name, content){
   if (typeof document === 'undefined' || !document.head) return;
   if (!name) return;
@@ -2180,7 +2186,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   sw.networkTimeout = typeof sw.networkTimeout === 'number' ? sw.networkTimeout : 8000;
 
   const manifestObj = isObj(config.manifest) ? cloneConfig(config.manifest) : null;
-  const icons = ensureArray(config.icons).map(normalizeIcon).filter(Boolean);
+  const icons = ensureArrayCompat(config.icons).map(normalizeIcon).filter(Boolean);
   const manifestIcons = icons
     .filter(icon => icon.rel === 'icon' || icon.rel === 'apple-touch-icon' || icon.rel === 'mask-icon')
     .map(icon => ({
@@ -2216,7 +2222,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   config.manifestObject = manifest;
   config.icons = icons;
 
-  const assets = ensureArray(config.assets);
+  const assets = ensureArrayCompat(config.assets);
   const derivedAssets = [];
   const manifestUrl = config.manifestUrl || './manifest.json';
   if (manifestUrl) derivedAssets.push(manifestUrl);
@@ -2228,7 +2234,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   if (config.offlineFallback && !/^https?:/i.test(config.offlineFallback)) derivedAssets.push(config.offlineFallback);
   config.precacheAssets = uniqueStrings(assets.concat(derivedAssets));
 
-  const runtimeRules = ensureArray(config.runtimeCaching)
+  const runtimeRules = ensureArrayCompat(config.runtimeCaching)
     .map(entry => normalizeRuntimeRule(entry, sw.strategy, cacheName))
     .filter(Boolean)
     .map(rule => Object.assign({}, rule, { pattern: toRegExpSource(rule.pattern) || '.*' }));
