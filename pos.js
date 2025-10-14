@@ -1569,6 +1569,351 @@
       };
     }
 
+    const ensureList = (U.Data && typeof U.Data.ensureArray === 'function')
+      ? U.Data.ensureArray
+      : (value)=> Array.isArray(value) ? value : value == null ? [] : [value];
+
+    const coalesce = (U.Data && typeof U.Data.coalesce === 'function')
+      ? U.Data.coalesce
+      : (...values)=>{
+        for(const value of values){
+          if(value !== undefined && value !== null && value !== ''){
+            return value;
+          }
+        }
+        return null;
+      };
+
+    function toIdentifier(...candidates){
+      for(const candidate of candidates){
+        if(candidate == null) continue;
+        const str = String(candidate).trim();
+        if(str) return str;
+      }
+      return '';
+    }
+
+    function toLocaleObject(ar, en){
+      if(!ar && !en) return null;
+      return {
+        ar: ar || en || '',
+        en: en || ar || ''
+      };
+    }
+
+    function pickLocalizedText(...candidates){
+      for(const candidate of candidates){
+        if(candidate == null) continue;
+        if(typeof candidate === 'string'){
+          const trimmed = candidate.trim();
+          if(trimmed) return trimmed;
+        } else if(typeof candidate === 'object'){
+          if(candidate.ar || candidate.en){
+            return {
+              ar: candidate.ar || candidate.en || '',
+              en: candidate.en || candidate.ar || ''
+            };
+          }
+          if(candidate.name || candidate.label){
+            const nested = pickLocalizedText(candidate.name, candidate.label);
+            if(nested) return nested;
+          }
+        }
+      }
+      return null;
+    }
+
+    function localizeValue(value, lang, fallback=''){
+      if(value == null) return fallback;
+      if(typeof value === 'string') return value;
+      if(typeof value === 'object'){
+        if(lang === 'ar') return value.ar || value.en || fallback;
+        return value.en || value.ar || fallback;
+      }
+      return fallback;
+    }
+
+    function normalizeIso(value){
+      if(!value && value !== 0) return new Date().toISOString();
+      try {
+        const date = typeof value === 'number' ? new Date(value) : new Date(value);
+        return Number.isFinite(date.getTime()) ? date.toISOString() : new Date().toISOString();
+      } catch(_err){
+        return new Date().toISOString();
+      }
+    }
+
+    function deriveTableLabel(order, state){
+      const tableIds = Array.isArray(order.tableIds) ? order.tableIds : [];
+      if(!tableIds.length) return null;
+      const tables = Array.isArray(state.data?.tables) ? state.data.tables : [];
+      const table = tables.find(tbl=> String(tbl.id) === String(tableIds[0]));
+      return table ? (table.name || table.label || table.id) : tableIds[0];
+    }
+
+    function serializeOrderForKDS(order, state){
+      if(!order || !order.id) return null;
+      const createdIso = normalizeIso(order.createdAt || order.savedAt || Date.now());
+      const updatedIso = normalizeIso(order.updatedAt || order.savedAt || Date.now());
+      const serviceMode = order.type || 'dine_in';
+      const tableLabel = deriveTableLabel(order, state);
+      const customerName = order.customerName || order.customer?.name || '';
+      const linesRaw = Array.isArray(order.lines) ? order.lines : [];
+      const lines = linesRaw.filter(Boolean);
+      if(!lines.length) return null;
+      const kitchenSections = Array.isArray(state.data?.kitchenSections) ? state.data.kitchenSections : [];
+      const sectionMap = new Map(kitchenSections.map(section=> [section.id, section]));
+      const jobsMap = new Map();
+      const jobDetails = [];
+      const jobModifiers = [];
+      const historyEntries = [];
+      lines.forEach((line, index)=>{
+        const lineIndex = index + 1;
+        const resolvedStation = toIdentifier(line.kitchenSection);
+        const stationId = resolvedStation || 'expo';
+        const jobId = `${order.id}-${stationId}`;
+        const section = sectionMap.get(stationId) || {};
+        const stationCode = section.code || (stationId ? String(stationId).toUpperCase() : 'KDS');
+        const existing = jobsMap.get(jobId) || {
+          id: jobId,
+          orderId: order.id,
+          orderNumber: order.orderNumber || order.invoiceId || order.id,
+          posRevision: `${order.id}@${order.updatedAt || Date.now()}`,
+          orderTypeId: serviceMode,
+          serviceMode,
+          stationId,
+          stationCode,
+          status:'queued',
+          progressState:'awaiting',
+          totalItems:0,
+          completedItems:0,
+          remainingItems:0,
+          hasAlerts:false,
+          isExpedite:false,
+          tableLabel: tableLabel || null,
+          customerName: customerName || null,
+          dueAt: order.dueAt ? normalizeIso(order.dueAt) : null,
+          acceptedAt:null,
+          startedAt:null,
+          readyAt:null,
+          completedAt:null,
+          expoAt:null,
+          syncChecksum:`${order.id}-${stationId}`,
+          notes:Array.isArray(line.notes) ? line.notes.join('; ') : (line.notes || ''),
+          meta:{ orderSource:'pos', kdsTab: stationId },
+          createdAt: createdIso,
+          updatedAt: updatedIso
+        };
+        const quantityValue = coalesce(line.qty, line.quantity, line.count, 1);
+        let quantity = Number(quantityValue);
+        if(!Number.isFinite(quantity) || quantity <= 0){
+          quantity = 1;
+        }
+        existing.totalItems += quantity;
+        existing.remainingItems += quantity;
+        jobsMap.set(jobId, existing);
+        const baseLineId = toIdentifier(line.id, line.uid, line.storageId, `${order.id}-line-${lineIndex}`) || `${order.id}-line-${lineIndex}`;
+        const detailId = `${jobId}-detail-${baseLineId}`;
+        const itemIdentifier = toIdentifier(line.itemId, line.productId, line.menuItemId, line.sku, baseLineId) || baseLineId;
+        const displayIdentifier = itemIdentifier && itemIdentifier !== baseLineId ? itemIdentifier : '';
+        const nameSource = pickLocalizedText(
+          line.name,
+          line.displayName,
+          line.label,
+          toLocaleObject(line.nameAr, line.nameEn),
+          toLocaleObject(line.itemNameAr, line.itemNameEn),
+          line.productName,
+          line.product?.name,
+          line.product?.title,
+          line.menuItem?.name,
+          line.menuItem?.title,
+          line.menuItem?.displayName
+        ) || (displayIdentifier ? displayIdentifier : null);
+        const fallbackNameAr = displayIdentifier || `عنصر ${lineIndex}`;
+        const fallbackNameEn = displayIdentifier || `Item ${lineIndex}`;
+        const detail = {
+          id: detailId,
+          jobOrderId: jobId,
+          itemId: itemIdentifier,
+          itemCode: itemIdentifier,
+          quantity,
+          status:'queued',
+          startAt:null,
+          finishAt:null,
+          createdAt: createdIso,
+          updatedAt: updatedIso,
+          itemNameAr: localizeValue(nameSource, 'ar', fallbackNameAr),
+          itemNameEn: localizeValue(nameSource, 'en', fallbackNameEn),
+          prepNotes: Array.isArray(line.notes) ? line.notes.join('; ') : (line.notes || '')
+        };
+        jobDetails.push(detail);
+        const modifiers = ensureList(line.modifiers).filter(Boolean);
+        modifiers.forEach((mod, idx)=>{
+          const modIndex = idx + 1;
+          const baseModId = toIdentifier(mod.id, mod.uid, `${detailId}-mod-${modIndex}`);
+          const modId = baseModId || `${detailId}-mod-${modIndex}`;
+          const modDisplayId = baseModId && baseModId !== `${detailId}-mod-${modIndex}` ? baseModId : '';
+          const modNameSource = pickLocalizedText(
+            mod.name,
+            mod.label,
+            toLocaleObject(mod.nameAr, mod.nameEn),
+            toLocaleObject(mod.labelAr, mod.labelEn),
+            mod.productName,
+            mod.product?.name,
+            mod.item?.name
+          ) || (modDisplayId ? modDisplayId : null);
+          const modFallbackAr = `إضافة ${modIndex}`;
+          const modFallbackEn = `Modifier ${modIndex}`;
+          const priceCandidate = coalesce(mod.priceChange, mod.amount, mod.price, 0);
+          let priceChange = Number(priceCandidate);
+          if(!Number.isFinite(priceChange)) priceChange = 0;
+          const modifierType = mod.modifierType || mod.type || (priceChange < 0 ? 'remove' : 'add');
+          jobModifiers.push({
+            id: modId,
+            jobOrderId: jobId,
+            detailId,
+            nameAr: localizeValue(modNameSource, 'ar', modFallbackAr),
+            nameEn: localizeValue(modNameSource, 'en', modFallbackEn),
+            modifierType,
+            priceChange
+          });
+        });
+        historyEntries.push({
+          id:`HIS-${jobId}-${baseLineId}`,
+          jobOrderId: jobId,
+          status:'queued',
+          actorId:'pos',
+          actorName:'POS',
+          actorRole:'pos',
+          changedAt: createdIso,
+          meta:{ source:'pos', lineId: line.id || baseLineId }
+        });
+      });
+      const headers = Array.from(jobsMap.values());
+      if(!headers.length) return null;
+      const jobOrders = {
+        headers,
+        details: jobDetails,
+        modifiers: jobModifiers,
+        statusHistory: historyEntries
+      };
+      const orderSummary = {
+        orderId: order.id,
+        orderNumber: order.orderNumber || order.invoiceId || order.id,
+        serviceMode,
+        tableLabel: tableLabel || null,
+        customerName: customerName || null,
+        createdAt: createdIso
+      };
+      return { order: orderSummary, jobOrders };
+    }
+
+    function createKDSSync(options={}){
+      const WebSocketX = U.WebSocketX || U.WebSocket;
+      const endpoint = options.endpoint;
+      if(!WebSocketX){
+        console.warn('[Mishkah][POS][KDS] WebSocket adapter is unavailable; disabling sync.');
+      }
+      if(!endpoint){
+        console.warn('[Mishkah][POS][KDS] No KDS endpoint configured; sync bridge is inactive.');
+      }
+      if(!WebSocketX || !endpoint){
+        return {
+          connect:()=>{},
+          publishOrder:()=>{},
+          publishJobUpdate:()=>{},
+          publishDeliveryUpdate:()=>{}
+        };
+      }
+      const topicOrders = options.topicOrders || 'pos:kds:orders';
+      const topicJobs = options.topicJobs || 'kds:jobs:updates';
+      const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
+      const token = options.token;
+      let socket = null;
+      let ready = false;
+      let awaitingAuth = false;
+      const queue = [];
+      const sendEnvelope = (payload)=>{
+        if(!socket) return;
+        if(ready && !awaitingAuth){
+          socket.send(payload);
+        } else {
+          queue.push(payload);
+        }
+      };
+      const flushQueue = ()=>{
+        if(!ready || awaitingAuth) return;
+        while(queue.length){ socket.send(queue.shift()); }
+      };
+      socket = new WebSocketX(endpoint, {
+        autoReconnect:true,
+        ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
+      });
+      socket.on('open', ()=>{
+        ready = true;
+        console.info('[Mishkah][POS][KDS] Sync connection opened.', { endpoint });
+        if(token){
+          awaitingAuth = true;
+          socket.send({ type:'auth', data:{ token } });
+        } else {
+          socket.send({ type:'subscribe', topic: topicOrders });
+          socket.send({ type:'subscribe', topic: topicJobs });
+          socket.send({ type:'subscribe', topic: topicDelivery });
+          flushQueue();
+        }
+      });
+      socket.on('close', (event)=>{
+        ready = false;
+        awaitingAuth = false;
+        console.warn('[Mishkah][POS][KDS] Sync connection closed.', { code: event?.code, reason: event?.reason });
+      });
+      socket.on('error', (error)=>{
+        ready = false;
+        console.error('[Mishkah][POS][KDS] Sync connection error.', error);
+      });
+      socket.on('message', (msg)=>{
+        if(!msg || typeof msg !== 'object') return;
+        if(msg.type === 'ack'){
+          if(msg.event === 'auth'){
+            awaitingAuth = false;
+            socket.send({ type:'subscribe', topic: topicOrders });
+            socket.send({ type:'subscribe', topic: topicJobs });
+            socket.send({ type:'subscribe', topic: topicDelivery });
+            flushQueue();
+          } else if(msg.event === 'subscribe'){
+            flushQueue();
+          }
+          return;
+        }
+      });
+      const connect = ()=>{ try { socket.connect({ waitOpen:false }); } catch(_err){} };
+      return {
+        connect,
+        publishOrder(orderPayload, state){
+          const payload = serializeOrderForKDS(orderPayload, state);
+          if(!payload){
+            console.warn('[Mishkah][POS][KDS] Skipped publishing order payload — serialization failed.', { orderId: orderPayload?.id });
+            return;
+          }
+          sendEnvelope({ type:'publish', topic: topicOrders, data: payload });
+        },
+        publishJobUpdate(update){
+          if(!update || !update.jobId){
+            console.warn('[Mishkah][POS][KDS] Ignored job update with missing jobId.', update);
+            return;
+          }
+          sendEnvelope({ type:'publish', topic: topicJobs, data: update });
+        },
+        publishDeliveryUpdate(update){
+          if(!update || !update.orderId){
+            console.warn('[Mishkah][POS][KDS] Ignored delivery update with missing orderId.', update);
+            return;
+          }
+          sendEnvelope({ type:'publish', topic: topicDelivery, data: update });
+        }
+      };
+    }
+
     const posDB = createIndexedDBAdapter('mishkah-pos', 3);
     const preferencesStore = U.Storage && U.Storage.local ? U.Storage.local('mishkah-pos') : null;
     const savedModalSizes = preferencesStore ? (preferencesStore.get('modalSizes', {}) || {}) : {};
@@ -1626,7 +1971,23 @@
     }
 
     applyThemePreferenceStyles(savedThemePrefs);
-    const kdsBridge = createKDSBridge('wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q');
+    const DEFAULT_KDS_ENDPOINT = 'wss://ws.mas.com.eg/ws';
+    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
+    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
+    if(!mockEndpoint){
+      console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
+    } else {
+      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
+    }
+    const kdsToken = MOCK_BASE?.kds?.token || null;
+    if(!kdsToken){
+      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
+    }
+    const kdsBridge = createKDSBridge(kdsEndpoint);
+    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken });
+    if(kdsSync && typeof kdsSync.connect === 'function'){
+      kdsSync.connect();
+    }
 
     let kitchenSections;
     let categorySections;
@@ -2247,7 +2608,7 @@
         },
         status:{
           indexeddb:{ state: posDB.available ? 'idle' : 'offline', lastSync: null },
-          kds:{ state:'idle', endpoint:'wss://signal.mas.com.eg/signaldata?id=96nnVOIawRs7Wo_XpAFM0Q' }
+          kds:{ state:'idle', endpoint: DEFAULT_KDS_ENDPOINT }
         },
         schema:{
           name: POS_SCHEMA_SOURCE?.name || 'mishkah_pos',
@@ -5473,6 +5834,9 @@
           };
           try{
             await posDB.saveOrder(orderPayload);
+            if(kdsSync && typeof kdsSync.publishOrder === 'function'){
+              kdsSync.publishOrder(orderPayload, state);
+            }
             await posDB.markSync();
             const latestOrders = await posDB.listOrders({ onlyActive:true });
             const typeConfig = getOrderTypeConfig(order.type || 'dine_in');

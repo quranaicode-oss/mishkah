@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة CSS — هوية الإطار</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Reem+Kufi:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./mishkah-css.css" />
+    <style>
+      :root {
+        background: var(--mk-bg);
+      }
+
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="mishkah-css-lab">
+      <section data-m-scope="mk.css">
+        <script type="application/json" data-m-env>
+          {
+            "theme": "dark",
+            "lang": "ar",
+            "dir": "rtl"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="i18n.strings">
+          {
+            "hero.title": { "ar": "مشكاة CSS — الهوية العربية الحديثة", "en": "Mishkah CSS — Modern Arabic Identity" },
+            "hero.tagline": {
+              "ar": "إطار أنيق يمزج الرموز الدلالية مع المكوّنات القابلة للتخصيص لإنجاز مواقع كاملة ببضعة أسطر.",
+              "en": "An elegant layer of tokens and components that ship complete experiences in a handful of declarations."
+            },
+            "section.identity": { "ar": "قصة الهوية", "en": "Identity Story" },
+            "section.tokens": { "ar": "خرائط الألوان والرموز", "en": "Token Atlas" },
+            "section.components": { "ar": "معرض المكوّنات", "en": "Component Gallery" },
+            "section.utilities": { "ar": "مختبر الأدوات", "en": "Utility Lab" },
+            "section.experiments": { "ar": "مختبر مشكاة", "en": "Mishkah Playground" },
+            "controls.theme": { "ar": "الثيم", "en": "Theme" },
+            "controls.language": { "ar": "اللغة", "en": "Language" },
+            "controls.direction": { "ar": "الاتجاه", "en": "Direction" },
+            "controls.openModal": { "ar": "إظهار النافذة", "en": "Show modal" },
+            "controls.openDrawer": { "ar": "فتح الشريط", "en": "Toggle drawer" },
+            "controls.toast": { "ar": "أظهر تنبيهًا", "en": "Show toast" },
+            "modal.title": { "ar": "نافذة مشكاة", "en": "Mishkah Modal" },
+            "modal.copy": {
+              "ar": "تجربة الهوية تتجسد في أنماط مشتقة من المتغيرات فقط، ما يمنحك ثيمات غير محدودة.",
+              "en": "Identity lives in variables, allowing unlimited theming with zero overrides."
+            },
+            "drawer.title": { "ar": "مسارات البناء السريع", "en": "Rapid Build Tracks" },
+            "drawer.copy": {
+              "ar": "حرّك المكوّنات، فعّل الأدوات، وانطلق إلى صفحة متكاملة في دقائق.",
+              "en": "Compose, activate utilities, and ship full pages in minutes."
+            },
+            "toast.message": { "ar": "تم تفعيل طاقة مشكاة!", "en": "Mishkah energy engaged!" }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data">
+          {
+            "hero": {
+              "badge": "هوية مشكاة",
+              "cta": {
+                "ar": "ابدأ مشروعك",
+                "en": "Start your build"
+              }
+            },
+            "principles": [
+              {
+                "icon": "🌅",
+                "title": { "ar": "إشراقة عربية صافية", "en": "Radiant Arabic spirit" },
+                "description": {
+                  "ar": "ألوان مستوحاة من الفجر والبحر، تعمل بسلاسة في الوضعين الليلي والنهاري.",
+                  "en": "Colorways inspired by dawn and sea, fluent in both dark and light modes."
+                }
+              },
+              {
+                "icon": "🧬",
+                "title": { "ar": "رموز دلالية قابلة للتبديل", "en": "Swappable semantic tokens" },
+                "description": {
+                  "ar": "كل خاصية مرئية تُشتق من متغير واضح — لا قيم صلبة بعد اليوم.",
+                  "en": "Every visual trait flows from a clear variable—hardcoded numbers are gone." }
+              },
+              {
+                "icon": "🧪",
+                "title": { "ar": "تجارب سريعة بلا عناء", "en": "Rapid experimentation" },
+                "description": {
+                  "ar": "مكوّنات جاهزة و Utilities مختارة تمنحك صفحة كاملة خلال ورشة واحدة.",
+                  "en": "Ready components and curated utilities let you ship a full page in a single workshop." }
+              }
+            ],
+            "tokens": [
+              {
+                "name": "--mk-primary",
+                "meaning": {
+                  "ar": "زمرد البحر يمنحك نبرة قيادية دافئة.",
+                  "en": "Sea emerald delivers a welcoming leadership accent."
+                },
+                "usage": "primary"
+              },
+              {
+                "name": "--mk-secondary",
+                "meaning": {
+                  "ar": "ذهبيات الرمل تدعم الأزرار الثانوية والشرائح التوضيحية.",
+                  "en": "Desert gold powers secondary buttons and highlight strips."
+                },
+                "usage": "secondary"
+              },
+              {
+                "name": "--mk-surface-1",
+                "meaning": {
+                  "ar": "سطح زجاجي هادئ للبطاقات والمخططات.",
+                  "en": "Calm glass surface for cards and story panels."
+                },
+                "usage": "surface"
+              }
+            ],
+            "labs": {
+              "activeTheme": "dark",
+              "activeUtility": "layout",
+              "modalOpen": false,
+              "drawerOpen": false,
+              "toastVisible": false,
+              "themes": [
+                { "id": "dark", "label": { "ar": "ليلي", "en": "Night" } },
+                { "id": "light", "label": { "ar": "نهاري", "en": "Light" } },
+                { "id": "dawn", "label": { "ar": "فجر", "en": "Dawn" } },
+                { "id": "oasis", "label": { "ar": "واحة", "en": "Oasis" } }
+              ],
+              "languages": [
+                { "id": "ar", "label": { "ar": "العربية", "en": "Arabic" } },
+                { "id": "en", "label": { "ar": "الإنجليزية", "en": "English" } }
+              ],
+              "directions": [
+                { "id": "rtl", "label": { "ar": "اتجاه عربي", "en": "RTL" } },
+                { "id": "ltr", "label": { "ar": "اتجاه لاتيني", "en": "LTR" } }
+              ],
+              "utilities": [
+                {
+                  "id": "layout",
+                  "title": { "ar": "تنظيم سريع للمخططات", "en": "Instant layout wiring" },
+                  "description": {
+                    "ar": "استخدم u-grid و u-flex لتنسيق الشرائح دون كتابة CSS إضافية.",
+                    "en": "Use u-grid and u-flex to orchestrate sections with zero custom CSS."
+                  },
+                  "classes": ["u-grid", "u-grid-3", "u-gap-4"]
+                },
+                {
+                  "id": "type",
+                  "title": { "ar": "طباعة متّسقة", "en": "Consistent typography" },
+                  "description": {
+                    "ar": "طبّق u-text-fg و u-text-muted لضبط التدرج الطباعي عبر الصفحة.",
+                    "en": "Apply u-text-fg and u-text-muted to maintain typographic rhythm." },
+                  "classes": ["u-text-fg", "u-text-muted", "u-text-xl"]
+                },
+                {
+                  "id": "elevation",
+                  "title": { "ar": "الارتفاع والظل", "en": "Elevation & shadow" },
+                  "description": {
+                    "ar": "u-shadow و u-glass يحولان أي حاوية إلى سطح زجاجي أنيق.",
+                    "en": "u-shadow and u-glass turn any container into a refined glass surface." },
+                  "classes": ["u-shadow", "u-glass", "u-rounded-2xl"]
+                }
+              ]
+            },
+            "components": {
+              "table": [
+                {
+                  "name": { "ar": "زر مشكاة", "en": "Mishkah Button" },
+                  "purpose": { "ar": "يدير الحالات والحركات بسلاسة.", "en": "Handles states and motion effortlessly." },
+                  "status": "Ready"
+                },
+                {
+                  "name": { "ar": "بطاقة سرد", "en": "Story Card" },
+                  "purpose": { "ar": "سطح مرن للقصص أو قوائم المنتجات.", "en": "Flexible surface for stories or product lists." },
+                  "status": "Ready"
+                },
+                {
+                  "name": { "ar": "توزيع الأدوات", "en": "Utility Lab" },
+                  "purpose": { "ar": "تجارب مباشرة للتصميم.", "en": "Hands-on design experiments." },
+                  "status": "Preview"
+                }
+              ]
+            }
+          }
+        </script>
+
+        <style data-m-scope>
+          .identity-hero {
+            display: grid;
+            gap: var(--mk-space-4);
+          }
+
+          .identity-grid {
+            display: grid;
+            gap: var(--mk-space-4);
+          }
+
+          @media (min-width: 992px) {
+            .identity-grid {
+              grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+            }
+          }
+
+          .token-board {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          @media (min-width: 640px) {
+            .token-board {
+              grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            }
+          }
+
+          .token-chip {
+            display: grid;
+            gap: var(--mk-space-2);
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            border: var(--mk-border-width) solid color-mix(in oklab, var(--mk-border) 45%, transparent);
+            background: color-mix(in oklab, var(--mk-surface-0) 70%, transparent);
+          }
+
+          .component-grid {
+            display: grid;
+            gap: var(--mk-space-4);
+          }
+
+          @media (min-width: 840px) {
+            .component-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          .utility-cards {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          @media (min-width: 768px) {
+            .utility-cards {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+          }
+
+          .utility-card {
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            border: var(--mk-border-width) solid color-mix(in oklab, var(--mk-border) 40%, transparent);
+            background: color-mix(in oklab, var(--mk-surface-0) 75%, transparent);
+            display: grid;
+            gap: var(--mk-space-2);
+            transition: border-color var(--mk-speed-1) var(--mk-ease), transform var(--mk-speed-1) var(--mk-ease);
+          }
+
+          .utility-card.active {
+            border-color: color-mix(in oklab, var(--mk-primary) 40%, transparent);
+            transform: translateY(-6px);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          .lab-controls {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          @media (min-width: 768px) {
+            .lab-controls {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          .lab-playground {
+            display: grid;
+            gap: var(--mk-space-4);
+          }
+
+          .demo-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-2);
+          }
+
+          .component-surface {
+            display: grid;
+            gap: var(--mk-space-3);
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-2xl);
+            background: color-mix(in oklab, var(--mk-surface-0) 75%, transparent);
+            border: var(--mk-border-width) solid color-mix(in oklab, var(--mk-border) 45%, transparent);
+          }
+
+          .sample-form {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          .labs-toast {
+            justify-self: start;
+          }
+
+          .labs-toast[data-state="visible"] {
+            position: relative;
+            transform: translateY(0);
+          }
+        </style>
+
+        <div class="mk-app-shell">
+          <div class="mk-app-shell__container">
+            <header class="mk-navbar">
+              <div class="mk-navbar__brand">
+                <span class="mk-badge" data-tone="soft">{state.data.hero.badge}</span>
+                <h1 class="mk-navbar__title">{trans('hero.title')}</h1>
+                <p class="mk-navbar__tagline u-balance">{trans('hero.tagline')}</p>
+              </div>
+              <div class="mk-navbar__actions u-flex u-flex-wrap">
+                <div class="u-inline-center u-gap-2">
+                  <span class="mk-chip" data-state="active">{trans('controls.theme')}</span>
+                  <button
+                    x-for="theme in state.data.labs.themes"
+                    key="theme.id"
+                    class="mk-btn {state.env.theme === theme.id ? 'u-ring-primary' : ''}"
+                    data-size="sm"
+                    data-variant="ghost"
+                    onclick="setTheme(theme.id, ctx)"
+                  >
+                    {theme.label[state.env.lang] || theme.label.ar}
+                  </button>
+                </div>
+                <div class="u-inline-center u-gap-2">
+                  <span class="mk-chip">{trans('controls.language')}</span>
+                  <button
+                    x-for="langOption in state.data.labs.languages"
+                    key="langOption.id"
+                    class="mk-btn {state.env.lang === langOption.id ? 'u-ring-primary' : ''}"
+                    data-size="sm"
+                    data-variant="ghost"
+                    onclick="setLanguage(langOption.id, ctx)"
+                  >
+                    {langOption.label[state.env.lang] || langOption.label.ar}
+                  </button>
+                </div>
+                <div class="u-inline-center u-gap-2">
+                  <span class="mk-chip">{trans('controls.direction')}</span>
+                  <button
+                    x-for="dirOption in state.data.labs.directions"
+                    key="dirOption.id"
+                    class="mk-btn {state.env.dir === dirOption.id ? 'u-ring-primary' : ''}"
+                    data-size="sm"
+                    data-variant="ghost"
+                    onclick="setDirection(dirOption.id, ctx)"
+                  >
+                    {dirOption.label[state.env.lang] || dirOption.label.ar}
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <section class="identity-hero">
+              <div class="mk-card" data-tone="elevated">
+                <div class="identity-grid">
+                  <div class="u-section">
+                    <h2 class="u-section-title">{trans('section.identity')}</h2>
+                    <div class="mk-prose">
+                      <p>{state.env.lang === 'ar' ? 'إطار مشكاة صُمم ليبني صفحة متكاملة ببضعة أكواد، من خلال دمج tokens دلالية مع مكوّنات ذكية وواجهات RTL جاهزة.' : 'Mishkah is built to deliver full experiences with just a few snippets—semantic tokens, intelligent components, and instant RTL readiness.'}</p>
+                      <p>{state.env.lang === 'ar' ? 'كل شيء يبدأ بالمتغيرات. بتغيير قيمة واحدة، تتبدل الهوية كاملة دون إعادة كتابة الأنماط.' : 'It all starts with variables. Flip a single value and the entire identity follows without rewriting styles.'}</p>
+                    </div>
+                  </div>
+                  <div class="mk-card" data-tone="soft">
+                    <h3 class="mk-card__title">{state.env.lang === 'ar' ? 'لماذا HTMLx؟' : 'Why HTMLx?'}</h3>
+                    <p class="mk-card__subtitle">{state.env.lang === 'ar' ? 'HTMLx تجعل البيانات، الأنماط، والمنطق متجاورين داخل النطاق نفسه.' : 'HTMLx keeps data, styles, and logic together in the same scope.'}</p>
+                    <div class="mk-prose">
+                      <ul>
+                        <li>{state.env.lang === 'ar' ? 'أوامر commit و ctx تمنحك حالة يمكن تتبعها.' : 'Commit + ctx commands give you traceable state.'}</li>
+                        <li>{state.env.lang === 'ar' ? 'المكوّنات المعرّفة في Mishkah UI جاهزة للاستدعاء عبر <comp>.' : 'Components declared in Mishkah UI are ready to summon via <comp>.'}</li>
+                        <li>{state.env.lang === 'ar' ? 'الدعم المدمج لـ RTL و LTR يوفر وقت التدويل.' : 'Built-in RTL/LTR support saves localization cycles.'}</li>
+                      </ul>
+                    </div>
+                    <div class="u-inline-center u-gap-2">
+                      <button class="mk-btn" data-variant="primary">{state.data.hero.cta[state.env.lang] || state.data.hero.cta.ar}</button>
+                      <button class="mk-btn" data-tone="soft" data-variant="ghost">Design Tokens</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="u-grid u-gap-4">
+                <div class="mk-card" data-tone="soft">
+                  <h3 class="mk-card__title">{state.env.lang === 'ar' ? 'ركائز الهوية' : 'Identity Pillars'}</h3>
+                  <div class="u-grid u-gap-3">
+                    <div class="mk-card" data-tone="soft" x-for="principle in state.data.principles" key="principle.title.ar">
+                      <div class="u-inline-center u-gap-2 u-text-lg u-weight-semibold">
+                        <span>{principle.icon}</span>
+                        <span>{state.env.lang === 'ar' ? principle.title.ar : principle.title.en}</span>
+                      </div>
+                      <p>{state.env.lang === 'ar' ? principle.description.ar : principle.description.en}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mk-card" data-tone="soft">
+                  <h3 class="mk-card__title">{trans('section.tokens')}</h3>
+                  <div class="token-board">
+                    <div class="token-chip" x-for="token in state.data.tokens" key="token.name">
+                      <strong class="u-text-sm">{token.name}</strong>
+                      <span class="mk-chip" data-state="active">{token.usage}</span>
+                      <p>{state.env.lang === 'ar' ? token.meaning.ar : token.meaning.en}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="component-grid">
+              <div class="mk-card" data-tone="soft">
+                <h2 class="u-section-title">{trans('section.components')}</h2>
+                <div class="component-surface">
+                  <div class="u-inline-center u-gap-2">
+                    <button class="mk-btn" data-variant="primary" data-size="md">{state.env.lang === 'ar' ? 'زر رئيسي' : 'Primary'}</button>
+                    <button class="mk-btn" data-variant="secondary" data-size="md">{state.env.lang === 'ar' ? 'زر داعم' : 'Secondary'}</button>
+                    <button class="mk-btn" data-variant="ghost" data-tone="soft" data-size="md">{state.env.lang === 'ar' ? 'هادئ' : 'Subtle'}</button>
+                  </div>
+                  <form class="sample-form">
+                    <label class="mk-field">
+                      <span class="mk-field__label">{state.env.lang === 'ar' ? 'بريد إلكتروني' : 'Email'}</span>
+                      <input class="mk-input" type="email" placeholder="name@example.com" />
+                    </label>
+                    <label class="mk-field">
+                      <span class="mk-field__label">{state.env.lang === 'ar' ? 'رسالة' : 'Message'}</span>
+                      <textarea class="mk-input" style="min-height: 120px; padding-block: var(--mk-space-3);"></textarea>
+                    </label>
+                  </form>
+                  <div class="mk-tabs">
+                    <div class="mk-tabs__list">
+                      <button class="mk-tabs__trigger" data-state="active">{state.env.lang === 'ar' ? 'التصميم' : 'Design'}</button>
+                      <button class="mk-tabs__trigger">{state.env.lang === 'ar' ? 'الكود' : 'Code'}</button>
+                      <button class="mk-tabs__trigger">{state.env.lang === 'ar' ? 'المعاينة' : 'Preview'}</button>
+                    </div>
+                    <div class="mk-tabs__panel">
+                      <p>{state.env.lang === 'ar' ? 'التبويب النشط يعتمد على data-state ويستخدم متغيرات التدرج والحدود.' : 'The active tab relies on data-state and token-driven borders.'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mk-card" data-tone="soft">
+                <h3 class="mk-card__title">{state.env.lang === 'ar' ? 'جدول الحالة' : 'State table'}</h3>
+                <table class="mk-table">
+                  <thead>
+                    <tr>
+                      <th>{state.env.lang === 'ar' ? 'المكوّن' : 'Component'}</th>
+                      <th>{state.env.lang === 'ar' ? 'الوصف' : 'Description'}</th>
+                      <th>{state.env.lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr x-for="row in state.data.components.table" key="row.name.ar">
+                      <td>{state.env.lang === 'ar' ? row.name.ar : row.name.en}</td>
+                      <td>{state.env.lang === 'ar' ? row.purpose.ar : row.purpose.en}</td>
+                      <td><span class="mk-chip" data-state="active">{row.status}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="mk-pagination">
+                  <span class="mk-pagination__item" data-state="active">1</span>
+                  <span class="mk-pagination__item">2</span>
+                  <span class="mk-pagination__item">3</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="mk-card" data-tone="elevated">
+              <h2 class="u-section-title">{trans('section.utilities')}</h2>
+              <div class="utility-cards">
+                <div
+                  class="utility-card {state.data.labs.activeUtility === utility.id ? 'active' : ''}"
+                  x-for="utility in state.data.labs.utilities"
+                  key="utility.id"
+                  onclick="focusUtility(utility.id, ctx)"
+                >
+                  <h3 class="u-text-lg u-text-fg">{state.env.lang === 'ar' ? utility.title.ar : utility.title.en}</h3>
+                  <p>{state.env.lang === 'ar' ? utility.description.ar : utility.description.en}</p>
+                  <div class="mk-tag-cloud">
+                    <span class="mk-chip" x-for="klass in utility.classes" key="klass">{klass}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="mk-card" data-tone="soft">
+              <h2 class="u-section-title">{trans('section.experiments')}</h2>
+              <div class="lab-playground">
+                <div class="lab-controls">
+                  <div class="mk-card" data-tone="soft">
+                    <h3 class="mk-card__title">{state.env.lang === 'ar' ? 'تفاعلات فورية' : 'Instant Interactions'}</h3>
+                    <div class="demo-toolbar">
+                      <button class="mk-btn" data-variant="primary" onclick="toggleModal(ctx)">{trans('controls.openModal')}</button>
+                      <button class="mk-btn" data-variant="secondary" onclick="toggleDrawer(ctx)">{trans('controls.openDrawer')}</button>
+                      <button class="mk-btn" data-tone="soft" onclick="triggerToast(ctx)">{trans('controls.toast')}</button>
+                    </div>
+                  </div>
+                  <div class="mk-card" data-tone="soft">
+                    <h3 class="mk-card__title">{state.env.lang === 'ar' ? 'تفعيل الأداة الحالية' : 'Activate current utility'}</h3>
+                  <p>
+                      {state.env.lang === 'ar'
+                        ? 'القائمة المختارة حاليًا: '
+                        : 'Currently highlighting: '}
+                      <strong>{state.data.labs.activeUtility}</strong>
+                    </p>
+                    <p>
+                      {state.env.lang === 'ar'
+                        ? 'الثيم النشط: '
+                        : 'Active theme: '}
+                      <strong>{state.data.labs.activeTheme}</strong>
+                    </p>
+                    <p>
+                      {state.env.lang === 'ar'
+                        ? 'يتم ضبط عناصر الصفحة لإظهار تأثير الأدوات المختارة مباشرة.'
+                        : 'Sections update live to show the effect of the chosen utility.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mk-modal" data-state="{state.data.labs.modalOpen ? 'open' : 'closed'}">
+                  <div class="mk-modal__dialog">
+                    <h3 class="mk-card__title">{trans('modal.title')}</h3>
+                    <p>{trans('modal.copy')}</p>
+                    <div class="u-inline-center u-gap-2">
+                      <button class="mk-btn" data-variant="primary" onclick="toggleModal(ctx)">{state.env.lang === 'ar' ? 'إغلاق' : 'Close'}</button>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="mk-drawer" data-state="{state.data.labs.drawerOpen ? 'open' : 'closed'}">
+                  <h3 class="mk-card__title">{trans('drawer.title')}</h3>
+                  <p>{trans('drawer.copy')}</p>
+                  <button class="mk-btn" data-variant="ghost" onclick="toggleDrawer(ctx)">{state.env.lang === 'ar' ? 'إخفاء' : 'Hide'}</button>
+                </aside>
+
+                <div class="mk-toast labs-toast" data-state="{state.data.labs.toastVisible ? 'visible' : 'hidden'}">
+                  <strong>✨ {trans('toast.message')}</strong>
+                  <p>{state.env.lang === 'ar' ? 'المكتبة جاهزة لتغذية مشاريعك.' : 'The library is ready to power your build.'}</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <script>
+          function applyEnvironment(ctx){
+            var root = document.documentElement;
+            if(!root) return;
+            var state = null;
+            if(ctx && typeof ctx.getState === 'function'){
+              try { state = ctx.getState(); } catch (_err) { state = ctx; }
+            } else {
+              state = ctx;
+            }
+            state = state || {};
+            var env = state.env || state || {};
+            if(env.dir){ root.setAttribute('dir', env.dir); }
+            if(env.lang){ root.setAttribute('lang', env.lang); }
+            if(env.theme){ root.dataset.theme = env.theme; }
+          }
+
+          function __bootstrap__(snapshot){
+            if(snapshot && snapshot.env){ applyEnvironment(snapshot); }
+          }
+
+          function __init__(ctx){
+            applyEnvironment(ctx);
+          }
+
+          function setTheme(theme, ctx){
+            if(!ctx) return;
+            ctx.set('env.theme', theme);
+            ctx.set('data.labs.activeTheme', theme);
+            window.setTimeout(function(){ applyEnvironment(ctx); }, 0);
+          }
+
+          function setLanguage(lang, ctx){
+            if(!ctx) return;
+            ctx.set('env.lang', lang);
+            ctx.set('env.dir', lang === 'ar' ? 'rtl' : 'ltr');
+            window.setTimeout(function(){ applyEnvironment(ctx); }, 0);
+          }
+
+          function setDirection(dir, ctx){
+            if(!ctx) return;
+            ctx.set('env.dir', dir);
+            window.setTimeout(function(){ applyEnvironment(ctx); }, 0);
+          }
+
+          function toggleModal(ctx){
+            if(!ctx || typeof ctx.getState !== 'function') return;
+            var state = ctx.getState() || {};
+            var labs = (state.data && state.data.labs) || {};
+            ctx.set('data.labs.modalOpen', !labs.modalOpen);
+          }
+
+          function toggleDrawer(ctx){
+            if(!ctx || typeof ctx.getState !== 'function') return;
+            var state = ctx.getState() || {};
+            var labs = (state.data && state.data.labs) || {};
+            ctx.set('data.labs.drawerOpen', !labs.drawerOpen);
+          }
+
+          function triggerToast(ctx){
+            if(!ctx) return;
+            ctx.set('data.labs.toastVisible', true);
+            window.setTimeout(function(){ ctx.set('data.labs.toastVisible', false); }, 2600);
+          }
+
+          function focusUtility(id, ctx){
+            if(!ctx) return;
+            ctx.set('data.labs.activeUtility', id);
+          }
+        </script>
+      </section>
+    </template>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
+    <script>
+      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
+    </script>
+    <script src="./mishkah-htmlx.js"></script>
+
+    <script>
+      (function (window) {
+        'use strict';
+        var M = window.Mishkah;
+        if (!M || !M.HTMLxAgent) {
+          console.error('Mishkah HTMLx agent is required.');
+          return;
+        }
+        M.HTMLxAgent.make();
+      })(window);
+    </script>
+  </body>
+</html>

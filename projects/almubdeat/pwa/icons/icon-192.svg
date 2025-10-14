@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Almubdeat logo">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="50%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="48" fill="url(#grad)" />
+  <g fill="#fff" transform="translate(42 40)">
+    <path d="M54 8c-12.7 0-24.4 6.9-30.8 18.2L4 96h20l10.6-21.8h58.8L104 96h20L84.8 26.2C78.4 14.9 66.7 8 54 8zm0 18c6.5 0 12.2 3.3 15.6 9L79 58H29l9.5-23c3.4-8.2 9.8-9 15.5-9z"/>
+    <circle cx="54" cy="104" r="12" fill="#fef3c7" />
+  </g>
+</svg>

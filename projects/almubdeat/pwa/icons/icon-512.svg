@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Almubdeat logo">
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="25%" r="90%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="55%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </radialGradient>
+    <linearGradient id="spark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#facc15" />
+      <stop offset="100%" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)" />
+  <g fill="#fff" transform="translate(120 96)">
+    <path d="M136 32c-34 0-64.9 18.4-82 48.6L0 352h76l40.1-92.8h167.8L324 352h76L218.2 80.6C201 50.4 170 32 136 32zm0 52c16 0 30 8.4 38.3 22.6L200 192H72l24.6-63c8.3-21.1 23.6-23 39.4-23z" />
+    <circle cx="136" cy="320" r="36" fill="url(#spark)" />
+  </g>
+</svg>
