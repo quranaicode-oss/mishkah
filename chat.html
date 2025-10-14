@@ -271,15 +271,22 @@
         authPromise: null
       };
 
-      function ensureContext(ctx) {
+      function ensureContext(ctx, event) {
         var input = ctx;
-        if (!input) {
-          if (runtime.lastCtx) {
-            return runtime.lastCtx;
+        if (!input && event) {
+          if (event.detail && event.detail.ctx) {
+            input = event.detail.ctx;
+          } else if (event.target) {
+            input = event.target;
+          } else if (event.currentTarget) {
+            input = event.currentTarget;
           }
-          if (runtime.app) {
-            input = runtime.app;
-          }
+        }
+        if (!input && runtime.lastCtx) {
+          return runtime.lastCtx;
+        }
+        if (!input && runtime.app) {
+          input = runtime.app;
         }
         if (!input) {
           error('تم تمرير سياق فارغ إلى ensureContext وفشل تحديد سياق بديل.');
@@ -296,6 +303,12 @@
         var adapted = agent.ContextAdapter(input);
         if (!adapted && runtime.app && input !== runtime.app) {
           adapted = agent.ContextAdapter(runtime.app);
+        }
+        if (!adapted && event) {
+          var fallbackTarget = event.currentTarget || event.target || null;
+          if (fallbackTarget && fallbackTarget !== input) {
+            adapted = agent.ContextAdapter(fallbackTarget);
+          }
         }
         if (!adapted) {
           error('فشل ContextAdapter في إرجاع سياق صالح.');
@@ -964,7 +977,7 @@
       }
 
       function handleUsernameInput(event, ctx) {
-        var context = ensureContext(ctx);
+        var context = ensureContext(ctx, event);
         if (!context || !event) {
           error('handleUsernameInput استقبل سياقًا أو حدثًا غير صالح.', { event: event, ctx: ctx });
           return;
@@ -981,7 +994,7 @@
         if (event && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
-        var context = ensureContext(ctx);
+        var context = ensureContext(ctx, event);
         if (!context) {
           error('لم يتم العثور على سياق صالح عند محاولة الانضمام للدردشة.');
           return;
@@ -1014,7 +1027,7 @@
       }
 
       function handleMessageInput(event, ctx) {
-        var context = ensureContext(ctx);
+        var context = ensureContext(ctx, event);
         if (!context || !event) {
           error('handleMessageInput استقبل سياقًا أو حدثًا غير صالح.', { event: event });
           return;
@@ -1078,7 +1091,7 @@
       }
 
       function messagePayload(ctx, event) {
-        var context = ensureContext(ctx);
+        var context = ensureContext(ctx, event);
         if (!context) {
           error('messagePayload فشل في الحصول على سياق صالح.');
           return null;
@@ -1131,7 +1144,7 @@
         if (event && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
-        var context = ensureContext(ctx);
+        var context = ensureContext(ctx, event);
         if (!context) {
           error('sendMessage لم يتمكن من الحصول على سياق HTMLx.');
           return;
