@@ -271,19 +271,31 @@
       };
 
       function ensureContext(ctx) {
-        if (!ctx) {
-          error('تم تمرير سياق فارغ إلى ensureContext.');
+        var input = ctx;
+        if (!input) {
+          if (runtime.lastCtx) {
+            return runtime.lastCtx;
+          }
+          if (runtime.app) {
+            input = runtime.app;
+          }
+        }
+        if (!input) {
+          error('تم تمرير سياق فارغ إلى ensureContext وفشل تحديد سياق بديل.');
           return null;
         }
-        if (typeof ctx.get === 'function' && typeof ctx.set === 'function') {
-          runtime.lastCtx = ctx;
-          return ctx;
+        if (typeof input.get === 'function' && typeof input.set === 'function') {
+          runtime.lastCtx = input;
+          return input;
         }
         if (!agent || typeof agent.ContextAdapter !== 'function') {
           error('تعذر تكيف سياق HTMLx، ContextAdapter غير متاح.');
           return null;
         }
-        var adapted = agent.ContextAdapter(ctx);
+        var adapted = agent.ContextAdapter(input);
+        if (!adapted && runtime.app && input !== runtime.app) {
+          adapted = agent.ContextAdapter(runtime.app);
+        }
         if (!adapted) {
           error('فشل ContextAdapter في إرجاع سياق صالح.');
           return null;
