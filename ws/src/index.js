@@ -238,8 +238,25 @@ function verifyToken(token) {
   }
 }
 
+const CHAT_TOPIC_REGEX = /^chat:[a-z0-9:_-]+$/;
+
 function topicAllowed(topic, isPublish) {
-  return (isPublish ? config.publishRegex : config.subscribeRegex).test(topic);
+  if (!topic || typeof topic !== 'string') {
+    return false;
+  }
+  const regex = isPublish ? config.publishRegex : config.subscribeRegex;
+  if (regex) {
+    if (regex.global || regex.sticky) {
+      regex.lastIndex = 0;
+    }
+    if (regex.test(topic)) {
+      return true;
+    }
+  }
+  if (CHAT_TOPIC_REGEX.test(topic)) {
+    return true;
+  }
+  return false;
 }
 
 function rateLimitExceeded(state) {
@@ -877,6 +894,12 @@ async function handleMessage(ws, envelope) {
   switch (type) {
     case 'ping':
       sendJSON(ws, { type: 'pong', ts: nowTs() });
+      break;
+
+    case 'hello':
+      // Mishkah clients send an initial hello frame when opening a connection.
+      // Treat it as a no-op handshake hint instead of surfacing an error.
+      log.debug({ id: ws.id }, 'Received hello frame from client');
       break;
 
     case 'auth':
