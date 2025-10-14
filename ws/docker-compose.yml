@@ -1,12 +1,11 @@
-version: '3.9'
-
 services:
   ws-gateway:
     build: .
     image: ws-gateway:latest
     env_file: .env
+    restart: unless-stopped
     ports:
-      - "3001:3001" # expose for nginx proxy; remove in prod if not needed
+      - "127.0.0.1:3101:3001"
     depends_on:
       - redis
     healthcheck:
@@ -15,15 +14,27 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    networks: [wsnet]
 
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379" # optional for debugging; keep internal only in production
+    restart: unless-stopped
+    # لا تعرّض 6379 خارجيًا في الإنتاج
+    # ports:
+    #   - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 5s
+    networks: [wsnet]
+
+networks:
+  wsnet:
+    driver: bridge
