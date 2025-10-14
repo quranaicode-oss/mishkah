@@ -614,13 +614,13 @@
             createBadge(`${t.stats.total}: ${stats.total}`, tw`border-slate-600/40 bg-slate-800/70 text-slate-100`),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 px-3 py-1` }}, [
               D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [t.controls.theme]),
-              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:theme:set', 'data-theme':'light', class: themeButtonClass('light') }}, [t.controls.light]),
-              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:theme:set', 'data-theme':'dark', class: themeButtonClass('dark') }}, [t.controls.dark])
+              D.Forms.Button({ attrs:{ type:'button', gkey:'kds:theme:set', 'data-theme':'light', class: themeButtonClass('light') }}, [t.controls.light]),
+              D.Forms.Button({ attrs:{ type:'button', gkey:'kds:theme:set', 'data-theme':'dark', class: themeButtonClass('dark') }}, [t.controls.dark])
             ]),
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 px-3 py-1` }}, [
               D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [t.controls.language]),
-              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:lang:set', 'data-lang':'ar', class: langButtonClass('ar') }}, [t.controls.arabic]),
-              D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:lang:set', 'data-lang':'en', class: langButtonClass('en') }}, [t.controls.english])
+              D.Forms.Button({ attrs:{ type:'button', gkey:'kds:lang:set', 'data-lang':'ar', class: langButtonClass('ar') }}, [t.controls.arabic]),
+              D.Forms.Button({ attrs:{ type:'button', gkey:'kds:lang:set', 'data-lang':'en', class: langButtonClass('en') }}, [t.controls.english])
             ])
           ])
         ]),
@@ -654,7 +654,7 @@
       ...tabs.map(tab=> D.Forms.Button({
         attrs:{
           type:'button',
-          'data-m-gkey':'kds:tab:switch',
+          gkey:'kds:tab:switch',
           'data-section-id': tab.id,
           class: cx(
             tw`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition`,
@@ -811,10 +811,10 @@
       renderHistory(job, t, lang),
       D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 pt-2` }}, [
         job.status !== 'ready' && job.status !== 'completed'
-          ? D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:job:start', 'data-job-id':job.id, class: tw`flex-1 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-900/50 transition hover:bg-sky-400` }}, [t.actions.start])
+        ? D.Forms.Button({ attrs:{ type:'button', gkey:'kds:job:start', 'data-job-id':job.id, class: tw`flex-1 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-900/50 transition hover:bg-sky-400` }}, [t.actions.start])
           : null,
         job.status !== 'ready'
-          ? D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:job:finish', 'data-job-id':job.id, class: tw`flex-1 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20` }}, [t.actions.finish])
+        ? D.Forms.Button({ attrs:{ type:'button', gkey:'kds:job:finish', 'data-job-id':job.id, class: tw`flex-1 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20` }}, [t.actions.finish])
           : createBadge(t.labels.jobStatus.ready, STATUS_CLASS.ready)
       ].filter(Boolean))
     ].filter(Boolean));
@@ -893,12 +893,12 @@
       ].filter(Boolean)),
       D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, order.jobs.map(job=> createBadge(`${job.stationCode || job.stationId}: ${t.labels.jobStatus[job.status] || job.status}`, STATUS_CLASS[job.status] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`))),
       D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2 pt-2` }}, [
-        D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:delivery:assign', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-sky-400/60 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/20` }}, [t.actions.assignDriver]),
+        D.Forms.Button({ attrs:{ type:'button', gkey:'kds:delivery:assign', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-sky-400/60 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/20` }}, [t.actions.assignDriver]),
         statusKey !== 'delivered' && statusKey !== 'settled'
-          ? D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:delivery:complete', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-emerald-400/60 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20` }}, [t.actions.delivered])
+          ? D.Forms.Button({ attrs:{ type:'button', gkey:'kds:delivery:complete', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-emerald-400/60 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20` }}, [t.actions.delivered])
           : null,
         statusKey === 'delivered' || options.focusSettlement
-          ? D.Forms.Button({ attrs:{ type:'button', 'data-m-gkey':'kds:delivery:settle', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-amber-400/60 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20` }}, [t.actions.settle])
+          ? D.Forms.Button({ attrs:{ type:'button', gkey:'kds:delivery:settle', 'data-order-id':order.orderId, class: tw`flex-1 rounded-full border border-amber-400/60 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20` }}, [t.actions.settle])
           : null
       ].filter(Boolean))
     ].filter(Boolean));
@@ -932,7 +932,7 @@
         D.Text.P({ attrs:{ class: tw`text-sm text-slate-300` }}, [t.modal.driverDescription]),
         D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, drivers.map(driver=> D.Forms.Button({ attrs:{
           type:'button',
-          'data-m-gkey':'kds:delivery:select-driver',
+          gkey:'kds:delivery:select-driver',
           'data-order-id': orderId,
           'data-driver-id': String(driver.id),
           class: tw`flex items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/70 px-4 py-3 text-start text-sm text-slate-100 hover:border-sky-400/60 hover:bg-sky-500/10`
@@ -1303,12 +1303,122 @@
       }
     };
   }
+  const describeInteractiveNode = (node)=>{
+    if(!node || node.nodeType !== 1) return null;
+    const dataset = {};
+    if(node.dataset){
+      Object.keys(node.dataset).forEach(key=>{ dataset[key] = node.dataset[key]; });
+    }
+    const buildPath = ()=>{
+      const segments = [];
+      let current = node;
+      while(current && current.nodeType === 1 && segments.length < 6){
+        let segment = current.tagName ? current.tagName.toLowerCase() : '';
+        if(current.id){
+          segment += `#${current.id}`;
+        } else if(current.classList && current.classList.length){
+          segment += '.' + Array.from(current.classList).slice(0, 2).join('.');
+        }
+        segments.push(segment);
+        current = current.parentElement;
+      }
+      return segments.reverse().join(' > ');
+    };
+    const textContent = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    return {
+      tag: node.tagName ? node.tagName.toLowerCase() : 'unknown',
+      gkey: node.getAttribute && node.getAttribute('data-m-gkey') || '',
+      key: node.getAttribute && node.getAttribute('data-m-key') || '',
+      classList: node.classList ? Array.from(node.classList) : [],
+      dataset,
+      path: buildPath(),
+      text: textContent.length > 120 ? `${textContent.slice(0, 117)}…` : textContent
+    };
+  };
+
+  const logKdsInteractiveNodes = ()=>{
+    if(typeof document === 'undefined') return [];
+    const root = document.querySelector('#app');
+    if(!root) return [];
+    const nodes = Array.from(root.querySelectorAll('[data-m-gkey]'));
+    const snapshot = nodes.map(describeInteractiveNode).filter(Boolean);
+    if(typeof console !== 'undefined'){
+      if(typeof console.groupCollapsed === 'function'){
+        console.groupCollapsed(`[Mishkah][KDS] Interactive nodes snapshot (${snapshot.length})`);
+        if(typeof console.table === 'function') console.table(snapshot);
+        else console.log(snapshot);
+        console.groupEnd();
+      } else {
+        console.log(`[Mishkah][KDS] Interactive nodes snapshot (${snapshot.length})`, snapshot);
+      }
+    }
+    return snapshot;
+  };
+
+  const logKdsOrdersRegistry = ()=>{
+    const rawOrders = typeof app.getOrders === 'function' ? app.getOrders() : [];
+    const snapshot = rawOrders.map((order, index)=>({
+      index,
+      name: order?.name || '(anonymous)',
+      on: Array.isArray(order?.on) ? order.on.slice() : [],
+      gkeys: Array.isArray(order?.gkeys) ? order.gkeys.slice() : [],
+      keys: Array.isArray(order?.keys) ? order.keys.slice() : [],
+      disabled: !!order?.disabled
+    }));
+    if(typeof console !== 'undefined'){
+      if(typeof console.groupCollapsed === 'function'){
+        console.groupCollapsed(`[Mishkah][KDS] Orders registry snapshot (${snapshot.length})`);
+        snapshot.forEach(entry=> console.log(entry));
+        console.groupEnd();
+      } else {
+        console.log(`[Mishkah][KDS] Orders registry snapshot (${snapshot.length})`, snapshot);
+      }
+    }
+    return snapshot;
+  };
+
+  const scheduleInteractiveSnapshot = ()=>{
+    if(typeof document === 'undefined') return;
+    const run = ()=>{ logKdsInteractiveNodes(); };
+    const invoke = ()=>{
+      if(typeof requestAnimationFrame === 'function') requestAnimationFrame(()=> run());
+      else setTimeout(run, 0);
+    };
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', ()=> invoke(), { once:true });
+    } else {
+      invoke();
+    }
+  };
+
+  const setupKdsDevtools = ()=>{
+    if(typeof window === 'undefined') return;
+    const dev = window.__MishkahKDSDev__ || {};
+    const announced = !!dev.__announced;
+    dev.logOrders = logKdsOrdersRegistry;
+    dev.inspectInteractiveNodes = logKdsInteractiveNodes;
+    dev.getOrders = ()=> (typeof app.getOrders === 'function' ? app.getOrders() : []);
+    dev.snapshot = ()=>({ orders: logKdsOrdersRegistry(), nodes: logKdsInteractiveNodes() });
+    dev.logDomSnapshot = logKdsInteractiveNodes;
+    window.__MishkahKDSDev__ = dev;
+    if(!announced){
+      if(typeof console !== 'undefined'){
+        console.info('%c[Mishkah KDS] Developer helpers ready → use __MishkahKDSDev__.logOrders() and .inspectInteractiveNodes() for diagnostics.', 'color:#38bdf8;font-weight:bold;');
+      }
+      try{
+        Object.defineProperty(dev, '__announced', { value:true, enumerable:false, configurable:true, writable:false });
+      } catch(_err){ dev.__announced = true; }
+    }
+  };
+
   const kdsOrders = {
     'kds.theme.set':{
       on:['click'],
       gkeys:['kds:theme:set'],
       handler:(event, ctx)=>{
-        const theme = event?.currentTarget?.dataset?.theme;
+        const btn = event?.target && event.target.closest('[data-theme]');
+        if(!btn) return;
+        const theme = btn.getAttribute('data-theme');
         if(!theme) return;
         ctx.setState(state=>({
           ...state,
@@ -1320,7 +1430,9 @@
       on:['click'],
       gkeys:['kds:lang:set'],
       handler:(event, ctx)=>{
-        const langValue = event?.currentTarget?.dataset?.lang;
+        const btn = event?.target && event.target.closest('[data-lang]');
+        if(!btn) return;
+        const langValue = btn.getAttribute('data-lang');
         if(!langValue) return;
         ctx.setState(state=>({
           ...state,
@@ -1332,8 +1444,9 @@
       on:['click'],
       gkeys:['kds:tab:switch'],
       handler:(event, ctx)=>{
-        const target = event?.currentTarget;
-        const sectionId = target?.dataset?.sectionId;
+        const btn = event?.target && event.target.closest('[data-section-id]');
+        if(!btn) return;
+        const sectionId = btn.getAttribute('data-section-id');
         if(!sectionId) return;
         ctx.setState(state=>({
           ...state,
@@ -1348,7 +1461,9 @@
       on:['click'],
       gkeys:['kds:job:start'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1363,7 +1478,9 @@
       on:['click'],
       gkeys:['kds:job:finish'],
       handler:(event, ctx)=>{
-        const jobId = event?.currentTarget?.dataset?.jobId;
+        const btn = event?.target && event.target.closest('[data-job-id]');
+        if(!btn) return;
+        const jobId = btn.getAttribute('data-job-id');
         if(!jobId) return;
         const nowIso = new Date().toISOString();
         const nowMs = Date.parse(nowIso);
@@ -1378,7 +1495,9 @@
       on:['click'],
       gkeys:['kds:delivery:assign'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         ctx.setState(state=>({
           ...state,
@@ -1395,9 +1514,10 @@
       on:['click'],
       gkeys:['kds:delivery:select-driver'],
       handler:(event, ctx)=>{
-        const dataset = event?.currentTarget?.dataset || {};
-        const orderId = dataset.orderId;
-        const driverId = dataset.driverId;
+        const btn = event?.target && event.target.closest('[data-order-id][data-driver-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
+        const driverId = btn.getAttribute('data-driver-id');
         if(!orderId || !driverId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1439,7 +1559,9 @@
       on:['click'],
       gkeys:['kds:delivery:complete'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let assignmentPayload = null;
@@ -1474,7 +1596,9 @@
       on:['click'],
       gkeys:['kds:delivery:settle'],
       handler:(event, ctx)=>{
-        const orderId = event?.currentTarget?.dataset?.orderId;
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
         if(!orderId) return;
         const nowIso = new Date().toISOString();
         let settlementPayload = null;
@@ -1516,7 +1640,10 @@
   };
 
   app.setOrders(Object.assign({}, UI.orders || {}, auto.orders || {}, kdsOrders));
+  logKdsOrdersRegistry();
   app.mount('#app');
+  scheduleInteractiveSnapshot();
+  setupKdsDevtools();
 
   const tick = setInterval(()=>{
     app.setState(state=>({
