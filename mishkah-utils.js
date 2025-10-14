@@ -2156,6 +2156,10 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   const overrides = runtimeOpt && isObj(runtimeOpt) ? cloneConfig(runtimeOpt) : {};
   const config = U.Data.deepMerge(merged, overrides);
 
+  const ensureArrayLocal = (U && U.Data && typeof U.Data.ensureArray === 'function')
+    ? U.Data.ensureArray
+    : (value => Array.isArray(value) ? value : value == null ? [] : [value]);
+
   const explicitEnabled = overrides.enabled;
   const envFlag = env.isPwa ?? env.isPWA;
   const finalEnabled = explicitEnabled != null ? !!explicitEnabled : (config.enabled != null ? !!config.enabled : !!(envFlag || (env.pwa && env.pwa.enabled)));
@@ -2180,7 +2184,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   sw.networkTimeout = typeof sw.networkTimeout === 'number' ? sw.networkTimeout : 8000;
 
   const manifestObj = isObj(config.manifest) ? cloneConfig(config.manifest) : null;
-  const icons = ensureArray(config.icons).map(normalizeIcon).filter(Boolean);
+  const icons = ensureArrayLocal(config.icons).map(normalizeIcon).filter(Boolean);
   const manifestIcons = icons
     .filter(icon => icon.rel === 'icon' || icon.rel === 'apple-touch-icon' || icon.rel === 'mask-icon')
     .map(icon => ({
@@ -2216,7 +2220,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   config.manifestObject = manifest;
   config.icons = icons;
 
-  const assets = ensureArray(config.assets);
+  const assets = ensureArrayLocal(config.assets);
   const derivedAssets = [];
   const manifestUrl = config.manifestUrl || './manifest.json';
   if (manifestUrl) derivedAssets.push(manifestUrl);
@@ -2228,7 +2232,7 @@ function normalizePwaConfig(db, envConfig, runtimeOpt){
   if (config.offlineFallback && !/^https?:/i.test(config.offlineFallback)) derivedAssets.push(config.offlineFallback);
   config.precacheAssets = uniqueStrings(assets.concat(derivedAssets));
 
-  const runtimeRules = ensureArray(config.runtimeCaching)
+  const runtimeRules = ensureArrayLocal(config.runtimeCaching)
     .map(entry => normalizeRuntimeRule(entry, sw.strategy, cacheName))
     .filter(Boolean)
     .map(rule => Object.assign({}, rule, { pattern: toRegExpSource(rule.pattern) || '.*' }));
