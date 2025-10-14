@@ -88,12 +88,40 @@
           >
             <div class="flex items-start justify-between gap-2">
               <strong class="text-blue-300">{msg.user || 'مجهول'}</strong>
-              <span x-if="msg.createdAtLabel" class="text-xs text-gray-400">{msg.createdAtLabel}</span>
+              <span class="text-xs text-gray-400">{formatChatTime(msg.createdAt)}</span>
             </div>
             <p class="ml-2 text-sm text-gray-100">{msg.text}</p>
             <p x-if="msg.pending" class="text-xs text-amber-300 mt-1">جاري الإرسال...</p>
             <p x-if="msg.failed" class="text-xs text-rose-400 mt-1">تعذر تسليم الرسالة.</p>
-          </div>
+			<script>
+			    function formatChatTime(value, includeSeconds) {
+        if (!value) {
+          return '';
+        }
+        var date = value instanceof Date ? value : new Date(value);
+        if (!date || isNaN(date.getTime())) {
+          return '';
+        }
+        var options = { hour: '2-digit', minute: '2-digit' };
+        if (includeSeconds) {
+          options.second = '2-digit';
+        }
+        try {
+          return date.toLocaleTimeString('ar-EG', options);
+        } catch (formatError) {
+          warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', {
+            value: value,
+            includeSeconds: includeSeconds,
+            error: formatError
+          });
+          return '';
+        }
+      }
+
+			</script>
+          
+		  
+		  </div>
           <p x-if="!state.data.messages.length" class="text-sm text-gray-500">
             لا توجد رسائل حتى الآن. كن أول من يبدأ الحديث!
           </p>
@@ -138,7 +166,7 @@
                   {detail}
                 </li>
               </ul>
-              <span x-if="err.tsLabel" class="block text-xs text-gray-500 mt-1">{err.tsLabel}</span>
+              <span class="block text-xs text-gray-500 mt-1">{formatChatTime(err.ts, true)}</span>
             </li>
           </ul>
         </section>
@@ -517,30 +545,7 @@
         }
       }
 
-      function formatDisplayTime(value, includeSeconds) {
-        if (!value) {
-          return '';
-        }
-        var date = value instanceof Date ? value : new Date(value);
-        if (!date || isNaN(date.getTime())) {
-          return '';
-        }
-        var options = { hour: '2-digit', minute: '2-digit' };
-        if (includeSeconds) {
-          options.second = '2-digit';
-        }
-        try {
-          return date.toLocaleTimeString('ar-EG', options);
-        } catch (formatError) {
-          warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', {
-            value: value,
-            includeSeconds: includeSeconds,
-            error: formatError
-          });
-          return '';
-        }
-      }
-
+  
       function setConnectionStatus(status, meta) {
         var normalizedError = status === 'error' ? extractError(meta) : extractError(meta && meta.error);
         var resetError = status === 'connected' || (meta && meta.resetError);
@@ -658,7 +663,6 @@
           meta: meta || null,
           details: extractErrorDetails(meta)
         };
-        entry.tsLabel = formatDisplayTime(entry.ts, true);
         warn(entry.message, { code: entry.code, meta: meta });
         mutateState(function (prev) {
           var base = prev || {};
@@ -674,7 +678,6 @@
               code: entry.code,
               message: entry.message,
               ts: entry.ts,
-              tsLabel: entry.tsLabel,
               details: entry.details
             };
           }
@@ -726,14 +729,12 @@
         if (!text && !pending && !failed) {
           return null;
         }
-        var createdAtLabel = formatDisplayTime(createdAt, false);
         return {
           id: id,
           clientMessageId: clientMessageId,
           user: username || 'مجهول',
           text: text,
           createdAt: createdAt,
-          createdAtLabel: createdAtLabel,
           pending: pending,
           failed: failed
         };
@@ -1346,6 +1347,29 @@
           }
         }
       };
+    function formatChatTime(value, includeSeconds) {
+        if (!value) {
+          return '';
+        }
+        var date = value instanceof Date ? value : new Date(value);
+        if (!date || isNaN(date.getTime())) {
+          return '';
+        }
+        var options = { hour: '2-digit', minute: '2-digit' };
+        if (includeSeconds) {
+          options.second = '2-digit';
+        }
+        try {
+          return date.toLocaleTimeString('ar-EG', options);
+        } catch (formatError) {
+          warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', {
+            value: value,
+            includeSeconds: includeSeconds,
+            error: formatError
+          });
+          return '';
+        }
+      }
 
       global.handleUsernameInput = handleUsernameInput;
       global.joinChat = joinChat;
