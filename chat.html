@@ -292,7 +292,11 @@
         if (runtime.lastCtx && typeof runtime.lastCtx.getState === 'function') {
           return runtime.lastCtx.getState();
         }
-        return null;
+        var adapted = agent.ContextAdapter(ctx);
+        if (!adapted) {
+          error('فشل ContextAdapter في إرجاع سياق صالح.');
+        }
+        return adapted;
       }
 
       function mutateState(updater) {
@@ -844,6 +848,7 @@
           });
         }
         context.set('data.newMessage', '');
+        info('تم تصفير حقل الرسالة بعد الإرسال المبدئي.', { payload: payload });
       }
 
       function generateGuestName() {
