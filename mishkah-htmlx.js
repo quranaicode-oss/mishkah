@@ -1866,6 +1866,13 @@
         var before = source.charAt(index - 1);
         var after = source.charAt(index + 8);
         if ((index === 0 || !isIdentifierPart(before)) && (!after || !isIdentifierPart(after))) {
+          var asyncFlag = false;
+          var back = index - 1;
+          while (back >= 0 && /\s/.test(source.charAt(back))) back -= 1;
+          if (back >= 4 && source.slice(back - 4, back + 1) === 'async') {
+            var preAsync = source.charAt(back - 5);
+            if (!isIdentifierPart(preAsync)) asyncFlag = true;
+          }
           var cursor = skipWhitespace(index + 8);
           var nameStart = cursor;
           while (cursor < length && isIdentifierPart(source.charAt(cursor))) cursor += 1;
@@ -1930,7 +1937,7 @@
 
           var bodyEnd = cursor;
           var body = source.slice(bodyStart, bodyEnd);
-          map[name] = { args: args, body: body };
+          map[name] = { args: args, body: body, isAsync: asyncFlag };
 
           index = cursor + 1;
           continue;
@@ -2405,7 +2412,8 @@
       var def = defs[name] || {};
       var args = def.args || '';
       var fnBody = def.body || '';
-      body.push('function ' + name + '(' + args + ') {\n' + fnBody + '\n}');
+      var prefix = def.isAsync ? 'async function ' : 'function ';
+      body.push(prefix + name + '(' + args + ') {\n' + fnBody + '\n}');
     }
     body.push(
       'return {' +
@@ -3098,12 +3106,15 @@
     return orders;
   }
 
+  var AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
   function createOrderHandler(parsed, handlerDef, runtimeFn) {
     var compiledFn = null;
     if (runtimeFn && typeof runtimeFn === 'function') {
       compiledFn = runtimeFn;
     } else if (handlerDef && handlerDef.body != null) {
-      compiledFn = new Function(handlerDef.args || '', handlerDef.body);
+      var Constructor = handlerDef.isAsync ? AsyncFunction : Function;
+      compiledFn = new Constructor(handlerDef.args || '', handlerDef.body);
     }
     return function (event, context) {
       if (event && typeof event.preventDefault === 'function' && event.type === 'submit') {
