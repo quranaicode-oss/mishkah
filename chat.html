@@ -356,6 +356,9 @@
               cookieKeyPromise: null,
               roomsLoading: false,
               authRetryTimer: null,
+              demoMode: false,
+              demoMessages: [],
+              demoReplyTimer: null,
               config: {
                 url: 'wss://ws.mas.com.eg',
                 conversationId: 'demo:lobby',
@@ -396,6 +399,243 @@
           var textEncoder = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
           var textDecoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder() : null;
           var pendingScrollFrame = null;
+
+          function isLikelyNetworkError(error) {
+            if (!error) { return true; }
+            if (error.response) { return false; }
+            if (error.name === 'AbortError') { return false; }
+            var code = typeof error.code === 'string' ? error.code.toLowerCase() : '';
+            if (code && (code.indexOf('econn') !== -1 || code.indexOf('refused') !== -1 || code.indexOf('reset') !== -1)) {
+              return true;
+            }
+            var message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+            if (!message && error.name === 'TypeError') { return true; }
+            if (!message) { return false; }
+            return (
+              message.indexOf('failed to fetch') !== -1 ||
+              message.indexOf('network') !== -1 ||
+              message.indexOf('dns') !== -1 ||
+              message.indexOf('fetch') !== -1 ||
+              error.name === 'TypeError'
+            );
+          }
+
+          function demoBotName() {
+            return 'مرشد مشكاة';
+          }
+
+          function demoConversationSeed(username, conversationId) {
+            var bot = demoBotName();
+            var guest = username || 'ضيف';
+            var now = Date.now();
+            var topic = topicFromConversation(conversationId || 'demo:lobby');
+            return [
+              {
+                id: 'demo-welcome-' + (now - 90000).toString(36),
+                ciphertext: 'مرحبًا ' + guest + '! لم نتمكن من الوصول إلى خادم الدردشة لذا فعّلنا وضع العرض التجريبي دون اتصال.',
+                createdAt: new Date(now - 90000).toISOString(),
+                metadata: { username: bot }
+              },
+              {
+                id: 'demo-topic-' + (now - 60000).toString(36),
+                ciphertext: 'ستبقى رسائلك محلية على جهازك فقط. يمكنك معاينة تجربة الدردشة كاملة بينما نحاول الاتصال بـ ' + topic + '.',
+                createdAt: new Date(now - 60000).toISOString(),
+                metadata: { username: bot }
+              },
+              {
+                id: 'demo-tip-' + (now - 30000).toString(36),
+                ciphertext: 'عند توفر خادم فعلي حدّث الإعدادات في الكود (url/tokenEndpoint) أو اربط التطبيق بخدمة WebSocket خاصة بك.',
+                createdAt: new Date(now - 30000).toISOString(),
+                metadata: { username: bot }
+              }
+            ];
+          }
+
+          function ensureDemoMode(context, meta) {
+            var store = runtime();
+            if (store.demoMode && store.authToken) {
+              return store.authToken;
+            }
+            var details = meta || {};
+            var username = (details.username && String(details.username).trim()) || generateGuestName();
+            var conversationId = (details.conversationId && String(details.conversationId).trim()) || 'demo:lobby';
+            var normalizedUser = { id: 'demo-user', name: username };
+            var token = 'demo-offline-token';
+            var expiresAt = Date.now() + 3600000;
+            store.demoMode = true;
+            store.authenticated = true;
+            store.subscriptionRequested = true;
+            store.historyRequested = true;
+            store.authToken = token;
+            store.authTokenMeta = {
+              expiresAt: expiresAt,
+              user: normalizedUser,
+              conversationId: conversationId
+            };
+            var ctxRef = ensureContext(context);
+            if (ctxRef) {
+              try { ctxRef.set('data.joined', true); } catch (_err) {}
+              try { ctxRef.set('data.pinError', ''); } catch (_err) {}
+              try { ctxRef.set('data.lockExpiresAt', null); } catch (_err) {}
+              try { ctxRef.set('data.conversationId', conversationId); } catch (_err) {}
+              try { ctxRef.set('data.topic', topicFromConversation(conversationId)); } catch (_err) {}
+            }
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var users = Array.isArray(data.users) ? data.users.slice() : [];
+              if (users.indexOf(username) === -1) { users.push(username); }
+              var bot = demoBotName();
+              if (users.indexOf(bot) === -1) { users.push(bot); }
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  joined: true,
+                  users: users,
+                  loadingState: 'ready',
+                  loadingMessage: 'أنت في وضع العرض التجريبي دون اتصال.',
+                  historyLoaded: true,
+                  connection: Object.assign({}, data.connection || {}, {
+                    status: 'connected',
+                    lastError: null,
+                    user: normalizedUser
+                  })
+                })
+              });
+            });
+            setConnectionStatus('connected', { resetError: true, user: normalizedUser });
+            setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
+            store.demoMessages = demoConversationSeed(username, conversationId);
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, { messages: [] })
+              });
+            });
+            (store.demoMessages || []).forEach(function (msg) {
+              applyIncomingMessage(msg, {
+                username: msg && msg.metadata ? msg.metadata.username : demoBotName(),
+                text: msg ? msg.ciphertext : '',
+                createdAt: msg ? msg.createdAt : null
+              });
+            });
+            scheduleScrollToBottom(true);
+            return token;
+          }
+
+          function ensureDemoSocket(context) {
+            var store = runtime();
+            if (store.socket && store.socket.__demo) {
+              return store.socket;
+            }
+            var listeners = { state: [], message: [] };
+            function emit(type, payload) {
+              var list = listeners[type];
+              if (!list || !list.length) { return; }
+              list.slice().forEach(function (fn) {
+                try { fn(payload); } catch (_err) {}
+              });
+            }
+            var socket = {
+              __demo: true,
+              state: 'open',
+              on: function (type, handler) {
+                if (!listeners[type]) { listeners[type] = []; }
+                listeners[type].push(handler);
+                return function () {
+                  listeners[type] = listeners[type].filter(function (fn) { return fn !== handler; });
+                };
+              },
+              send: function (payload) {
+                handleDemoSocketSend(socket, payload, context, emit);
+              },
+              connect: function () {
+                socket.state = 'open';
+                emit('state', { state: 'open' });
+                return socket;
+              },
+              close: function () {
+                socket.state = 'closed';
+                emit('state', { state: 'closed' });
+              }
+            };
+            emit('state', { state: 'open' });
+            runtime().socket = socket;
+            return socket;
+          }
+
+          function handleDemoSocketSend(socket, payload, context, emit) {
+            if (!payload || typeof payload.type !== 'string') {
+              return;
+            }
+            var store = runtime();
+            switch (payload.type) {
+              case 'chat:send': {
+                var messageData = payload.data || {};
+                var ciphertext = messageData.ciphertext || messageData.text || '';
+                var metadata = messageData.metadata || {};
+                var username = metadata.username || (store.authTokenMeta && store.authTokenMeta.user && store.authTokenMeta.user.name) || 'ضيف';
+                var clientMessageId = metadata.clientMessageId || null;
+                var entry = {
+                  id: 'demo-msg-' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6),
+                  ciphertext: ciphertext,
+                  createdAt: new Date().toISOString(),
+                  metadata: { username: username, clientMessageId: clientMessageId }
+                };
+                store.demoMessages.push(entry);
+                applyIncomingMessage(entry, {
+                  username: username,
+                  text: ciphertext,
+                  clientMessageId: clientMessageId,
+                  createdAt: entry.createdAt
+                });
+                scheduleDemoResponse(ciphertext, context);
+                break;
+              }
+              case 'chat:history': {
+                (store.demoMessages || []).forEach(function (msg) {
+                  applyIncomingMessage(msg, {
+                    username: msg && msg.metadata ? msg.metadata.username : demoBotName(),
+                    text: msg ? msg.ciphertext : '',
+                    createdAt: msg ? msg.createdAt : null
+                  });
+                });
+                break;
+              }
+              case 'subscribe':
+              case 'auth':
+              default:
+                break;
+            }
+          }
+
+          function scheduleDemoResponse(userText, context) {
+            var store = runtime();
+            if (!store.demoMode) { return; }
+            if (store.demoReplyTimer) {
+              clearTimeout(store.demoReplyTimer);
+            }
+            var bot = demoBotName();
+            var cleaned = typeof userText === 'string' ? userText.trim() : '';
+            var responseText = cleaned
+              ? '✅ تم استقبال رسالتك: "' + cleaned + '". هذا رد تجريبي يوضح أن كل شيء يعمل محليًا.'
+              : 'اكتب أي رسالة وسيصلك رد تجريبي فوري لإثبات عمل الواجهة دون خادم.';
+            store.demoReplyTimer = setTimeout(function () {
+              store.demoReplyTimer = null;
+              var reply = {
+                id: 'demo-reply-' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6),
+                ciphertext: responseText,
+                createdAt: new Date().toISOString(),
+                metadata: { username: bot }
+              };
+              store.demoMessages.push(reply);
+              applyIncomingMessage(reply, {
+                username: bot,
+                text: responseText,
+                createdAt: reply.createdAt
+              });
+            }, 650);
+          }
 
           function storageHost() {
             try {
@@ -958,6 +1198,12 @@
               try { store.socket.close(1000, 'logout'); } catch (_err) {}
               store.socket = null;
             }
+            if (store.demoReplyTimer) {
+              clearTimeout(store.demoReplyTimer);
+              store.demoReplyTimer = null;
+            }
+            store.demoMode = false;
+            store.demoMessages = [];
             resetAuthState({ clearToken: true });
             await clearSessionToken({ keepPin: false }).catch(function () {});
             mutateState(function (prev) {
@@ -1245,6 +1491,22 @@
                 store.authToken = null;
                 store.authTokenMeta = null;
                 store.authenticated = false;
+                if (isLikelyNetworkError(fetchError)) {
+                  try {
+                    var fallbackToken = ensureDemoMode(context, {
+                      username: preferredName,
+                      conversationId: conversationId
+                    });
+                    if (fallbackToken) {
+                      info('تم تفعيل وضع العرض التجريبي بسبب تعذر الاتصال بخادم الرمز.', {
+                        conversationId: conversationId
+                      });
+                      return fallbackToken;
+                    }
+                  } catch (demoError) {
+                    warn('فشل تفعيل وضع العرض التجريبي بعد انقطاع الشبكة.', { error: demoError });
+                  }
+                }
                 var message = 'تعذر المصادقة على الغرفة. يرجى التحقق من رمز PIN.';
                 var lockUntil = null;
                 var keepPin = false;
@@ -1969,6 +2231,11 @@
               error('connectToChat لم يتمكن من تهيئة سياق HTMLx صالح.');
               return null;
             }
+            if (store.demoMode) {
+              setConnectionStatus('connected', { resetError: true, user: store.authTokenMeta && store.authTokenMeta.user || null });
+              setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
+              return ensureDemoSocket(context);
+            }
             syncConfigWithState();
             var cfgSnapshot = config();
             persistSession({ conversationId: cfgSnapshot.conversationId }, { cookie: false }).catch(function () {});
@@ -2049,6 +2316,12 @@
             var context = ensureContext(ctx, null);
             if (!context) {
               error('retryChatConnection لم يتمكن من الحصول على سياق HTMLx.');
+              return;
+            }
+            var store = runtime();
+            if (store.demoMode) {
+              setConnectionStatus('connected', { resetError: true, user: store.authTokenMeta && store.authTokenMeta.user || null });
+              setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
               return;
             }
             setLoadingState('connecting', { message: 'جارٍ إعادة محاولة الاتصال...', historyLoaded: false });
@@ -2211,6 +2484,9 @@
             });
             var store = runtime();
             store.historyRequested = false;
+            if (store.demoMode) {
+              store.demoMessages = [];
+            }
             try { context.set('data.newMessage', ''); } catch (_clearErr) {}
             setLoadingState('ready', { message: 'تم مسح الرسائل المعروضة.', historyLoaded: true });
             info('تم مسح الرسائل من الواجهة بناءً على طلب المستخدم.');
