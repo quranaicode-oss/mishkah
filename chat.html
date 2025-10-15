@@ -69,7 +69,14 @@
           "errors": [],
           "loadingState": "idle",
           "loadingMessage": "",
-          "historyLoaded": false
+          "historyLoaded": false,
+          "serverSettingsOpen": false,
+          "serverConfig": {
+            "wsUrl": "",
+            "tokenEndpoint": "",
+            "roomsEndpoint": ""
+          },
+          "serverTroubleshooting": []
         }
       </script>
 
@@ -142,11 +149,87 @@
               </p>
               <button
                 type="button"
+                class="flex w-full items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/40 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-900/60"
+                onclick="toggleServerSettings(ctx)"
+              >
+                <span>إعدادات الخادم المتقدمة</span>
+                <span class="text-[11px] font-normal text-slate-400">{state.data.serverSettingsOpen ? 'إخفاء' : 'إظهار'}</span>
+              </button>
+              <section
+                x-if="state.data.serverSettingsOpen"
+                class="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 text-xs text-slate-300"
+              >
+                <p class="text-[11px] leading-5 text-slate-400">
+                  حدّد روابط WebSocket وواجهات REST يدويًا إذا كان الخادم يعمل على نطاق أو منفذ مختلف. ترك الحقول فارغة يعني استخدام المسارات المشتقة تلقائيًا.
+                </p>
+                <label class="block space-y-1">
+                  <span class="text-[11px] text-slate-400">رابط WebSocket (ws:// أو wss://)</span>
+                  <input
+                    type="text"
+                    class="w-full rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    value="{state.data.serverConfig.wsUrl}"
+                    placeholder="{serverPlaceholder('url')}"
+                    oninput="handleServerConfigInput('url', event, ctx)"
+                  />
+                </label>
+                <label class="block space-y-1">
+                  <span class="text-[11px] text-slate-400">مسار إصدار رمز الضيف (HTTP)</span>
+                  <input
+                    type="text"
+                    class="w-full rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    value="{state.data.serverConfig.tokenEndpoint}"
+                    placeholder="{serverPlaceholder('token')}"
+                    oninput="handleServerConfigInput('token', event, ctx)"
+                  />
+                </label>
+                <label class="block space-y-1">
+                  <span class="text-[11px] text-slate-400">مسار قائمة الغرف (HTTP)</span>
+                  <input
+                    type="text"
+                    class="w-full rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    value="{state.data.serverConfig.roomsEndpoint}"
+                    placeholder="{serverPlaceholder('rooms')}"
+                    oninput="handleServerConfigInput('rooms', event, ctx)"
+                  />
+                </label>
+                <div class="flex flex-col gap-2 text-[11px] text-slate-400">
+                  <button
+                    type="button"
+                    class="w-full rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-900/60"
+                    onclick="resetServerConfig(ctx)"
+                  >
+                    استعادة القيم الافتراضية
+                  </button>
+                  <p>
+                    تأكد من أن رابط WebSocket يطابق الخادم <span class="font-semibold text-slate-200">webSoketsNode.js</span>، وأن مسارات REST تستخدم <code class="rounded bg-slate-800/80 px-1">/api/demo/guest-token</code> و<code class="rounded bg-slate-800/80 px-1">/api/chat/rooms</code> على نفس الأصل.
+                  </p>
+                </div>
+              </section>
+              <button
+                type="button"
                 class="rounded-xl bg-sky-600 p-3 text-center text-base font-semibold text-white shadow-lg shadow-sky-900/40 transition hover:bg-sky-500"
                 onclick="joinChat(event, ctx)"
               >
                 دخول الغرفة
               </button>
+              <section
+                x-if="state.data.serverTroubleshooting.length"
+                class="space-y-3 rounded-xl border border-amber-700/40 bg-amber-900/20 p-4 text-[13px] text-amber-100"
+              >
+                <h2 class="text-sm font-semibold text-amber-200">لماذا تظهر أخطاء المصادقة؟</h2>
+                <p class="text-xs text-amber-100/90">
+                  يحدث المسار <span class="font-semibold">token_failed → auth_retry_failed → auth_failed</span> عندما يتعذر على الواجهة الحصول على رمز الضيف بعد رسالة <span class="font-semibold">hello</span> من الخادم. تحقق مما يلي:
+                </p>
+                <ul class="list-disc space-y-2 pl-4 text-xs text-amber-100">
+                  <li
+                    x-for="hint, hIdx in state.data.serverTroubleshooting"
+                    data-m-key="{hint.id || hIdx}"
+                  >
+                    <div class="font-semibold text-amber-200">{hint.title}</div>
+                    <p class="mt-1 leading-5 text-amber-100/90">{hint.description}</p>
+                  </li>
+                </ul>
+              </section>
             </div>
           </div>
         </div>
@@ -356,6 +439,9 @@
               cookieKeyPromise: null,
               roomsLoading: false,
               authRetryTimer: null,
+              demoMode: false,
+              demoMessages: [],
+              demoReplyTimer: null,
               config: {
                 url: 'wss://ws.mas.com.eg',
                 conversationId: 'demo:lobby',
@@ -396,6 +482,243 @@
           var textEncoder = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
           var textDecoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder() : null;
           var pendingScrollFrame = null;
+
+          function isLikelyNetworkError(error) {
+            if (!error) { return true; }
+            if (error.response) { return false; }
+            if (error.name === 'AbortError') { return false; }
+            var code = typeof error.code === 'string' ? error.code.toLowerCase() : '';
+            if (code && (code.indexOf('econn') !== -1 || code.indexOf('refused') !== -1 || code.indexOf('reset') !== -1)) {
+              return true;
+            }
+            var message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+            if (!message && error.name === 'TypeError') { return true; }
+            if (!message) { return false; }
+            return (
+              message.indexOf('failed to fetch') !== -1 ||
+              message.indexOf('network') !== -1 ||
+              message.indexOf('dns') !== -1 ||
+              message.indexOf('fetch') !== -1 ||
+              error.name === 'TypeError'
+            );
+          }
+
+          function demoBotName() {
+            return 'مرشد مشكاة';
+          }
+
+          function demoConversationSeed(username, conversationId) {
+            var bot = demoBotName();
+            var guest = username || 'ضيف';
+            var now = Date.now();
+            var topic = topicFromConversation(conversationId || 'demo:lobby');
+            return [
+              {
+                id: 'demo-welcome-' + (now - 90000).toString(36),
+                ciphertext: 'مرحبًا ' + guest + '! لم نتمكن من الوصول إلى خادم الدردشة لذا فعّلنا وضع العرض التجريبي دون اتصال.',
+                createdAt: new Date(now - 90000).toISOString(),
+                metadata: { username: bot }
+              },
+              {
+                id: 'demo-topic-' + (now - 60000).toString(36),
+                ciphertext: 'ستبقى رسائلك محلية على جهازك فقط. يمكنك معاينة تجربة الدردشة كاملة بينما نحاول الاتصال بـ ' + topic + '.',
+                createdAt: new Date(now - 60000).toISOString(),
+                metadata: { username: bot }
+              },
+              {
+                id: 'demo-tip-' + (now - 30000).toString(36),
+                ciphertext: 'عند توفر خادم فعلي حدّث الإعدادات في الكود (url/tokenEndpoint) أو اربط التطبيق بخدمة WebSocket خاصة بك.',
+                createdAt: new Date(now - 30000).toISOString(),
+                metadata: { username: bot }
+              }
+            ];
+          }
+
+          function ensureDemoMode(context, meta) {
+            var store = runtime();
+            if (store.demoMode && store.authToken) {
+              return store.authToken;
+            }
+            var details = meta || {};
+            var username = (details.username && String(details.username).trim()) || generateGuestName();
+            var conversationId = (details.conversationId && String(details.conversationId).trim()) || 'demo:lobby';
+            var normalizedUser = { id: 'demo-user', name: username };
+            var token = 'demo-offline-token';
+            var expiresAt = Date.now() + 3600000;
+            store.demoMode = true;
+            store.authenticated = true;
+            store.subscriptionRequested = true;
+            store.historyRequested = true;
+            store.authToken = token;
+            store.authTokenMeta = {
+              expiresAt: expiresAt,
+              user: normalizedUser,
+              conversationId: conversationId
+            };
+            var ctxRef = ensureContext(context);
+            if (ctxRef) {
+              try { ctxRef.set('data.joined', true); } catch (_err) {}
+              try { ctxRef.set('data.pinError', ''); } catch (_err) {}
+              try { ctxRef.set('data.lockExpiresAt', null); } catch (_err) {}
+              try { ctxRef.set('data.conversationId', conversationId); } catch (_err) {}
+              try { ctxRef.set('data.topic', topicFromConversation(conversationId)); } catch (_err) {}
+            }
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var users = Array.isArray(data.users) ? data.users.slice() : [];
+              if (users.indexOf(username) === -1) { users.push(username); }
+              var bot = demoBotName();
+              if (users.indexOf(bot) === -1) { users.push(bot); }
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  joined: true,
+                  users: users,
+                  loadingState: 'ready',
+                  loadingMessage: 'أنت في وضع العرض التجريبي دون اتصال.',
+                  historyLoaded: true,
+                  connection: Object.assign({}, data.connection || {}, {
+                    status: 'connected',
+                    lastError: null,
+                    user: normalizedUser
+                  })
+                })
+              });
+            });
+            setConnectionStatus('connected', { resetError: true, user: normalizedUser });
+            setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
+            store.demoMessages = demoConversationSeed(username, conversationId);
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, { messages: [] })
+              });
+            });
+            (store.demoMessages || []).forEach(function (msg) {
+              applyIncomingMessage(msg, {
+                username: msg && msg.metadata ? msg.metadata.username : demoBotName(),
+                text: msg ? msg.ciphertext : '',
+                createdAt: msg ? msg.createdAt : null
+              });
+            });
+            scheduleScrollToBottom(true);
+            return token;
+          }
+
+          function ensureDemoSocket(context) {
+            var store = runtime();
+            if (store.socket && store.socket.__demo) {
+              return store.socket;
+            }
+            var listeners = { state: [], message: [] };
+            function emit(type, payload) {
+              var list = listeners[type];
+              if (!list || !list.length) { return; }
+              list.slice().forEach(function (fn) {
+                try { fn(payload); } catch (_err) {}
+              });
+            }
+            var socket = {
+              __demo: true,
+              state: 'open',
+              on: function (type, handler) {
+                if (!listeners[type]) { listeners[type] = []; }
+                listeners[type].push(handler);
+                return function () {
+                  listeners[type] = listeners[type].filter(function (fn) { return fn !== handler; });
+                };
+              },
+              send: function (payload) {
+                handleDemoSocketSend(socket, payload, context, emit);
+              },
+              connect: function () {
+                socket.state = 'open';
+                emit('state', { state: 'open' });
+                return socket;
+              },
+              close: function () {
+                socket.state = 'closed';
+                emit('state', { state: 'closed' });
+              }
+            };
+            emit('state', { state: 'open' });
+            runtime().socket = socket;
+            return socket;
+          }
+
+          function handleDemoSocketSend(socket, payload, context, emit) {
+            if (!payload || typeof payload.type !== 'string') {
+              return;
+            }
+            var store = runtime();
+            switch (payload.type) {
+              case 'chat:send': {
+                var messageData = payload.data || {};
+                var ciphertext = messageData.ciphertext || messageData.text || '';
+                var metadata = messageData.metadata || {};
+                var username = metadata.username || (store.authTokenMeta && store.authTokenMeta.user && store.authTokenMeta.user.name) || 'ضيف';
+                var clientMessageId = metadata.clientMessageId || null;
+                var entry = {
+                  id: 'demo-msg-' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6),
+                  ciphertext: ciphertext,
+                  createdAt: new Date().toISOString(),
+                  metadata: { username: username, clientMessageId: clientMessageId }
+                };
+                store.demoMessages.push(entry);
+                applyIncomingMessage(entry, {
+                  username: username,
+                  text: ciphertext,
+                  clientMessageId: clientMessageId,
+                  createdAt: entry.createdAt
+                });
+                scheduleDemoResponse(ciphertext, context);
+                break;
+              }
+              case 'chat:history': {
+                (store.demoMessages || []).forEach(function (msg) {
+                  applyIncomingMessage(msg, {
+                    username: msg && msg.metadata ? msg.metadata.username : demoBotName(),
+                    text: msg ? msg.ciphertext : '',
+                    createdAt: msg ? msg.createdAt : null
+                  });
+                });
+                break;
+              }
+              case 'subscribe':
+              case 'auth':
+              default:
+                break;
+            }
+          }
+
+          function scheduleDemoResponse(userText, context) {
+            var store = runtime();
+            if (!store.demoMode) { return; }
+            if (store.demoReplyTimer) {
+              clearTimeout(store.demoReplyTimer);
+            }
+            var bot = demoBotName();
+            var cleaned = typeof userText === 'string' ? userText.trim() : '';
+            var responseText = cleaned
+              ? '✅ تم استقبال رسالتك: "' + cleaned + '". هذا رد تجريبي يوضح أن كل شيء يعمل محليًا.'
+              : 'اكتب أي رسالة وسيصلك رد تجريبي فوري لإثبات عمل الواجهة دون خادم.';
+            store.demoReplyTimer = setTimeout(function () {
+              store.demoReplyTimer = null;
+              var reply = {
+                id: 'demo-reply-' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6),
+                ciphertext: responseText,
+                createdAt: new Date().toISOString(),
+                metadata: { username: bot }
+              };
+              store.demoMessages.push(reply);
+              applyIncomingMessage(reply, {
+                username: bot,
+                text: responseText,
+                createdAt: reply.createdAt
+              });
+            }, 650);
+          }
 
           function storageHost() {
             try {
@@ -924,6 +1247,7 @@
             var details = info || {};
             var message = typeof details.message === 'string' && details.message ? details.message : 'تعذر المصادقة على الغرفة. يرجى التحقق من رمز PIN.';
             var lockUntil = details.lockUntil || null;
+            var hints = buildTroubleshootingHints(details);
             mutateState(function (prev) {
               var base = prev || {};
               var data = base.data || {};
@@ -935,6 +1259,7 @@
                   loadingState: 'idle',
                   loadingMessage: '',
                   historyLoaded: false,
+                  serverTroubleshooting: hints,
                   connection: Object.assign({}, data.connection || {}, { status: 'idle', lastError: null, user: null })
                 })
               });
@@ -943,6 +1268,7 @@
             if (ctxRef) {
               try { ctxRef.set('data.joined', false); } catch (_err) {}
               try { ctxRef.set('data.pinError', message); } catch (_err) {}
+              try { ctxRef.set('data.serverTroubleshooting', hints); } catch (_err) {}
               if (!details.keepPin) {
                 try { ctxRef.set('data.roomPin', ''); } catch (_err) {}
               }
@@ -958,6 +1284,12 @@
               try { store.socket.close(1000, 'logout'); } catch (_err) {}
               store.socket = null;
             }
+            if (store.demoReplyTimer) {
+              clearTimeout(store.demoReplyTimer);
+              store.demoReplyTimer = null;
+            }
+            store.demoMode = false;
+            store.demoMessages = [];
             resetAuthState({ clearToken: true });
             await clearSessionToken({ keepPin: false }).catch(function () {});
             mutateState(function (prev) {
@@ -974,6 +1306,7 @@
                   historyLoaded: false,
                   pinError: '',
                   lockExpiresAt: null,
+                  serverTroubleshooting: [],
                   connection: Object.assign({}, data.connection || {}, { status: 'idle', lastError: null, user: null })
                 })
               });
@@ -1005,17 +1338,294 @@
           function error(message, payload) { log('error', message, payload); }
           function debug(message, payload) { log('debug', message, payload); }
 
+          function storageAvailable() {
+            if (typeof window === 'undefined' || !window.localStorage) { return false; }
+            try {
+              var storage = window.localStorage;
+              var testKey = '__mk_chat_pref__';
+              storage.setItem(testKey, '1');
+              storage.removeItem(testKey);
+              return true;
+            } catch (_err) {
+              return false;
+            }
+          }
+
+          function deriveDefaultWsUrl() {
+            if (typeof window === 'undefined' || !window.location) {
+              return 'ws://localhost:3001';
+            }
+            try {
+              var loc = window.location;
+              var proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+              var host = loc.host || 'localhost:3001';
+              return proto + '//' + host;
+            } catch (deriveError) {
+              warn('تعذر اشتقاق رابط WebSocket الافتراضي من العنوان الحالي.', { error: deriveError });
+              return 'ws://localhost:3001';
+            }
+          }
+
+          function defaultServerConfig() {
+            return {
+              url: deriveDefaultWsUrl(),
+              tokenEndpoint: '',
+              roomsEndpoint: ''
+            };
+          }
+
+          function loadServerPreferences() {
+            if (!storageAvailable()) { return {}; }
+            try {
+              var raw = window.localStorage.getItem('mk:chat:server');
+              if (!raw) { return {}; }
+              var parsed = JSON.parse(raw);
+              if (!parsed || typeof parsed !== 'object') { return {}; }
+              var result = {};
+              if (parsed.url && typeof parsed.url === 'string') { result.url = parsed.url.trim(); }
+              if (parsed.tokenEndpoint && typeof parsed.tokenEndpoint === 'string') { result.tokenEndpoint = parsed.tokenEndpoint.trim(); }
+              if (parsed.roomsEndpoint && typeof parsed.roomsEndpoint === 'string') { result.roomsEndpoint = parsed.roomsEndpoint.trim(); }
+              return result;
+            } catch (err) {
+              warn('تعذر قراءة إعدادات الخادم المحفوظة محليًا.', { error: err });
+              return {};
+            }
+          }
+
+          function queryServerOverrides() {
+            if (typeof window === 'undefined' || !window.location || !window.location.search) { return {}; }
+            try {
+              var params = new URLSearchParams(window.location.search);
+              var overrides = {};
+              var ws = params.get('ws');
+              if (ws && ws.trim()) { overrides.url = ws.trim(); }
+              var token = params.get('token');
+              if (token && token.trim()) { overrides.tokenEndpoint = token.trim(); }
+              var rooms = params.get('rooms');
+              if (rooms && rooms.trim()) { overrides.roomsEndpoint = rooms.trim(); }
+              return overrides;
+            } catch (err) {
+              warn('تعذر تحليل معاملات العنوان لإعدادات الخادم.', { error: err });
+              return {};
+            }
+          }
+
+          function initialServerConfig() {
+            var defaults = defaultServerConfig();
+            var saved = loadServerPreferences();
+            var overrides = queryServerOverrides();
+            var result = Object.assign({}, defaults);
+            if (saved.url) { result.url = saved.url; }
+            if (saved.tokenEndpoint) { result.tokenEndpoint = saved.tokenEndpoint; }
+            if (saved.roomsEndpoint) { result.roomsEndpoint = saved.roomsEndpoint; }
+            if (overrides.url) { result.url = overrides.url; }
+            if (overrides.tokenEndpoint) { result.tokenEndpoint = overrides.tokenEndpoint; }
+            if (overrides.roomsEndpoint) { result.roomsEndpoint = overrides.roomsEndpoint; }
+            return result;
+          }
+
+          function persistServerPreferences(cfg) {
+            if (!storageAvailable()) { return; }
+            try {
+              var defaults = defaultServerConfig();
+              var payload = {};
+              if (cfg.url && cfg.url !== defaults.url) { payload.url = cfg.url; }
+              if (cfg.tokenEndpoint) { payload.tokenEndpoint = cfg.tokenEndpoint; }
+              if (cfg.roomsEndpoint) { payload.roomsEndpoint = cfg.roomsEndpoint; }
+              var storage = window.localStorage;
+              if (Object.keys(payload).length) {
+                storage.setItem('mk:chat:server', JSON.stringify(payload));
+              } else {
+                storage.removeItem('mk:chat:server');
+              }
+            } catch (err) {
+              warn('تعذر حفظ إعدادات الخادم محليًا.', { error: err });
+            }
+          }
+
+          function applyServerConfigToState(overrides) {
+            var cfg = config();
+            var values = {
+              wsUrl: cfg.url || '',
+              tokenEndpoint: cfg.tokenEndpoint || '',
+              roomsEndpoint: cfg.roomsEndpoint || ''
+            };
+            if (overrides && typeof overrides === 'object') {
+              values = Object.assign({}, values, overrides);
+            }
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  serverConfig: Object.assign({}, data.serverConfig || {}, values)
+                })
+              });
+            });
+          }
+
+          function setServerConfig(next, options) {
+            var cfg = config();
+            var defaults = defaultServerConfig();
+            var replace = options && options.replace;
+            var current = replace
+              ? { url: defaults.url, tokenEndpoint: '', roomsEndpoint: '' }
+              : {
+                  url: cfg.url || defaults.url,
+                  tokenEndpoint: cfg.tokenEndpoint || '',
+                  roomsEndpoint: cfg.roomsEndpoint || ''
+                };
+            var incoming = Object.assign({}, next || {});
+            var url = typeof incoming.url === 'string' ? incoming.url.trim() : current.url;
+            if (!url) { url = defaults.url; }
+            var token = Object.prototype.hasOwnProperty.call(incoming, 'tokenEndpoint')
+              ? (typeof incoming.tokenEndpoint === 'string' ? incoming.tokenEndpoint.trim() : '')
+              : current.tokenEndpoint;
+            var rooms = Object.prototype.hasOwnProperty.call(incoming, 'roomsEndpoint')
+              ? (typeof incoming.roomsEndpoint === 'string' ? incoming.roomsEndpoint.trim() : '')
+              : current.roomsEndpoint;
+            cfg.url = url;
+            cfg.tokenEndpoint = token ? token : null;
+            cfg.roomsEndpoint = rooms ? rooms : null;
+            persistServerPreferences({ url: cfg.url, tokenEndpoint: cfg.tokenEndpoint, roomsEndpoint: cfg.roomsEndpoint });
+            applyServerConfigToState({ wsUrl: cfg.url, tokenEndpoint: token, roomsEndpoint: rooms });
+            return cfg;
+          }
+
+          function handleServerConfigInput(field, event, ctx) {
+            var value = '';
+            if (event && event.target && typeof event.target.value === 'string') {
+              value = event.target.value;
+            }
+            switch (field) {
+              case 'url':
+                setServerConfig({ url: value }, { replace: false });
+                break;
+              case 'token':
+                setServerConfig({ tokenEndpoint: value }, { replace: false });
+                break;
+              case 'rooms':
+                setServerConfig({ roomsEndpoint: value }, { replace: false });
+                break;
+            }
+            if (ctx) { ensureContext(ctx); }
+          }
+
+          function resetServerConfig(ctx) {
+            setServerConfig(defaultServerConfig(), { replace: true });
+            if (ctx) { ensureContext(ctx); }
+          }
+
+          function toggleServerSettings(ctx) {
+            var context = ensureContext(ctx);
+            if (!context) { return; }
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var nextOpen = !Boolean(data.serverSettingsOpen);
+              var update = { serverSettingsOpen: nextOpen };
+              if (nextOpen) {
+                var cfg = config();
+                update.serverConfig = {
+                  wsUrl: cfg.url || '',
+                  tokenEndpoint: cfg.tokenEndpoint || '',
+                  roomsEndpoint: cfg.roomsEndpoint || ''
+                };
+              }
+              return Object.assign({}, base, { data: Object.assign({}, data, update) });
+            });
+          }
+
+          function serverPlaceholder(kind) {
+            var cfg = config();
+            switch (kind) {
+              case 'url':
+                return deriveDefaultWsUrl();
+              case 'token': {
+                var token = cfg.tokenEndpoint;
+                if (token) { return token; }
+                var base = deriveHttpUrl(cfg.url || deriveDefaultWsUrl());
+                return base ? base.replace(/\/+$/, '') + '/api/demo/guest-token' : '';
+              }
+              case 'rooms': {
+                var rooms = cfg.roomsEndpoint;
+                if (rooms) { return rooms; }
+                var baseUrl = deriveHttpUrl(cfg.url || deriveDefaultWsUrl());
+                return baseUrl ? baseUrl.replace(/\/+$/, '') + '/api/chat/rooms' : '';
+              }
+              default:
+                return '';
+            }
+          }
+
+          function defaultTroubleshootingHints() {
+            return [
+              {
+                id: 'endpoint-mismatch',
+                title: 'تأكد من تطابق عناوين WebSocket وREST',
+                description:
+                  'يجب أن يوجّه رابط WebSocket ورابطا REST (رمز الضيف وقائمة الغرف) إلى نفس الأصل. استخدم الحقول أعلاه إذا كان الخادم يعمل على منفذ أو نطاق مختلف.'
+              },
+              {
+                id: 'pin-required',
+                title: 'أدخل رمز PIN الصحيح للغرفة',
+                description:
+                  'رمز الغرفة الافتراضي هو 8866 لـ demo:lobby. رمز خاطئ ينتج عنه token_failed ثم auth_failed. تأكد من صحة الرمز ومن عدم وجود مسافات زائدة.'
+              },
+              {
+                id: 'pin-lock',
+                title: 'تحقق من عدم حظر رمز PIN مؤقتًا',
+                description:
+                  'بعد ثلاث محاولات فاشلة، يقفل الخادم الرمز لمدة 10 دقائق تقريبًا ويرجع رمز الخطأ pin_locked. انتظر انتهاء الحظر أو استخدم غرفة/رمز مختلف.'
+              },
+              {
+                id: 'server-env',
+                title: 'راجع متغيرات البيئة في webSoketsNode.js',
+                description:
+                  'يجب تفعيل ALLOW_DEMO_GUESTS وتحديد JWT_SECRET وتشغيل الخادم على العنوان الصحيح. تأكد من أن conversationId يبدأ بـ demo: قبل طلب الرمز.'
+              }
+            ];
+          }
+
+          function buildTroubleshootingHints(details) {
+            var hints = defaultTroubleshootingHints();
+            if (details && details.message) {
+              hints = hints.map(function (hint, idx) {
+                if (idx === 0) {
+                  return Object.assign({}, hint, {
+                    description: hint.description + ' — رسالة الخادم: "' + details.message + '".'
+                  });
+                }
+                return hint;
+              });
+            }
+            if (details && details.lockUntil) {
+              hints = hints.map(function (hint) {
+                if (hint.id === 'pin-lock') {
+                  var remaining = formatLockTime(details.lockUntil) || '';
+                  return Object.assign({}, hint, {
+                    description:
+                      hint.description + (remaining ? ' الوقت المتبقي للحظر: ' + remaining + '.' : '')
+                  });
+                }
+                return hint;
+              });
+            }
+            return hints;
+          }
+
           function config() {
             var store = runtime();
             if (!store.config) {
+              var defaults = initialServerConfig();
               store.config = {
-                url: 'wss://ws.mas.com.eg',
+                url: defaults.url || deriveDefaultWsUrl(),
                 conversationId: 'demo:lobby',
                 topic: 'chat:demo:lobby',
                 historyLimit: 50,
                 maxErrors: 10,
-                tokenEndpoint: null,
-                roomsEndpoint: null,
+                tokenEndpoint: defaults.tokenEndpoint ? defaults.tokenEndpoint : null,
+                roomsEndpoint: defaults.roomsEndpoint ? defaults.roomsEndpoint : null,
                 keyId: 'chat:demo:plaintext'
               };
             }
@@ -1245,6 +1855,22 @@
                 store.authToken = null;
                 store.authTokenMeta = null;
                 store.authenticated = false;
+                if (isLikelyNetworkError(fetchError)) {
+                  try {
+                    var fallbackToken = ensureDemoMode(context, {
+                      username: preferredName,
+                      conversationId: conversationId
+                    });
+                    if (fallbackToken) {
+                      info('تم تفعيل وضع العرض التجريبي بسبب تعذر الاتصال بخادم الرمز.', {
+                        conversationId: conversationId
+                      });
+                      return fallbackToken;
+                    }
+                  } catch (demoError) {
+                    warn('فشل تفعيل وضع العرض التجريبي بعد انقطاع الشبكة.', { error: demoError });
+                  }
+                }
                 var message = 'تعذر المصادقة على الغرفة. يرجى التحقق من رمز PIN.';
                 var lockUntil = null;
                 var keepPin = false;
@@ -1511,10 +2137,14 @@
               } else if (!Object.prototype.hasOwnProperty.call(connection, 'user')) {
                 connection.user = (data.connection && data.connection.user) || null;
               }
+              var nextData = Object.assign({}, data, {
+                connection: connection
+              });
+              if (status === 'connected' || status === 'connecting') {
+                nextData.serverTroubleshooting = [];
+              }
               return Object.assign({}, base, {
-                data: Object.assign({}, data, {
-                  connection: connection
-                })
+                data: nextData
               });
             });
           }
@@ -1969,6 +2599,11 @@
               error('connectToChat لم يتمكن من تهيئة سياق HTMLx صالح.');
               return null;
             }
+            if (store.demoMode) {
+              setConnectionStatus('connected', { resetError: true, user: store.authTokenMeta && store.authTokenMeta.user || null });
+              setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
+              return ensureDemoSocket(context);
+            }
             syncConfigWithState();
             var cfgSnapshot = config();
             persistSession({ conversationId: cfgSnapshot.conversationId }, { cookie: false }).catch(function () {});
@@ -2049,6 +2684,12 @@
             var context = ensureContext(ctx, null);
             if (!context) {
               error('retryChatConnection لم يتمكن من الحصول على سياق HTMLx.');
+              return;
+            }
+            var store = runtime();
+            if (store.demoMode) {
+              setConnectionStatus('connected', { resetError: true, user: store.authTokenMeta && store.authTokenMeta.user || null });
+              setLoadingState('ready', { message: 'أنت في وضع العرض التجريبي دون اتصال.', historyLoaded: true });
               return;
             }
             setLoadingState('connecting', { message: 'جارٍ إعادة محاولة الاتصال...', historyLoaded: false });
@@ -2211,6 +2852,9 @@
             });
             var store = runtime();
             store.historyRequested = false;
+            if (store.demoMode) {
+              store.demoMessages = [];
+            }
             try { context.set('data.newMessage', ''); } catch (_clearErr) {}
             setLoadingState('ready', { message: 'تم مسح الرسائل المعروضة.', historyLoaded: true });
             info('تم مسح الرسائل من الواجهة بناءً على طلب المستخدم.');
@@ -2421,6 +3065,7 @@
                 store.lastCtx = agent.ContextAdapter(store.app);
               }
             }
+            applyServerConfigToState();
             Promise.resolve()
               .then(async function () {
                 var session = await restoreSession(store.lastCtx);
