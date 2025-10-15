@@ -2705,7 +2705,7 @@
                 <h2>{state.env.lang === 'ar' ? 'التنقل الرئيسي' : 'Primary Navigation'}</h2>
                 <div class="nav-list">
                   <button
-                    class="nav-item {state.data.view.activeModule === module.id ? 'active' : ''}"
+                    class="nav-item {(state.data.view && state.data.view.activeModule === module.id) ? 'active' : ''}"
                     x-for="module in state.structure.modules"
                     key="module.id"
                     onclick="switchModule(module.id, ctx)"
@@ -2718,10 +2718,10 @@
               <div class="sidebar-card">
                 <h2>{state.env.lang === 'ar' ? 'تنبيهات' : 'Alerts'}</h2>
                 <div class="list">
-                  <p x-if="!state.data.runtime.alerts.length" class="{state.env.lang === 'ar' ? 'text-right' : ''}" style="margin:0;color:var(--muted-foreground);">
+                  <p x-if="!(state.data.runtime && state.data.runtime.alerts && state.data.runtime.alerts.length)" class="{state.env.lang === 'ar' ? 'text-right' : ''}" style="margin:0;color:var(--muted-foreground);">
                     {state.env.lang === 'ar' ? 'لا توجد تنبيهات حالية.' : 'No alerts at the moment.'}
                   </p>
-                  <div class="list-item" x-for="alert in state.data.runtime.alerts" key="alert.id">
+                  <div class="list-item" x-for="alert in (state.data.runtime && state.data.runtime.alerts ? state.data.runtime.alerts : [])" key="alert.id">
                     <header>
                       <span>{alert.message}</span>
                       <span class="tag {alert.type === 'error' ? 'warning' : 'success'}">{alert.type}</span>
@@ -2733,7 +2733,7 @@
             </aside>
 
             <div class="main-column">
-              <section class="panel" x-if="state.data.view.activeModule === 'frontOffice'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'frontOffice'">
                 <header>
                   <h2>{state.env.lang === 'ar' ? 'مؤشرات التشغيل الفوري' : 'Real-time Operating Pulse'}</h2>
                   <p>{state.env.lang === 'ar' ? 'تتبّع الإشغال والمهام والمواعيد الحرجة.' : 'Track occupancy, tasks, and critical appointments.'}</p>
@@ -2814,7 +2814,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'reservations'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'reservations'">
                 <header>
                   <h2>{trans('reservations.title')}</h2>
                   <p>{trans('reservations.subtitle')}</p>
@@ -2988,7 +2988,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'checkin'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'checkin'">
                 <header>
                   <h2>{trans('checkin.title')}</h2>
                   <p>{trans('checkin.subtitle')}</p>
@@ -3033,7 +3033,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'profiles'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'profiles'">
                 <header>
                   <h2>{trans('profiles.title')}</h2>
                   <p>{trans('profiles.subtitle')}</p>
@@ -3100,7 +3100,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'rack'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'rack'">
                 <header>
                   <h2>{trans('rack.title')}</h2>
                   <p>{trans('rack.subtitle')}</p>
@@ -3132,7 +3132,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'folio'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'folio'">
                 <header>
                   <h2>{trans('folio.title')}</h2>
                   <p>{trans('folio.subtitle')}</p>
@@ -3214,7 +3214,7 @@
                 </div>
               </section>
 
-              <section class="panel" x-if="state.data.view.activeModule === 'nightAudit'">
+              <section class="panel" x-if="state.data.view && state.data.view.activeModule === 'nightAudit'">
                 <header>
                   <h2>{trans('nightAudit.title')}</h2>
                   <p>{trans('nightAudit.subtitle')}</p>
