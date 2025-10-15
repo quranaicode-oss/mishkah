@@ -61,7 +61,10 @@
             "lastError": null,
             "user": null
           },
-          "errors": []
+          "errors": [],
+          "loadingState": "idle",
+          "loadingMessage": "",
+          "historyLoaded": false
         }
       </script>
 
@@ -122,7 +125,13 @@
                 >
                   {user.name || user}
                 </li>
-                <li x-if="!state.data.users.length" class="rounded-lg border border-slate-800/60 bg-slate-900/40 p-3 text-xs text-slate-500">
+                <li
+                  x-if="!state.data.users.length && state.data.loadingState !== 'ready'"
+                  class="rounded-lg border border-slate-800/60 bg-slate-900/40 p-3 text-xs text-slate-400"
+                >
+                  جارٍ تحميل قائمة المتصلين...
+                </li>
+                <li x-if="!state.data.users.length && state.data.loadingState === 'ready'" class="rounded-lg border border-slate-800/60 bg-slate-900/40 p-3 text-xs text-slate-500">
                   لا توجد أسماء بعد — سيظهر المشاركون بعد إرسال الرسائل.
                 </li>
               </ul>
@@ -140,7 +149,22 @@
           </aside>
 
           <main class="flex h-full flex-1 flex-col gap-4 overflow-hidden">
-            <section class="flex-1 overflow-hidden rounded-2xl bg-slate-900/80 p-5 ring-1 ring-slate-800/60">
+            <section class="relative flex-1 overflow-hidden rounded-2xl bg-slate-900/80 p-5 ring-1 ring-slate-800/60">
+              <div
+                x-if="state.data.joined && state.data.loadingState !== 'ready'"
+                class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-slate-950/80 backdrop-blur"
+              >
+                <div class="h-12 w-12 animate-spin rounded-full border-2 border-slate-800/60 border-t-sky-400"></div>
+                <p class="px-6 text-center text-sm text-slate-300">{loadingHint(state)}</p>
+                <button
+                  x-if="state.data.loadingState === 'error'"
+                  type="button"
+                  class="rounded-lg border border-rose-500/50 bg-rose-900/50 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-900/70"
+                  onclick="retryChatConnection(ctx)"
+                >
+                  إعادة المحاولة
+                </button>
+              </div>
               <div class="mb-4 flex items-center justify-between text-xs text-slate-400">
                 <span>القناة: {state.data.topic}</span>
                 <span>{formatChatTime(state.data.messages.length ? state.data.messages[state.data.messages.length - 1].createdAt : null, false, ctx) || '—'}</span>
@@ -159,7 +183,7 @@
                   <p x-if="msg.pending" class="mt-2 text-xs text-amber-300">جاري الإرسال...</p>
                   <p x-if="msg.failed" class="mt-2 text-xs text-rose-400">تعذر تسليم الرسالة.</p>
                 </article>
-                <p x-if="!state.data.messages.length" class="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 text-sm text-slate-500">
+                <p x-if="!state.data.messages.length && state.data.loadingState === 'ready'" class="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 text-sm text-slate-500">
                   لا توجد رسائل حتى الآن. كن أول من يبدأ الحديث!
                 </p>
               </div>
@@ -178,6 +202,13 @@
                 />
               </label>
               <div class="flex items-end justify-end gap-3">
+                <button
+                  type="button"
+                  class="rounded-xl border border-rose-700/50 bg-rose-900/40 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:border-rose-600/60 hover:bg-rose-900/60"
+                  onclick="clearChatHistory(ctx)"
+                >
+                  مسح المحادثة
+                </button>
                 <button
                   type="button"
                   class="rounded-xl border border-slate-800/60 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-700"
@@ -406,7 +437,7 @@
 
           async function ensureAuthToken(context) {
             var store = runtime();
-            if (store.authenticated && store.authToken) {
+            if (store.authToken) {
               return store.authToken;
             }
             if (store.authenticating && store.authPromise) {
@@ -454,7 +485,6 @@
                 }
                 store.authToken = response.token;
                 store.authTokenMeta = response;
-                store.authenticated = true;
                 var normalizedUser = normalizeUserInfo(response.user);
                 if (normalizedUser) {
                   mutateState(function (prev) {
@@ -668,6 +698,37 @@
                 })
               });
             });
+            setLoadingState('ready');
+          }
+
+          function setLoadingState(status, meta) {
+            var next = typeof status === 'string' && status.trim() ? status.trim() : 'idle';
+            var message = (meta && typeof meta.message === 'string') ? meta.message.trim() : null;
+            var historyOverride = (meta && Object.prototype.hasOwnProperty.call(meta, 'historyLoaded')) ? Boolean(meta.historyLoaded) : null;
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var update = {
+                loadingState: next
+              };
+              if (message !== null) {
+                update.loadingMessage = message;
+              } else if (next === 'ready') {
+                update.loadingMessage = '';
+              } else if (typeof data.loadingMessage === 'string') {
+                update.loadingMessage = data.loadingMessage;
+              } else {
+                update.loadingMessage = '';
+              }
+              if (next === 'ready') {
+                update.historyLoaded = true;
+              } else if (historyOverride !== null) {
+                update.historyLoaded = historyOverride;
+              }
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, update)
+              });
+            });
           }
 
           function setConnectionStatus(status, meta) {
@@ -749,12 +810,14 @@
                 });
               }
               setConnectionStatus('connected', { resetError: true, user: normalizedUser || null });
+              setLoadingState('connected', { message: 'جارٍ تحميل سجل الرسائل...', historyLoaded: false });
               subscribeToChat();
               requestHistory(true);
               return;
             }
             if (message.event === 'subscribe') {
               info('تم تأكيد الاشتراك في موضوع الدردشة.', { topic: message.topic });
+              setLoadingState('connected', { message: 'تم الاشتراك بنجاح، نعرض المحادثة الآن...', historyLoaded: false });
               return;
             }
             if (message.event === 'chat:send') {
@@ -784,6 +847,7 @@
               return;
             }
             applyIncomingMessage(message.data || {}, {});
+            setLoadingState('ready');
           }
 
           function handleHistoryMessage(message) {
@@ -813,6 +877,7 @@
                 })
               });
             });
+            setLoadingState('ready');
           }
 
           function handleServerError(message) {
@@ -820,6 +885,7 @@
             var text = message && message.message ? message.message : 'أبلغ الخادم عن خطأ غير معروف.';
             recordError(code, text, message, { connection: true });
             setConnectionStatus('error', { code: code, message: text });
+            setLoadingState('error', { message: 'أبلغ الخادم عن خطأ: ' + text, historyLoaded: false });
             var store = runtime();
             if (code === 'unauthorized_sub' || code === 'topic_not_allowed') {
               store.subscriptionRequested = false;
@@ -850,14 +916,20 @@
                 if (store.socket && store.socket.auth) {
                   store.socket.auth.token = null;
                 }
+                setLoadingState('connecting', { message: 'جارٍ إعادة المصادقة على الاتصال...', historyLoaded: false });
                 (async function () {
                   try {
                     var token = await ensureAuthToken(store.lastCtx);
                     if (store.socket && store.socket.state === 'open') {
-                      store.socket.send({ type: 'auth', data: { token: token } });
+                      var helloAuthResult = safeSend(store.socket, { type: 'auth', data: { token: token } });
+                      if (!helloAuthResult.ok) {
+                        reportSendFailure(helloAuthResult, { type: 'auth', data: { token: token } }, 'auth');
+                        setLoadingState('error', { message: 'تعذر إعادة المصادقة على الاتصال.', historyLoaded: false });
+                      }
                     }
                   } catch (reauthErr) {
                     recordError('auth_retry_failed', 'تعذر استكمال المصادقة التلقائية بعد رسالة hello.', reauthErr, { connection: true });
+                    setLoadingState('error', { message: 'تعذر إعادة المصادقة على الاتصال.', historyLoaded: false });
                   }
                 })();
                 break;
@@ -891,18 +963,36 @@
               info('تم فتح اتصال WebSocket بنجاح.', { topic: cfg.topic });
               resetAuthState();
               setConnectionStatus('connected', { resetError: true });
+              setLoadingState('connected', { message: 'جارٍ مزامنة المحادثة...', historyLoaded: false });
             });
             socket.on('close', function (evt) {
               warn('تم إغلاق اتصال WebSocket.', { code: evt && evt.code, reason: evt && evt.reason });
               resetAuthState();
               setConnectionStatus('disconnected', { error: evt && { code: evt.code || 'closed', message: evt.reason || '' } });
+              setLoadingState('reconnecting', { message: 'جارٍ إعادة الاتصال بالخادم...', historyLoaded: false });
             });
             socket.on('error', function (err) {
               recordError('socket_error', 'حدث خطأ في قناة WebSocket.', err, { connection: true });
               setConnectionStatus('error', err);
+              setLoadingState('error', { message: 'حدث خطأ في اتصال الدردشة. نحاول إعادة الاتصال...', historyLoaded: false });
             });
             socket.on('state', function (state) {
               debug('تغيرت حالة WebSocket', { state: state });
+              if (!state || !state.state) return;
+              switch (state.state) {
+                case 'connecting':
+                  setLoadingState('connecting', { message: 'جارٍ الاتصال بخادم الدردشة...', historyLoaded: false });
+                  break;
+                case 'open':
+                  setLoadingState('connected', { message: 'جارٍ مزامنة المحادثة...', historyLoaded: false });
+                  break;
+                case 'closed':
+                  setLoadingState('reconnecting', { message: 'جارٍ إعادة محاولة الاتصال...', historyLoaded: false });
+                  break;
+                case 'offline':
+                  setLoadingState('error', { message: 'الاتصال غير متاح مؤقتًا. تأكد من الشبكة.', historyLoaded: false });
+                  break;
+              }
             });
             socket.on('message', function (msg) {
               handleSocketMessage(msg);
@@ -942,6 +1032,51 @@
             });
           }
 
+          function safeSend(socket, payload) {
+            if (!socket || typeof socket.send !== 'function') {
+              return { ok: false, reason: 'socket' };
+            }
+            if (!payload || typeof payload !== 'object') {
+              return { ok: false, reason: 'payload' };
+            }
+            var type = '';
+            if (typeof payload.type === 'string') {
+              type = payload.type.trim();
+            }
+            if (!type) {
+              return { ok: false, reason: 'type' };
+            }
+            var normalized = Object.assign({}, payload, { type: type });
+            try {
+              socket.send(normalized);
+              return { ok: true };
+            } catch (err) {
+              return { ok: false, reason: 'send', error: err };
+            }
+          }
+
+          function reportSendFailure(result, payload, label) {
+            if (!result || result.ok) {
+              return;
+            }
+            var tag = label || (payload && payload.type) || 'message';
+            switch (result.reason) {
+              case 'socket':
+                recordError('ws_missing', 'اتصال الدردشة غير جاهز لإرسال "' + tag + '".', payload, { connection: true });
+                break;
+              case 'payload':
+                recordError('payload_invalid', 'تعذر إرسال "' + tag + '" لأن الحمولة غير صالحة.', payload);
+                break;
+              case 'type':
+                recordError('type_required', 'تعذر إرسال "' + tag + '" لأن الحقل type مفقود.', payload, { connection: true });
+                break;
+              case 'send':
+              default:
+                recordError('send_failed', 'تعذر إرسال "' + tag + '" إلى الخادم.', result.error || payload, { connection: true });
+                break;
+            }
+          }
+
           function requestHistory(force) {
             var store = runtime();
             if (!store.socket || store.socket.state !== 'open') {
@@ -955,17 +1090,20 @@
               return;
             }
             var cfg = config();
-            try {
-              store.socket.send({
-                type: 'chat:history',
-                conversationId: cfg.conversationId,
-                limit: cfg.historyLimit
-              });
+            var requestPayload = {
+              type: 'chat:history',
+              conversationId: cfg.conversationId,
+              limit: cfg.historyLimit
+            };
+            setLoadingState('connected', { message: 'جارٍ تحميل سجل الرسائل...', historyLoaded: false });
+            var result = safeSend(store.socket, requestPayload);
+            if (result.ok) {
               store.historyRequested = true;
               info('تم طلب سجل الرسائل.', { limit: cfg.historyLimit });
-            } catch (historyError) {
+            } else {
               store.historyRequested = false;
-              recordError('history_failed', 'تعذر طلب سجل الرسائل من الخادم.', historyError);
+              reportSendFailure(result, requestPayload, 'chat:history');
+              setLoadingState('error', { message: 'تعذر طلب سجل الرسائل من الخادم.', historyLoaded: false });
             }
           }
 
@@ -981,19 +1119,24 @@
             if (store.subscriptionRequested) {
               return;
             }
-            try {
-              var cfg = config();
-              store.socket.send({
-                type: 'subscribe',
-                topic: cfg.topic,
-                conversationId: cfg.conversationId
-              });
+            var cfg = config();
+            var subscribePayload = {
+              type: 'subscribe',
+              topic: cfg.topic,
+              conversationId: cfg.conversationId
+            };
+            var result = safeSend(store.socket, subscribePayload);
+            if (result.ok) {
               store.subscriptionRequested = true;
+              setLoadingState('connected', { message: 'جارٍ الاستعداد لعرض المحادثة...', historyLoaded: false });
               info('تم إرسال طلب الاشتراك في موضوع الدردشة.', { topic: cfg.topic });
-            } catch (sendError) {
+            } else {
               store.subscriptionRequested = false;
-              recordError('subscribe_failed', 'تعذر إرسال طلب الاشتراك في الدردشة.', sendError, { connection: true });
-              setConnectionStatus('error', sendError);
+              reportSendFailure(result, subscribePayload, 'subscribe');
+              if (result.reason !== 'type') {
+                setConnectionStatus('error', { code: 'subscribe_failed', message: 'تعذر الاشتراك في الدردشة.' });
+              }
+              setLoadingState('error', { message: 'تعذر الاشتراك في الدردشة.', historyLoaded: false });
             }
           }
 
@@ -1005,9 +1148,11 @@
               return null;
             }
             syncConfigWithState();
+            setLoadingState('connecting', { message: 'جارٍ الاتصال بخادم الدردشة...', historyLoaded: false });
             var utils = utilsHost();
             if (!utils || typeof utils.WebSocketX !== 'function') {
               recordError('wsx_unavailable', 'Mishkah.utils.WebSocketX غير متاح.', null, { connection: true });
+              setLoadingState('error', { message: 'تعذر إنشاء اتصال WebSocket في المتصفح.', historyLoaded: false });
               return null;
             }
             if (!store.socket) {
@@ -1032,12 +1177,14 @@
                 });
               } catch (ctorError) {
                 recordError('wsx_init_failed', 'تعذر إنشاء عميل WebSocket.', ctorError, { connection: true });
+                setLoadingState('error', { message: 'تعذر إنشاء اتصال WebSocket.', historyLoaded: false });
                 return null;
               }
               attachSocketHandlers(store.socket);
             }
             if (store.socket.state === 'open') {
               setConnectionStatus('connected', { resetError: true });
+              setLoadingState('connected', { message: 'جارٍ مزامنة المحادثة...', historyLoaded: store.historyRequested && store.historyRequested });
               if (store.authenticated) {
                 subscribeToChat();
                 requestHistory(false);
@@ -1046,15 +1193,34 @@
                   try {
                     var token = await ensureAuthToken(store.lastCtx || context);
                     if (store.socket && store.socket.state === 'open') {
-                      store.socket.send({ type: 'auth', data: { token: token } });
+                      var authResult = safeSend(store.socket, { type: 'auth', data: { token: token } });
+                      if (!authResult.ok) {
+                        reportSendFailure(authResult, { type: 'auth', data: { token: token } }, 'auth');
+                        setLoadingState('error', { message: 'تعذر إرسال بيانات المصادقة إلى الخادم.', historyLoaded: false });
+                      }
                     }
                   } catch (tokenError) {
                     recordError('auth_failed', 'تعذر المصادقة مع خادم الدردشة.', tokenError, { connection: true });
+                    setLoadingState('error', { message: 'تعذر المصادقة مع الخادم.', historyLoaded: false });
                   }
                 })();
               }
             }
             return store.socket;
+          }
+
+          function retryChatConnection(ctx) {
+            var context = ensureContext(ctx, null);
+            if (!context) {
+              error('retryChatConnection لم يتمكن من الحصول على سياق HTMLx.');
+              return;
+            }
+            setLoadingState('connecting', { message: 'جارٍ إعادة محاولة الاتصال...', historyLoaded: false });
+            setConnectionStatus('connecting');
+            var socket = connectToChat(context);
+            if (!socket) {
+              recordError('ws_missing', 'تعذر إعادة إنشاء اتصال الدردشة.', null, { connection: true });
+            }
           }
 
           function handleUsernameInput(event, ctx) {
@@ -1082,6 +1248,11 @@
               context.set('data.username', username);
             }
             context.set('data.joined', true);
+            try { context.set('data.messages', []); } catch (_msgErr) {}
+            try { context.set('data.errors', []); } catch (_err) {}
+            try { context.set('data.historyLoaded', false); } catch (_histErr) {}
+            setConnectionStatus('connecting');
+            setLoadingState('connecting', { message: 'جارٍ تهيئة اتصال الدردشة...', historyLoaded: false });
             connectToChat(context);
           }
 
@@ -1158,6 +1329,33 @@
             if (!context) return;
             var alias = generateGuestName();
             context.set('data.username', alias);
+          }
+
+          function clearChatHistory(ctx) {
+            var context = ensureContext(ctx);
+            if (!context) {
+              error('clearChatHistory لم يتمكن من الحصول على سياق HTMLx.');
+              return;
+            }
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var connection = Object.assign({}, data.connection || {});
+              connection.lastError = null;
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  messages: [],
+                  errors: [],
+                  historyLoaded: true,
+                  connection: connection
+                })
+              });
+            });
+            var store = runtime();
+            store.historyRequested = false;
+            try { context.set('data.newMessage', ''); } catch (_clearErr) {}
+            setLoadingState('ready', { message: 'تم مسح الرسائل المعروضة.', historyLoaded: true });
+            info('تم مسح الرسائل من الواجهة بناءً على طلب المستخدم.');
           }
 
           function messagePayload(ctx, event) {
@@ -1252,12 +1450,26 @@
                 }
               };
               var cfg = config();
-              socket.send({
+              var sendPayload = {
                 type: 'chat:send',
                 conversationId: cfg.conversationId,
                 data: messageData
-              });
-              info('تم إرسال الرسالة إلى الخادم.', { clientMessageId: payload.clientMessageId });
+              };
+              var sendResult = safeSend(socket, sendPayload);
+              if (sendResult.ok) {
+                info('تم إرسال الرسالة إلى الخادم.', { clientMessageId: payload.clientMessageId });
+              } else {
+                reportSendFailure(sendResult, sendPayload, 'chat:send');
+                applyIncomingMessage(null, {
+                  clientMessageId: payload.clientMessageId,
+                  username: payload.user,
+                  text: payload.text,
+                  pending: false,
+                  failed: true,
+                  createdAt: new Date().toISOString(),
+                  metadata: { clientMessageId: payload.clientMessageId, username: payload.user }
+                });
+              }
             } catch (sendError) {
               recordError('send_failed', 'تعذر إرسال الرسالة إلى الخادم.', sendError);
               applyIncomingMessage(null, {
@@ -1298,6 +1510,27 @@
             } catch (formatError) {
               warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', { value: value, includeSeconds: includeSeconds, error: formatError });
               return '';
+            }
+          }
+
+          function loadingHint(state) {
+            var data = state && state.data ? state.data : {};
+            var message = data.loadingMessage;
+            if (typeof message === 'string' && message.trim()) {
+              return message.trim();
+            }
+            var status = typeof data.loadingState === 'string' ? data.loadingState.trim() : 'idle';
+            switch (status) {
+              case 'connecting':
+                return 'جارٍ الاتصال بخادم الدردشة...';
+              case 'connected':
+                return 'جارٍ تحميل المحادثة...';
+              case 'reconnecting':
+                return 'جارٍ إعادة الاتصال واسترجاع البيانات...';
+              case 'error':
+                return 'تعذر الاتصال مؤقتًا. سنحاول مجددًا حالًا.';
+              default:
+                return 'جارٍ تهيئة المحادثة...';
             }
           }
 
