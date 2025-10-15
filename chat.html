@@ -208,7 +208,7 @@
           <main class="flex h-full flex-1 flex-col gap-4 overflow-hidden">
             <section class="relative flex-1 overflow-hidden rounded-2xl bg-slate-900/80 p-5 ring-1 ring-slate-800/60">
               <div
-                x-if="state.data.joined && state.data.loadingState !== 'ready'"
+                x-if="state.data.joined && loadingOverlayVisible(state)"
                 class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-slate-950/80 backdrop-blur"
               >
                 <div class="h-12 w-12 animate-spin rounded-full border-2 border-slate-800/60 border-t-sky-400"></div>
@@ -2310,6 +2310,25 @@
             } catch (formatError) {
               warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', { value: value, includeSeconds: includeSeconds, error: formatError });
               return '';
+            }
+          }
+
+          function loadingOverlayVisible(state) {
+            var data = state && state.data ? state.data : state || {};
+            var status = typeof data.loadingState === 'string' ? data.loadingState.trim() : '';
+            var hasMessages = Array.isArray(data.messages) && data.messages.length > 0;
+            var historyLoaded = Boolean(data.historyLoaded);
+            switch (status) {
+              case 'ready':
+                return false;
+              case 'error':
+              case 'connecting':
+              case 'reconnecting':
+                return true;
+              case 'connected':
+                return !(historyLoaded || hasMessages);
+              default:
+                return !(historyLoaded || hasMessages);
             }
           }
 
