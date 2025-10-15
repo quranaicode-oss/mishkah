@@ -4807,6 +4807,8 @@
       const seen = new Set();
       [db.data.order, ...(db.data.ordersQueue || [])].forEach(order=>{
         if(!order || !order.id || seen.has(order.id)) return;
+        const statusId = String(order.status || order.header?.status_id || '').toLowerCase();
+        if(statusId && statusId.startsWith('draft')) return;
         seen.add(order.id);
         mergedOrders.push(order);
       });
