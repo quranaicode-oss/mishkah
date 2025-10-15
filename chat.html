@@ -299,23 +299,15 @@
         </div>
 
         <script data-for="chat-shell">
-          var DEFAULT_ROOMS = [
-            {
-              id: 'demo:lobby',
-              name: 'الصالة التجريبية',
-              description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
-              requiresPin: true
-            }
-          ];
-
           function fallbackRooms(preferredId) {
             var cfg = config();
+            var defaults = defaultRooms();
             var targetId = preferredId || (cfg && cfg.conversationId) || 'demo:lobby';
-            var hasMatch = DEFAULT_ROOMS.some(function (room) { return room.id === targetId; });
+            var hasMatch = defaults.some(function (room) { return room.id === targetId; });
             if (hasMatch) {
-              return DEFAULT_ROOMS;
+              return defaults;
             }
-            return DEFAULT_ROOMS.concat([
+            return defaults.concat([
               {
                 id: targetId,
                 name: targetId,
@@ -323,6 +315,17 @@
                 requiresPin: true
               }
             ]);
+          }
+
+          function defaultRooms() {
+            return [
+              {
+                id: 'demo:lobby',
+                name: 'الصالة التجريبية',
+                description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
+                requiresPin: true
+              }
+            ];
           }
 
           function createRuntime() {
