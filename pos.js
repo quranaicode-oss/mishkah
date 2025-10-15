@@ -801,7 +801,9 @@
     function summarizeShiftOrders(history, shift){
       if(!shift) return { totalsByType:{}, paymentsByMethod:{}, totalSales:0, orders:[], ordersCount:0, countsByType:{} };
       const shiftId = shift.id;
-      const historyList = Array.isArray(history) ? history : [];
+      const historyList = Array.isArray(history)
+        ? history.filter(entry=> entry && entry.isPersisted !== false && entry.dirty !== true && entry.status !== 'draft')
+        : [];
       const orders = [];
       const totalsAccumulator = {};
       const paymentsAccumulator = {};
@@ -839,6 +841,7 @@
       if(!orders.length && Array.isArray(shift.orders) && shift.orders.length){
         shift.orders.forEach((entry, idx)=>{
           if(!entry) return;
+          if(entry.isPersisted === false || entry.dirty === true || entry.status === 'draft') return;
           if(typeof entry === 'string'){
             const typeKey = 'dine_in';
             countsAccumulator[typeKey] = (countsAccumulator[typeKey] || 0) + 1;
@@ -936,7 +939,7 @@
 
     function computeRealtimeReports(db){
       const history = (Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [])
-        .filter(order=> order && order.isPersisted !== false && order.status !== 'draft');
+        .filter(order=> order && order.isPersisted !== false && order.dirty !== true && order.status !== 'draft');
       const now = Date.now();
       const start = new Date(now);
       start.setHours(0,0,0,0);
@@ -1425,6 +1428,7 @@
             createdAt: note.createdAt
           })),
           discount: normalizeDiscount(header.discount),
+          dirty:false,
           events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
         };
       }
@@ -1572,6 +1576,7 @@
           updatedAt: order.updatedAt || now,
           savedAt: order.savedAt || now,
           isPersisted:false,
+          dirty:true,
           allowAdditions: order.allowAdditions !== undefined ? !!order.allowAdditions : true,
           lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : false,
           posId: order.posId || order.metadata?.posId || null,
@@ -1606,7 +1611,8 @@
           createdAt: payload.createdAt || record.createdAt || Date.now(),
           updatedAt: payload.updatedAt || record.updatedAt || Date.now(),
           savedAt: payload.savedAt || record.updatedAt || Date.now(),
-          isPersisted:false
+          isPersisted:false,
+          dirty:true
         };
       }
 
@@ -1679,7 +1685,8 @@
           return {
             ...legacy,
             id: header.id,
-            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
+            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt),
+            dirty:false
           };
         }
         return hydrateOrder(header);
@@ -2220,6 +2227,33 @@
             const nextOrder = nextState?.data?.order || null;
             const prevOrder = prevState?.data?.order || null;
             const paymentsState = nextState?.data?.payments || null;
+            const prevPaymentsState = prevState?.data?.payments || null;
+            const sameOrder = nextOrder && prevOrder && nextOrder.id && prevOrder.id && nextOrder.id === prevOrder.id;
+            let nextSignature = null;
+            let prevSignature = null;
+            if(nextOrder){
+              nextSignature = computeSignature(nextOrder, paymentsState);
+            }
+            if(prevOrder){
+              prevSignature = computeSignature(prevOrder, prevPaymentsState);
+            }
+            const orderMutated = sameOrder && nextSignature !== prevSignature;
+            if(orderMutated && nextOrder){
+              if(nextState?.data?.order && typeof nextState.data.order === 'object'){
+                nextState.data.order.isPersisted = false;
+                nextState.data.order.dirty = true;
+                nextState.data.order.savedAt = null;
+              }
+              if(Array.isArray(nextState?.data?.ordersHistory)){
+                const historyIndex = nextState.data.ordersHistory.findIndex(entry=> entry && entry.id === nextOrder.id);
+                if(historyIndex >= 0){
+                  const updatedHistory = nextState.data.ordersHistory.slice();
+                  const currentEntry = { ...updatedHistory[historyIndex], isPersisted:false, dirty:true, savedAt:null };
+                  updatedHistory[historyIndex] = currentEntry;
+                  nextState.data.ordersHistory = updatedHistory;
+                }
+              }
+            }
             if(prevOrder && prevOrder.id){
               if(!nextOrder || nextOrder.id !== prevOrder.id || nextOrder.isPersisted){
                 cleanupTempOrder(prevOrder.id);
@@ -2655,6 +2689,7 @@
         updatedAt,
         savedAt: updatedAt,
         isPersisted:true,
+        dirty:false,
         allowAdditions,
         lockLineEdits,
         origin:'seed',
@@ -2801,6 +2836,7 @@
     const ordersHistorySeed = seedOrders.map((order, idx)=>({
       ...order,
       seq: idx + 1,
+      dirty:false,
       lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
       payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
     }));
@@ -3013,7 +3049,8 @@
           customerName: tempOrderDraft?.customerName || '',
           customerPhone: tempOrderDraft?.customerPhone || '',
           customerAddress: tempOrderDraft?.customerAddress || '',
-          customerAreaId: tempOrderDraft?.customerAreaId || null
+          customerAreaId: tempOrderDraft?.customerAreaId || null,
+          dirty: tempOrderDraft ? tempOrderDraft.dirty !== false : false
         },
         orderStages,
         orderStatuses,
@@ -3119,12 +3156,17 @@
           posDB.listShifts({ posId: POS_INFO.id, limit: 100 }),
           posDB.listOrders({ onlyActive:true })
         ]);
-        const historyOrders = Array.isArray(allOrders) ? allOrders.map((order, idx)=>({
-          ...order,
-          seq: idx + 1,
-          payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
-          lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
-        })) : [];
+        const historyOrders = Array.isArray(allOrders)
+          ? allOrders
+              .filter(order=> order && order.isPersisted !== false && order.dirty !== true && order.status !== 'draft')
+              .map((order, idx)=>({
+                ...order,
+                dirty:false,
+                seq: idx + 1,
+                payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
+                lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
+              }))
+          : [];
         const summarySource = historyOrders;
         let currentShift = null;
         if(activeShiftRaw){
@@ -3324,6 +3366,7 @@
         posLabel: order.posLabel || POS_INFO.label,
         posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
         isPersisted:true,
+        dirty:false,
         paymentState: paymentSummary.state
       };
       if(finalize){
@@ -3331,7 +3374,9 @@
         orderPayload.finishedAt = now;
       }
       try{
-        await posDB.saveOrder(orderPayload);
+        const persistableOrder = { ...orderPayload };
+        delete persistableOrder.dirty;
+        await posDB.saveOrder(persistableOrder);
         if(posDB.available && typeof posDB.deleteTempOrder === 'function'){
           try { await posDB.deleteTempOrder(orderPayload.id); } catch(_tempErr){ }
         }
@@ -4877,6 +4922,7 @@
         lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
         notes: Array.isArray(order.notes) ? order.notes.map(note=> ({ ...note })) : [],
         payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : [],
+        dirty:false,
         discount: normalizeDiscount(order.discount)
       };
       ctx.setState(s=>{
@@ -6404,7 +6450,8 @@
                   customerName:'',
                   customerPhone:'',
                   customerAddress:'',
-                  customerAreaId:null
+                  customerAreaId:null,
+                  dirty:false
                 },
                 payments:{ ...(data.payments || {}), split:[] },
                 tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
@@ -8023,6 +8070,7 @@
             allowAdditions: !!dineInConfig.allowsLineAdditions,
             lockLineEdits:false,
             isPersisted:false,
+            dirty:false,
             shiftId: state.data.shift?.current?.id || null,
             posId: state.data.pos?.id || POS_INFO.id,
             posLabel: state.data.pos?.label || POS_INFO.label,

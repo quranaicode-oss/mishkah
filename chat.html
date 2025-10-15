@@ -299,6 +299,35 @@
         </div>
 
         <script data-for="chat-shell">
+          function fallbackRooms(preferredId) {
+            var cfg = config();
+            var defaults = defaultRooms();
+            var targetId = preferredId || (cfg && cfg.conversationId) || 'demo:lobby';
+            var hasMatch = defaults.some(function (room) { return room.id === targetId; });
+            if (hasMatch) {
+              return defaults;
+            }
+            return defaults.concat([
+              {
+                id: targetId,
+                name: targetId,
+                description: '',
+                requiresPin: true
+              }
+            ]);
+          }
+
+          function defaultRooms() {
+            return [
+              {
+                id: 'demo:lobby',
+                name: 'الصالة التجريبية',
+                description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
+                requiresPin: true
+              }
+            ];
+          }
+
           function createRuntime() {
             return {
               app: null,
@@ -718,10 +747,16 @@
             var store = runtime();
             if (store.roomsLoading) { return; }
             var endpoint = resolveRoomsEndpoint();
-            if (!endpoint) { return; }
+            if (!endpoint) {
+              applyRoomsToState(fallbackRooms(preferredId), preferredId);
+              return;
+            }
             var utils = utilsHost();
             var fetcher = utils && utils.Net && typeof utils.Net.ajax === 'function' ? utils.Net.ajax : null;
-            if (!fetcher) { return; }
+            if (!fetcher) {
+              applyRoomsToState(fallbackRooms(preferredId), preferredId);
+              return;
+            }
             store.roomsLoading = true;
             try {
               var response = await fetcher(endpoint, { method: 'GET', responseType: 'json', timeout: 8000 });
@@ -731,13 +766,13 @@
               } else if (Array.isArray(response)) {
                 rooms = response;
               }
+              if (!rooms.length) {
+                rooms = fallbackRooms(preferredId);
+              }
               applyRoomsToState(rooms, preferredId);
             } catch (loadErr) {
               warn('تعذر تحميل قائمة الغرف من الخادم.', { error: loadErr });
-              var fallbackId = config().conversationId || 'demo:lobby';
-              applyRoomsToState([
-                { id: fallbackId, name: fallbackId, topic: topicFromConversation(fallbackId), requiresPin: true },
-              ], preferredId);
+              applyRoomsToState(fallbackRooms(preferredId), preferredId);
             } finally {
               store.roomsLoading = false;
             }
