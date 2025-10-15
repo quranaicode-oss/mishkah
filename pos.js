@@ -4073,7 +4073,7 @@
           attrs:{ gkey:'pos:order:save', 'data-save-mode':finishMode, class: tw`min-w-[180px] flex items-center justify-center gap-2` },
           variant:'solid',
           size:'md'
-        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [finishLabel])]);
+        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [finishLabel])]));
       }
       if(showPrintButton){
         primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
