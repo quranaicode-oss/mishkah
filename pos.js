@@ -935,7 +935,8 @@
     }
 
     function computeRealtimeReports(db){
-      const history = Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [];
+      const history = (Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [])
+        .filter(order=> order && order.isPersisted !== false && order.status !== 'draft');
       const now = Date.now();
       const start = new Date(now);
       start.setHours(0,0,0,0);
