@@ -374,7 +374,7 @@
           line_modifiers:'الإضافات والمنزوعات', line_modifiers_title:'تعديل الإضافات والمنزوعات', line_modifiers_addons:'الإضافات', line_modifiers_removals:'المنزوعات', line_modifiers_apply:'تطبيق التعديلات', line_modifiers_empty:'لا توجد خيارات متاحة', line_modifiers_free:'بدون رسوم', line_modifiers_missing:'السطر غير متاح', line_modifiers_unit:'السعر للوحدة',
           amount:'قيمة الدفعة', capture_payment:'تأكيد الدفع', close:'إغلاق', theme:'الثيم', light:'نهاري', dark:'ليلي', language:'اللغة',
           arabic:'عربي', english:'English', service_type:'نوع الطلب', guests:'عدد الأفراد', kds:'نظام المطبخ (KDS)',
-          status_online:'متصل', status_offline:'غير متصل', status_idle:'انتظار', order_id:'طلب', last_orders:'الطلبات الأخيرة',
+          status_online:'متصل', status_offline:'غير متصل', status_idle:'انتظار', order_id:'طلب', order_id_pending:'مسودة', last_orders:'الطلبات الأخيرة',
           connect_kds:'اتصال', reconnect:'إعادة الاتصال', print_size:'مقاس الطباعة', thermal_80:'حرارية 80مم', a5:'A5', a4:'A4',
           tables_manage:'إدارة الطاولات', tables_assign:'تخصيص الطاولات', table_lock:'قفل الطاولة', table_unlock:'فك القفل',
           table_locked:'مقفلة', table_sessions:'طلبات مرتبطة', table_no_sessions:'لا توجد طلبات', table_add:'إضافة طاولة',
@@ -446,6 +446,7 @@
           table_unlocked:'تم فك قفل الطاولة', table_updated:'تم تحديث بيانات الطاولة', table_removed:'تم حذف الطاولة',
           table_added:'تم إنشاء طاولة جديدة', table_inactive_assign:'لا يمكن اختيار طاولة معطلة',
           table_sessions_cleared:'تم فك ارتباط الطلب بالطاولة', print_size_switched:'تم تحديث مقاس الطباعة',
+          table_type_required:'يرجى اختيار نوع الطلب طاولة قبل فتح إدارة الطاولات',
           table_invalid_seats:'رجاء إدخال عدد مقاعد صالح', table_name_required:'يجب إدخال اسم للطاولة',
           table_has_sessions:'لا يمكن حذف طاولة عليها طلبات', table_state_updated:'تم تحديث حالة الطاولة',
           table_unlock_partial:'تم فك قفل الطاولة للطلب المحدد', reservation_created:'تم إنشاء الحجز', reservation_updated:'تم تحديث الحجز',
@@ -506,7 +507,7 @@
           new_order:'New order', balance_due:'Outstanding balance', exchange_due:'Change due', line_modifiers:'Add-ons & removals', line_modifiers_title:'Customize add-ons & removals', line_modifiers_addons:'Add-ons', line_modifiers_removals:'Removals', line_modifiers_apply:'Apply changes', line_modifiers_empty:'No options available', line_modifiers_free:'No charge', line_modifiers_missing:'Line is no longer available', line_modifiers_unit:'Unit price', amount:'Payment amount', capture_payment:'Capture payment', close:'Close', theme:'Theme',
           light:'Light', dark:'Dark', language:'Language', arabic:'Arabic', english:'English', service_type:'Service type',
           guests:'Guests', kds:'Kitchen display', status_online:'Online', status_offline:'Offline', status_idle:'Idle',
-          order_id:'Order', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect', print_size:'Print size',
+          order_id:'Order', order_id_pending:'Draft', last_orders:'Recent orders', connect_kds:'Connect', reconnect:'Reconnect', print_size:'Print size',
           thermal_80:'Thermal 80mm', a5:'A5', a4:'A4', tables_manage:'Table management', tables_assign:'Assign tables',
           table_lock:'Lock table', table_unlock:'Unlock table', table_locked:'Locked', table_sessions:'Linked orders',
           table_no_sessions:'No orders yet', table_add:'Add table', table_rename:'Rename table', table_delete:'Remove table',
@@ -578,6 +579,7 @@
           table_unlocked:'Table unlocked', table_updated:'Table details updated', table_removed:'Table removed',
           table_added:'New table added', table_inactive_assign:'Inactive tables cannot be assigned',
           table_sessions_cleared:'Order unlinked from table', print_size_switched:'Print size updated',
+          table_type_required:'Please select the dine-in service type before opening the tables panel',
           table_invalid_seats:'Please enter a valid seat count', table_name_required:'Table name is required',
           table_has_sessions:'Cannot remove a table with linked orders', table_state_updated:'Table state updated',
           table_unlock_partial:'Table unlocked for the selected order', reservation_created:'Reservation created', reservation_updated:'Reservation updated',
@@ -801,7 +803,9 @@
     function summarizeShiftOrders(history, shift){
       if(!shift) return { totalsByType:{}, paymentsByMethod:{}, totalSales:0, orders:[], ordersCount:0, countsByType:{} };
       const shiftId = shift.id;
-      const historyList = Array.isArray(history) ? history : [];
+      const historyList = Array.isArray(history)
+        ? history.filter(entry=> entry && entry.isPersisted !== false && entry.dirty !== true && entry.status !== 'draft')
+        : [];
       const orders = [];
       const totalsAccumulator = {};
       const paymentsAccumulator = {};
@@ -839,6 +843,7 @@
       if(!orders.length && Array.isArray(shift.orders) && shift.orders.length){
         shift.orders.forEach((entry, idx)=>{
           if(!entry) return;
+          if(entry.isPersisted === false || entry.dirty === true || entry.status === 'draft') return;
           if(typeof entry === 'string'){
             const typeKey = 'dine_in';
             countsAccumulator[typeKey] = (countsAccumulator[typeKey] || 0) + 1;
@@ -936,7 +941,7 @@
 
     function computeRealtimeReports(db){
       const history = (Array.isArray(db.data.ordersHistory) ? db.data.ordersHistory : [])
-        .filter(order=> order && order.isPersisted !== false && order.status !== 'draft');
+        .filter(order=> order && order.isPersisted !== false && order.dirty !== true && order.status !== 'draft');
       const now = Date.now();
       const start = new Date(now);
       start.setHours(0,0,0,0);
@@ -1051,6 +1056,7 @@
         const table = (db.data.tables || []).find(tbl=> tbl.id === id);
         return table?.name || id;
       });
+      const printableOrderId = getDisplayOrderId(order, t);
       const splitState = Array.isArray(db.data.payments?.split) ? db.data.payments.split : [];
       const orderPayments = Array.isArray(order.payments) ? order.payments : [];
       const payments = splitState.length ? splitState : orderPayments;
@@ -1110,7 +1116,7 @@
         ? `${escapeHTML(t.ui.guests)}: ${order.guests}`
         : '';
       const orderMeta = [
-        `${escapeHTML(t.ui.order_id)} ${escapeHTML(order.id || '—')}`,
+        `${escapeHTML(t.ui.order_id)} ${escapeHTML(printableOrderId)}`,
         guestLine,
         tablesLine,
         formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
@@ -1425,6 +1431,7 @@
             createdAt: note.createdAt
           })),
           discount: normalizeDiscount(header.discount),
+          dirty:false,
           events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
         };
       }
@@ -1572,6 +1579,7 @@
           updatedAt: order.updatedAt || now,
           savedAt: order.savedAt || now,
           isPersisted:false,
+          dirty:true,
           allowAdditions: order.allowAdditions !== undefined ? !!order.allowAdditions : true,
           lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : false,
           posId: order.posId || order.metadata?.posId || null,
@@ -1606,7 +1614,8 @@
           createdAt: payload.createdAt || record.createdAt || Date.now(),
           updatedAt: payload.updatedAt || record.updatedAt || Date.now(),
           savedAt: payload.savedAt || record.updatedAt || Date.now(),
-          isPersisted:false
+          isPersisted:false,
+          dirty:true
         };
       }
 
@@ -1679,7 +1688,8 @@
           return {
             ...legacy,
             id: header.id,
-            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
+            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt),
+            dirty:false
           };
         }
         return hydrateOrder(header);
@@ -2220,6 +2230,33 @@
             const nextOrder = nextState?.data?.order || null;
             const prevOrder = prevState?.data?.order || null;
             const paymentsState = nextState?.data?.payments || null;
+            const prevPaymentsState = prevState?.data?.payments || null;
+            const sameOrder = nextOrder && prevOrder && nextOrder.id && prevOrder.id && nextOrder.id === prevOrder.id;
+            let nextSignature = null;
+            let prevSignature = null;
+            if(nextOrder){
+              nextSignature = computeSignature(nextOrder, paymentsState);
+            }
+            if(prevOrder){
+              prevSignature = computeSignature(prevOrder, prevPaymentsState);
+            }
+            const orderMutated = sameOrder && nextSignature !== prevSignature;
+            if(orderMutated && nextOrder){
+              if(nextState?.data?.order && typeof nextState.data.order === 'object'){
+                nextState.data.order.isPersisted = false;
+                nextState.data.order.dirty = true;
+                nextState.data.order.savedAt = null;
+              }
+              if(Array.isArray(nextState?.data?.ordersHistory)){
+                const historyIndex = nextState.data.ordersHistory.findIndex(entry=> entry && entry.id === nextOrder.id);
+                if(historyIndex >= 0){
+                  const updatedHistory = nextState.data.ordersHistory.slice();
+                  const currentEntry = { ...updatedHistory[historyIndex], isPersisted:false, dirty:true, savedAt:null };
+                  updatedHistory[historyIndex] = currentEntry;
+                  nextState.data.ordersHistory = updatedHistory;
+                }
+              }
+            }
             if(prevOrder && prevOrder.id){
               if(!nextOrder || nextOrder.id !== prevOrder.id || nextOrder.isPersisted){
                 cleanupTempOrder(prevOrder.id);
@@ -2655,6 +2692,7 @@
         updatedAt,
         savedAt: updatedAt,
         isPersisted:true,
+        dirty:false,
         allowAdditions,
         lockLineEdits,
         origin:'seed',
@@ -2801,6 +2839,7 @@
     const ordersHistorySeed = seedOrders.map((order, idx)=>({
       ...order,
       seq: idx + 1,
+      dirty:false,
       lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
       payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : []
     }));
@@ -2888,8 +2927,12 @@
     };
     const cashier = defaultCashier;
 
+    function createDraftOrderId(){
+      return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+    }
+
     async function generateOrderId(){
-      return allocateInvoiceId();
+      return createDraftOrderId();
     }
 
     const initialTotals = calculateTotals([], settings, 'dine_in', {});
@@ -3013,7 +3056,8 @@
           customerName: tempOrderDraft?.customerName || '',
           customerPhone: tempOrderDraft?.customerPhone || '',
           customerAddress: tempOrderDraft?.customerAddress || '',
-          customerAreaId: tempOrderDraft?.customerAreaId || null
+          customerAreaId: tempOrderDraft?.customerAreaId || null,
+          dirty: tempOrderDraft ? tempOrderDraft.dirty !== false : false
         },
         orderStages,
         orderStatuses,
@@ -3119,12 +3163,17 @@
           posDB.listShifts({ posId: POS_INFO.id, limit: 100 }),
           posDB.listOrders({ onlyActive:true })
         ]);
-        const historyOrders = Array.isArray(allOrders) ? allOrders.map((order, idx)=>({
-          ...order,
-          seq: idx + 1,
-          payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
-          lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
-        })) : [];
+        const historyOrders = Array.isArray(allOrders)
+          ? allOrders
+              .filter(order=> order && order.isPersisted !== false && order.dirty !== true && order.status !== 'draft')
+              .map((order, idx)=>({
+                ...order,
+                dirty:false,
+                seq: idx + 1,
+                payments: Array.isArray(order.payments) ? order.payments.map(payment=> ({ ...payment })) : [],
+                lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : []
+              }))
+          : [];
         const summarySource = historyOrders;
         let currentShift = null;
         if(activeShiftRaw){
@@ -3265,6 +3314,7 @@
         return { status:'error', reason:'shift' };
       }
       const order = state.data.order || {};
+      const previousOrderId = order.id;
       const orderType = order.type || 'dine_in';
       const mode = normalizeSaveMode(rawMode, orderType);
       const requiresPayment = mode === 'finalize' || mode === 'finalize-print';
@@ -3308,8 +3358,20 @@
         : (order.fulfillmentStage || 'new');
       const allowAdditions = finalize ? false : !!typeConfig.allowsLineAdditions;
       const orderNotes = Array.isArray(order.notes) ? order.notes : (order.notes ? [order.notes] : []);
+      let finalOrderId = previousOrderId;
+      if(!order.isPersisted){
+        try {
+          finalOrderId = await allocateInvoiceId();
+        } catch(allocError){
+          console.warn('[Mishkah][POS] invoice allocation failed during save', allocError);
+          UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(allocError), icon:'🛑' });
+          return { status:'error', reason:'invoice' };
+        }
+      }
+      const idChanged = previousOrderId !== finalOrderId;
       const orderPayload = {
         ...order,
+        id: finalOrderId,
         status,
         fulfillmentStage: finalizeStage,
         lines: safeLines,
@@ -3324,6 +3386,7 @@
         posLabel: order.posLabel || POS_INFO.label,
         posNumber: Number.isFinite(Number(order.posNumber)) ? Number(order.posNumber) : POS_INFO.number,
         isPersisted:true,
+        dirty:false,
         paymentState: paymentSummary.state
       };
       if(finalize){
@@ -3331,9 +3394,14 @@
         orderPayload.finishedAt = now;
       }
       try{
-        await posDB.saveOrder(orderPayload);
+        const persistableOrder = { ...orderPayload };
+        delete persistableOrder.dirty;
+        await posDB.saveOrder(persistableOrder);
         if(posDB.available && typeof posDB.deleteTempOrder === 'function'){
           try { await posDB.deleteTempOrder(orderPayload.id); } catch(_tempErr){ }
+          if(idChanged && previousOrderId){
+            try { await posDB.deleteTempOrder(previousOrderId); } catch(_tempErr){}
+          }
         }
         if(kdsSync && typeof kdsSync.publishOrder === 'function'){
           kdsSync.publishOrder(orderPayload, state);
@@ -3343,8 +3411,18 @@
         ctx.setState(s=>{
           const data = s.data || {};
           const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
+          let seqFromDraft = null;
+          if(idChanged && previousOrderId){
+            const draftIndex = history.findIndex(entry=> entry && entry.id === previousOrderId);
+            if(draftIndex >= 0){
+              seqFromDraft = history[draftIndex].seq || draftIndex + 1;
+              history.splice(draftIndex, 1);
+            }
+          }
           const historyIndex = history.findIndex(entry=> entry.id === orderPayload.id);
-          const seq = historyIndex >= 0 ? (history[historyIndex].seq || historyIndex + 1) : history.length + 1;
+          const seq = historyIndex >= 0
+            ? (history[historyIndex].seq || historyIndex + 1)
+            : (seqFromDraft || history.length + 1);
           const historyEntry = { ...orderPayload, seq, payments: orderPayload.payments.map(pay=> ({ ...pay })) };
           if(historyIndex >= 0){
             history[historyIndex] = historyEntry;
@@ -3388,6 +3466,9 @@
                 allowAdditions,
                 lockLineEdits:true
               },
+              tableLocks: idChanged
+                ? (data.tableLocks || []).map(lock=> lock.orderId === previousOrderId ? { ...lock, orderId: orderPayload.id } : lock)
+                : data.tableLocks,
               ordersQueue: latestOrders,
               ordersHistory: history,
               payments:{ ...(data.payments || {}), split:[] },
@@ -3821,6 +3902,17 @@
       }, 0);
     }
 
+    function getDisplayOrderId(order, t){
+      if(!order || !order.id){
+        return t?.ui?.order_id_pending || '—';
+      }
+      const id = String(order.id);
+      if(id.startsWith('draft-')){
+        return t?.ui?.order_id_pending || '—';
+      }
+      return id;
+    }
+
     function tableStateLabel(t, runtime){
       if(runtime.state === 'disactive') return t.ui.tables_state_disactive;
       if(runtime.state === 'maintenance') return t.ui.tables_state_maintenance;
@@ -3967,6 +4059,7 @@
     function OrderColumn(db){
       const t = getTexts(db);
       const order = db.data.order;
+      const orderNumberLabel = getDisplayOrderId(order, t);
       const assignedTables = (order.tableIds || []).map(tableId=>{
         const table = (db.data.tables || []).find(tbl=> tbl.id === tableId);
         return { id: tableId, name: table?.name || tableId };
@@ -3986,7 +4079,7 @@
                 content: D.Containers.Div({ attrs:{ class: tw`flex h-full min-h-0 flex-col gap-3` }}, [
                   UI.Segmented({ items: serviceSegments, activeId: order.type }),
                   D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm ${token('muted')}` }}, [
-                    D.Text.Span({}, [`${t.ui.order_id} ${order.id}`]),
+                    D.Text.Span({}, [`${t.ui.order_id} ${orderNumberLabel}`]),
                     order.type === 'dine_in'
                       ? D.Containers.Div({ attrs:{ class: tw`flex flex-1 flex-wrap items-center gap-2` }}, [
                           assignedTables.length
@@ -4170,10 +4263,11 @@
           ? UI.List({
               children: runtime.orderLocks.map(lock=>{
                 const order = orderMap.get(lock.orderId) || { id: lock.orderId, status:'open' };
+                const orderLabel = getDisplayOrderId(order, t);
                 return UI.ListItem({
                   leading: D.Text.Span({ attrs:{ class: tw`text-xl` }}, ['🧾']),
                   content:[
-                    D.Text.Strong({}, [`${t.ui.order_id} ${order.id}`]),
+                    D.Text.Strong({}, [`${t.ui.order_id} ${orderLabel}`]),
                     D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [formatDateTime(order.updatedAt || lock.lockedAt, lang, { hour:'2-digit', minute:'2-digit' })])
                   ],
                   trailing:[
@@ -4417,6 +4511,7 @@
       const previewTotalsTotalClass = tw`flex items-center justify-between ${previewPreset.total} font-semibold`;
       const previewFooterClass = tw`mt-6 space-y-1 text-center ${previewPreset.meta} text-neutral-500`;
 
+      const previewOrderId = getDisplayOrderId(order, t);
       const previewReceipt = D.Containers.Div({ attrs:{ class: previewContainerClass, 'data-print-preview':'receipt' }}, [
         D.Containers.Div({ attrs:{ class: tw`space-y-1 text-center` }}, [
           D.Text.Strong({ attrs:{ class: previewHeadingClass }}, ['Mishkah Restaurant']),
@@ -4425,7 +4520,7 @@
         ]),
         D.Containers.Div({ attrs:{ class: tw`mt-4 h-px bg-neutral-200` }}),
         D.Containers.Div({ attrs:{ class: previewDetailsClass }}, [
-          D.Text.Span({}, [`${t.ui.order_id} ${order.id || '—'}`]),
+          D.Text.Span({}, [`${t.ui.order_id} ${previewOrderId}`]),
           (order.type === 'dine_in' && (order.guests || 0) > 0) ? D.Text.Span({}, [`${t.ui.guests}: ${order.guests}`]) : null,
           tablesNames.length ? D.Text.Span({}, [`${t.ui.tables}: ${tablesNames.join(', ')}`]) : null,
           D.Text.Span({}, [formatDateTime(order.updatedAt || Date.now(), lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })])
@@ -4877,6 +4972,7 @@
         lines: Array.isArray(order.lines) ? order.lines.map(line=> ({ ...line })) : [],
         notes: Array.isArray(order.notes) ? order.notes.map(note=> ({ ...note })) : [],
         payments: Array.isArray(order.payments) ? order.payments.map(pay=> ({ ...pay })) : [],
+        dirty:false,
         discount: normalizeDiscount(order.discount)
       };
       ctx.setState(s=>{
@@ -6404,10 +6500,13 @@
                   customerName:'',
                   customerPhone:'',
                   customerAddress:'',
-                  customerAreaId:null
+                  customerAreaId:null,
+                  dirty:false
                 },
                 payments:{ ...(data.payments || {}), split:[] },
-                tableLocks:(data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
+                tableLocks: order.isPersisted
+                  ? data.tableLocks
+                  : (data.tableLocks || []).map(lock=> lock.orderId === order.id ? { ...lock, active:false } : lock)
               },
               ui:{
                 ...(s.ui || {}),
@@ -8023,6 +8122,7 @@
             allowAdditions: !!dineInConfig.allowsLineAdditions,
             lockLineEdits:false,
             isPersisted:false,
+            dirty:false,
             shiftId: state.data.shift?.current?.id || null,
             posId: state.data.pos?.id || POS_INFO.id,
             posLabel: state.data.pos?.label || POS_INFO.label,
@@ -8202,6 +8302,13 @@
         on:['click'],
         gkeys:['pos:tables:open'],
         handler:(e,ctx)=>{
+          const state = ctx.getState();
+          const t = getTexts(state);
+          const orderType = state?.data?.order?.type;
+          if(orderType !== 'dine_in'){
+            UI.pushToast(ctx, { title:t.toast.table_type_required, icon:'ℹ️' });
+            return;
+          }
           ctx.setState(s=>({
             ...s,
             ui:{
