@@ -87,21 +87,32 @@
             <div class="flex flex-col gap-4">
               <label class="text-sm text-slate-300">
                 <span class="mb-2 inline-block text-xs text-slate-500">غرفة الدردشة</span>
-                <select
-                  class="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-base text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                <input
+                  type="text"
+                  list="chat-room-options"
+                  class="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                  placeholder="اكتب معرف الغرفة أو اختر من القائمة"
                   value="{state.data.selectedRoom}"
+                  oninput="handleRoomSelect(event, ctx)"
                   onchange="handleRoomSelect(event, ctx)"
-                >
-                  <option value="" x-if="!state.data.rooms.length">اختر غرفة</option>
+                />
+                <datalist id="chat-room-options">
                   <option
                     x-for="room, ridx in state.data.rooms"
                     data-m-key="{room.id || ridx}"
                     value="{room.id}"
-                    selected="{room.id === state.data.selectedRoom ? 'selected' : ''}"
-                  >
-                    {room.name || room.id}
-                  </option>
-                </select>
+                    label="{room.name || room.id}"
+                  ></option>
+                </datalist>
+                <p class="mt-2 text-xs text-slate-400">
+                  يمكنك كتابة معرف الغرفة يدويًا أو اختيار واحدة من القائمة المقترحة.
+                </p>
+                <p
+                  x-if="selectedRoomDetails(state).description"
+                  class="mt-2 rounded-lg border border-slate-800/60 bg-slate-900/50 p-3 text-xs text-slate-300"
+                >
+                  {selectedRoomDetails(state).description}
+                </p>
               </label>
               <label class="text-sm text-slate-300">
                 <span class="mb-2 inline-block text-xs text-slate-500">الاسم المستعار</span>
@@ -299,23 +310,15 @@
         </div>
 
         <script data-for="chat-shell">
-          var DEFAULT_ROOMS = [
-            {
-              id: 'demo:lobby',
-              name: 'الصالة التجريبية',
-              description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
-              requiresPin: true
-            }
-          ];
-
           function fallbackRooms(preferredId) {
             var cfg = config();
+            var defaults = defaultRooms();
             var targetId = preferredId || (cfg && cfg.conversationId) || 'demo:lobby';
-            var hasMatch = DEFAULT_ROOMS.some(function (room) { return room.id === targetId; });
+            var hasMatch = defaults.some(function (room) { return room.id === targetId; });
             if (hasMatch) {
-              return DEFAULT_ROOMS;
+              return defaults;
             }
-            return DEFAULT_ROOMS.concat([
+            return defaults.concat([
               {
                 id: targetId,
                 name: targetId,
@@ -323,6 +326,17 @@
                 requiresPin: true
               }
             ]);
+          }
+
+          function defaultRooms() {
+            return [
+              {
+                id: 'demo:lobby',
+                name: 'الصالة التجريبية',
+                description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
+                requiresPin: true
+              }
+            ];
           }
 
           function createRuntime() {
@@ -726,6 +740,16 @@
               var data = base.data || {};
               var desired = preferredId || data.selectedRoom || (normalized[0] && normalized[0].id) || data.conversationId || config().conversationId;
               if (desired && normalized.length && normalized.every(function (room) { return room.id !== desired; })) {
+                normalized = normalized.concat([
+                  {
+                    id: desired,
+                    name: desired,
+                    description: '',
+                    requiresPin: true
+                  }
+                ]);
+              }
+              if (!desired && normalized.length) {
                 desired = normalized[0].id;
               }
               var nextConversation = desired || data.conversationId || config().conversationId;
@@ -775,19 +799,56 @@
             }
           }
 
+          function selectedRoomDetails(state) {
+            var data = state && state.data ? state.data : {};
+            var rooms = Array.isArray(data.rooms) ? data.rooms : [];
+            var selected = typeof data.selectedRoom === 'string' ? data.selectedRoom.trim() : '';
+            if (!selected) {
+              return { id: '', name: '', description: '' };
+            }
+            var match = rooms.find(function (room) {
+              return room && typeof room.id === 'string' && room.id === selected;
+            });
+            if (match) {
+              return match;
+            }
+            return { id: selected, name: selected, description: '' };
+          }
+
           function handleRoomSelect(event, ctx) {
             var context = ensureContext(ctx, event);
             if (!context || !event || !event.target) { return; }
             var value = '';
             if (typeof event.target.value === 'string') {
-              value = event.target.value;
+              value = event.target.value.trim();
             }
             context.set('data.selectedRoom', value);
             if (value) {
               context.set('data.conversationId', value);
               context.set('data.topic', topicFromConversation(value));
+            } else {
+              context.set('data.conversationId', '');
+              context.set('data.topic', '');
             }
             context.set('data.pinError', '');
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var rooms = Array.isArray(data.rooms) ? data.rooms.slice() : [];
+              if (value && rooms.every(function (room) { return !room || room.id !== value; })) {
+                rooms.push({
+                  id: value,
+                  name: value,
+                  description: '',
+                  requiresPin: true
+                });
+              }
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  rooms: rooms
+                })
+              });
+            });
             persistSession({ conversationId: value }, { cookie: false }).catch(function () {});
           }
 
