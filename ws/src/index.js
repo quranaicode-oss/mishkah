@@ -98,6 +98,23 @@ await chatStore.init();
 const voiceNoteStore = new VoiceNoteStore({ directory: config.voiceNotesDir, log });
 await voiceNoteStore.init();
 
+const chatRooms = new Map([
+  [
+    'demo:lobby',
+    {
+      id: 'demo:lobby',
+      name: 'الصالة التجريبية',
+      description: 'الغرفة التجريبية العامة لعرض إمكانات الدردشة.',
+      pin: '8866',
+      topic: 'chat:demo:lobby',
+    },
+  ],
+]);
+
+const PIN_MAX_ATTEMPTS = 3;
+const PIN_LOCK_DURATION_MS = 10 * 60 * 1000;
+const pinAttempts = new Map();
+
 function safeRegex(pattern, label) {
   try {
     return new RegExp(pattern);
@@ -179,6 +196,95 @@ function parseJSONMessage(message, isBinary) {
   } catch (err) {
     return null;
   }
+}
+
+function pinAttemptKey(roomId, clientId) {
+  return `${roomId || 'unknown'}::${clientId || 'client'}`;
+}
+
+function isPinLocked(roomId, clientId) {
+  const key = pinAttemptKey(roomId, clientId);
+  const entry = pinAttempts.get(key);
+  if (!entry) {
+    return null;
+  }
+  const now = Date.now();
+  if (entry.lockedUntil && entry.lockedUntil > now) {
+    return { lockedUntil: new Date(entry.lockedUntil).toISOString() };
+  }
+  if (entry.lockedUntil && entry.lockedUntil <= now) {
+    pinAttempts.delete(key);
+  }
+  return null;
+}
+
+function registerPinFailure(roomId, clientId) {
+  const key = pinAttemptKey(roomId, clientId);
+  const now = Date.now();
+  const entry = pinAttempts.get(key) || { attempts: 0, lockedUntil: 0 };
+  if (entry.lockedUntil && entry.lockedUntil <= now) {
+    entry.lockedUntil = 0;
+    entry.attempts = 0;
+  }
+  entry.attempts += 1;
+  let lockedUntil = null;
+  if (entry.attempts >= PIN_MAX_ATTEMPTS) {
+    entry.attempts = 0;
+    entry.lockedUntil = now + PIN_LOCK_DURATION_MS;
+    lockedUntil = entry.lockedUntil;
+  }
+  pinAttempts.set(key, entry);
+  return lockedUntil ? { lockedUntil: new Date(lockedUntil).toISOString() } : null;
+}
+
+function clearPinAttempts(roomId, clientId) {
+  pinAttempts.delete(pinAttemptKey(roomId, clientId));
+}
+
+function sanitizeRoomForClient(room) {
+  if (!room) {
+    return null;
+  }
+  return {
+    id: room.id,
+    name: room.name,
+    description: room.description || '',
+    requiresPin: true,
+    topic: room.topic,
+  };
+}
+
+function getChatRoom(conversationId) {
+  if (!conversationId) {
+    return null;
+  }
+  return chatRooms.get(conversationId) || null;
+}
+
+function getClientIdentifier(res, req) {
+  const headerCandidates = ['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'];
+  for (const header of headerCandidates) {
+    const value = req.getHeader(header);
+    if (!value) {
+      continue;
+    }
+    if (header === 'x-forwarded-for') {
+      return value.split(',')[0].trim();
+    }
+    return value.trim();
+  }
+  try {
+    const addressBuffer = res.getRemoteAddressAsText();
+    if (addressBuffer) {
+      const text = Buffer.from(addressBuffer).toString('utf8').replace(/\u0000+$/, '').trim();
+      if (text) {
+        return text;
+      }
+    }
+  } catch (err) {
+    log.debug({ err }, 'Failed to read remote address');
+  }
+  return `client:${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeToken(rawToken) {
@@ -466,13 +572,26 @@ async function handleVoiceNote({ conversationId, senderId, ciphertext, keyId, mi
 }
 
 async function processChatSend(ws, envelope) {
-  const conversationId = envelope.conversationId || envelope.topic;
+  let conversationId = envelope.conversationId || envelope.topic;
   if (!conversationId) {
     sendJSON(ws, { type: 'error', code: 'conversation_required', message: 'conversationId is required.' });
     return;
   }
   if (config.requireAuthPub && !ws.user) {
     sendJSON(ws, { type: 'error', code: 'unauthorized_pub', message: 'Authentication required before publishing.' });
+    return;
+  }
+  if (typeof conversationId === 'string' && conversationId.startsWith('chat:')) {
+    conversationId = conversationId.slice(5);
+  }
+  const allowedConversation = ws.user?.claims?.conversationId || ws.roomId || null;
+  if (allowedConversation && conversationId !== allowedConversation) {
+    sendJSON(ws, { type: 'error', code: 'conversation_forbidden', message: 'Not authorized for this conversation.' });
+    return;
+  }
+  const room = getChatRoom(conversationId);
+  if (!room) {
+    sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
     return;
   }
   const parsed = chatSendSchema.safeParse(envelope.data || envelope.payload || {});
@@ -503,13 +622,26 @@ async function processChatSend(ws, envelope) {
 }
 
 async function processChatHistory(ws, envelope) {
-  const conversationId = envelope.conversationId || envelope.topic;
+  let conversationId = envelope.conversationId || envelope.topic;
   if (!conversationId) {
     sendJSON(ws, { type: 'error', code: 'conversation_required', message: 'conversationId is required.' });
     return;
   }
   if (config.requireAuthSub && !ws.user) {
     sendJSON(ws, { type: 'error', code: 'unauthorized', message: 'Authentication required.' });
+    return;
+  }
+  if (typeof conversationId === 'string' && conversationId.startsWith('chat:')) {
+    conversationId = conversationId.slice(5);
+  }
+  const allowedConversation = ws.user?.claims?.conversationId || ws.roomId || null;
+  if (allowedConversation && conversationId !== allowedConversation) {
+    sendJSON(ws, { type: 'error', code: 'conversation_forbidden', message: 'Not authorized for this conversation.' });
+    return;
+  }
+  const room = getChatRoom(conversationId);
+  if (!room) {
+    sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
     return;
   }
   const limitRaw = envelope.limit ?? envelope.data?.limit ?? 50;
@@ -598,6 +730,15 @@ app.get('/healthz', (res) => {
   res.writeStatus('200 OK');
   res.writeHeader('content-type', 'application/json');
   res.end(JSON.stringify({ status: 'ok', now: nowTs() }));
+});
+
+app.get('/api/chat/rooms', (res, req) => {
+  handleAsync(res, async (isAborted) => {
+    const rooms = Array.from(chatRooms.values()).map(sanitizeRoomForClient).filter(Boolean);
+    if (!isAborted()) {
+      jsonResponse(res, 200, { rooms });
+    }
+  });
 });
 
 app.post('/api/rtc/:conversationId/offer', (res, req) => {
@@ -763,11 +904,12 @@ app.post('/api/conversations/:conversationId/voice-notes', (res, req) => {
 
 const demoGuestRequestSchema = z.object({
   conversationId: z.string().trim().min(3).regex(/^demo:[a-z0-9:_-]+$/i, 'Demo conversation must start with "demo:"'),
+  pin: z.string().trim().min(4).max(32),
   name: z.string().trim().min(1).max(64).optional(),
   expiresInSeconds: z.number().int().min(60).max(60 * 60 * 24).optional(),
 });
 
-app.post('/api/demo/guest-token', (res) => {
+app.post('/api/demo/guest-token', (res, req) => {
   if (!config.allowDemoGuests) {
     errorResponse(res, 403, 'Guest token issuance is disabled');
     return;
@@ -776,8 +918,37 @@ app.post('/api/demo/guest-token', (res) => {
     errorResponse(res, 500, 'JWT secret is not configured');
     return;
   }
+  const clientId = getClientIdentifier(res, req);
   readJsonBody(res, demoGuestRequestSchema, async (body) => {
     try {
+      const room = getChatRoom(body.conversationId);
+      if (!room) {
+        errorResponse(res, 404, 'Conversation is not available');
+        return;
+      }
+      const locked = isPinLocked(room.id, clientId);
+      if (locked) {
+        errorResponse(res, 429, 'PIN attempts temporarily locked', {
+          code: 'pin_locked',
+          lockedUntil: locked.lockedUntil,
+        });
+        return;
+      }
+      if (!body.pin || body.pin.trim() !== room.pin) {
+        const lockInfo = registerPinFailure(room.id, clientId);
+        if (lockInfo) {
+          errorResponse(res, 429, 'PIN attempts temporarily locked', {
+            code: 'pin_locked',
+            lockedUntil: lockInfo.lockedUntil,
+          });
+        } else {
+          errorResponse(res, 403, 'Invalid PIN code for this room', {
+            code: 'pin_invalid',
+          });
+        }
+        return;
+      }
+      clearPinAttempts(room.id, clientId);
       const guestId = `guest-${randomUUID()}`;
       const displayName = body.name?.trim() || guestId;
       const ttl = body.expiresInSeconds
@@ -800,6 +971,7 @@ app.post('/api/demo/guest-token', (res) => {
         token,
         expiresIn: ttl,
         user: { id: guestId, name: displayName, roles: ['guest'] },
+        room: sanitizeRoomForClient(room),
       });
     } catch (err) {
       log.error({ err }, 'Failed to issue demo guest token');
@@ -837,6 +1009,7 @@ app.ws('/*', {
   open: (ws) => {
     ws.id = randomUUID();
     ws.user = null;
+    ws.roomId = null;
     ws.topics = new Set();
     ws.rate = { count: 0, resetAt: Date.now() + 10_000 };
     log.info({ id: ws.id }, 'Client connected');
@@ -880,6 +1053,7 @@ app.ws('/*', {
   close: (ws, code, msg) => {
     log.info({ id: ws.id, code, msg: Buffer.from(msg || '').toString() }, 'Client disconnected');
     ws.topics?.clear?.();
+    ws.roomId = null;
   },
 });
 
@@ -929,6 +1103,14 @@ async function handleMessage(ws, envelope) {
           sendJSON(ws, { type: 'error', code: 'topic_not_allowed', message: 'Topic is not allowed for subscription.' });
           return;
         }
+        const allowedConversation = ws.user?.claims?.conversationId || ws.roomId || null;
+        if (allowedConversation && topic.startsWith('chat:')) {
+          const requested = topic.slice(5);
+          if (requested !== allowedConversation) {
+            sendJSON(ws, { type: 'error', code: 'conversation_forbidden', message: 'Not authorized for this conversation.' });
+            return;
+          }
+        }
         ws.subscribe(topic);
         ws.topics.add(topic);
         sendJSON(ws, { type: 'ack', event: 'subscribe', topic, ts: nowTs() });
@@ -947,6 +1129,14 @@ async function handleMessage(ws, envelope) {
       if (!topic || !topicAllowed(topic, true)) {
         sendJSON(ws, { type: 'error', code: 'topic_not_allowed', message: 'Topic is not allowed for publishing.' });
         return;
+      }
+      const allowedConversation = ws.user?.claims?.conversationId || ws.roomId || null;
+      if (allowedConversation && topic.startsWith('chat:')) {
+        const requested = topic.slice(5);
+        if (requested !== allowedConversation) {
+          sendJSON(ws, { type: 'error', code: 'conversation_forbidden', message: 'Not authorized for this conversation.' });
+          return;
+        }
       }
       if (typeof data === 'undefined') {
         sendJSON(ws, { type: 'error', code: 'data_required', message: 'Publish messages require a data field.' });
@@ -971,7 +1161,13 @@ function handleAuth(ws, envelope) {
     sendJSON(ws, { type: 'error', code: 'auth_failed', message: 'Invalid or expired token.' });
     return;
   }
+  const room = getChatRoom(claims.conversationId);
+  if (!room) {
+    sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
+    return;
+  }
   ws.user = normalizeUserClaims(claims);
+  ws.roomId = room.id;
   sendJSON(ws, { type: 'ack', event: 'auth', user: ws.user, ts: nowTs() });
 }
 

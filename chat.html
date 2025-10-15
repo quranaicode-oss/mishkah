@@ -50,6 +50,11 @@
         {
           "joined": false,
           "username": "",
+          "roomPin": "",
+          "selectedRoom": "demo:lobby",
+          "rooms": [],
+          "pinError": "",
+          "lockExpiresAt": null,
           "users": [],
           "messages": [],
           "newMessage": "",
@@ -81,6 +86,24 @@
             </p>
             <div class="flex flex-col gap-4">
               <label class="text-sm text-slate-300">
+                <span class="mb-2 inline-block text-xs text-slate-500">غرفة الدردشة</span>
+                <select
+                  class="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-base text-slate-100 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                  value="{state.data.selectedRoom}"
+                  onchange="handleRoomSelect(event, ctx)"
+                >
+                  <option value="" x-if="!state.data.rooms.length">اختر غرفة</option>
+                  <option
+                    x-for="room, ridx in state.data.rooms"
+                    data-m-key="{room.id || ridx}"
+                    value="{room.id}"
+                    selected="{room.id === state.data.selectedRoom ? 'selected' : ''}"
+                  >
+                    {room.name || room.id}
+                  </option>
+                </select>
+              </label>
+              <label class="text-sm text-slate-300">
                 <span class="mb-2 inline-block text-xs text-slate-500">الاسم المستعار</span>
                 <input
                   type="text"
@@ -90,6 +113,22 @@
                   oninput="handleUsernameInput(event, ctx)"
                 />
               </label>
+              <label class="text-sm text-slate-300">
+                <span class="mb-2 inline-block text-xs text-slate-500">رمز PIN للغرفة</span>
+                <input
+                  type="password"
+                  class="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-base focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                  placeholder="أدخل رمز PIN للغرفة"
+                  value="{state.data.roomPin}"
+                  oninput="handlePinInput(event, ctx)"
+                />
+              </label>
+              <p x-if="state.data.pinError" class="rounded-lg border border-rose-900/50 bg-rose-900/10 p-3 text-xs text-rose-200">
+                {state.data.pinError}
+              </p>
+              <p x-if="state.data.lockExpiresAt" class="rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 text-xs text-amber-200">
+                تم حظر المحاولة مؤقتًا حتى {formatLockTime(state.data.lockExpiresAt, ctx)}.
+              </p>
               <button
                 type="button"
                 class="rounded-xl bg-sky-600 p-3 text-center text-base font-semibold text-white shadow-lg shadow-sky-900/40 transition hover:bg-sky-500"
@@ -145,6 +184,13 @@
               <p x-if="state.data.connection.status !== 'connected'" class="text-slate-500">
                 يجري الحفاظ على الاتصال تلقائيًا مع الخادم.
               </p>
+              <button
+                type="button"
+                class="w-full rounded-xl border border-slate-800/60 bg-slate-900/40 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-900/60"
+                onclick="leaveChat(ctx)"
+              >
+                تسجيل الخروج من الغرفة
+              </button>
             </footer>
           </aside>
 
@@ -167,9 +213,9 @@
               </div>
               <div class="mb-4 flex items-center justify-between text-xs text-slate-400">
                 <span>القناة: {state.data.topic}</span>
-                <span>{formatChatTime(state.data.messages.length ? state.data.messages[state.data.messages.length - 1].createdAt : null, false, ctx) || '—'}</span>
+                <span>{latestMessageTimestamp(state, ctx)}</span>
               </div>
-              <div class="flex h-full flex-col gap-3 overflow-y-auto pr-1">
+              <div class="flex h-full flex-col gap-3 overflow-y-auto pr-1" data-chat-messages>
                 <article
                   x-for="msg, msgIdx in state.data.messages"
                   data-m-key="{msg.clientMessageId || msg.id || msgIdx}"
@@ -265,6 +311,10 @@
               authenticated: false,
               authenticating: false,
               authPromise: null,
+              session: null,
+              sessionRestored: false,
+              cookieKeyPromise: null,
+              roomsLoading: false,
               config: {
                 url: 'wss://ws.mas.com.eg',
                 conversationId: 'demo:lobby',
@@ -272,6 +322,7 @@
                 historyLimit: 50,
                 maxErrors: 10,
                 tokenEndpoint: null,
+                roomsEndpoint: null,
                 keyId: 'chat:demo:plaintext'
               }
             };
@@ -296,6 +347,546 @@
           function utilsHost() {
             var M = host();
             return (M && M.utils) ? M.utils : {};
+          }
+
+          var SESSION_PREF_KEY = 'mk.chat.preferences.v1';
+          var COOKIE_NAME = 'mk_chat_token';
+          var COOKIE_KEY_STORAGE = 'mk.chat.cookie-key.v1';
+          var textEncoder = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+          var textDecoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder() : null;
+          var pendingScrollFrame = null;
+
+          function storageHost() {
+            try {
+              if (typeof window !== 'undefined' && window.localStorage) {
+                return window.localStorage;
+              }
+            } catch (_err) {}
+            return null;
+          }
+
+          function loadPreferences() {
+            var store = storageHost();
+            if (!store) { return {}; }
+            try {
+              var raw = store.getItem(SESSION_PREF_KEY);
+              if (!raw) { return {}; }
+              var parsed = JSON.parse(raw);
+              return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (_err) {
+              return {};
+            }
+          }
+
+          function savePreferences(prefs) {
+            var store = storageHost();
+            if (!store) { return; }
+            try {
+              store.setItem(SESSION_PREF_KEY, JSON.stringify(prefs || {}));
+            } catch (_err) {}
+          }
+
+          function clearPreferences() {
+            var store = storageHost();
+            if (!store) { return; }
+            try { store.removeItem(SESSION_PREF_KEY); } catch (_err) {}
+          }
+
+          function cryptoAvailable() {
+            return typeof window !== 'undefined' && window.crypto && window.crypto.subtle && typeof window.crypto.subtle.importKey === 'function';
+          }
+
+          function bytesToBase64(bytes) {
+            if (!bytes) { return ''; }
+            var arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+            var chars = new Array(arr.length);
+            for (var i = 0; i < arr.length; i++) {
+              chars[i] = String.fromCharCode(arr[i]);
+            }
+            return btoa(chars.join(''));
+          }
+
+          function base64ToBytes(str) {
+            if (!str) { return new Uint8Array(0); }
+            try {
+              var bin = atob(str);
+              var out = new Uint8Array(bin.length);
+              for (var i = 0; i < bin.length; i++) {
+                out[i] = bin.charCodeAt(i);
+              }
+              return out;
+            } catch (_err) {
+              return new Uint8Array(0);
+            }
+          }
+
+          async function ensureCookieCryptoKey() {
+            var store = runtime();
+            if (store.cookieKeyPromise) {
+              return store.cookieKeyPromise;
+            }
+            if (!cryptoAvailable()) {
+              store.cookieKeyPromise = Promise.resolve(null);
+              return store.cookieKeyPromise;
+            }
+            var local = storageHost();
+            var existing = null;
+            if (local) {
+              try { existing = local.getItem(COOKIE_KEY_STORAGE); } catch (_err) { existing = null; }
+            }
+            var promise = (async function () {
+              var material = existing ? base64ToBytes(existing) : null;
+              if (!material || !material.length) {
+                material = new Uint8Array(32);
+                window.crypto.getRandomValues(material);
+                if (local) {
+                  try { local.setItem(COOKIE_KEY_STORAGE, bytesToBase64(material)); } catch (_persistErr) {}
+                }
+              }
+              return window.crypto.subtle.importKey('raw', material, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+            })();
+            store.cookieKeyPromise = promise;
+            return promise;
+          }
+
+          async function encryptSessionPayload(payload) {
+            if (!payload || !cryptoAvailable()) {
+              return null;
+            }
+            try {
+              var key = await ensureCookieCryptoKey();
+              if (!key) { return null; }
+              var iv = new Uint8Array(12);
+              window.crypto.getRandomValues(iv);
+              var data = (textEncoder || new TextEncoder()).encode(JSON.stringify(payload));
+              var cipher = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data);
+              var combined = new Uint8Array(iv.byteLength + cipher.byteLength);
+              combined.set(iv, 0);
+              combined.set(new Uint8Array(cipher), iv.byteLength);
+              return bytesToBase64(combined);
+            } catch (_err) {
+              return null;
+            }
+          }
+
+          async function decryptSessionPayload(serialized) {
+            if (!serialized || !cryptoAvailable()) {
+              return null;
+            }
+            try {
+              var combined = base64ToBytes(serialized);
+              if (!combined.length || combined.length <= 12) {
+                return null;
+              }
+              var iv = combined.slice(0, 12);
+              var cipher = combined.slice(12);
+              var key = await ensureCookieCryptoKey();
+              if (!key) { return null; }
+              var plain = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cipher);
+              var json = (textDecoder || new TextDecoder()).decode(plain);
+              return JSON.parse(json);
+            } catch (_err) {
+              return null;
+            }
+          }
+
+          function getCookieValue(name) {
+            if (typeof document === 'undefined' || !name) { return null; }
+            var source = document.cookie ? document.cookie.split(';') : [];
+            for (var i = 0; i < source.length; i++) {
+              var part = source[i] ? source[i].trim() : '';
+              if (!part) { continue; }
+              if (part.indexOf(name + '=') === 0) {
+                return decodeURIComponent(part.slice(name.length + 1));
+              }
+            }
+            return null;
+          }
+
+          function setCookieValue(name, value, options) {
+            if (typeof document === 'undefined' || !name) { return; }
+            var attrs = name + '=' + (value ? encodeURIComponent(value) : '');
+            var opts = options || {};
+            if (opts.maxAge != null) {
+              attrs += '; Max-Age=' + Math.max(0, Math.floor(opts.maxAge));
+            }
+            if (opts.expires instanceof Date) {
+              attrs += '; Expires=' + opts.expires.toUTCString();
+            }
+            attrs += '; Path=/';
+            if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
+              attrs += '; Secure';
+            }
+            attrs += '; SameSite=Lax';
+            document.cookie = attrs;
+          }
+
+          async function writeSessionCookie(session) {
+            if (!session || !session.token || !session.pin) {
+              await deleteSessionCookie();
+              return;
+            }
+            var expiresAt = session.expiresAt || (Date.now() + 3600000);
+            var payload = {
+              token: session.token,
+              pin: session.pin,
+              conversationId: session.conversationId || '',
+              expiresAt: expiresAt,
+              user: session.user || null
+            };
+            var encoded = await encryptSessionPayload(payload);
+            if (!encoded) {
+              setCookieValue(COOKIE_NAME, '', { maxAge: 0 });
+              return;
+            }
+            var maxAge = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+            setCookieValue(COOKIE_NAME, encoded, { maxAge: maxAge });
+          }
+
+          async function readSessionCookie() {
+            var value = getCookieValue(COOKIE_NAME);
+            if (!value) { return null; }
+            var payload = await decryptSessionPayload(value);
+            if (!payload || typeof payload !== 'object') {
+              return null;
+            }
+            return payload;
+          }
+
+          async function deleteSessionCookie() {
+            setCookieValue(COOKIE_NAME, '', { maxAge: 0 });
+          }
+
+          async function persistSession(update, options) {
+            var store = runtime();
+            var previous = store.session || {};
+            var session = Object.assign({}, previous);
+            var patch = update || {};
+            var hasUsername = Object.prototype.hasOwnProperty.call(patch, 'username');
+            var hasConversation = Object.prototype.hasOwnProperty.call(patch, 'conversationId');
+            if (Object.prototype.hasOwnProperty.call(patch, 'username')) {
+              session.username = patch.username || '';
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'conversationId')) {
+              session.conversationId = patch.conversationId || '';
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'pin')) {
+              session.pin = patch.pin || '';
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'token')) {
+              session.token = patch.token || '';
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'expiresAt')) {
+              session.expiresAt = patch.expiresAt || null;
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'user')) {
+              session.user = patch.user || null;
+            }
+            store.session = session;
+            var existingPrefs = loadPreferences();
+            var prefsToSave = {
+              username: hasUsername
+                ? (session.username || '')
+                : ((existingPrefs && existingPrefs.username) || session.username || ''),
+              conversationId: hasConversation
+                ? (session.conversationId || '')
+                : ((existingPrefs && existingPrefs.conversationId) || session.conversationId || ''),
+            };
+            savePreferences(prefsToSave);
+            var writeCookie = !(options && options.cookie === false);
+            if (writeCookie) {
+              if (session.token && session.pin && session.expiresAt) {
+                await writeSessionCookie(session);
+              } else {
+                await deleteSessionCookie();
+              }
+            }
+            return session;
+          }
+
+          async function restoreSession(context) {
+            var store = runtime();
+            if (store.sessionRestored) {
+              return store.session || {};
+            }
+            var prefs = loadPreferences();
+            var cookieData = await readSessionCookie();
+            var session = Object.assign({}, prefs || {});
+            if (cookieData && typeof cookieData === 'object') {
+              session.token = cookieData.token || session.token || '';
+              session.pin = cookieData.pin || session.pin || '';
+              session.conversationId = cookieData.conversationId || session.conversationId || '';
+              session.expiresAt = cookieData.expiresAt || session.expiresAt || null;
+              session.user = cookieData.user || session.user || null;
+            }
+            if (!session.conversationId) {
+              session.conversationId = config().conversationId || 'demo:lobby';
+            }
+            if (!session.username) {
+              session.username = prefs && prefs.username ? prefs.username : '';
+            }
+            if (!session.token || !session.expiresAt || session.expiresAt <= Date.now()) {
+              session.token = '';
+              session.expiresAt = null;
+            }
+            store.session = session;
+            store.sessionRestored = true;
+            if (session.token && session.expiresAt) {
+              store.authToken = session.token;
+              store.authTokenMeta = {
+                expiresAt: session.expiresAt,
+                user: session.user || null,
+                conversationId: session.conversationId || null
+              };
+            }
+            var contextRef = ensureContext(context);
+            if (contextRef) {
+              if (session.username) {
+                try { contextRef.set('data.username', session.username); } catch (_err) {}
+              }
+              if (session.conversationId) {
+                try {
+                  contextRef.set('data.selectedRoom', session.conversationId);
+                  contextRef.set('data.conversationId', session.conversationId);
+                  contextRef.set('data.topic', topicFromConversation(session.conversationId));
+                } catch (_err) {}
+              }
+            }
+            return session;
+          }
+
+          async function clearSessionToken(options) {
+            var store = runtime();
+            store.authToken = null;
+            store.authTokenMeta = null;
+            var keepPin = options && options.keepPin;
+            var session = store.session || {};
+            session.token = '';
+            session.expiresAt = null;
+            session.user = null;
+            if (!keepPin) {
+              session.pin = '';
+            }
+            store.session = session;
+            await persistSession({
+              token: '',
+              expiresAt: null,
+              user: null,
+              pin: keepPin ? session.pin : ''
+            });
+          }
+
+          function topicFromConversation(conversationId) {
+            if (!conversationId) { return ''; }
+            return conversationId.indexOf('chat:') === 0 ? conversationId : 'chat:' + conversationId;
+          }
+
+          function applyRoomsToState(rooms, preferredId) {
+            var normalized = Array.isArray(rooms)
+              ? rooms.map(function (room) {
+                  if (!room || typeof room !== 'object') { return null; }
+                  var id = room.id || room.conversationId || '';
+                  if (!id) { return null; }
+                  return {
+                    id: id,
+                    name: room.name || room.title || id,
+                    description: room.description || '',
+                    requiresPin: Object.prototype.hasOwnProperty.call(room, 'requiresPin') ? Boolean(room.requiresPin) : true
+                  };
+                }).filter(Boolean)
+              : [];
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              var desired = preferredId || data.selectedRoom || (normalized[0] && normalized[0].id) || data.conversationId || config().conversationId;
+              if (desired && normalized.length && normalized.every(function (room) { return room.id !== desired; })) {
+                desired = normalized[0].id;
+              }
+              var nextConversation = desired || data.conversationId || config().conversationId;
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  rooms: normalized,
+                  selectedRoom: desired || '',
+                  conversationId: nextConversation || '',
+                  topic: topicFromConversation(nextConversation || '')
+                })
+              });
+            });
+          }
+
+          async function loadChatRooms(ctx, preferredId) {
+            var store = runtime();
+            if (store.roomsLoading) { return; }
+            var endpoint = resolveRoomsEndpoint();
+            if (!endpoint) { return; }
+            var utils = utilsHost();
+            var fetcher = utils && utils.Net && typeof utils.Net.ajax === 'function' ? utils.Net.ajax : null;
+            if (!fetcher) { return; }
+            store.roomsLoading = true;
+            try {
+              var response = await fetcher(endpoint, { method: 'GET', responseType: 'json', timeout: 8000 });
+              var rooms = [];
+              if (response && Array.isArray(response.rooms)) {
+                rooms = response.rooms;
+              } else if (Array.isArray(response)) {
+                rooms = response;
+              }
+              applyRoomsToState(rooms, preferredId);
+            } catch (loadErr) {
+              warn('تعذر تحميل قائمة الغرف من الخادم.', { error: loadErr });
+              var fallbackId = config().conversationId || 'demo:lobby';
+              applyRoomsToState([
+                { id: fallbackId, name: fallbackId, topic: topicFromConversation(fallbackId), requiresPin: true },
+              ], preferredId);
+            } finally {
+              store.roomsLoading = false;
+            }
+          }
+
+          function handleRoomSelect(event, ctx) {
+            var context = ensureContext(ctx, event);
+            if (!context || !event || !event.target) { return; }
+            var value = '';
+            if (typeof event.target.value === 'string') {
+              value = event.target.value;
+            }
+            context.set('data.selectedRoom', value);
+            if (value) {
+              context.set('data.conversationId', value);
+              context.set('data.topic', topicFromConversation(value));
+            }
+            context.set('data.pinError', '');
+            persistSession({ conversationId: value }, { cookie: false }).catch(function () {});
+          }
+
+          function handlePinInput(event, ctx) {
+            var context = ensureContext(ctx, event);
+            if (!context || !event || !event.target) { return; }
+            var value = '';
+            if (typeof event.target.value === 'string') {
+              value = event.target.value;
+            }
+            context.set('data.roomPin', value);
+          }
+
+          function latestMessageTimestamp(state, ctx) {
+            if (!state || !state.data || !Array.isArray(state.data.messages) || !state.data.messages.length) {
+              return '—';
+            }
+            var messages = state.data.messages.slice(-1);
+            var last = messages.length ? messages[0] : null;
+            if (!last || !last.createdAt) { return '—'; }
+            var formatted = formatChatTime(last.createdAt, false, ctx);
+            return formatted || '—';
+          }
+
+          function findMessagesContainer() {
+            if (typeof document === 'undefined') { return null; }
+            try {
+              return document.querySelector('[data-chat-messages]');
+            } catch (_err) {
+              return null;
+            }
+          }
+
+          function scrollMessagesToBottom(immediate) {
+            var container = findMessagesContainer();
+            if (!container) { return; }
+            var run = function () {
+              try {
+                container.scrollTop = container.scrollHeight;
+              } catch (_err) {}
+            };
+            if (immediate) {
+              run();
+            } else if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(run);
+            } else {
+              run();
+            }
+          }
+
+          function scheduleScrollToBottom(immediate) {
+            if (typeof window === 'undefined') { return; }
+            if (immediate) {
+              scrollMessagesToBottom(true);
+              return;
+            }
+            if (pendingScrollFrame) {
+              return;
+            }
+            pendingScrollFrame = window.requestAnimationFrame(function () {
+              pendingScrollFrame = null;
+              scrollMessagesToBottom(false);
+            });
+          }
+
+          function formatLockTime(value, ctx) {
+            if (!value) { return ''; }
+            return formatChatTime(value, false, ctx) || '';
+          }
+
+          function handleTokenAcquisitionFailure(context, info) {
+            var details = info || {};
+            var message = typeof details.message === 'string' && details.message ? details.message : 'تعذر المصادقة على الغرفة. يرجى التحقق من رمز PIN.';
+            var lockUntil = details.lockUntil || null;
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  joined: false,
+                  pinError: message,
+                  lockExpiresAt: lockUntil,
+                  loadingState: 'idle',
+                  loadingMessage: '',
+                  historyLoaded: false,
+                  connection: Object.assign({}, data.connection || {}, { status: 'idle', lastError: null, user: null })
+                })
+              });
+            });
+            var ctxRef = ensureContext(context);
+            if (ctxRef) {
+              try { ctxRef.set('data.joined', false); } catch (_err) {}
+              try { ctxRef.set('data.pinError', message); } catch (_err) {}
+              if (!details.keepPin) {
+                try { ctxRef.set('data.roomPin', ''); } catch (_err) {}
+              }
+            }
+            clearSessionToken({ keepPin: Boolean(details.keepPin) }).catch(function () {});
+          }
+
+          async function leaveChat(ctx) {
+            var context = ensureContext(ctx);
+            if (!context) { return; }
+            var store = runtime();
+            if (store.socket && typeof store.socket.close === 'function') {
+              try { store.socket.close(1000, 'logout'); } catch (_err) {}
+              store.socket = null;
+            }
+            resetAuthState({ clearToken: true });
+            await clearSessionToken({ keepPin: false }).catch(function () {});
+            mutateState(function (prev) {
+              var base = prev || {};
+              var data = base.data || {};
+              return Object.assign({}, base, {
+                data: Object.assign({}, data, {
+                  joined: false,
+                  messages: [],
+                  errors: [],
+                  newMessage: '',
+                  loadingState: 'idle',
+                  loadingMessage: '',
+                  historyLoaded: false,
+                  pinError: '',
+                  lockExpiresAt: null,
+                  connection: Object.assign({}, data.connection || {}, { status: 'idle', lastError: null, user: null })
+                })
+              });
+            });
+            try { context.set('data.roomPin', ''); } catch (_err) {}
+            try { context.set('data.pinError', ''); } catch (_err) {}
+            persistSession({ token: '', expiresAt: null, user: null, pin: '' }).catch(function () {});
           }
 
           function log(level, message, payload) {
@@ -330,6 +921,7 @@
                 historyLimit: 50,
                 maxErrors: 10,
                 tokenEndpoint: null,
+                roomsEndpoint: null,
                 keyId: 'chat:demo:plaintext'
               };
             }
@@ -435,79 +1027,154 @@
             return base.replace(/\/+$/, '') + '/api/demo/guest-token';
           }
 
+          function resolveRoomsEndpoint() {
+            var cfg = config();
+            if (cfg.roomsEndpoint) return cfg.roomsEndpoint;
+            var base = deriveHttpUrl(cfg.url);
+            if (!base) return null;
+            return base.replace(/\/+$/, '') + '/api/chat/rooms';
+          }
+
           async function ensureAuthToken(context) {
             var store = runtime();
-            if (store.authToken) {
+            var now = Date.now();
+            if (store.authToken && store.authTokenMeta && store.authTokenMeta.expiresAt && store.authTokenMeta.expiresAt - now > 5000) {
               return store.authToken;
             }
             if (store.authenticating && store.authPromise) {
               return store.authPromise;
             }
-            var cfg = config();
-            var endpoint = resolveTokenEndpoint();
-            if (!endpoint) {
-              store.authenticated = false;
-              throw new Error('لم يتم تحديد نقطة نهاية للرمز.');
+            var session = await restoreSession(context);
+            if (session && session.token && session.expiresAt && session.expiresAt - now > 5000) {
+              store.authToken = session.token;
+              store.authTokenMeta = {
+                expiresAt: session.expiresAt,
+                user: session.user || null,
+                conversationId: session.conversationId || null
+              };
+              return session.token;
             }
-            ensureContext(context);
-            var fetcher = (utilsHost().Net && utilsHost().Net.ajax) ? utilsHost().Net.ajax : null;
-            if (!fetcher) {
-              store.authenticated = false;
-              throw new Error('أداة الشبكة غير متاحة للحصول على رمز الضيف.');
-            }
-            var contextRef = ensureContext(context);
-            var preferredName = '';
-            if (contextRef && typeof contextRef.get === 'function') {
-              try { preferredName = contextRef.get('data.username') || ''; } catch (_err) { preferredName = ''; }
+            var ctxRef = ensureContext(context);
+            var preferredName = session && session.username ? session.username : '';
+            if (!preferredName && ctxRef && typeof ctxRef.get === 'function') {
+              try { preferredName = ctxRef.get('data.username') || ''; } catch (_err) { preferredName = ''; }
             }
             if (!preferredName) {
               preferredName = generateGuestName();
-              if (contextRef && typeof contextRef.set === 'function') {
-                try { contextRef.set('data.username', preferredName); } catch (_syncErr) {}
+              if (ctxRef && typeof ctxRef.set === 'function') {
+                try { ctxRef.set('data.username', preferredName); } catch (_syncErr) {}
               }
             }
-            var tokenBody = {
-              conversationId: cfg.conversationId || 'demo:lobby'
-            };
-            if (preferredName) {
-              tokenBody.name = preferredName;
+            var conversationId = session && session.conversationId ? session.conversationId : '';
+            if (!conversationId && ctxRef && typeof ctxRef.get === 'function') {
+              try { conversationId = ctxRef.get('data.conversationId') || ''; } catch (_convErr) { conversationId = ''; }
+            }
+            if (!conversationId) {
+              conversationId = config().conversationId || 'demo:lobby';
+            }
+            var pin = session && session.pin ? session.pin : '';
+            if (!pin && ctxRef && typeof ctxRef.get === 'function') {
+              try { pin = ctxRef.get('data.roomPin') || ''; } catch (_pinErr) { pin = ''; }
+            }
+            pin = typeof pin === 'string' ? pin.trim() : '';
+            if (!pin) {
+              throw new Error('رمز PIN مطلوب للغرفة المختارة.');
+            }
+            persistSession({ username: preferredName, conversationId: conversationId, pin: pin }, { cookie: false }).catch(function () {});
+            var cfg = config();
+            cfg.conversationId = conversationId;
+            cfg.topic = topicFromConversation(conversationId);
+            var endpoint = resolveTokenEndpoint();
+            if (!endpoint) {
+              throw new Error('لم يتم تحديد نقطة نهاية للرمز.');
+            }
+            var fetcher = (utilsHost().Net && utilsHost().Net.ajax) ? utilsHost().Net.ajax : null;
+            if (!fetcher) {
+              throw new Error('أداة الشبكة غير متاحة للحصول على رمز الضيف.');
+            }
+            if (ctxRef) {
+              try { ctxRef.set('data.pinError', ''); } catch (_err) {}
+              try { ctxRef.set('data.lockExpiresAt', null); } catch (_err) {}
             }
             store.authenticating = true;
+            var requestBody = {
+              conversationId: conversationId,
+              name: preferredName,
+              pin: pin
+            };
             store.authPromise = fetcher(endpoint, {
               method: 'POST',
               responseType: 'json',
               timeout: 8000,
-              body: tokenBody
+              body: requestBody
             })
               .then(function (response) {
                 if (!response || !response.token) {
                   throw new Error('استجابة الرمز غير صالحة.');
                 }
+                var expiresIn = Number(response.expiresIn || response.expires_in || 0);
+                var expiresAt = Date.now() + (expiresIn > 0 ? expiresIn * 1000 : 3600000);
+                var normalizedUser = response.user ? normalizeUserInfo(response.user) : null;
                 store.authToken = response.token;
-                store.authTokenMeta = response;
-                var normalizedUser = normalizeUserInfo(response.user);
-                if (normalizedUser) {
-                  mutateState(function (prev) {
-                    var base = prev || {};
-                    var data = base.data || {};
-                    var users = Array.isArray(data.users) ? data.users.slice() : [];
-                    if (normalizedUser.name && users.indexOf(normalizedUser.name) === -1) {
-                      users.push(normalizedUser.name);
-                    }
-                    return Object.assign({}, base, {
-                      data: Object.assign({}, data, {
-                        users: users,
-                        connection: Object.assign({}, data.connection || {}, { user: normalizedUser })
-                      })
-                    });
+                store.authTokenMeta = {
+                  expiresAt: expiresAt,
+                  user: normalizedUser,
+                  conversationId: conversationId
+                };
+                persistSession({
+                  username: preferredName,
+                  conversationId: conversationId,
+                  pin: pin,
+                  token: response.token,
+                  expiresAt: expiresAt,
+                  user: normalizedUser
+                }).catch(function () {});
+                mutateState(function (prev) {
+                  var base = prev || {};
+                  var data = base.data || {};
+                  var users = Array.isArray(data.users) ? data.users.slice() : [];
+                  if (normalizedUser && normalizedUser.name && users.indexOf(normalizedUser.name) === -1) {
+                    users.push(normalizedUser.name);
+                  }
+                  return Object.assign({}, base, {
+                    data: Object.assign({}, data, {
+                      pinError: '',
+                      lockExpiresAt: null,
+                      users: users,
+                      connection: Object.assign({}, data.connection || {}, { user: normalizedUser || data.connection && data.connection.user || null })
+                    })
                   });
-                }
+                });
                 return response.token;
               })
-              .catch(function (fetchError) {
-                store.authenticated = false;
+              .catch(async function (fetchError) {
                 store.authToken = null;
                 store.authTokenMeta = null;
+                store.authenticated = false;
+                var message = 'تعذر المصادقة على الغرفة. يرجى التحقق من رمز PIN.';
+                var lockUntil = null;
+                var keepPin = false;
+                var httpErrorClass = utilsHost().HttpError;
+                if (httpErrorClass && fetchError instanceof httpErrorClass && fetchError.response) {
+                  try {
+                    var payload = await fetchError.response.json();
+                    if (payload && typeof payload === 'object') {
+                      if (payload.message) { message = payload.message; }
+                      if (payload.code === 'pin_locked') {
+                        keepPin = true;
+                        lockUntil = payload.lockedUntil || payload.lockExpiresAt || payload.locked_until || null;
+                        if (!payload.message) {
+                          message = 'تم حظر المحاولات مؤقتًا بسبب محاولات عديدة فاشلة.';
+                        }
+                      } else if (payload.code === 'pin_invalid') {
+                        message = payload.message || 'رمز PIN غير صحيح، حاول مرة أخرى.';
+                      }
+                    }
+                  } catch (_parseErr) {}
+                } else if (fetchError && fetchError.message) {
+                  message = fetchError.message;
+                }
+                handleTokenAcquisitionFailure(context, { message: message, lockUntil: lockUntil, keepPin: keepPin });
                 throw fetchError;
               })
               .finally(function () {
@@ -699,6 +1366,7 @@
               });
             });
             setLoadingState('ready');
+            scheduleScrollToBottom();
           }
 
           function setLoadingState(status, meta) {
@@ -771,6 +1439,7 @@
               if (store.socket && store.socket.auth) {
                 store.socket.auth.token = null;
               }
+              clearSessionToken({ keepPin: Boolean(settings.keepPin) }).catch(function () {});
               mutateState(function (prev) {
                 var base = prev || {};
                 var data = base.data || {};
@@ -878,6 +1547,7 @@
               });
             });
             setLoadingState('ready');
+            scheduleScrollToBottom(true);
           }
 
           function handleServerError(message) {
@@ -1148,6 +1818,8 @@
               return null;
             }
             syncConfigWithState();
+            var cfgSnapshot = config();
+            persistSession({ conversationId: cfgSnapshot.conversationId }, { cookie: false }).catch(function () {});
             setLoadingState('connecting', { message: 'جارٍ الاتصال بخادم الدردشة...', historyLoaded: false });
             var utils = utilsHost();
             if (!utils || typeof utils.WebSocketX !== 'function') {
@@ -1234,6 +1906,7 @@
               value = event.target.value;
             }
             context.set('data.username', value);
+            persistSession({ username: value }, { cookie: false }).catch(function () {});
           }
 
           function joinChat(event, ctx) {
@@ -1242,15 +1915,36 @@
               error('joinChat لم يتمكن من الحصول على سياق HTMLx.');
               return;
             }
+            var roomId = '';
+            try { roomId = context.get('data.selectedRoom') || context.get('data.conversationId') || ''; } catch (_roomErr) { roomId = ''; }
+            roomId = typeof roomId === 'string' ? roomId.trim() : '';
+            if (!roomId) {
+              context.set('data.pinError', 'الرجاء اختيار غرفة دردشة قبل المتابعة.');
+              return;
+            }
+            var pin = '';
+            try { pin = context.get('data.roomPin') || ''; } catch (_pinErr) { pin = ''; }
+            pin = typeof pin === 'string' ? pin.trim() : '';
+            if (!pin || pin.length < 4) {
+              context.set('data.pinError', 'رمز PIN يجب أن يتكون من 4 أرقام على الأقل.');
+              return;
+            }
             var username = context.get('data.username');
             if (!username) {
               username = generateGuestName();
               context.set('data.username', username);
             }
+            context.set('data.roomPin', pin);
+            context.set('data.pinError', '');
+            context.set('data.lockExpiresAt', null);
+            context.set('data.conversationId', roomId);
+            context.set('data.topic', topicFromConversation(roomId));
+            context.set('data.selectedRoom', roomId);
             context.set('data.joined', true);
             try { context.set('data.messages', []); } catch (_msgErr) {}
             try { context.set('data.errors', []); } catch (_err) {}
             try { context.set('data.historyLoaded', false); } catch (_histErr) {}
+            persistSession({ username: username, conversationId: roomId, pin: pin }, { cookie: false }).catch(function () {});
             setConnectionStatus('connecting');
             setLoadingState('connecting', { message: 'جارٍ تهيئة اتصال الدردشة...', historyLoaded: false });
             connectToChat(context);
@@ -1356,6 +2050,7 @@
             try { context.set('data.newMessage', ''); } catch (_clearErr) {}
             setLoadingState('ready', { message: 'تم مسح الرسائل المعروضة.', historyLoaded: true });
             info('تم مسح الرسائل من الواجهة بناءً على طلب المستخدم.');
+            scheduleScrollToBottom(true);
           }
 
           function messagePayload(ctx, event) {
@@ -1543,7 +2238,29 @@
                 store.lastCtx = agent.ContextAdapter(store.app);
               }
             }
-            connectToChat(store.lastCtx);
+            Promise.resolve()
+              .then(async function () {
+                var session = await restoreSession(store.lastCtx);
+                var preferredRoom = session && session.conversationId ? session.conversationId : null;
+                await loadChatRooms(store.lastCtx, preferredRoom);
+                var ctxRef = store.lastCtx || ensureContext(store.lastCtx);
+                var hasValidToken = session && session.token && session.expiresAt && session.expiresAt - Date.now() > 5000;
+                if (hasValidToken) {
+                  if (ctxRef) {
+                    try { ctxRef.set('data.joined', true); } catch (_err) {}
+                    try { ctxRef.set('data.pinError', ''); } catch (_err) {}
+                    try { ctxRef.set('data.lockExpiresAt', null); } catch (_err) {}
+                  }
+                  setConnectionStatus('connecting');
+                  setLoadingState('connecting', { message: 'جارٍ تهيئة اتصال الدردشة...', historyLoaded: false });
+                  connectToChat(ctxRef || store.lastCtx);
+                } else if (ctxRef) {
+                  try { ctxRef.set('data.joined', false); } catch (_err) {}
+                }
+              })
+              .catch(function (initError) {
+                error('فشل التهيئة الأولية للدردشة.', initError);
+              });
           }
         </script>
       </section>
