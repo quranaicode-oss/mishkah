@@ -1947,6 +1947,18 @@
               }
               attachSocketHandlers(store.socket);
             }
+            if (store.socket && typeof store.socket.connect === 'function') {
+              var desiredState = store.socket.state;
+              if (desiredState !== 'open' && desiredState !== 'connecting') {
+                try {
+                  store.socket.connect({ waitOpen: false });
+                } catch (connectErr) {
+                  recordError('ws_connect_failed', 'تعذر بدء اتصال WebSocket.', connectErr, { connection: true });
+                  setLoadingState('error', { message: 'تعذر بدء اتصال WebSocket.', historyLoaded: false });
+                  return null;
+                }
+              }
+            }
             if (store.socket.state === 'open') {
               setConnectionStatus('connected', { resetError: true });
               setLoadingState('connected', { message: 'جارٍ مزامنة المحادثة...', historyLoaded: store.historyRequested && store.historyRequested });
