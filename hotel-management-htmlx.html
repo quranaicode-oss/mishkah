@@ -2898,19 +2898,19 @@
                     </div>
                     <label>
                       {trans('reservations.form.arrival')}
-                      <input type="date" value="{state.data.forms.reservation.arrival}" onchange="updateReservationForm('arrival', this.value, ctx)" />
+                      <input type="date" data-form-field="reservation-arrival" onchange="updateReservationForm('arrival', this.value, ctx)" />
                     </label>
                     <label>
                       {trans('reservations.form.departure')}
-                      <input type="date" value="{state.data.forms.reservation.departure}" onchange="updateReservationForm('departure', this.value, ctx)" />
+                      <input type="date" data-form-field="reservation-departure" onchange="updateReservationForm('departure', this.value, ctx)" />
                     </label>
                     <label>
                       {trans('reservations.form.adults')}
-                      <input type="number" min="1" value="{state.data.forms.reservation.adults}" oninput="updateReservationForm('adults', this.value, ctx)" />
+                      <input type="number" min="1" data-form-field="reservation-adults" oninput="updateReservationForm('adults', this.value, ctx)" />
                     </label>
                     <label>
                       {trans('reservations.form.children')}
-                      <input type="number" min="0" value="{state.data.forms.reservation.children}" oninput="updateReservationForm('children', this.value, ctx)" />
+                      <input type="number" min="0" data-form-field="reservation-children" oninput="updateReservationForm('children', this.value, ctx)" />
                     </label>
                     <label>
                       {trans('reservations.form.source')}
@@ -3175,11 +3175,11 @@
                       </label>
                       <label>
                         {state.env.lang === 'ar' ? 'المبلغ' : 'Amount'}
-                        <input type="number" step="0.01" value="{state.data.forms.folioCharge.amount}" oninput="updateFolioCharge('amount', this.value, ctx)" />
+                        <input type="number" step="0.01" data-form-field="folio-charge-amount" oninput="updateFolioCharge('amount', this.value, ctx)" />
                       </label>
                       <label>
                         {state.env.lang === 'ar' ? 'التاريخ' : 'Date'}
-                        <input type="date" value="{state.data.forms.folioCharge.date}" onchange="updateFolioCharge('date', this.value, ctx)" />
+                        <input type="date" data-form-field="folio-charge-date" onchange="updateFolioCharge('date', this.value, ctx)" />
                       </label>
                       <div class="actions" style="grid-column:1 / -1;justify-content:flex-end;">
                         <button class="button" type="submit">{trans('folio.charge.add')}</button>
@@ -3199,11 +3199,11 @@
                       </label>
                       <label>
                         {state.env.lang === 'ar' ? 'المبلغ' : 'Amount'}
-                        <input type="number" step="0.01" value="{state.data.forms.folioPayment.amount}" oninput="updateFolioPayment('amount', this.value, ctx)" />
+                        <input type="number" step="0.01" data-form-field="folio-payment-amount" oninput="updateFolioPayment('amount', this.value, ctx)" />
                       </label>
                       <label>
                         {state.env.lang === 'ar' ? 'التاريخ' : 'Date'}
-                        <input type="date" value="{state.data.forms.folioPayment.date}" onchange="updateFolioPayment('date', this.value, ctx)" />
+                        <input type="date" data-form-field="folio-payment-date" onchange="updateFolioPayment('date', this.value, ctx)" />
                       </label>
                       <div class="actions" style="grid-column:1 / -1;justify-content:flex-end;">
                         <button class="button secondary" type="submit">{trans('folio.payment.add')}</button>
@@ -3255,7 +3255,7 @@
 
           var DB_NAME = 'gremal-hotel-pms';
           var DB_VERSION = 1;
-          var objectStores = ['rooms','guests','reservations','folios','nightAudits','tasks','settings'];
+          var objectStores = Object.freeze(['rooms','guests','reservations','folios','nightAudits','tasks','settings']);
 
           function openDB(){
             return new Promise(function(resolve, reject){
@@ -3364,12 +3364,82 @@
             return Object.keys(map).map(function(key){ return map[key]; });
           }
 
+          function setFormFieldValue(selector, value){
+            if(typeof document === 'undefined') return;
+            var element = document.querySelector(selector);
+            if(!element) return;
+            if(document.activeElement === element) return;
+            var normalised = value;
+            if(normalised === undefined || normalised === null){
+              normalised = '';
+            }
+            if(element.type === 'number'){
+              element.value = normalised === '' ? '' : String(normalised);
+            } else {
+              element.value = normalised || '';
+            }
+          }
+
+          function syncFormFields(ctx){
+            if(!ctx) return;
+            var state = ctx.getState();
+            if(!state || !state.data || !state.data.forms) return;
+            var forms = state.data.forms;
+            var reservation = forms.reservation || {};
+            var folioCharge = forms.folioCharge || {};
+            var folioPayment = forms.folioPayment || {};
+            setFormFieldValue('[data-form-field="reservation-arrival"]', reservation.arrival);
+            setFormFieldValue('[data-form-field="reservation-departure"]', reservation.departure);
+            setFormFieldValue('[data-form-field="reservation-adults"]', reservation.adults);
+            setFormFieldValue('[data-form-field="reservation-children"]', reservation.children);
+            setFormFieldValue('[data-form-field="folio-charge-amount"]', folioCharge.amount);
+            setFormFieldValue('[data-form-field="folio-charge-date"]', folioCharge.date);
+            setFormFieldValue('[data-form-field="folio-payment-amount"]', folioPayment.amount);
+            setFormFieldValue('[data-form-field="folio-payment-date"]', folioPayment.date);
+          }
+
           function ensureAlerts(state){
             state.data = state.data || {};
             state.data.runtime = state.data.runtime || {};
-            if(!Array.isArray(state.data.runtime.alerts)){
-              state.data.runtime.alerts = [];
+            var runtime = state.data.runtime;
+            if(!runtime.businessDate){
+              runtime.businessDate = new Date().toISOString().slice(0, 10);
             }
+            runtime.rooms = runtime.rooms || [];
+            runtime.reservations = runtime.reservations || [];
+            runtime.guests = runtime.guests || [];
+            runtime.folios = runtime.folios || [];
+            runtime.nightAudits = runtime.nightAudits || [];
+            runtime.tasks = runtime.tasks || [];
+            runtime.alerts = Array.isArray(runtime.alerts) ? runtime.alerts : [];
+            runtime.metrics = runtime.metrics || {};
+            runtime.metrics.frontOffice = Object.assign({
+              occupancy: 0,
+              occupied: 0,
+              available: 0,
+              arrivals: 0,
+              departures: 0,
+              inhouse: 0,
+              adr: 0,
+              revPar: 0,
+              revenueToday: 0
+            }, runtime.metrics.frontOffice || {});
+            runtime.metrics.reservations = Object.assign({
+              total: 0,
+              individual: 0,
+              group: 0,
+              pending: 0,
+              booked: 0,
+              checkedIn: 0,
+              checkedOut: 0
+            }, runtime.metrics.reservations || {});
+            runtime.views = runtime.views || {};
+            runtime.views.reservations = runtime.views.reservations || [];
+            runtime.views.arrivals = runtime.views.arrivals || [];
+            runtime.views.departures = runtime.views.departures || [];
+            runtime.views.profiles = runtime.views.profiles || [];
+            runtime.views.rack = runtime.views.rack || [];
+            runtime.views.folios = runtime.views.folios || [];
           }
 
           function addAlert(ctx, type, message){
@@ -3737,6 +3807,7 @@
                   next.data.runtime.initialized = true;
                 }, function(){
                   computeMetrics(ctx);
+                  syncFormFields(ctx);
                   var latest = ctx.getState();
                   addAlert(ctx, 'info', latest.env.lang === 'ar' ? 'تمت المزامنة من القاعدة.' : 'Sync completed.');
                 });
@@ -3754,6 +3825,8 @@
             commit(ctx, function(next){
               next.data.view.showReservationForm = !next.data.view.showReservationForm;
               if(!next.data.view.showReservationForm){ resetReservationForm(next); }
+            }, function(){
+              syncFormFields(ctx);
             });
           }
 
@@ -4106,6 +4179,7 @@
                   next.data.view.showReservationForm = false;
                 }, function(){
                   computeMetrics(ctx);
+                  syncFormFields(ctx);
                 });
               }).then(function(){ loadEnvironment(ctx); }).catch(function(err){ console.error('init error', err); });
             }).catch(function(err){ console.error('DB open error', err); });
@@ -4148,6 +4222,7 @@
 
           window.__init__ = function(ctx){
             applyEnvironment(ctx.getState());
+            syncFormFields(ctx);
             initialise(ctx);
           };
         })();
