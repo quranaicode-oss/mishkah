@@ -3253,6 +3253,22 @@
         (function(){
           'use strict';
 
+          function commit(ctx, producer, after){
+            if(!ctx) return;
+            if(typeof ctx.commit === 'function'){ return ctx.commit(producer, after); }
+            if(ctx.actions && typeof ctx.actions.commit === 'function'){ return ctx.actions.commit(producer, after); }
+            if(ctx.store && typeof ctx.store.commit === 'function'){ return ctx.store.commit(producer, after); }
+            if(ctx.actions && ctx.actions.store && typeof ctx.actions.store.commit === 'function'){
+              return ctx.actions.store.commit(producer, after);
+            }
+            if(typeof window !== 'undefined' && window.Mishkah && window.Mishkah.Actions && typeof window.Mishkah.Actions.commit === 'function'){
+              return window.Mishkah.Actions.commit(ctx, producer, after);
+            }
+            if(typeof console !== 'undefined' && console.warn){
+              console.warn('[Mishkah] commit helper not available on context');
+            }
+          }
+
           var DB_NAME = 'gremal-hotel-pms';
           var DB_VERSION = 1;
           var objectStores = Object.freeze(['rooms','guests','reservations','folios','nightAudits','tasks','settings']);
