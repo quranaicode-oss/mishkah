@@ -3255,14 +3255,14 @@
 
           var DB_NAME = 'gremal-hotel-pms';
           var DB_VERSION = 1;
-          var STORES = ['rooms','guests','reservations','folios','nightAudits','tasks','settings'];
+          var objectStores = ['rooms','guests','reservations','folios','nightAudits','tasks','settings'];
 
           function openDB(){
             return new Promise(function(resolve, reject){
               var request = indexedDB.open(DB_NAME, DB_VERSION);
               request.onupgradeneeded = function(event){
                 var db = event.target.result;
-                STORES.forEach(function(store){
+                objectStores.forEach(function(store){
                   if(!db.objectStoreNames.contains(store)){
                     if(store === 'settings'){
                       db.createObjectStore(store, { keyPath: 'key' });
@@ -3474,7 +3474,7 @@
           }
 
           function seedDatabase(ctx, db){
-            return Promise.all(STORES.filter(function(store){ return store !== 'settings'; }).map(function(store){ return countStore(db, store); }))
+            return Promise.all(objectStores.filter(function(store){ return store !== 'settings'; }).map(function(store){ return countStore(db, store); }))
               .then(function(counts){
                 var needsSeed = counts.some(function(count){ return count === 0; });
                 if(!needsSeed){ return; }
@@ -4158,6 +4158,11 @@
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
+    <script>
+      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
+    </script>
     <script src="./mishkah-htmlx.js"></script>
 
     <script>
