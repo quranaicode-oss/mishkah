@@ -208,7 +208,7 @@
           <main class="flex h-full flex-1 flex-col gap-4 overflow-hidden">
             <section class="relative flex-1 overflow-hidden rounded-2xl bg-slate-900/80 p-5 ring-1 ring-slate-800/60">
               <div
-                x-if="state.data.joined && state.data.loadingState !== 'ready'"
+                x-if="state.data.joined && loadingOverlayVisible(state)"
                 class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-slate-950/80 backdrop-blur"
               >
                 <div class="h-12 w-12 animate-spin rounded-full border-2 border-slate-800/60 border-t-sky-400"></div>
@@ -355,6 +355,7 @@
               sessionRestored: false,
               cookieKeyPromise: null,
               roomsLoading: false,
+              authRetryTimer: null,
               config: {
                 url: 'wss://ws.mas.com.eg',
                 conversationId: 'demo:lobby',
@@ -1643,12 +1644,63 @@
             scheduleScrollToBottom(true);
           }
 
+          function scheduleAuthReconnect(delayMs) {
+            var store = runtime();
+            var delay = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : 400;
+            if (store.authRetryTimer && typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+              window.clearTimeout(store.authRetryTimer);
+              store.authRetryTimer = null;
+            }
+            var runner = function () {
+              store.authRetryTimer = null;
+              var state = readState();
+              if (!state || !state.data || !state.data.joined) {
+                return;
+              }
+              connectToChat(store.lastCtx);
+            };
+            if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+              store.authRetryTimer = window.setTimeout(runner, delay);
+            } else {
+              runner();
+            }
+          }
+
+          function isAuthRelatedErrorCode(code) {
+            if (!code) { return false; }
+            var normalized = String(code).toLowerCase();
+            return (
+              normalized === 'auth_failed' ||
+              normalized === 'unauthorized' ||
+              normalized === 'unauthorized_pub' ||
+              normalized === 'token_required'
+            );
+          }
+
+          function handleAuthRelatedServerError(message, code, text) {
+            if (!isAuthRelatedErrorCode(code)) {
+              return false;
+            }
+            var state = readState();
+            if (!state || !state.data || !state.data.joined) {
+              return false;
+            }
+            var store = runtime();
+            setConnectionStatus('connecting', { error: { code: code, message: text } });
+            setLoadingState('reconnecting', { message: 'جارٍ تحديث جلسة المصادقة...', historyLoaded: false });
+            resetAuthState({ clearToken: true, keepPin: true });
+            if (store.socket && typeof store.socket.close === 'function') {
+              try { store.socket.close(4401, code || 'reauth'); } catch (_closeErr) {}
+              store.socket = null;
+            }
+            scheduleAuthReconnect(600);
+            return true;
+          }
+
           function handleServerError(message) {
             var code = message && message.code ? message.code : 'server_error';
             var text = message && message.message ? message.message : 'أبلغ الخادم عن خطأ غير معروف.';
             recordError(code, text, message, { connection: true });
-            setConnectionStatus('error', { code: code, message: text });
-            setLoadingState('error', { message: 'أبلغ الخادم عن خطأ: ' + text, historyLoaded: false });
             var store = runtime();
             if (code === 'unauthorized_sub' || code === 'topic_not_allowed') {
               store.subscriptionRequested = false;
@@ -1656,7 +1708,12 @@
             if (code === 'unauthorized_pub') {
               store.authenticated = false;
             }
-            if (code === 'auth_failed' || code === 'unauthorized' || code === 'token_required' || code === 'unauthorized_pub') {
+            if (handleAuthRelatedServerError(message, code, text)) {
+              return;
+            }
+            setConnectionStatus('error', { code: code, message: text });
+            setLoadingState('error', { message: 'أبلغ الخادم عن خطأ: ' + text, historyLoaded: false });
+            if (isAuthRelatedErrorCode(code)) {
               resetAuthState({ clearToken: true });
               if (store.socket && typeof store.socket.close === 'function') {
                 try { store.socket.close(4401, 'reauth'); } catch (_closeErr) {}
@@ -1688,11 +1745,13 @@
                       if (!helloAuthResult.ok) {
                         reportSendFailure(helloAuthResult, { type: 'auth', data: { token: token } }, 'auth');
                         setLoadingState('error', { message: 'تعذر إعادة المصادقة على الاتصال.', historyLoaded: false });
+                        scheduleAuthReconnect(1000);
                       }
                     }
                   } catch (reauthErr) {
                     recordError('auth_retry_failed', 'تعذر استكمال المصادقة التلقائية بعد رسالة hello.', reauthErr, { connection: true });
                     setLoadingState('error', { message: 'تعذر إعادة المصادقة على الاتصال.', historyLoaded: false });
+                    scheduleAuthReconnect(1000);
                   }
                 })();
                 break;
@@ -2310,6 +2369,25 @@
             } catch (formatError) {
               warn('تعذر تنسيق الطابع الزمني لواجهة الدردشة.', { value: value, includeSeconds: includeSeconds, error: formatError });
               return '';
+            }
+          }
+
+          function loadingOverlayVisible(state) {
+            var data = state && state.data ? state.data : state || {};
+            var status = typeof data.loadingState === 'string' ? data.loadingState.trim() : '';
+            var hasMessages = Array.isArray(data.messages) && data.messages.length > 0;
+            var historyLoaded = Boolean(data.historyLoaded);
+            switch (status) {
+              case 'ready':
+                return false;
+              case 'error':
+              case 'connecting':
+              case 'reconnecting':
+                return true;
+              case 'connected':
+                return !(historyLoaded || hasMessages);
+              default:
+                return !(historyLoaded || hasMessages);
             }
           }
 
