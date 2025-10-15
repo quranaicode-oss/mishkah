@@ -2420,6 +2420,10 @@
                             "ar": "تاريخ العمل",
                             "en": "Business Date"
                   },
+                  "header.businessDateUnset": {
+                            "ar": "غير محدد",
+                            "en": "Not set"
+                  },
                   "frontOffice.metrics.occupancy": {
                             "ar": "نسبة الإشغال",
                             "en": "Occupancy"
@@ -2694,7 +2698,7 @@
               </button>
               <div class="status-tag">
                 <strong>{trans('header.businessDate')}:</strong>
-                <span>{state.data.runtime.businessDate}</span>
+                <span>{(state.data.runtime && state.data.runtime.businessDate) ? state.data.runtime.businessDate : trans('header.businessDateUnset')}</span>
               </div>
             </div>
           </header>
