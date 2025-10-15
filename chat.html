@@ -233,7 +233,16 @@
               authTokenMeta: null,
               authenticated: false,
               authenticating: false,
-              authPromise: null
+              authPromise: null,
+              config: {
+                url: 'wss://ws.mas.com.eg',
+                conversationId: 'demo:lobby',
+                topic: 'chat:demo:lobby',
+                historyLimit: 50,
+                maxErrors: 10,
+                tokenEndpoint: null,
+                keyId: 'chat:demo:plaintext'
+              }
             };
           }
 
@@ -280,15 +289,21 @@
           function error(message, payload) { log('error', message, payload); }
           function debug(message, payload) { log('debug', message, payload); }
 
-          var CHAT_CONFIG = {
-            url: 'wss://ws.mas.com.eg',
-            conversationId: 'demo:lobby',
-            topic: 'chat:demo:lobby',
-            historyLimit: 50,
-            maxErrors: 10,
-            tokenEndpoint: null,
-            keyId: 'chat:demo:plaintext'
-          };
+          function config() {
+            var store = runtime();
+            if (!store.config) {
+              store.config = {
+                url: 'wss://ws.mas.com.eg',
+                conversationId: 'demo:lobby',
+                topic: 'chat:demo:lobby',
+                historyLimit: 50,
+                maxErrors: 10,
+                tokenEndpoint: null,
+                keyId: 'chat:demo:plaintext'
+              };
+            }
+            return store.config;
+          }
 
           function ensureContext(ctx, event) {
             var store = runtime();
@@ -382,8 +397,9 @@
           }
 
           function resolveTokenEndpoint() {
-            if (CHAT_CONFIG.tokenEndpoint) return CHAT_CONFIG.tokenEndpoint;
-            var base = deriveHttpUrl(CHAT_CONFIG.url);
+            var cfg = config();
+            if (cfg.tokenEndpoint) return cfg.tokenEndpoint;
+            var base = deriveHttpUrl(cfg.url);
             if (!base) return null;
             return base.replace(/\/+$/, '') + '/api/demo/guest-token';
           }
@@ -396,6 +412,7 @@
             if (store.authenticating && store.authPromise) {
               return store.authPromise;
             }
+            var cfg = config();
             var endpoint = resolveTokenEndpoint();
             if (!endpoint) {
               store.authenticated = false;
@@ -419,7 +436,7 @@
               }
             }
             var tokenBody = {
-              conversationId: CHAT_CONFIG.conversationId || 'demo:lobby'
+              conversationId: cfg.conversationId || 'demo:lobby'
             };
             if (preferredName) {
               tokenBody.name = preferredName;
@@ -554,8 +571,9 @@
               var data = base.data || {};
               var errors = Array.isArray(data.errors) ? data.errors.slice() : [];
               errors.unshift(entry);
-              if (errors.length > CHAT_CONFIG.maxErrors) {
-                errors = errors.slice(0, CHAT_CONFIG.maxErrors);
+              var cfg = config();
+              if (errors.length > cfg.maxErrors) {
+                errors = errors.slice(0, cfg.maxErrors);
               }
               var connection = Object.assign({}, data.connection || {});
               if (options && options.connection) {
@@ -761,14 +779,16 @@
           }
 
           function handlePublishMessage(message) {
-            if (!message || message.topic !== CHAT_CONFIG.topic) {
+            var cfg = config();
+            if (!message || message.topic !== cfg.topic) {
               return;
             }
             applyIncomingMessage(message.data || {}, {});
           }
 
           function handleHistoryMessage(message) {
-            if (!message || message.conversationId !== CHAT_CONFIG.conversationId) {
+            var cfg = config();
+            if (!message || message.conversationId !== cfg.conversationId) {
               return;
             }
             var list = Array.isArray(message.messages) ? message.messages : [];
@@ -867,7 +887,8 @@
             }
             socket.__chatHandlersAttached = true;
             socket.on('open', function () {
-              info('تم فتح اتصال WebSocket بنجاح.', { topic: CHAT_CONFIG.topic });
+              var cfg = config();
+              info('تم فتح اتصال WebSocket بنجاح.', { topic: cfg.topic });
               resetAuthState();
               setConnectionStatus('connected', { resetError: true });
             });
@@ -894,27 +915,28 @@
               return;
             }
             var data = state.data;
+            var cfg = config();
             if (typeof data.conversationId === 'string' && data.conversationId) {
-              CHAT_CONFIG.conversationId = data.conversationId;
+              cfg.conversationId = data.conversationId;
             }
             if (typeof data.topic === 'string' && data.topic) {
-              CHAT_CONFIG.topic = data.topic;
-            } else if (CHAT_CONFIG.conversationId) {
-              CHAT_CONFIG.topic = 'chat:' + CHAT_CONFIG.conversationId;
+              cfg.topic = data.topic;
+            } else if (cfg.conversationId) {
+              cfg.topic = 'chat:' + cfg.conversationId;
             }
             if (typeof data.messageKeyId === 'string' && data.messageKeyId.trim()) {
-              CHAT_CONFIG.keyId = data.messageKeyId.trim();
+              cfg.keyId = data.messageKeyId.trim();
             }
             mutateState(function (prev) {
               var base = prev || {};
               var prevData = base.data || {};
-              if (prevData.topic === CHAT_CONFIG.topic && prevData.conversationId === CHAT_CONFIG.conversationId) {
+              if (prevData.topic === cfg.topic && prevData.conversationId === cfg.conversationId) {
                 return base;
               }
               return Object.assign({}, base, {
                 data: Object.assign({}, prevData, {
-                  topic: CHAT_CONFIG.topic,
-                  conversationId: CHAT_CONFIG.conversationId
+                  topic: cfg.topic,
+                  conversationId: cfg.conversationId
                 })
               });
             });
@@ -932,14 +954,15 @@
               debug('تم تجاهل طلب السجل قبل اكتمال المصادقة.');
               return;
             }
+            var cfg = config();
             try {
               store.socket.send({
                 type: 'chat:history',
-                conversationId: CHAT_CONFIG.conversationId,
-                limit: CHAT_CONFIG.historyLimit
+                conversationId: cfg.conversationId,
+                limit: cfg.historyLimit
               });
               store.historyRequested = true;
-              info('تم طلب سجل الرسائل.', { limit: CHAT_CONFIG.historyLimit });
+              info('تم طلب سجل الرسائل.', { limit: cfg.historyLimit });
             } catch (historyError) {
               store.historyRequested = false;
               recordError('history_failed', 'تعذر طلب سجل الرسائل من الخادم.', historyError);
@@ -959,13 +982,14 @@
               return;
             }
             try {
+              var cfg = config();
               store.socket.send({
                 type: 'subscribe',
-                topic: CHAT_CONFIG.topic,
-                conversationId: CHAT_CONFIG.conversationId
+                topic: cfg.topic,
+                conversationId: cfg.conversationId
               });
               store.subscriptionRequested = true;
-              info('تم إرسال طلب الاشتراك في موضوع الدردشة.', { topic: CHAT_CONFIG.topic });
+              info('تم إرسال طلب الاشتراك في موضوع الدردشة.', { topic: cfg.topic });
             } catch (sendError) {
               store.subscriptionRequested = false;
               recordError('subscribe_failed', 'تعذر إرسال طلب الاشتراك في الدردشة.', sendError, { connection: true });
@@ -988,7 +1012,8 @@
             }
             if (!store.socket) {
               try {
-                store.socket = new utils.WebSocketX(CHAT_CONFIG.url, {
+                var cfg = config();
+                store.socket = new utils.WebSocketX(cfg.url, {
                   autoReconnect: true,
                   backoff: { min: 1000, max: 10000, factor: 1.6 },
                   ping: { interval: 20000, send: { type: 'ping' }, expect: { type: 'pong' }, timeout: 8000 },
@@ -1171,7 +1196,8 @@
               try { keyId = context.get('data.messageKeyId') || ''; } catch (_keyErr) { keyId = ''; }
             }
             if (typeof keyId !== 'string' || !keyId.trim()) {
-              keyId = CHAT_CONFIG.keyId || 'chat:demo:plaintext';
+              var cfg = config();
+              keyId = cfg.keyId || 'chat:demo:plaintext';
             } else {
               keyId = keyId.trim();
             }
@@ -1225,9 +1251,10 @@
                   via: 'htmlx-demo'
                 }
               };
+              var cfg = config();
               socket.send({
                 type: 'chat:send',
-                conversationId: CHAT_CONFIG.conversationId,
+                conversationId: cfg.conversationId,
                 data: messageData
               });
               info('تم إرسال الرسالة إلى الخادم.', { clientMessageId: payload.clientMessageId });
