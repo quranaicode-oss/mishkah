@@ -652,12 +652,13 @@
       });
     });
     if(!locked){
-      tabs.push({ id:'expo', label:t.tabs.expo, count: getExpoOrders(db).length });
-      tabs.push({ id:'handoff', label:t.tabs.handoff, count: getHandoffOrders(db).length });
-      const deliveryCount = getDeliveryOrders(db).length;
-      tabs.push({ id:'delivery', label:t.tabs.delivery, count: deliveryCount });
-      const pendingCount = getPendingDeliveryOrders(db).length;
-      tabs.push({ id:'delivery-pending', label:t.tabs.pendingDelivery, count: pendingCount });
+      const stageTabs = [
+        { id:'expo', label:t.tabs.expo, count: getExpoOrders(db).length },
+        { id:'handoff', label:t.tabs.handoff, count: getHandoffOrders(db).length },
+        { id:'delivery', label:t.tabs.delivery, count: getDeliveryOrders(db).length },
+        { id:'delivery-pending', label:t.tabs.pendingDelivery, count: getPendingDeliveryOrders(db).length }
+      ];
+      stageTabs.forEach(tab=> tabs.push(tab));
     }
     return tabs;
   };
@@ -1160,7 +1161,7 @@
   Mishkah.app.setBody(AppView);
 
   const database = typeof window !== 'undefined' ? (window.database || {}) : {};
-  const kdsSource = database.kds || (typeof window !== 'undefined' ? window.kdsDatabase : null) || {};
+  const kdsSource = database.kds || {};
   const stations = buildStations(database, kdsSource);
   const stationMap = stations.reduce((acc, station)=>{
     acc[station.id] = station;
