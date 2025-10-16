@@ -69,26 +69,75 @@
 
   var paths = userConfig.paths || {};
   var resources = [
-    { id: 'mishkah-utils', src: joinBase(paths.utils || 'mishkah-utils.js'), test: function () { return global.Mishkah && global.Mishkah.utils; } },
-    { id: 'mishkah-core', src: joinBase(paths.core || 'mishkah.core.js'), test: function () { return global.Mishkah && global.Mishkah.app; } },
-    { id: 'mishkah-ui', src: joinBase(paths.ui || 'mishkah-ui.js'), test: function () { return global.Mishkah && global.Mishkah.UI; } },
-    { id: 'mishkah-htmlx', src: joinBase(paths.htmlx || 'mishkah-htmlx.js'), test: function () { return global.Mishkah && (global.Mishkah.HTMLxAgent || (global.Mishkah.HTMLx && global.Mishkah.HTMLx.Agent)); } }
+    {
+      id: 'mishkah-utils',
+      src: joinBase(paths.utils || 'mishkah-utils.js'),
+      test: function () { return global.Mishkah && global.Mishkah.utils; }
+    },
+    {
+      id: 'mishkah-core',
+      src: joinBase(paths.core || 'mishkah.core.js'),
+      test: function () { return global.Mishkah && global.Mishkah.app; }
+    },
+    {
+      id: 'mishkah-ui',
+      src: joinBase(paths.ui || 'mishkah-ui.js'),
+      test: function () { return global.Mishkah && global.Mishkah.UI; }
+    },
+    {
+      id: 'mishkah-acorn',
+      src: joinBase(paths.acorn || 'https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js'),
+      test: function () { return !!global.acorn; }
+    },
+    {
+      id: 'mishkah-acorn-walk',
+      src: joinBase(paths.acornWalk || 'https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js'),
+      test: function () { return !!(global.acornWalk || (global.acorn && global.acorn.walk)); },
+      onLoad: function () {
+        if (!global.acornWalk && global.acorn && global.acorn.walk) {
+          global.acornWalk = global.acorn.walk;
+        }
+      }
+    },
+    {
+      id: 'mishkah-htmlx',
+      src: joinBase(paths.htmlx || 'mishkah-htmlx.js'),
+      test: function () {
+        return global.Mishkah && (global.Mishkah.HTMLxAgent || (global.Mishkah.HTMLx && global.Mishkah.HTMLx.Agent));
+      }
+    }
   ];
 
   var cssHref = joinBase(paths.css || 'mishkah-css.css');
 
   function ensureScript(entry) {
     if (!entry || !entry.src) return Promise.resolve(false);
-    if (entry.test && entry.test()) return Promise.resolve(true);
+    if (entry.test && entry.test()) {
+      if (typeof entry.onLoad === 'function') {
+        try { entry.onLoad(); }
+        catch (err) { setTimeout(function () { throw err; }, 0); }
+      }
+      return Promise.resolve(true);
+    }
     return new Promise(function (resolve, reject) {
       var existing = entry.id ? doc.getElementById(entry.id) : null;
       if (existing) {
         var readyAttr = existing.getAttribute('data-ready');
         if (readyAttr === '1') {
+          if (typeof entry.onLoad === 'function') {
+            try { entry.onLoad(); }
+            catch (err) { setTimeout(function () { throw err; }, 0); }
+          }
           resolve(true);
           return;
         }
-        existing.addEventListener('load', function () { resolve(true); }, { once: true });
+        existing.addEventListener('load', function () {
+          if (typeof entry.onLoad === 'function') {
+            try { entry.onLoad(); }
+            catch (err) { setTimeout(function () { throw err; }, 0); }
+          }
+          resolve(true);
+        }, { once: true });
         existing.addEventListener('error', function (event) { reject(new Error('Failed to load script ' + entry.src)); }, { once: true });
         return;
       }
@@ -99,6 +148,10 @@
       script.setAttribute('data-mishkah-auto', '1');
       script.addEventListener('load', function () {
         script.setAttribute('data-ready', '1');
+        if (typeof entry.onLoad === 'function') {
+          try { entry.onLoad(); }
+          catch (err) { setTimeout(function () { throw err; }, 0); }
+        }
         resolve(true);
       }, { once: true });
       script.addEventListener('error', function (event) {
