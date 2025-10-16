@@ -208,14 +208,17 @@
       error: status?.error ? (status.error.message || String(status.error)) : null,
       startedAt: status?.startedAt || null,
       finishedAt: status?.finishedAt || null,
-      keys: Array.isArray(status?.keys) ? status.keys.slice() : []
+      keys: Array.isArray(status?.keys) ? status.keys.slice() : [],
+      method: status?.method || null,
+      usedFallback: !!status?.usedFallback
     });
     function createRemoteHydrator(options={}){
-      const status = { status:'idle', error:null, startedAt:null, finishedAt:null, keys:[] };
+      const status = { status:'idle', error:null, startedAt:null, finishedAt:null, keys:[], method:'POST', usedFallback:false };
       const { Net } = U;
       const shouldSkip = options.skip ?? isStaticDemoEnvironment;
       if(shouldSkip){
         status.status = 'skipped';
+        status.method = 'skip';
         status.startedAt = Date.now();
         status.finishedAt = status.startedAt;
         status.error = null;
@@ -226,32 +229,132 @@
         status.status = 'loading';
         status.startedAt = Date.now();
         try{
-          let response = null;
-          if(Net && typeof Net.post === 'function'){
-            response = await Net.post(REMOTE_CONFIG.endpoint, {
-              body: REMOTE_CONFIG.payload,
-              headers:{ 'Content-Type':'application/json' },
-              timeout: REMOTE_CONFIG.timeout,
-              responseType:'json'
+          const normalizeStatusCode = (error)=>{
+            if(!error || typeof error !== 'object') return undefined;
+            if(typeof error.status === 'number') return error.status;
+            if(error.response && typeof error.response.status === 'number') return error.response.status;
+            const message = typeof error.message === 'string' ? error.message : '';
+            const match = message.match(/HTTP\s+(\d{3})/i);
+            if(match) return Number(match[1]);
+            return undefined;
+          };
+          const shouldFallbackToGet = (error)=>{
+            const code = normalizeStatusCode(error);
+            if(code === 405) return true;
+            if(typeof error?.message === 'string'){
+              const msg = error.message.toLowerCase();
+              if(msg.includes('405') || msg.includes('method not allowed')) return true;
+            }
+            return false;
+          };
+          const buildGetEndpoint = ()=>{
+            const endpoint = REMOTE_CONFIG.endpoint || '/r/j';
+            const payload = REMOTE_CONFIG.payload || {};
+            const params = new URLSearchParams();
+            Object.keys(payload).forEach(key=>{
+              const value = payload[key];
+              if(value === undefined || value === null) return;
+              if(Array.isArray(value)){
+                value.forEach(entry=>{
+                  if(entry === undefined || entry === null) return;
+                  const normalized = typeof entry === 'object' ? JSON.stringify(entry) : String(entry);
+                  params.append(key, normalized);
+                });
+                return;
+              }
+              const normalized = typeof value === 'object' ? JSON.stringify(value) : String(value);
+              params.append(key, normalized);
             });
-          } else if(Net && typeof Net.ajax === 'function'){
-            response = await Net.ajax(REMOTE_CONFIG.endpoint, {
-              method:'POST',
-              headers:{ 'Content-Type':'application/json' },
-              body: REMOTE_CONFIG.payload,
-              responseType:'json',
-              timeout: REMOTE_CONFIG.timeout
-            });
-          } else if(typeof fetch === 'function'){
-            const res = await fetch(REMOTE_CONFIG.endpoint, {
-              method:'POST',
-              headers:{ 'Content-Type':'application/json' },
-              body: JSON.stringify(REMOTE_CONFIG.payload)
-            });
-            if(!res.ok) throw new Error(`HTTP ${res.status}`);
-            response = await res.json();
-          } else {
+            const query = params.toString();
+            if(!query) return endpoint;
+            return `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}`;
+          };
+          const requestHeaders = {
+            'Content-Type':'application/json',
+            'Accept':'application/json, text/plain, */*'
+          };
+          const attemptPost = async()=>{
+            if(Net && typeof Net.post === 'function'){
+              return Net.post(REMOTE_CONFIG.endpoint, {
+                body: REMOTE_CONFIG.payload,
+                headers: requestHeaders,
+                timeout: REMOTE_CONFIG.timeout,
+                responseType:'json'
+              });
+            }
+            if(Net && typeof Net.ajax === 'function'){
+              return Net.ajax(REMOTE_CONFIG.endpoint, {
+                method:'POST',
+                headers: requestHeaders,
+                body: REMOTE_CONFIG.payload,
+                responseType:'json',
+                timeout: REMOTE_CONFIG.timeout
+              });
+            }
+            if(typeof fetch === 'function'){
+              const res = await fetch(REMOTE_CONFIG.endpoint, {
+                method:'POST',
+                headers: requestHeaders,
+                body: JSON.stringify(REMOTE_CONFIG.payload)
+              });
+              if(!res.ok){
+                const error = new Error(`HTTP ${res.status}`);
+                error.status = res.status;
+                error.response = res;
+                throw error;
+              }
+              return res.json();
+            }
             throw new Error('Networking unavailable');
+          };
+          const attemptGet = async()=>{
+            status.method = 'GET';
+            status.usedFallback = true;
+            if(Net && typeof Net.get === 'function'){
+              return Net.get(REMOTE_CONFIG.endpoint, {
+                query: REMOTE_CONFIG.payload,
+                headers:{ Accept: requestHeaders.Accept },
+                timeout: REMOTE_CONFIG.timeout,
+                responseType:'json'
+              });
+            }
+            if(Net && typeof Net.ajax === 'function'){
+              return Net.ajax(REMOTE_CONFIG.endpoint, {
+                method:'GET',
+                headers:{ Accept: requestHeaders.Accept },
+                query: REMOTE_CONFIG.payload,
+                responseType:'json',
+                timeout: REMOTE_CONFIG.timeout
+              });
+            }
+            if(typeof fetch === 'function'){
+              const res = await fetch(buildGetEndpoint(), {
+                method:'GET',
+                headers:{ Accept: requestHeaders.Accept }
+              });
+              if(!res.ok){
+                const error = new Error(`HTTP ${res.status}`);
+                error.status = res.status;
+                error.response = res;
+                throw error;
+              }
+              return res.json();
+            }
+            throw new Error('Networking unavailable');
+          };
+          let response = null;
+          try{
+            response = await attemptPost();
+          } catch(postError){
+            status.method = 'POST';
+            if(!shouldFallbackToGet(postError)) throw postError;
+            console.info('[Mishkah][POS] POST endpoint rejected, retrying with GET fallback.', postError);
+            try{
+              response = await attemptGet();
+            } catch(getError){
+              if(!getError.previous && typeof getError === 'object') getError.previous = postError;
+              throw getError;
+            }
           }
           const data = extractRemotePayload(response);
           status.finishedAt = Date.now();
@@ -266,6 +369,7 @@
           status.status = 'error';
           status.error = error;
           status.finishedAt = Date.now();
+          if(!status.usedFallback) status.method = 'POST';
           return { data:null, error, status };
         }
       })();
