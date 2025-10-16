@@ -235,7 +235,19 @@
         </div>
 
         <script>
-          var requestSeed = 0;
+          function useRuntime() {
+            var host = typeof window !== 'undefined' ? window : globalThis;
+            var key = '__MISHKAH_AJAX_MINIMAL__';
+            var bucket = host[key];
+            if (!bucket || typeof bucket !== 'object') {
+              bucket = { requestSeed: 0 };
+              host[key] = bucket;
+            }
+            if (typeof bucket.requestSeed !== 'number' || !Number.isFinite(bucket.requestSeed)) {
+              bucket.requestSeed = 0;
+            }
+            return bucket;
+          }
 
           function cloneState(prev) {
             try {
@@ -288,7 +300,9 @@
             var state = ctx.getState() || {};
             var controls = (state.data && state.data.controls) || {};
             var limit = safeLimit(controls.limit);
-            var token = ++requestSeed;
+            var runtime = useRuntime();
+            runtime.requestSeed += 1;
+            var token = runtime.requestSeed;
             commit(ctx, function (draft) {
               draft.data = draft.data || {};
               draft.data.posts = draft.data.posts || {};
@@ -297,7 +311,8 @@
             });
             fetchPosts(limit)
               .then(function (items) {
-                if (token !== requestSeed) return;
+                var runtime = useRuntime();
+                if (token !== runtime.requestSeed) return;
                 commit(ctx, function (draft) {
                   draft.data = draft.data || {};
                   draft.data.posts = draft.data.posts || {};
@@ -307,7 +322,8 @@
                 });
               })
               .catch(function (error) {
-                if (token !== requestSeed) return;
+                var runtime = useRuntime();
+                if (token !== runtime.requestSeed) return;
                 commit(ctx, function (draft) {
                   draft.data = draft.data || {};
                   draft.data.posts = draft.data.posts || {};
@@ -336,6 +352,11 @@
       </section>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
+    <script>
+      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
+    </script>
     <script src="./mishkah-utils.js"></script>
     <script src="./mishkah.core.js"></script>
     <script src="./mishkah-htmlx.js"></script>
