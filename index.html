@@ -486,6 +486,93 @@
 
         const baseHeadStyles = [{ id: 'index-base-styles', content: baseStyleContent }];
 
+        function toggleTemplateSwitcherVisibility() {
+          if (typeof document === 'undefined') return;
+          const isMobile = typeof window !== 'undefined'
+            ? (window.matchMedia
+              ? window.matchMedia('(max-width: 768px)').matches
+              : window.innerWidth <= 768)
+            : false;
+          const nodes = document.querySelectorAll('[data-menu-container="template"]');
+          nodes.forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            if (isMobile) {
+              node.style.display = 'none';
+              node.setAttribute('data-hidden-on-mobile', 'true');
+            } else {
+              node.style.display = '';
+              node.removeAttribute('data-hidden-on-mobile');
+            }
+          });
+        }
+
+        function applyGlobalMenuFixes(root) {
+          if (typeof document === 'undefined') return;
+          const scope = root && root.querySelectorAll ? root : document;
+          const containers = scope.querySelectorAll('[data-menu-container]');
+          const adjustedParents = new Set();
+
+          containers.forEach((container) => {
+            if (!(container instanceof HTMLElement)) return;
+            container.style.setProperty('overflow', 'visible', 'important');
+            container.style.setProperty('max-height', 'none', 'important');
+
+            const parent = container.parentElement;
+            if (parent instanceof HTMLElement && !adjustedParents.has(parent)) {
+              parent.style.setProperty('overflow-y', 'visible', 'important');
+              parent.style.setProperty('max-height', 'none', 'important');
+              adjustedParents.add(parent);
+            }
+
+            const panel = container.querySelector('[data-menu-panel]');
+            if (panel instanceof HTMLElement) {
+              panel.style.setProperty('max-height', 'none', 'important');
+              panel.style.setProperty('overflow', 'visible', 'important');
+            }
+          });
+
+          toggleTemplateSwitcherVisibility();
+        }
+
+        function scheduleGlobalMenuFixes() {
+          if (typeof document === 'undefined') return;
+          const runner = () => applyGlobalMenuFixes(document);
+          if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(runner);
+          } else {
+            setTimeout(runner, 0);
+          }
+        }
+
+        function setupGlobalMenuObservers() {
+          if (typeof document === 'undefined') return;
+
+          if (typeof window !== 'undefined') {
+            const resizeHandler = () => toggleTemplateSwitcherVisibility();
+            window.addEventListener('resize', resizeHandler, { passive: true });
+            window.addEventListener('orientationchange', resizeHandler);
+          }
+
+          if (typeof MutationObserver !== 'function') return;
+
+          const observer = new MutationObserver((mutations) => {
+            let needsUpdate = false;
+            for (const mutation of mutations) {
+              for (const node of mutation.addedNodes) {
+                if (!(node instanceof HTMLElement)) continue;
+                if (node.matches('[data-menu-container]') || node.querySelector('[data-menu-container]')) {
+                  needsUpdate = true;
+                  break;
+                }
+              }
+              if (needsUpdate) break;
+            }
+            if (needsUpdate) scheduleGlobalMenuFixes();
+          });
+
+          observer.observe(document.body, { childList: true, subtree: true });
+        }
+
         if (M.Head && typeof M.Head.batch === 'function') {
           M.Head.batch({ links: baseHeadLinks, styles: baseHeadStyles });
         }
@@ -553,6 +640,8 @@
         const twx = M.utils.twcss.auto(database, app);
         app.setOrders(Object.assign({}, orders, M.UI.orders, twx.orders));
         app.mount('#app');
+        scheduleGlobalMenuFixes();
+        setupGlobalMenuObservers();
       })();
     </script>
   </body>
