@@ -1548,10 +1548,11 @@ M.UI.posOrders = POS_ORDERS;
               h.Tables.Td({ attrs:{ key:`${key}-c-${ri}-${ci}`, style:`text-align:${align[ci]||'start'};` }}, renderInlines(parseInline(cell), `${key}-c-${ri}-${ci}`))
             ))
           );
-          out.push(h.Tables.Table({ attrs:{ class: tw`w-full text-sm`, key }}, [
+          const tableNode = h.Tables.Table({ attrs:{ class: tw`min-w-full text-sm`, key: `${key}-table` }}, [
             h.Tables.Thead({}, [h.Tables.Tr({ attrs:{ key:`${key}-thead` }}, headerCells)]),
             h.Tables.Tbody({}, bodyRows)
-          ]));
+          ]);
+          out.push(h.Containers.Div({ attrs:{ class: tw`overflow-x-auto`, key: `${key}-wrap` } }, [tableNode]));
           break;
         }
         case 'hr': {
