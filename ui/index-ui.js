@@ -1611,7 +1611,7 @@
       : null;
 
     const searchRow = D.Containers.Div({
-      attrs: { class: tw`mt-4 flex w-full flex-col gap-3 lg:flex-row lg:items-start` }
+      attrs: { class: tw`mt-3 flex w-full flex-col gap-3 lg:mt-4 lg:flex-row lg:items-start` }
     }, [
       D.Containers.Div({ attrs: { class: tw`flex w-full flex-col gap-2` } }, [searchBox])
     ]);
@@ -1625,29 +1625,29 @@
       overlay,
       D.Containers.Div({
         attrs: {
-          class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6`
+          class: tw`mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-4 sm:gap-4 sm:px-4 sm:py-6`
         }
       }, [
         D.Containers.Div({
           attrs: {
-            class: tw`flex flex-wrap items-center justify-between gap-4`
+            class: tw`flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between`
           }
         }, [
-          D.Containers.Div({
-            attrs: {
-              class: tw`flex min-w-[240px] flex-col gap-1`
-            }
-          }, [
-            D.Text.H1({ attrs: { class: tw`text-3xl font-bold leading-tight` } }, [TL('app.title')]),
-            D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
-          ]),
           headerControls.length
             ? D.Containers.Div({
                 attrs: {
-                  class: tw`flex flex-wrap items-center justify-end gap-2`
+                  class: tw`order-0 flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap sm:order-none sm:w-auto sm:justify-end`
                 }
               }, headerControls)
-            : null
+            : null,
+          D.Containers.Div({
+            attrs: {
+              class: tw`order-1 flex min-w-[0] flex-col gap-1 sm:order-none`
+            }
+          }, [
+            D.Text.H1({ attrs: { class: tw`text-2xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
+            D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)] sm:text-sm` } }, [TL('header.subtitle')])
+          ])
         ].filter(Boolean)),
         searchRow
       ])

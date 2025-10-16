@@ -150,11 +150,11 @@
     const themeOpen = !!menuState.themeOpen;
     const templateOpen = !!menuState.templateOpen;
 
-    const triggerBaseClass = tw`flex h-11 items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_16px_36px_-26px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-30px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
-    const triggerActiveClass = tw`border-[color-mix(in_oklab,var(--accent)55%,transparent)] shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)]`;
-    const triggerIconClass = tw`text-xl leading-none`;
-    const triggerLabelClass = tw`text-xs font-semibold leading-tight text-[color-mix(in_oklab,var(--foreground)82%,transparent)]`;
-    const triggerMetaClass = tw`text-[0.65rem] uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)]`;
+    const triggerBaseClass = tw`flex h-9 items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] px-3 text-[0.8rem] font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_12px_28px_-22px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-26px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)] sm:h-11 sm:px-4 sm:text-sm`;
+    const triggerActiveClass = tw`border-[color-mix(in_oklab,var(--accent)55%,transparent)] shadow-[0_20px_44px_-26px_rgba(79,70,229,0.55)]`;
+    const triggerIconClass = tw`text-lg leading-none sm:text-xl`;
+    const triggerLabelClass = tw`text-[0.7rem] font-semibold leading-tight text-[color-mix(in_oklab,var(--foreground)82%,transparent)] sm:text-xs`;
+    const triggerMetaClass = tw`text-[0.6rem] uppercase tracking-[0.32em] text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)] sm:text-[0.65rem]`;
     const panelBaseClass = tw`absolute end-0 z-50 mt-3 w-64 origin-top-right rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200 transform`;
     const panelOpenClass = tw`pointer-events-auto scale-100 opacity-100 translate-y-0`;
     const panelClosedClass = tw`pointer-events-none scale-95 opacity-0 translate-y-1.5`;
@@ -361,11 +361,11 @@
         ? tw`justify-center`
         : tw`justify-end`;
 
-    const directionClass = direction === 'column' ? tw`flex-col` : tw`flex-row flex-wrap`;
+    const directionClass = direction === 'column' ? tw`flex-col` : tw`flex-row flex-nowrap sm:flex-wrap`;
 
     return D.Containers.Div({
       attrs: {
-        class: cx(tw`flex items-center gap-2`, directionClass, justifyClass)
+        class: cx(tw`flex items-center gap-1.5 overflow-x-auto whitespace-nowrap sm:gap-2`, directionClass, justifyClass)
       }
     }, controls);
   }

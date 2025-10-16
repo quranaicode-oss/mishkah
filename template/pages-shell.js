@@ -258,23 +258,24 @@
     const closeLabel = langInfo.lang === 'ar' ? 'إغلاق القائمة' : 'Close menu';
     const menuTitle = langInfo.lang === 'ar' ? 'قائمة الصفحات' : 'Pages menu';
 
-    const toggleButton = D.Containers.Div({
-      attrs: { class: tw`md:hidden sticky top-20 z-50 px-3 pt-3 pb-2` }
-    }, [
-      UI.Button({
-        attrs: {
-          gkey: 'pages:nav:toggle',
-          class: cx(
-            tw`flex w-full items-center justify-between rounded-full px-4 py-3 text-sm font-semibold transition shadow-sm`,
-            mobileOpen
-              ? tw`bg-[var(--primary)] text-[var(--primary-foreground)]`
-              : tw`bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)12%,transparent)]`
-          )
-        },
-        variant: 'ghost',
-        size: 'sm'
-      }, [mobileOpen ? `✖️ ${closeLabel}` : `📖 ${openLabel}`])
-    ]);
+    const toggleButton = mobileOpen
+      ? null
+      : D.Containers.Div({
+        attrs: { class: tw`md:hidden sticky top-20 z-40 px-3 pt-3 pb-2` }
+      }, [
+        UI.Button({
+          attrs: {
+            gkey: 'pages:nav:toggle',
+            class: cx(
+              tw`flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition shadow-sm`,
+              tw`bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)15%,transparent)]`
+            ),
+            'aria-label': openLabel
+          },
+          variant: 'ghost',
+          size: 'sm'
+        }, [`☰`, openLabel])
+      ]);
 
     const mobileList = pages.map((page) => D.Lists.Li({ attrs: { key: `m-${page.key}` } }, [
       renderNavButton(page, activeKey, 'mobile-overlay', langInfo)
@@ -293,11 +294,11 @@
           UI.Button({
             attrs: {
               gkey: 'pages:nav:close',
-              class: tw`rounded-full px-3 py-1 text-sm`
+              class: tw`inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-[var(--primary)] to-[color-mix(in_oklab,var(--accent)65%,transparent)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] shadow-[0_16px_36px_-24px_rgba(79,70,229,0.55)]`
             },
             variant: 'ghost',
             size: 'sm'
-          }, [closeLabel])
+          }, ['✕', closeLabel])
         ]),
         D.Lists.Ul({ attrs: { class: tw`grid gap-2` } }, mobileList)
       ])
@@ -314,6 +315,56 @@
       })
       : null;
 
+    const actionBar = (() => {
+      const navLabel = langInfo.lang === 'ar' ? 'القائمة' : 'Menu';
+      const topLabel = langInfo.lang === 'ar' ? 'أعلى' : 'Top';
+      const searchLabel = langInfo.lang === 'ar' ? 'بحث' : 'Search';
+      const closeShortLabel = langInfo.lang === 'ar' ? 'إغلاق' : 'Close';
+
+      const navAction = UI.Button({
+        attrs: {
+          gkey: 'pages:nav:toggle',
+          class: tw`flex flex-1 items-center justify-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)]`,
+          'aria-label': mobileOpen ? closeLabel : navLabel
+        },
+        variant: 'ghost',
+        size: 'sm'
+      }, [mobileOpen ? '✕' : '☰', mobileOpen ? closeShortLabel : navLabel]);
+
+      const toTopAction = UI.Button({
+        attrs: {
+          gkey: 'pages:mobile:scrollTop',
+          class: tw`flex flex-1 items-center justify-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)]`,
+          'aria-label': topLabel
+        },
+        variant: 'ghost',
+        size: 'sm'
+      }, ['⬆️', topLabel]);
+
+      const searchAction = UI.Button({
+        attrs: {
+          gkey: 'pages:mobile:search',
+          class: tw`flex flex-1 items-center justify-center gap-1 rounded-full bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)]`,
+          'aria-label': searchLabel
+        },
+        variant: 'ghost',
+        size: 'sm'
+      }, ['🔍', searchLabel]);
+
+      return D.Containers.Div({
+        attrs: {
+          class: tw`md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-3`,
+          'aria-hidden': 'false'
+        }
+      }, [
+        D.Containers.Div({
+          attrs: {
+            class: tw`pointer-events-auto mx-3 flex w-full max-w-md items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] px-3 py-2 shadow-[0_-8px_32px_-18px_rgba(15,23,42,0.45)] backdrop-blur`
+          }
+        }, [navAction, toTopAction, searchAction])
+      ]);
+    })();
+
     const sideNav = D.Containers.Aside({
       attrs: {
         class: tw`hidden md:flex md:w-[240px] md:flex-col md:border-s md:border-[color-mix(in_oklab,var(--border)60%,transparent)] md:pe-4`
@@ -326,7 +377,7 @@
       }, pages.map((page) => renderNavButton(page, activeKey, 'desktop', langInfo)))
     ]);
 
-    return { mobileNav, mobileOverlay, sideNav };
+    return { mobileNav, mobileOverlay, mobileActions: actionBar, sideNav };
   }
 
   function renderPage(db, registry, pages, activeKey) {
@@ -632,6 +683,34 @@
             });
           });
         }
+      },
+      'pages.mobile.scrollTop': {
+        on: ['click'],
+        gkeys: ['pages:mobile:scrollTop'],
+        handler: () => {
+          if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }
+      },
+      'pages.mobile.search': {
+        on: ['click'],
+        gkeys: ['pages:mobile:search'],
+        handler: () => {
+          if (typeof document === 'undefined') return;
+          const field = document.querySelector('[data-search-field="query"]');
+          if (!field) return;
+          if (typeof field.focus === 'function') {
+            try {
+              field.focus({ preventScroll: false });
+            } catch (_err) {
+              field.focus();
+            }
+          }
+          if (typeof field.scrollIntoView === 'function') {
+            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
       }
     };
   }
@@ -654,7 +733,7 @@
       const headerNode = callComponent(registry, slots.header, db);
       const footerNode = callComponent(registry, slots.footer, db);
 
-      const { mobileNav, mobileOverlay, sideNav } = renderNavigation(db, pages, activeKey);
+      const { mobileNav, mobileOverlay, mobileActions, sideNav } = renderNavigation(db, pages, activeKey);
       const pageNode = renderPage(db, registry, pages, activeKey);
       const themeLabButton = renderThemeLabButton(db, themeConfig, langInfo);
       const customThemeLab = callComponent(registry, slots.themeLab, db);
@@ -673,12 +752,12 @@
         mobileNav,
         D.Containers.Main({
           attrs: {
-            class: tw`flex-1` + ' ' + tw`px-3 pb-16 sm:px-6 lg:px-8`
+            class: tw`flex-1` + ' ' + tw`px-2 pb-24 sm:px-6 lg:px-8`
           }
         }, [
           D.Containers.Div({
             attrs: {
-              class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 sm:gap-6 md:flex-row`
+              class: tw`mx-auto flex w-full max-w-6xl flex-col gap-3 sm:gap-6 md:flex-row`
             }
           }, [
             sideNav,
@@ -689,7 +768,7 @@
             }, [
               D.Containers.Div({
                 attrs: {
-                  class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] p-3 sm:p-6 lg:p-8 shadow-sm space-y-5 sm:space-y-6`
+                  class: tw`rounded-2xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] p-3 sm:rounded-3xl sm:p-6 lg:p-8 shadow-sm space-y-4 sm:space-y-6`
                 }
               }, [
                 showThemeButton && themeLabButton ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [themeLabButton]) : null,
@@ -699,6 +778,7 @@
           ])
         ]),
         footerNode ? D.Containers.Footer({ attrs: { class: tw`mt-auto border-t border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)]` } }, [footerNode]) : null,
+        mobileActions,
         themeLabModal
       ].filter(Boolean));
     },
