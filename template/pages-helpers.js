@@ -171,7 +171,7 @@
     const langMenu = languages.length
       ? D.Containers.Div({
           attrs: {
-            class: tw`relative inline-flex`,
+            class: tw`inline-flex relative lg:static`,
             'data-menu-container': 'lang'
           }
         }, [
@@ -233,7 +233,7 @@
     const themeMenu = themeOptions.length
       ? D.Containers.Div({
           attrs: {
-            class: tw`relative inline-flex`,
+            class: tw`inline-flex relative lg:static`,
             'data-menu-container': 'theme'
           }
         }, [
@@ -295,7 +295,7 @@
     const templateMenu = templateOptions.length > 1
       ? D.Containers.Div({
           attrs: {
-            class: tw`relative inline-flex`,
+            class: tw`inline-flex relative lg:static`,
             'data-menu-container': 'template'
           }
         }, [
