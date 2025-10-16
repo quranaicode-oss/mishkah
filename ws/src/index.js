@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ChatStore } from './services/chat-store.js';
 import { VoiceNoteStore } from './services/voice-note-store.js';
+import { PosSyncStore } from './services/pos-sync-store.js';
 
 /**
  * ------------------------------------------------------------
@@ -35,6 +36,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
   ALLOW_DEMO_GUESTS: z.coerce.boolean().default(true),
   DEMO_GUEST_TOKEN_TTL_SECS: z.coerce.number().int().min(60).max(60 * 60 * 24).default(60 * 60),
+  POS_SYNC_LIVE_DIR: z.string().default('/tmp/mishkah/pos-sync/live'),
+  POS_SYNC_HISTORY_DIR: z.string().default('/tmp/mishkah/pos-sync/history'),
 });
 
 let parsedEnv;
@@ -69,6 +72,8 @@ const config = {
   logLevel: parsedEnv.LOG_LEVEL,
   allowDemoGuests: parsedEnv.ALLOW_DEMO_GUESTS,
   demoGuestTokenTtlSecs: parsedEnv.DEMO_GUEST_TOKEN_TTL_SECS,
+  posSyncLiveDir: parsedEnv.POS_SYNC_LIVE_DIR,
+  posSyncHistoryDir: parsedEnv.POS_SYNC_HISTORY_DIR,
 };
 
 const log = pino({
@@ -97,6 +102,13 @@ await chatStore.init();
 
 const voiceNoteStore = new VoiceNoteStore({ directory: config.voiceNotesDir, log });
 await voiceNoteStore.init();
+
+const posSyncStore = new PosSyncStore({
+  liveDir: config.posSyncLiveDir,
+  historyDir: config.posSyncHistoryDir,
+  log,
+});
+await posSyncStore.init();
 
 const chatRooms = new Map([
   [
@@ -161,6 +173,23 @@ const voiceNotePayloadSchema = z.object({
   durationMs: z.number().int().min(0).optional(),
   ttlSeconds: z.number().int().min(1).max(60 * 60 * 24).optional(),
   metadata: z.record(z.any()).optional(),
+});
+
+const posSyncSnapshotSchema = z.object({
+  action: z.literal('snapshot').optional(),
+  baseVersion: z.number().int().nonnegative().optional(),
+  snapshot: z.record(z.any()),
+  mutationId: z.string().min(1).optional(),
+  reason: z.string().optional(),
+  clientId: z.string().optional(),
+  archive: z.boolean().optional(),
+});
+
+const posSyncDestroySchema = z.object({
+  action: z.literal('destroy'),
+  mutationId: z.string().min(1).optional(),
+  reason: z.string().optional(),
+  clientId: z.string().optional(),
 });
 
 /**
@@ -312,6 +341,13 @@ function normalizeToken(rawToken) {
   return null;
 }
 
+function normalizeBranchId(value) {
+  if (!value) return 'default';
+  const trimmed = String(value).trim();
+  if (!trimmed) return 'default';
+  return trimmed.replace(/[^A-Za-z0-9:_-]+/g, '-').toLowerCase() || 'default';
+}
+
 function extractEnvelopeToken(envelope) {
   if (!envelope || typeof envelope !== 'object') {
     return null;
@@ -346,9 +382,15 @@ function verifyToken(token) {
 
 const CHAT_TOPIC_REGEX = /^chat:[a-z0-9:_-]+$/;
 const KITCHEN_TOPIC_REGEX = /^(?:[a-z0-9:_-]+:)?(pos:kds:orders|kds:(jobs|delivery|handoff):updates)$/;
+const POS_SYNC_TOPIC_REGEX = /^pos:sync:([a-z0-9:_-]+)$/;
 
 function isKitchenTopic(topic) {
   return typeof topic === 'string' && KITCHEN_TOPIC_REGEX.test(topic);
+}
+
+function isPosSyncTopic(topic) {
+  if (!topic || typeof topic !== 'string') return false;
+  return POS_SYNC_TOPIC_REGEX.test(topic);
 }
 
 function topicAllowed(topic, isPublish) {
@@ -513,6 +555,82 @@ function broadcastTopic(topic, data, meta = {}) {
     .publish(`${config.redisPrefix}${topic}`, serialized)
     .catch((err) => log.error({ err, topic }, 'Failed to publish to Redis'));
   return envelope;
+}
+
+async function handlePosSyncPublish(ws, { topic, data, meta }) {
+  const match = POS_SYNC_TOPIC_REGEX.exec(topic || '');
+  if (!match) {
+    sendJSON(ws, { type: 'error', code: 'pos_sync_topic_invalid', message: 'Invalid POS sync topic.', topic });
+    return;
+  }
+  if (!data || typeof data !== 'object') {
+    sendJSON(ws, { type: 'error', code: 'pos_sync_payload_required', message: 'POS sync publish requires an object payload.', topic });
+    return;
+  }
+  const branchId = normalizeBranchId(match[1]);
+  const action = typeof data.action === 'string' ? data.action : 'snapshot';
+  try {
+    if (action === 'destroy') {
+      const parsed = posSyncDestroySchema.parse({ action: 'destroy', ...data });
+      const result = await posSyncStore.destroyBranch(branchId, {
+        reason: parsed.reason,
+        clientId: parsed.clientId || meta?.from || null,
+      });
+      const payload = {
+        action: 'apply',
+        branch: branchId,
+        version: result.version,
+        updatedAt: result.updatedAt,
+        snapshot: result.snapshot,
+        mutationId: parsed.mutationId || null,
+        source: parsed.clientId || meta?.from || null,
+        cleared: true,
+      };
+      broadcastTopic(topic, payload, { ...meta, branchId, version: result.version, ts: result.updatedAt });
+      sendJSON(ws, { type: 'ack', event: 'publish', topic, ts: nowTs(), version: result.version });
+      return;
+    }
+
+    const parsed = posSyncSnapshotSchema.parse({ action: 'snapshot', ...data });
+    const result = await posSyncStore.applySnapshot({
+      branchId,
+      snapshot: parsed.snapshot,
+      baseVersion: parsed.baseVersion,
+      clientId: parsed.clientId || meta?.from || null,
+      reason: parsed.reason,
+      archive: parsed.archive ?? false,
+    });
+    if (!result.ok) {
+      sendJSON(ws, {
+        type: 'error',
+        code: 'pos_sync_conflict',
+        message: 'Snapshot version conflict. Reload required.',
+        topic,
+        version: result.version,
+        branch: branchId,
+        snapshot: result.snapshot,
+      });
+      return;
+    }
+    const payload = {
+      action: 'apply',
+      branch: branchId,
+      version: result.version,
+      updatedAt: result.updatedAt,
+      snapshot: result.snapshot,
+      mutationId: parsed.mutationId || null,
+      source: parsed.clientId || meta?.from || null,
+    };
+    broadcastTopic(topic, payload, { ...meta, branchId, version: result.version, ts: result.updatedAt });
+    sendJSON(ws, { type: 'ack', event: 'publish', topic, ts: nowTs(), version: result.version });
+  } catch (err) {
+    if (err?.errors) {
+      sendJSON(ws, { type: 'error', code: 'pos_sync_invalid', message: 'Invalid POS sync payload.', topic, issues: err.errors });
+      return;
+    }
+    log.error({ err, topic, branchId }, 'Failed to process POS sync publish');
+    sendJSON(ws, { type: 'error', code: 'pos_sync_error', message: 'Failed to apply POS sync update.', topic });
+  }
 }
 
 async function storeAndFanOutMessage({ conversationId, senderId, ciphertext, keyId, ttlSeconds, metadata }) {
@@ -745,6 +863,61 @@ app.get('/api/chat/rooms', (res, req) => {
     const rooms = Array.from(chatRooms.values()).map(sanitizeRoomForClient).filter(Boolean);
     if (!isAborted()) {
       jsonResponse(res, 200, { rooms });
+    }
+  });
+});
+
+app.get('/api/pos-sync/:branchId', (res, req) => {
+  const branchId = normalizeBranchId(req.getParameter(0));
+  handleAsync(res, async (isAborted) => {
+    const snapshot = await posSyncStore.getSnapshot(branchId);
+    if (!isAborted()) {
+      jsonResponse(res, 200, { status: 'ok', ...snapshot });
+    }
+  });
+});
+
+app.post('/api/pos-sync/:branchId/snapshot', (res, req) => {
+  const branchId = normalizeBranchId(req.getParameter(0));
+  readJsonBody(res, posSyncSnapshotSchema, async (body) => {
+    try {
+      const result = await posSyncStore.applySnapshot({
+        branchId,
+        snapshot: body.snapshot,
+        baseVersion: body.baseVersion,
+        clientId: body.clientId || null,
+        reason: body.reason,
+        archive: body.archive ?? false,
+      });
+      if (!result.ok) {
+        errorResponse(res, 409, 'Version conflict', { version: result.version, snapshot: result.snapshot });
+        return;
+      }
+      jsonResponse(res, 200, { status: 'ok', branchId, version: result.version, updatedAt: result.updatedAt });
+    } catch (err) {
+      log.error({ err, branchId }, 'Failed to persist POS snapshot via HTTP');
+      errorResponse(res, 500, 'Failed to persist snapshot');
+    }
+  });
+});
+
+app.post('/api/pos-sync/:branchId/clear', (res, req) => {
+  const branchId = normalizeBranchId(req.getParameter(0));
+  readJsonBody(res, null, async (rawBody = {}) => {
+    try {
+      const parsed = posSyncDestroySchema.parse({ action: 'destroy', ...rawBody });
+      const result = await posSyncStore.destroyBranch(branchId, {
+        reason: parsed.reason,
+        clientId: parsed.clientId || null,
+      });
+      jsonResponse(res, 200, { status: 'ok', branchId, version: result.version, updatedAt: result.updatedAt });
+    } catch (err) {
+      if (err?.errors) {
+        errorResponse(res, 422, 'Payload validation failed', { issues: err.errors });
+        return;
+      }
+      log.error({ err, branchId }, 'Failed to clear POS snapshot via HTTP');
+      errorResponse(res, 500, 'Failed to clear snapshot');
     }
   });
 });
@@ -1152,7 +1325,7 @@ async function handleMessage(ws, envelope) {
         sendJSON(ws, { type: 'error', code: 'data_required', message: 'Publish messages require a data field.' });
         return;
       }
-      publishMessage(ws, { topic, data, meta });
+      await publishMessage(ws, { topic, data, meta });
       break;
 
     default:
@@ -1181,7 +1354,11 @@ function handleAuth(ws, envelope) {
   sendJSON(ws, { type: 'ack', event: 'auth', user: ws.user, ts: nowTs() });
 }
 
-function publishMessage(ws, { topic, data, meta }) {
+async function publishMessage(ws, { topic, data, meta }) {
+  if (isPosSyncTopic(topic)) {
+    await handlePosSyncPublish(ws, { topic, data, meta: { ...(meta || {}), from: ws.user?.id ?? null } });
+    return;
+  }
   broadcastTopic(topic, data, { ...(meta || {}), from: ws.user?.id ?? null });
   sendJSON(ws, { type: 'ack', event: 'publish', topic, ts: nowTs() });
 }
