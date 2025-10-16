@@ -712,7 +712,9 @@
                 templateOpen: false,
                 langOpen: false,
                 themeOpen: false,
-                mobileSettingsOpen: false
+                mobileSettingsOpen: prevMenus.mobileSettingsOpen === undefined
+                  ? false
+                  : prevMenus.mobileSettingsOpen
               })
             })
           })

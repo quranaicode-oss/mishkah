@@ -311,7 +311,7 @@
         },
         variant: 'ghost',
         size: 'sm'
-      }, [mobileOpen ? '✕' : '☰', mobileOpen ? closeShortLabel : navLabel]);
+      }, [mobileOpen ? '✕' : '📑', mobileOpen ? closeShortLabel : navLabel]);
 
       const toTopAction = UI.Button({
         attrs: {
@@ -335,7 +335,7 @@
 
       return D.Containers.Div({
         attrs: {
-          class: tw`md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-3`,
+          class: tw`md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[max(env(safe-area-inset-bottom),0px)]`,
           'aria-hidden': 'false'
         }
       }, [

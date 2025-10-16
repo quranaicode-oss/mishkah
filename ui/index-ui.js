@@ -29,10 +29,10 @@
   /* ------------------------------------------------------------------ */
 
   const dict = {
-    'app.title': { ar: 'مشكاة —  إطار عمل النور والنظام  ', en: 'Mishkah — Lighthouse Docs ' },
+    'app.title': { ar: 'مشكاة', en: 'Mishkah' },
     'header.subtitle': {
-      ar: 'مرجع النور يجمع الوثائق، الإعدادات، ولعبة الأمثال    .',
-      en: 'A radiant hub that unifies the docs, controls, and the Proverbs game in one canvas.'
+      ar: 'إطار عمل النور والنظام',
+      en: 'Framework of Light & Order'
     },
     'header.lang.ar': { ar: 'العربية', en: 'Arabic' },
     'header.lang.en': { ar: 'الإنجليزية', en: 'English' },
@@ -2078,7 +2078,7 @@
     const mobileLabelClass = tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)78%,transparent)]`;
     const mobileCardClass = tw`flex w-full flex-col gap-2 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_18px_38px_-28px_rgba(15,23,42,0.4)] sm:hidden`;
     const mobileFieldWrapperClass = tw`flex flex-col gap-1`;
-    const mobileIconButtonClass = tw`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] text-lg font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.4)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`;
+    const mobileIconButtonClass = tw`inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] text-lg font-semibold text-[var(--foreground)] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.4)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`;
     const mobileIconButtonActiveClass = tw`border-[color-mix(in_oklab,var(--accent)55%,transparent)] text-[color-mix(in_oklab,var(--primary)92%,transparent)] bg-[color-mix(in_oklab,var(--primary)20%,transparent)]`;
     const mobileSelectIconClass = tw`pointer-events-none absolute top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-[color-mix(in_oklab,var(--surface-2)88%,transparent)] text-base text-[color-mix(in_oklab,var(--foreground)90%,transparent)] shadow-inner`;
     const mobileSettingsLabel = lang === 'ar' ? 'إعدادات العرض' : 'Display settings';
@@ -2432,7 +2432,7 @@
 
     const mobileSettingsSlot = mobileSettingsToggle
       ? mobileSettingsToggle
-      : D.Containers.Div({ attrs: { class: tw`h-10 w-10` } });
+      : D.Containers.Div({ attrs: { class: tw`h-11 w-11` } });
 
     const mobileNavToggle = D.Forms.Button({
       attrs: {
@@ -2442,15 +2442,17 @@
         'aria-expanded': mobileNavOpen ? 'true' : 'false',
         gkey: 'pages:nav:toggle'
       }
-    }, [mobileNavOpen ? '✕' : '☰']);
+    }, [mobileNavOpen ? '✕' : '📑']);
 
     const mobileTitleRow = D.Containers.Div({
-      attrs: { class: tw`flex w-full items-center justify-between gap-2 sm:hidden` }
+      attrs: {
+        class: tw`sm:hidden flex w-full items-center gap-2 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2 shadow-[0_18px_38px_-32px_rgba(15,23,42,0.4)]`
+      }
     }, [
       mobileNavToggle,
-      D.Containers.Div({ attrs: { class: tw`flex min-w-0 flex-1 flex-col items-center gap-1 text-center` } }, [
-        D.Text.H1({ attrs: { class: tw`text-lg font-bold leading-tight` } }, [TL('app.title')]),
-        D.Text.P({ attrs: { class: tw`text-[0.7rem] text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
+      D.Containers.Div({ attrs: { class: tw`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-center` } }, [
+        D.Text.H1({ attrs: { class: tw`text-base font-bold leading-tight` } }, [TL('app.title')]),
+        D.Text.P({ attrs: { class: tw`text-[0.75rem] text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
       ]),
       mobileSettingsSlot
     ]);
@@ -2458,8 +2460,8 @@
     const desktopTitleBlock = D.Containers.Div({
       attrs: { class: tw`hidden min-w-[0] flex-col gap-1 sm:flex` }
     }, [
-      D.Text.H1({ attrs: { class: tw`text-xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
-      D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)] sm:text-sm` } }, [TL('header.subtitle')])
+      D.Text.H1({ attrs: { class: tw`text-2xl font-bold leading-tight sm:text-4xl` } }, [TL('app.title')]),
+      D.Text.P({ attrs: { class: tw`text-sm text-[var(--muted-foreground)] sm:text-base` } }, [TL('header.subtitle')])
     ]);
 
     const headerMainColumn = D.Containers.Div({
