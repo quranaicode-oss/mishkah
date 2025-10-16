@@ -197,7 +197,6 @@ const kdsDatabase = {
     statusHistory: [],
     expoPassTickets: []
   }
-  }
 };
 
 const root = typeof window !== 'undefined' ? window
