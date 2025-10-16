@@ -1271,9 +1271,9 @@ M.UI.posOrders = POS_ORDERS;
 
   const headingTags = [null, h.Text.H1, h.Text.H2, h.Text.H3, h.Text.H4, h.Text.H5, h.Text.H6];
   const headingClasses = {
-    1: tw`text-4xl sm:text-5xl font-bold tracking-tight`,
-    2: tw`text-3xl sm:text-4xl font-semibold`,
-    3: tw`text-2xl font-semibold`,
+    1: tw`text-2xl sm:text-4xl font-bold tracking-tight`,
+    2: tw`text-xl sm:text-3xl font-semibold`,
+    3: tw`text-lg font-semibold`,
     4: tw`text-xl font-semibold`,
     5: tw`text-lg font-semibold`,
     6: tw`text-base font-semibold uppercase tracking-[0.2em]`

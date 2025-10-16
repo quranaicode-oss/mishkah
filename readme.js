@@ -3,7 +3,9 @@
 
    let arREADME = ` بسم الله نبدأ.
 
-# Mishkah.js — إطار عمل النور والنظام
+# مشكاة
+
+*إطار عمل النور والنظام*
 
 *بنية برمجية (Software Architecture) ذات 7 أركان مستوحاة من أفضل الممارسات البرمجية*
 
@@ -356,7 +358,9 @@ function CountrySelector(db) {
 
 -----
 
-# Mishkah.js — The Framework of Light and Order
+# Mishkah
+
+*Framework of Light and Order*
 
 *A 7-Pillar Software Architecture Inspired by First Principles*
 
