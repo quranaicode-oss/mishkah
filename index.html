@@ -613,6 +613,8 @@
 
         if (MPages && typeof MPages.create === 'function') {
           MPages.create(cfg);
+          scheduleGlobalMenuFixes();
+          setupGlobalMenuObservers();
           return;
         }
 
