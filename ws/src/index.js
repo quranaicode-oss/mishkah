@@ -406,6 +406,9 @@ function topicAllowed(topic, isPublish) {
       return true;
     }
   }
+  if (isPosSyncTopic(topic)) {
+    return true;
+  }
   if (isKitchenTopic(topic)) {
     return true;
   }
@@ -869,6 +872,7 @@ app.get('/api/chat/rooms', (res, req) => {
 
 app.get('/api/pos-sync/:branchId', (res, req) => {
   const branchId = normalizeBranchId(req.getParameter(0));
+  if (!requireHttpUser(req, res)) return;
   handleAsync(res, async (isAborted) => {
     const snapshot = await posSyncStore.getSnapshot(branchId);
     if (!isAborted()) {
@@ -879,6 +883,7 @@ app.get('/api/pos-sync/:branchId', (res, req) => {
 
 app.post('/api/pos-sync/:branchId/snapshot', (res, req) => {
   const branchId = normalizeBranchId(req.getParameter(0));
+  if (!requireHttpUser(req, res)) return;
   readJsonBody(res, posSyncSnapshotSchema, async (body) => {
     try {
       const result = await posSyncStore.applySnapshot({
@@ -903,6 +908,7 @@ app.post('/api/pos-sync/:branchId/snapshot', (res, req) => {
 
 app.post('/api/pos-sync/:branchId/clear', (res, req) => {
   const branchId = normalizeBranchId(req.getParameter(0));
+  if (!requireHttpUser(req, res)) return;
   readJsonBody(res, null, async (rawBody = {}) => {
     try {
       const parsed = posSyncDestroySchema.parse({ action: 'destroy', ...rawBody });
