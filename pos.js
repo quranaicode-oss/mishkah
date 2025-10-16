@@ -248,7 +248,7 @@
             return false;
           };
           const buildGetEndpoint = ()=>{
-            const endpoint = REMOTE_CONFIG.endpoint || '/r/j';
+            const endpoint = REMOTE_CONFIG.endpoint || './r/j';
             const payload = REMOTE_CONFIG.payload || {};
             const params = new URLSearchParams();
             Object.keys(payload).forEach(key=>{
