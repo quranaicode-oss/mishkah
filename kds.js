@@ -77,6 +77,10 @@
         "ar": "شاشة التجميع",
         "en": "Expo pass"
       },
+      "handoff": {
+        "ar": "شاشة التسليم",
+        "en": "Service handoff"
+      },
       "delivery": {
         "ar": "تسليم الدليفري",
         "en": "Delivery handoff"
@@ -98,6 +102,10 @@
       "expo": {
         "ar": "لا توجد تذاكر تجميع حالية.",
         "en": "No expo tickets at the moment."
+      },
+      "handoff": {
+        "ar": "لا توجد طلبات جاهزة للتسليم الآن.",
+        "en": "No orders awaiting handoff right now."
       },
       "delivery": {
         "ar": "لا توجد طلبات دليفري حالية.",
@@ -125,6 +133,14 @@
         "ar": "تم التسليم",
         "en": "Delivered"
       },
+      "handoffComplete": {
+        "ar": "تم التجميع",
+        "en": "Mark assembled"
+      },
+      "handoffServe": {
+        "ar": "تم التسليم",
+        "en": "Mark served"
+      },
       "settle": {
         "ar": "تسوية التحصيل",
         "en": "Settle payment"
@@ -142,6 +158,10 @@
       "customer": {
         "ar": "عميل",
         "en": "Guest"
+      },
+      "station": {
+        "ar": "المحطة",
+        "en": "Station"
       },
       "due": {
         "ar": "الاستحقاق",
@@ -162,6 +182,24 @@
       "notAssigned": {
         "ar": "لم يتم التعيين بعد",
         "en": "Not assigned yet"
+      },
+      "handoffStatus": {
+        "pending": {
+          "ar": "قيد التحضير",
+          "en": "In progress"
+        },
+        "ready": {
+          "ar": "جاهز للتجميع",
+          "en": "Ready to assemble"
+        },
+        "assembled": {
+          "ar": "جاهز للتسليم",
+          "en": "Ready for handoff"
+        },
+        "served": {
+          "ar": "تم التسليم",
+          "en": "Completed"
+        }
       },
       "serviceMode": {
         "dine_in": {
@@ -350,6 +388,13 @@
     settled: tw`border-emerald-400/60 bg-emerald-500/20 text-emerald-50`
   };
 
+  const HANDOFF_STATUS_CLASS = {
+    pending: tw`border-amber-300/40 bg-amber-400/10 text-amber-100`,
+    ready: tw`border-emerald-300/60 bg-emerald-500/15 text-emerald-50`,
+    assembled: tw`border-sky-300/50 bg-sky-500/15 text-sky-50`,
+    served: tw`border-slate-500/40 bg-slate-800/70 text-slate-100`
+  };
+
   const SERVICE_ICONS = { dine_in:'🍽️', delivery:'🚚', takeaway:'🧾', pickup:'🛍️' };
 
   const parseTime = (value)=>{
@@ -375,6 +420,69 @@
   };
 
   const sum = (list, selector)=> list.reduce((acc, item)=> acc + (Number(selector(item)) || 0), 0);
+
+  const ensureQuantity = (value)=>{
+    const num = Number(value);
+    if(Number.isFinite(num) && num > 0) return num;
+    return 1;
+  };
+
+  const computeOrdersSnapshot = (db)=>{
+    const orders = Array.isArray(db?.data?.jobs?.orders) ? db.data.jobs.orders : [];
+    const handoff = db?.data?.handoff || {};
+    const stationMap = db?.data?.stationMap || {};
+    return orders.map(order=>{
+      const record = handoff[order.orderId] || handoff[order.id] || {};
+      let totalItems = 0;
+      let readyItems = 0;
+      const detailRows = [];
+      const jobs = Array.isArray(order.jobs) ? order.jobs : [];
+      jobs.forEach(job=>{
+        const jobDetails = Array.isArray(job.details) ? job.details : [];
+        const station = stationMap[job.stationId] || {};
+        const stationLabelAr = station.nameAr || job.stationCode || job.stationId;
+        const stationLabelEn = station.nameEn || job.stationCode || job.stationId;
+        if(jobDetails.length){
+          jobDetails.forEach(detail=>{
+            const quantity = ensureQuantity(detail.quantity);
+            const detailClone = { ...detail, quantity };
+            totalItems += quantity;
+            if(detailClone.status === 'ready' || detailClone.status === 'completed') readyItems += quantity;
+            detailRows.push({ detail: detailClone, stationLabelAr, stationLabelEn });
+          });
+        } else {
+          const quantity = ensureQuantity(job.totalItems || job.completedItems || 1);
+          const fallbackDetail = {
+            id: `${job.id}-fallback`,
+            itemNameAr: stationLabelAr,
+            itemNameEn: stationLabelEn,
+            status: job.status,
+            quantity,
+            prepNotes: job.notes || '',
+            modifiers: []
+          };
+          if(job.status === 'ready' || job.status === 'completed') readyItems += quantity;
+          totalItems += quantity;
+          detailRows.push({ detail: fallbackDetail, stationLabelAr, stationLabelEn });
+        }
+      });
+      if(totalItems === 0){
+        totalItems = jobs.reduce((acc, job)=> acc + (Number(job.totalItems) || (Array.isArray(job.details) ? job.details.reduce((dAcc, detail)=> dAcc + ensureQuantity(detail.quantity), 0) : 0)), 0);
+        readyItems = jobs.reduce((acc, job)=> acc + (Number(job.completedItems) || 0), 0);
+      }
+      let status = record.status;
+      if(status !== 'assembled' && status !== 'served'){
+        status = (totalItems > 0 && readyItems >= totalItems) ? 'ready' : 'pending';
+      }
+      return { ...order, handoffStatus: status, handoffRecord: record, readyItems, totalItems, detailRows };
+    });
+  };
+
+  const getExpoOrders = (db)=> computeOrdersSnapshot(db)
+    .filter(order=> order.handoffStatus !== 'assembled' && order.handoffStatus !== 'served');
+
+  const getHandoffOrders = (db)=> computeOrdersSnapshot(db)
+    .filter(order=> order.handoffStatus === 'assembled' && (order.serviceMode || 'dine_in') !== 'delivery');
 
   const cloneJob = (job)=>({
     ...job,
@@ -528,7 +636,7 @@
 
   const buildTabs = (db, t)=>{
     const tabs = [];
-    const { filters, jobs, expoTickets } = db.data;
+    const { filters, jobs } = db.data;
     const locked = filters.lockedSection;
     if(!locked){
       tabs.push({ id:'prep', label:t.tabs.prep, count: jobs.orders.length });
@@ -544,8 +652,9 @@
       });
     });
     if(!locked){
-      tabs.push({ id:'expo', label:t.tabs.expo, count: expoTickets.length });
-      const deliveryCount = (jobs.byService.delivery || []).length;
+      tabs.push({ id:'expo', label:t.tabs.expo, count: getExpoOrders(db).length });
+      tabs.push({ id:'handoff', label:t.tabs.handoff, count: getHandoffOrders(db).length });
+      const deliveryCount = getDeliveryOrders(db).length;
       tabs.push({ id:'delivery', label:t.tabs.delivery, count: deliveryCount });
       const pendingCount = getPendingDeliveryOrders(db).length;
       tabs.push({ id:'delivery-pending', label:t.tabs.pendingDelivery, count: pendingCount });
@@ -557,8 +666,8 @@
     const deliveriesState = db.data.deliveries || {};
     const assignments = deliveriesState.assignments || {};
     const settlements = deliveriesState.settlements || {};
-    return (db.data.jobs.orders || [])
-      .filter(order=> (order.serviceMode || 'dine_in') === 'delivery')
+    return computeOrdersSnapshot(db)
+      .filter(order=> (order.serviceMode || 'dine_in') === 'delivery' && order.handoffStatus === 'assembled')
       .map(order=> ({
         ...order,
         assignment: assignments[order.orderId] || null,
@@ -568,9 +677,9 @@
 
   const getPendingDeliveryOrders = (db)=> getDeliveryOrders(db)
     .filter(order=>{
-      const settlement = order.settlement;
       const assigned = order.assignment;
       if(!assigned || assigned.status !== 'delivered') return false;
+      const settlement = order.settlement;
       if(!settlement) return true;
       return settlement.status !== 'settled';
     });
@@ -683,13 +792,15 @@
     return badges;
   };
 
-  const renderDetailRow = (detail, t, lang)=>{
+  const renderDetailRow = (detail, t, lang, stationLabel)=>{
     const statusLabel = t.labels.jobStatus[detail.status] || detail.status;
+    const stationText = lang === 'ar' ? t.labels.station.ar : t.labels.station.en;
     return D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3` }}, [
       D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-3` }}, [
         D.Text.Strong({ attrs:{ class: tw`text-sm text-slate-100` }}, [`${detail.quantity}× ${lang === 'ar' ? (detail.itemNameAr || detail.itemNameEn || detail.itemId) : (detail.itemNameEn || detail.itemNameAr || detail.itemId)}`]),
         createBadge(statusLabel, STATUS_CLASS[detail.status] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`)
       ]),
+      stationLabel ? createBadge(`${stationText}: ${stationLabel}`, tw`border-slate-600/40 bg-slate-800/70 text-slate-100`) : null,
       detail.prepNotes ? D.Text.P({ attrs:{ class: tw`text-xs text-slate-300` }}, [`📝 ${detail.prepNotes}`]) : null,
       detail.modifiers && detail.modifiers.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, detail.modifiers.map(mod=>{
         const typeText = mod.modifierType === 'remove'
@@ -848,27 +959,54 @@
     return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, jobs.map(job=> renderJobCard(job, station, t, lang, now)));
   };
 
-  const renderExpoPanel = (db, t, lang)=>{
-    const tickets = db.data.expoTickets || [];
-    if(!tickets.length) return renderEmpty(t.empty.expo);
-    return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, tickets.map(ticket=>{
-      const ready = ticket.readyItems || 0;
-      const total = ticket.totalItems || 0;
-      const progress = total > 0 ? Math.min(100, Math.round((ready / total) * 100)) : 0;
-      const statusLabel = ready >= total && total > 0 ? t.labels.expoReady : t.labels.expoPending;
-      return D.Containers.Article({ attrs:{ class: tw`flex flex-col gap-4 rounded-3xl border border-slate-800/60 bg-slate-950/80 p-5 shadow-xl shadow-slate-950/40` }}, [
+  const renderExpoPanel = (db, t, lang, now)=>{
+    const orders = getExpoOrders(db);
+    if(!orders.length) return renderEmpty(t.empty.expo);
+    return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, orders.map(order=>{
+      const serviceLabel = t.labels.serviceMode[order.serviceMode] || order.serviceMode;
+      const statusLabel = t.labels.handoffStatus[order.handoffStatus] || order.handoffStatus;
+      const highlight = order.handoffStatus === 'ready';
+      const headerBadges = [];
+      headerBadges.push(createBadge(`${SERVICE_ICONS[order.serviceMode] || '🧾'} ${serviceLabel}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`));
+      if(order.tableLabel) headerBadges.push(createBadge(`${t.labels.table} ${order.tableLabel}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`));
+      if(order.customerName && !order.tableLabel) headerBadges.push(createBadge(`${t.labels.customer}: ${order.customerName}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`));
+      const startedMs = (order.jobs || []).reduce((min, job)=>{
+        const candidate = job.startMs || job.acceptedMs || job.createdMs;
+        if(candidate && (min === null || candidate < min)) return candidate;
+        return min;
+      }, null);
+      const elapsed = startedMs ? now - startedMs : 0;
+      const cardClass = cx(
+        tw`flex flex-col gap-4 rounded-3xl border border-slate-800/60 bg-slate-950/80 p-5 shadow-xl shadow-slate-950/40`,
+        highlight ? tw`border-emerald-300/70 bg-emerald-500/10 text-emerald-50 animate-pulse` : null
+      );
+      const actionSection = highlight
+        ? D.Forms.Button({
+            attrs:{
+              type:'button',
+              gkey:'kds:handoff:assembled',
+              'data-order-id': order.orderId,
+              class: tw`w-full rounded-full border border-emerald-400/70 bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-900 shadow-lg shadow-emerald-900/30 hover:bg-emerald-500/30`
+            }
+          }, [t.actions.handoffComplete])
+        : createBadge(statusLabel, HANDOFF_STATUS_CLASS[order.handoffStatus] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`);
+      return D.Containers.Article({ attrs:{ class: cardClass }}, [
         D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-3` }}, [
-          D.Text.H3({ attrs:{ class: tw`text-lg font-semibold text-slate-50` }}, [`${t.labels.order} ${ticket.orderNumber}`]),
-          createBadge(statusLabel, ready >= total && total > 0 ? STATUS_CLASS.ready : STATUS_CLASS.in_progress)
+          D.Text.H3({ attrs:{ class: tw`text-lg font-semibold text-slate-50` }}, [`${t.labels.order} ${order.orderNumber || order.orderId}`]),
+          createBadge(statusLabel, HANDOFF_STATUS_CLASS[order.handoffStatus] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`)
         ]),
-        D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 text-sm text-slate-300` }}, [
-          D.Text.Span(null, [`${t.stats.ready}: ${ready} / ${total}`]),
-          D.Text.Span(null, [`${t.labels.timer}: ${formatClock(ticket.callAt || ticket.createdAt, lang)}`])
+        headerBadges.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, headerBadges) : null,
+        D.Containers.Div({ attrs:{ class: tw`grid gap-2 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3 text-xs text-slate-300 sm:grid-cols-2` }}, [
+          D.Text.Span(null, [`${t.stats.ready}: ${order.readyItems || 0} / ${order.totalItems || 0}`]),
+          D.Text.Span(null, [`${t.labels.timer}: ${formatDuration(elapsed)}`])
         ]),
-        D.Containers.Div({ attrs:{ class: tw`h-2 rounded-full bg-slate-800/70` }}, [
-          D.Containers.Div({ attrs:{ class: tw`h-full rounded-full bg-sky-500`, style:`width:${progress}%` }}, [])
-        ]),
-        ticket.jobs && ticket.jobs.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, ticket.jobs.map(job=> D.Text.Span({ attrs:{ class: tw`text-xs text-slate-300` }}, [`${job.stationCode || job.stationId}: ${t.labels.jobStatus[job.status] || job.status}`]))) : null
+        order.detailRows && order.detailRows.length
+          ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, order.detailRows.map(entry=>{
+              const stationLabel = lang === 'ar' ? entry.stationLabelAr : entry.stationLabelEn;
+              return renderDetailRow(entry.detail, t, lang, stationLabel);
+            }))
+          : null,
+        actionSection
       ].filter(Boolean));
     }));
   };
@@ -885,6 +1023,7 @@
         D.Text.H3({ attrs:{ class: tw`text-lg font-semibold text-slate-50` }}, [`${t.labels.order} ${order.orderNumber}`]),
         createBadge(statusLabel, DELIVERY_STATUS_CLASS[statusKey] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`)
       ]),
+      order.handoffStatus ? createBadge(t.labels.handoffStatus[order.handoffStatus] || order.handoffStatus, HANDOFF_STATUS_CLASS[order.handoffStatus] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`) : null,
       order.tableLabel ? D.Text.P({ attrs:{ class: tw`text-sm text-slate-300` }}, [`${t.labels.table}: ${order.tableLabel}`]) : null,
       D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3 text-sm text-slate-300` }}, [
         D.Text.Span(null, [`${t.labels.driver}: ${driverName}`]),
@@ -908,6 +1047,44 @@
     const orders = getDeliveryOrders(db);
     if(!orders.length) return renderEmpty(t.empty.delivery);
     return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2` }}, orders.map(order=> renderDeliveryCard(order, t, lang)));
+  };
+
+  const renderHandoffPanel = (db, t, lang)=>{
+    const orders = getHandoffOrders(db);
+    if(!orders.length) return renderEmpty(t.empty.handoff);
+    return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, orders.map(order=>{
+      const serviceLabel = t.labels.serviceMode[order.serviceMode] || order.serviceMode;
+      const headerBadges = [
+        createBadge(`${SERVICE_ICONS[order.serviceMode] || '🧾'} ${serviceLabel}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`)
+      ];
+      if(order.tableLabel) headerBadges.push(createBadge(`${t.labels.table} ${order.tableLabel}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`));
+      if(order.customerName && !order.tableLabel) headerBadges.push(createBadge(`${t.labels.customer}: ${order.customerName}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`));
+      return D.Containers.Article({ attrs:{ class: tw`flex flex-col gap-4 rounded-3xl border border-slate-800/60 bg-slate-950/80 p-5 shadow-xl shadow-slate-950/40` }}, [
+        D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-3` }}, [
+          D.Text.H3({ attrs:{ class: tw`text-lg font-semibold text-slate-50` }}, [`${t.labels.order} ${order.orderNumber || order.orderId}`]),
+          createBadge(t.labels.handoffStatus.assembled || t.labels.handoffStatus.ready, HANDOFF_STATUS_CLASS.assembled)
+        ]),
+        headerBadges.length ? D.Containers.Div({ attrs:{ class: tw`flex flex-wrap gap-2` }}, headerBadges) : null,
+        D.Containers.Div({ attrs:{ class: tw`grid gap-2 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3 text-xs text-slate-300 sm:grid-cols-2` }}, [
+          D.Text.Span(null, [`${t.stats.ready}: ${order.readyItems || 0} / ${order.totalItems || 0}`]),
+          D.Text.Span(null, [`${t.labels.timer}: ${formatClock(order.handoffRecord?.assembledAt || order.createdAt, lang)}`])
+        ]),
+        order.detailRows && order.detailRows.length
+          ? D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, order.detailRows.map(entry=>{
+              const stationLabel = lang === 'ar' ? entry.stationLabelAr : entry.stationLabelEn;
+              return renderDetailRow(entry.detail, t, lang, stationLabel);
+            }))
+          : null,
+        D.Forms.Button({
+          attrs:{
+            type:'button',
+            gkey:'kds:handoff:served',
+            'data-order-id': order.orderId,
+            class: tw`w-full rounded-full border border-sky-400/70 bg-sky-500/20 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/30`
+          }
+        }, [t.actions.handoffServe])
+      ].filter(Boolean));
+    }));
   };
 
   const renderPendingDeliveryPanel = (db, t, lang)=>{
@@ -957,7 +1134,8 @@
   const renderActivePanel = (db, t, lang, now)=>{
     const active = db.data.filters.activeTab;
     if(active === 'prep') return renderPrepPanel(db, t, lang, now);
-    if(active === 'expo') return renderExpoPanel(db, t, lang);
+    if(active === 'expo') return renderExpoPanel(db, t, lang, now);
+    if(active === 'handoff') return renderHandoffPanel(db, t, lang);
     if(active === 'delivery') return renderDeliveryPanel(db, t, lang);
     if(active === 'delivery-pending') return renderPendingDeliveryPanel(db, t, lang);
     return renderStationPanel(db, active, t, lang, now);
@@ -1015,6 +1193,7 @@
       jobOrders: rawJobOrders,
       filters:{ activeTab: defaultTab, lockedSection },
       deliveries:{ assignments:{}, settlements:{} },
+      handoff:{},
       drivers: Array.isArray(database.drivers) ? database.drivers.map(driver=>({ ...driver })) : [],
       now: Date.now()
     },
@@ -1073,6 +1252,20 @@
               data:{
                 ...state.data,
                 deliveries:{ assignments, settlements }
+              }
+            };
+          });
+        }
+        if(msg.type === 'handoff:update' && msg.orderId){
+          const payload = msg.payload || {};
+          app.setState(state=>{
+            const handoff = state.data.handoff || {};
+            const next = { ...handoff, [msg.orderId]: { ...(handoff[msg.orderId] || {}), ...payload } };
+            return {
+              ...state,
+              data:{
+                ...state.data,
+                handoff: next
               }
             };
           });
@@ -1142,6 +1335,14 @@
         });
         driversNext = Array.from(map.values());
       }
+      let handoffNext = state.data.handoff || {};
+      if(payload.handoff && typeof payload.handoff === 'object'){
+        const merged = { ...handoffNext };
+        Object.keys(payload.handoff).forEach(orderId=>{
+          merged[orderId] = { ...(handoffNext[orderId] || {}), ...(payload.handoff[orderId] || {}) };
+        });
+        handoffNext = merged;
+      }
       return {
         ...state,
         data:{
@@ -1150,7 +1351,8 @@
           jobs: jobsIndexedNext,
           expoTickets: expoTicketsNext,
           deliveries: deliveriesNext,
-          drivers: driversNext
+          drivers: driversNext,
+          handoff: handoffNext
         }
       };
     });
@@ -1169,6 +1371,7 @@
     const topicOrders = options.topicOrders || 'pos:kds:orders';
     const topicJobs = options.topicJobs || 'kds:jobs:updates';
     const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
+    const topicHandoff = options.topicHandoff || 'kds:handoff:updates';
     const token = options.token;
     let socket = null;
     let ready = false;
@@ -1202,6 +1405,7 @@
         socket.send({ type:'subscribe', topic: topicOrders });
         socket.send({ type:'subscribe', topic: topicJobs });
         socket.send({ type:'subscribe', topic: topicDelivery });
+        socket.send({ type:'subscribe', topic: topicHandoff });
         flushQueue();
       }
     });
@@ -1222,6 +1426,7 @@
           socket.send({ type:'subscribe', topic: topicOrders });
           socket.send({ type:'subscribe', topic: topicJobs });
           socket.send({ type:'subscribe', topic: topicDelivery });
+          socket.send({ type:'subscribe', topic: topicHandoff });
           flushQueue();
         } else if(msg.event === 'subscribe'){
           flushQueue();
@@ -1281,6 +1486,22 @@
             });
           }
         }
+        if(msg.topic === topicHandoff){
+          const data = msg.data || {};
+          if(data.orderId && data.payload){
+            appInstance.setState(state=>{
+              const handoff = state.data.handoff || {};
+              const next = { ...handoff, [data.orderId]: { ...(handoff[data.orderId] || {}), ...data.payload } };
+              return {
+                ...state,
+                data:{
+                  ...state.data,
+                  handoff: next
+                }
+              };
+            });
+          }
+        }
         return;
       }
     });
@@ -1296,6 +1517,10 @@
       publishDeliveryUpdate(update){
         if(!update || !update.orderId) return;
         sendEnvelope({ type:'publish', topic: topicDelivery, data:update });
+      },
+      publishHandoffUpdate(update){
+        if(!update || !update.orderId) return;
+        sendEnvelope({ type:'publish', topic: topicHandoff, data:update });
       },
       publishOrder(payload){
         if(!payload) return;
@@ -1488,6 +1713,58 @@
         emitSync({ type:'job:update', jobId, payload:{ status:'ready', progressState:'completed', readyAt: nowIso, completedAt: nowIso, updatedAt: nowIso } });
         if(syncClient){
           syncClient.publishJobUpdate({ jobId, payload:{ status:'ready', progressState:'completed', readyAt: nowIso, completedAt: nowIso, updatedAt: nowIso } });
+        }
+      }
+    },
+    'kds.handoff.assembled':{
+      on:['click'],
+      gkeys:['kds:handoff:assembled'],
+      handler:(event, ctx)=>{
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
+        if(!orderId) return;
+        const nowIso = new Date().toISOString();
+        ctx.setState(state=>{
+          const handoff = state.data.handoff || {};
+          const next = { ...handoff, [orderId]: { ...(handoff[orderId] || {}), status:'assembled', assembledAt: nowIso, updatedAt: nowIso } };
+          return {
+            ...state,
+            data:{
+              ...state.data,
+              handoff: next
+            }
+          };
+        });
+        emitSync({ type:'handoff:update', orderId, payload:{ status:'assembled', assembledAt: nowIso, updatedAt: nowIso } });
+        if(syncClient && typeof syncClient.publishHandoffUpdate === 'function'){
+          syncClient.publishHandoffUpdate({ orderId, payload:{ status:'assembled', assembledAt: nowIso, updatedAt: nowIso } });
+        }
+      }
+    },
+    'kds.handoff.served':{
+      on:['click'],
+      gkeys:['kds:handoff:served'],
+      handler:(event, ctx)=>{
+        const btn = event?.target && event.target.closest('[data-order-id]');
+        if(!btn) return;
+        const orderId = btn.getAttribute('data-order-id');
+        if(!orderId) return;
+        const nowIso = new Date().toISOString();
+        ctx.setState(state=>{
+          const handoff = state.data.handoff || {};
+          const next = { ...handoff, [orderId]: { ...(handoff[orderId] || {}), status:'served', servedAt: nowIso, updatedAt: nowIso } };
+          return {
+            ...state,
+            data:{
+              ...state.data,
+              handoff: next
+            }
+          };
+        });
+        emitSync({ type:'handoff:update', orderId, payload:{ status:'served', servedAt: nowIso, updatedAt: nowIso } });
+        if(syncClient && typeof syncClient.publishHandoffUpdate === 'function'){
+          syncClient.publishHandoffUpdate({ orderId, payload:{ status:'served', servedAt: nowIso, updatedAt: nowIso } });
         }
       }
     },

@@ -2063,12 +2063,15 @@
           connect:()=>{},
           publishOrder:()=>{},
           publishJobUpdate:()=>{},
-          publishDeliveryUpdate:()=>{}
+          publishDeliveryUpdate:()=>{},
+          publishHandoffUpdate:()=>{}
         };
       }
       const topicOrders = options.topicOrders || 'pos:kds:orders';
       const topicJobs = options.topicJobs || 'kds:jobs:updates';
       const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
+      const topicHandoff = options.topicHandoff || 'kds:handoff:updates';
+      const handlers = options.handlers || {};
       const token = options.token;
       let socket = null;
       let ready = false;
@@ -2100,6 +2103,7 @@
           socket.send({ type:'subscribe', topic: topicOrders });
           socket.send({ type:'subscribe', topic: topicJobs });
           socket.send({ type:'subscribe', topic: topicDelivery });
+          socket.send({ type:'subscribe', topic: topicHandoff });
           flushQueue();
         }
       });
@@ -2120,9 +2124,26 @@
             socket.send({ type:'subscribe', topic: topicOrders });
             socket.send({ type:'subscribe', topic: topicJobs });
             socket.send({ type:'subscribe', topic: topicDelivery });
+            socket.send({ type:'subscribe', topic: topicHandoff });
             flushQueue();
           } else if(msg.event === 'subscribe'){
             flushQueue();
+          }
+          return;
+        }
+        if(msg.type === 'publish'){
+          const meta = msg.meta || {};
+          if(msg.topic === topicOrders && typeof handlers.onOrders === 'function'){
+            try { handlers.onOrders(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onOrders handler failed.', handlerErr); }
+          }
+          if(msg.topic === topicJobs && typeof handlers.onJobUpdate === 'function'){
+            try { handlers.onJobUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onJobUpdate handler failed.', handlerErr); }
+          }
+          if(msg.topic === topicDelivery && typeof handlers.onDeliveryUpdate === 'function'){
+            try { handlers.onDeliveryUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onDeliveryUpdate handler failed.', handlerErr); }
+          }
+          if(msg.topic === topicHandoff && typeof handlers.onHandoffUpdate === 'function'){
+            try { handlers.onHandoffUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onHandoffUpdate handler failed.', handlerErr); }
           }
           return;
         }
@@ -2136,6 +2157,16 @@
             console.warn('[Mishkah][POS][KDS] Skipped publishing order payload — serialization failed.', { orderId: orderPayload?.id });
             return;
           }
+          const nowIso = new Date().toISOString();
+          const baseHandoff = (payload.handoff && typeof payload.handoff === 'object') ? { ...payload.handoff } : {};
+          if(orderPayload && orderPayload.id){
+            baseHandoff[orderPayload.id] = {
+              ...(baseHandoff[orderPayload.id] || {}),
+              status:'pending',
+              updatedAt: nowIso
+            };
+          }
+          payload.handoff = baseHandoff;
           sendEnvelope({ type:'publish', topic: topicOrders, data: payload });
         },
         publishJobUpdate(update){
@@ -2151,11 +2182,194 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicDelivery, data: update });
+        },
+        publishHandoffUpdate(update){
+          if(!update || !update.orderId){
+            console.warn('[Mishkah][POS][KDS] Ignored handoff update with missing orderId.', update);
+            return;
+          }
+          sendEnvelope({ type:'publish', topic: topicHandoff, data: update });
         }
       };
     }
 
     const posDB = createIndexedDBAdapter('mishkah-pos', 4);
+
+    const pendingKdsMessages = [];
+
+    function mergeHandoffRecord(base, patch){
+      const source = base && typeof base === 'object' ? base : {};
+      const target = { ...source };
+      let changed = false;
+      Object.keys(patch || {}).forEach(key=>{
+        const value = patch[key];
+        if(target[key] !== value){
+          target[key] = value;
+          changed = true;
+        }
+      });
+      return { next: target, changed };
+    }
+
+    function applyHandoffUpdateNow(orderId, payload={}, meta={}){
+      const normalizedId = orderId != null ? String(orderId) : '';
+      if(!normalizedId){
+        return;
+      }
+      const patch = { ...(payload || {}) };
+      if(!patch.updatedAt && meta && meta.ts){
+        patch.updatedAt = meta.ts;
+      }
+      const updateEntry = (entry)=>{
+        if(!entry || String(entry.id) !== normalizedId){
+          return { value: entry, changed:false };
+        }
+        const { next: merged, changed: handoffChanged } = mergeHandoffRecord(entry.handoff, patch);
+        const statusCandidate = patch.status !== undefined
+          ? patch.status
+          : (merged.status !== undefined ? merged.status : entry.handoffStatus);
+        const updatedAtChanged = patch.updatedAt && patch.updatedAt !== entry.updatedAt;
+        let needsUpdate = handoffChanged || updatedAtChanged;
+        if(statusCandidate !== undefined && statusCandidate !== entry.handoffStatus){
+          needsUpdate = true;
+        }
+        if(!needsUpdate){
+          return { value: entry, changed:false };
+        }
+        const nextEntry = {
+          ...entry,
+          handoff: merged
+        };
+        if(statusCandidate !== undefined){
+          nextEntry.handoffStatus = statusCandidate;
+        }
+        if(patch.updatedAt){
+          nextEntry.updatedAt = patch.updatedAt;
+        }
+        if(statusCandidate === 'served'){
+          if(nextEntry.status !== 'finalized') nextEntry.status = 'finalized';
+          nextEntry.fulfillmentStage = 'delivered';
+          const finishAt = patch.servedAt || patch.updatedAt;
+          if(finishAt){
+            nextEntry.finishedAt = finishAt;
+          }
+        } else if(statusCandidate === 'assembled' && nextEntry.fulfillmentStage !== 'delivered' && nextEntry.fulfillmentStage !== 'ready'){
+          nextEntry.fulfillmentStage = 'ready';
+        }
+        return { value: nextEntry, changed:true };
+      };
+      if(appRef && typeof appRef.setState === 'function'){
+        appRef.setState((state)=>{
+          const data = state.data || {};
+          const reconcileList = (list)=>{
+            if(!Array.isArray(list) || !list.length){
+              return { value:list, changed:false };
+            }
+            let changed = false;
+            let hasCandidate = false;
+            const nextList = list.map(item=>{
+              if(item && String(item.id) === normalizedId){
+                hasCandidate = true;
+                const result = updateEntry(item);
+                if(result.changed) changed = true;
+                return result.value;
+              }
+              return item;
+            });
+            if(!hasCandidate || !changed){
+              return { value:list, changed:false };
+            }
+            return { value: nextList, changed:true };
+          };
+          const { value: queueNext, changed: queueChanged } = reconcileList(data.ordersQueue);
+          const { value: historyNext, changed: historyChanged } = reconcileList(data.ordersHistory);
+          const currentOrder = data.order && String(data.order.id) === normalizedId
+            ? updateEntry(data.order)
+            : { value:data.order, changed:false };
+          if(!queueChanged && !historyChanged && !currentOrder.changed){
+            return state;
+          }
+          return {
+            ...state,
+            data:{
+              ...data,
+              order: currentOrder.value,
+              ordersQueue: queueChanged ? queueNext : data.ordersQueue,
+              ordersHistory: historyChanged ? historyNext : data.ordersHistory
+            }
+          };
+        });
+      }
+      if(posDB && posDB.available && typeof posDB.getOrder === 'function' && typeof posDB.saveOrder === 'function'){
+        Promise.resolve(posDB.getOrder(normalizedId))
+          .then((record)=>{
+            if(!record) return null;
+            const { next: merged, changed: handoffChanged } = mergeHandoffRecord(record.handoff, patch);
+            const statusCandidate = patch.status !== undefined
+              ? patch.status
+              : (merged.status !== undefined ? merged.status : record.handoffStatus);
+            let changed = handoffChanged;
+            if(statusCandidate !== undefined && statusCandidate !== record.handoffStatus){
+              changed = true;
+            }
+            const updatedAtChanged = patch.updatedAt && patch.updatedAt !== record.updatedAt;
+            if(updatedAtChanged) changed = true;
+            if(!changed){
+              return null;
+            }
+            const nextRecord = {
+              ...record,
+              handoff: merged
+            };
+            if(statusCandidate !== undefined){
+              nextRecord.handoffStatus = statusCandidate;
+            }
+            if(patch.updatedAt){
+              nextRecord.updatedAt = patch.updatedAt;
+            }
+            if(statusCandidate === 'served'){
+              if(nextRecord.status !== 'finalized') nextRecord.status = 'finalized';
+              nextRecord.fulfillmentStage = 'delivered';
+              const finishAt = patch.servedAt || patch.updatedAt;
+              if(finishAt){
+                nextRecord.finishedAt = finishAt;
+              }
+            } else if(statusCandidate === 'assembled' && nextRecord.fulfillmentStage !== 'delivered' && nextRecord.fulfillmentStage !== 'ready'){
+              nextRecord.fulfillmentStage = 'ready';
+            }
+            return posDB.saveOrder(nextRecord);
+          })
+          .catch(err=> console.warn('[Mishkah][POS][KDS] Failed to persist handoff update.', err));
+      }
+    }
+
+    function enqueueKdsMessage(entry){
+      pendingKdsMessages.push(entry);
+    }
+
+    function flushPendingKdsMessages(){
+      if(!appRef || typeof appRef.setState !== 'function') return;
+      if(!pendingKdsMessages.length) return;
+      const backlog = pendingKdsMessages.splice(0, pendingKdsMessages.length);
+      backlog.forEach(entry=>{
+        if(entry && entry.type === 'handoff'){
+          applyHandoffUpdateNow(entry.orderId, entry.payload, entry.meta);
+        }
+      });
+    }
+
+    function handleKdsHandoffUpdate(message={}, meta={}){
+      const orderId = message.orderId || message.id;
+      if(orderId == null){
+        return;
+      }
+      const payload = message.payload && typeof message.payload === 'object' ? message.payload : {};
+      if(!appRef || typeof appRef.setState !== 'function'){
+        enqueueKdsMessage({ type:'handoff', orderId: String(orderId), payload, meta });
+        return;
+      }
+      applyHandoffUpdateNow(orderId, payload, meta);
+    }
 
     function installTempOrderWatcher(){
       if(!posDB.available) return;
@@ -2348,7 +2562,8 @@
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
     const kdsBridge = createKDSBridge(kdsEndpoint);
-    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken });
+    const kdsSyncHandlers = { onHandoffUpdate: handleKdsHandoffUpdate };
+    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers });
     if(kdsSync && typeof kdsSync.connect === 'function'){
       kdsSync.connect();
     }
@@ -5717,6 +5932,7 @@
 
     const app = M.app.createApp(posState, {});
     appRef = app;
+    flushPendingKdsMessages();
     if(pendingRemoteResult){
       flushRemoteUpdate();
     }
