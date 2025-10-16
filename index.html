@@ -486,13 +486,21 @@
 
         const baseHeadStyles = [{ id: 'index-base-styles', content: baseStyleContent }];
 
+        function isMobileViewport() {
+          if (typeof window === 'undefined') return false;
+          if (typeof window.matchMedia === 'function') {
+            try {
+              return window.matchMedia('(max-width: 768px)').matches;
+            } catch (err) {
+              // Fallback to a simple width check if matchMedia fails
+            }
+          }
+          return typeof window.innerWidth === 'number' ? window.innerWidth <= 768 : false;
+        }
+
         function toggleTemplateSwitcherVisibility() {
           if (typeof document === 'undefined') return;
-          const isMobile = typeof window !== 'undefined'
-            ? (window.matchMedia
-              ? window.matchMedia('(max-width: 768px)').matches
-              : window.innerWidth <= 768)
-            : false;
+          const isMobile = isMobileViewport();
           const nodes = document.querySelectorAll('[data-menu-container="template"]');
           nodes.forEach((node) => {
             if (!(node instanceof HTMLElement)) return;
@@ -510,24 +518,40 @@
           if (typeof document === 'undefined') return;
           const scope = root && root.querySelectorAll ? root : document;
           const containers = scope.querySelectorAll('[data-menu-container]');
+          const isMobile = isMobileViewport();
           const adjustedParents = new Set();
 
           containers.forEach((container) => {
             if (!(container instanceof HTMLElement)) return;
-            container.style.setProperty('overflow', 'visible', 'important');
-            container.style.setProperty('max-height', 'none', 'important');
+            if (isMobile) {
+              container.style.setProperty('overflow', 'visible', 'important');
+              container.style.setProperty('max-height', 'none', 'important');
+            } else {
+              container.style.removeProperty('overflow');
+              container.style.removeProperty('max-height');
+            }
 
             const parent = container.parentElement;
             if (parent instanceof HTMLElement && !adjustedParents.has(parent)) {
-              parent.style.setProperty('overflow-y', 'visible', 'important');
-              parent.style.setProperty('max-height', 'none', 'important');
+              if (isMobile) {
+                parent.style.setProperty('overflow-y', 'visible', 'important');
+                parent.style.setProperty('max-height', 'none', 'important');
+              } else {
+                parent.style.removeProperty('overflow-y');
+                parent.style.removeProperty('max-height');
+              }
               adjustedParents.add(parent);
             }
 
             const panel = container.querySelector('[data-menu-panel]');
             if (panel instanceof HTMLElement) {
-              panel.style.setProperty('max-height', 'none', 'important');
-              panel.style.setProperty('overflow', 'visible', 'important');
+              if (isMobile) {
+                panel.style.setProperty('max-height', 'none', 'important');
+                panel.style.setProperty('overflow', 'visible', 'important');
+              } else {
+                panel.style.removeProperty('max-height');
+                panel.style.removeProperty('overflow');
+              }
             }
           });
 
