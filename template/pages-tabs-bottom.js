@@ -118,16 +118,16 @@
         attrs: {
           gkey: `pages:go:${item.id}`,
           'data-pagekey': item.id,
-          class: tw`flex-1 rounded-full`
+          class: tw`flex-1 rounded-none px-0 py-4 text-sm font-semibold tracking-wide shadow-none first:rounded-none last:rounded-none`
         },
         variant: item.active ? 'solid' : 'ghost',
-        size: 'sm'
+        size: 'md'
       }, [labelText]);
     });
 
     const navBar = D.Containers.Footer({
       attrs: {
-        class: tw`sticky bottom-4 flex w-full items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-2 shadow-[0_20px_44px_-30px_rgba(15,23,42,0.45)]`
+        class: tw`fixed inset-x-0 bottom-0 z-40 flex w-full items-stretch divide-x divide-[color-mix(in_oklab,var(--border)55%,transparent)] border-t border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] p-0 shadow-[0_-6px_24px_-18px_rgba(15,23,42,0.4)]`
       }
     }, navButtons);
 
@@ -154,7 +154,7 @@
     ].filter(Boolean));
 
     return D.Containers.Main({
-      attrs: { class: tw`relative w-full px-4 pb-20 pt-6` }
+      attrs: { class: tw`relative w-full px-4 pb-24 pt-6` }
     }, [layout]);
   }
 

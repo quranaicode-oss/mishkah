@@ -2052,7 +2052,7 @@
     const triggerIconClass = tw`text-xl leading-none`;
     const triggerMetaClass = tw`text-[0.65rem] uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)]`;
     const triggerLabelClass = tw`text-xs font-semibold leading-tight text-[color-mix(in_oklab,var(--foreground)82%,transparent)]`;
-    const panelBaseClass = tw`absolute end-0 z-50 mt-3 w-64 origin-top-right rounded-3xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200 transform`;
+    const panelBaseClass = tw`absolute end-0 z-50 mt-2 w-[min(92vw,18rem)] origin-top-right rounded-2xl border border-[color-mix(in_oklab,var(--border)60%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_28px_64px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-200 transform sm:mt-3 sm:w-64 sm:rounded-3xl`;
     const panelOpenClass = tw`pointer-events-auto scale-100 opacity-100 translate-y-0`;
     const panelClosedClass = tw`pointer-events-none scale-95 opacity-0 translate-y-1.5`;
     const closeButtonClass = tw`inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)60%,transparent)] text-sm font-semibold text-[color-mix(in_oklab,var(--muted-foreground)80%,transparent)] transition hover:bg-[color-mix(in_oklab,var(--surface-2)85%,transparent)] hover:text-[color-mix(in_oklab,var(--foreground)90%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`;
@@ -2069,6 +2069,11 @@
     const optionBaseClass = tw`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`;
     const optionActiveClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-22px_rgba(79,70,229,0.55)]`;
     const optionInactiveClass = tw`text-[color-mix(in_oklab,var(--foreground)78%,transparent)] hover:bg-[color-mix(in_oklab,var(--surface-2)85%,transparent)]`;
+    const mobileSelectClass = tw`w-full rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2.5 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)88%,transparent)] shadow-[0_18px_38px_-32px_rgba(15,23,42,0.4)] outline-none transition focus:border-[color-mix(in_oklab,var(--accent)55%,transparent)] focus:shadow-[0_22px_44px_-30px_rgba(79,70,229,0.4)]`;
+    const mobileActionButtonClass = tw`w-full rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] px-3 py-2.5 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)88%,transparent)] shadow-[0_18px_38px_-32px_rgba(15,23,42,0.4)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)55%,transparent)] flex items-center justify-center gap-2`;
+    const mobileLabelClass = tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)78%,transparent)]`;
+    const mobileCardClass = tw`flex w-full flex-col gap-2 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_18px_38px_-28px_rgba(15,23,42,0.4)] sm:hidden`;
+    const mobileFieldWrapperClass = tw`flex flex-col gap-1`;
 
     const langMenu = D.Containers.Div({
       attrs: {
@@ -2195,19 +2200,39 @@
 
     let templateMenu = null;
 
-    const iconCircleClass = tw`flex h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)]`;
-    const themeLabButton = UI.Button({
+    const themeLabHighlightClass = themeLabOpen
+      ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-20px_rgba(79,70,229,0.55)]`
+      : '';
+    const iconCircleDesktopClass = tw`hidden h-11 w-11 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-xl transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_48px_-28px_rgba(79,70,229,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)65%,transparent)] sm:inline-flex`;
+    const themeLabButtonDesktop = UI.Button({
       attrs: {
         gkey: 'index:themeLab:open',
         'data-theme-lab': 'open',
         title: TL('header.theme.lab'),
         'aria-label': TL('header.theme.lab'),
         type: 'button',
-        class: cx(iconCircleClass, themeLabOpen ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-20px_rgba(79,70,229,0.55)]` : '')
+        class: cx(iconCircleDesktopClass, themeLabHighlightClass)
       },
       variant: 'ghost',
       size: 'sm'
     }, ['🎛️']);
+
+    const themeLabButtonMobile = UI.Button({
+      attrs: {
+        gkey: 'index:themeLab:open',
+        'data-theme-lab': 'open',
+        title: TL('header.theme.lab'),
+        'aria-label': TL('header.theme.lab'),
+        type: 'button',
+        'aria-pressed': themeLabOpen ? 'true' : 'false',
+        class: cx(mobileActionButtonClass, themeLabHighlightClass)
+      },
+      variant: 'ghost',
+      size: 'sm'
+    }, [
+      D.Text.Span({ attrs: { class: tw`text-lg` } }, ['🎛️']),
+      D.Text.Span({ attrs: { class: tw`text-sm font-semibold` } }, [TL('designLab.openButton')])
+    ]);
 
     const templateState = ensureDict(db.ui && db.ui.templates);
     const templateSource = ensureArray(templateState.available);
@@ -2286,7 +2311,72 @@
       ]);
     }
 
-    const headerControls = [langMenu, themeMenu, templateMenu, themeLabButton].filter(Boolean);
+    const createMobileField = (labelText, controlNode) => D.Containers.Div({
+      attrs: { class: mobileFieldWrapperClass }
+    }, [
+      D.Text.Span({ attrs: { class: mobileLabelClass } }, [labelText]),
+      controlNode
+    ]);
+
+    const mobileSwitchers = [];
+
+    if (langOptions.length) {
+      const mobileLangSelect = D.Inputs.Select({
+        attrs: {
+          class: mobileSelectClass,
+          value: activeLang ? activeLang.value : lang,
+          'data-lang-select': 'true',
+          gkey: 'ui:lang:select',
+          'aria-label': TL('header.lang.label')
+        }
+      }, langOptions.map((option) => D.Inputs.Option({
+        attrs: { value: option.value }
+      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`])));
+      mobileSwitchers.push(createMobileField(TL('header.lang.label'), mobileLangSelect));
+    }
+
+    if (themeOptions.length) {
+      const mobileThemeSelect = D.Inputs.Select({
+        attrs: {
+          class: mobileSelectClass,
+          value: activeTheme ? activeTheme.value : '',
+          'data-theme-select': 'true',
+          gkey: 'ui:theme:select',
+          'aria-label': TL('header.theme.label')
+        }
+      }, themeOptions.map((option) => {
+        const badge = option.mode === 'dark'
+          ? (lang === 'ar' ? 'ليل' : 'Dark')
+          : (lang === 'ar' ? 'نهار' : 'Light');
+        const label = `${option.emoji ? `${option.emoji} ` : ''}${option.label} — ${badge}`;
+        return D.Inputs.Option({ attrs: { value: option.value } }, [label]);
+      }));
+      mobileSwitchers.push(createMobileField(TL('header.theme.label'), mobileThemeSelect));
+    }
+
+    if (templateOptions.length > 1) {
+      const mobileTemplateSelect = D.Inputs.Select({
+        attrs: {
+          class: mobileSelectClass,
+          value: activeTemplate ? activeTemplate.value : '',
+          'data-template': activeTemplate ? activeTemplate.value : '',
+          gkey: 'ui:template:set',
+          'aria-label': TL('header.templates.label')
+        }
+      }, templateOptions.map((option) => D.Inputs.Option({
+        attrs: { value: option.value }
+      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`])));
+      mobileSwitchers.push(createMobileField(TL('header.templates.label'), mobileTemplateSelect));
+    }
+
+    mobileSwitchers.push(themeLabButtonMobile);
+
+    const mobileControlsContent = mobileSwitchers.filter(Boolean);
+    const mobileControls = mobileControlsContent.length
+      ? D.Containers.Div({ attrs: { class: mobileCardClass } }, mobileControlsContent)
+      : null;
+
+    const headerControls = [langMenu, themeMenu, templateMenu, themeLabButtonDesktop].filter(Boolean);
 
     const searchState = ensureDict(data.search);
     const searchQuery = typeof searchState.query === 'string' ? searchState.query : '';
@@ -2392,7 +2482,7 @@
           headerControls.length
             ? D.Containers.Div({
                 attrs: {
-                  class: tw`order-0 flex w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap sm:order-none sm:w-auto sm:justify-end`
+                  class: tw`order-0 hidden w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap sm:order-none sm:flex sm:w-auto sm:justify-end`
                 }
               }, headerControls)
             : null,
@@ -2401,9 +2491,10 @@
               class: tw`order-1 flex min-w-[0] flex-col gap-1 sm:order-none`
             }
           }, [
-            D.Text.H1({ attrs: { class: tw`text-2xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
+            D.Text.H1({ attrs: { class: tw`text-xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
             D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)] sm:text-sm` } }, [TL('header.subtitle')])
-          ])
+          ]),
+          mobileControls
         ].filter(Boolean)),
         searchRow
       ])
