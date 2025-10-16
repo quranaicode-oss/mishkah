@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة — عداد HTMLx التلقائي</title>
+    <script src="./mishkah.js" data-css="mishkah"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="auto-counter-demo">
+      <section data-m-scope="auto-counter">
+        <style data-m-scope>
+          :host {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--mk-bg) 92%, var(--mk-surface-3) 8%), var(--mk-bg));
+            color: var(--mk-fg);
+            font-family: var(--mk-font-sans-ar);
+            align-items: center;
+            justify-content: center;
+            padding: var(--mk-space-6);
+          }
+
+          .auto-shell {
+            inline-size: min(560px, 100%);
+            display: grid;
+            gap: var(--mk-space-5);
+            padding: var(--mk-space-6);
+            border-radius: var(--mk-radius-2xl);
+            background: color-mix(in srgb, var(--mk-surface-1) 88%, var(--mk-surface-3) 12%);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 70%, transparent);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          header.auto-head {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          .badge {
+            justify-self: start;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+            padding-inline: var(--mk-space-3);
+            padding-block: calc(var(--mk-space-1) * 1.2);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--mk-primary) 16%, transparent);
+            color: var(--mk-primary);
+            font-size: var(--mk-fs-sm);
+            letter-spacing: 0.08em;
+          }
+
+          h1 {
+            margin: 0;
+            font-family: var(--mk-font-display);
+            font-size: var(--mk-fs-3xl);
+            line-height: 1.2;
+          }
+
+          p.lead {
+            margin: 0;
+            color: var(--mk-muted);
+            font-size: var(--mk-fs-md);
+          }
+
+          .switchers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            align-items: center;
+          }
+
+          lang-switcher,
+          theme-switcher,
+          lang-select,
+          theme-select {
+            display: block;
+          }
+
+          .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: var(--mk-space-4);
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            background: color-mix(in srgb, var(--mk-surface-0) 55%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 50%, transparent);
+          }
+
+          .status-block {
+            display: grid;
+            gap: calc(var(--mk-space-1) * 2);
+          }
+
+          .status-label {
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted);
+          }
+
+          .status-value {
+            font-size: var(--mk-fs-xl);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+          }
+
+          .card {
+            display: grid;
+            gap: var(--mk-space-4);
+            padding: var(--mk-space-5);
+            border-radius: var(--mk-radius-xl);
+            background: color-mix(in srgb, var(--mk-surface-2) 88%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 65%, transparent);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .counter-value {
+            display: grid;
+            place-items: center;
+            font-size: clamp(var(--mk-fs-3xl), 4vw, 3rem);
+            font-weight: 700;
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-lg);
+            background: color-mix(in srgb, var(--mk-primary) 18%, transparent);
+            color: var(--mk-primary-contrast);
+          }
+
+          .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            justify-content: center;
+          }
+
+          .actions button {
+            min-inline-size: 120px;
+            padding-block: calc(var(--mk-space-2) * 1.6);
+            padding-inline: var(--mk-space-4);
+            border-radius: var(--mk-radius-lg);
+            font-weight: 600;
+            font-size: var(--mk-fs-md);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+
+          .actions button.primary {
+            background: var(--mk-primary);
+            color: var(--mk-primary-contrast);
+            box-shadow: 0 18px 38px color-mix(in srgb, var(--mk-primary) 32%, transparent);
+          }
+
+          .actions button.secondary {
+            background: color-mix(in srgb, var(--mk-surface-0) 70%, transparent);
+            color: var(--mk-fg);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 75%, transparent);
+          }
+
+          .actions button:hover {
+            transform: translateY(-2px);
+          }
+
+          .history {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          .history-list {
+            list-style: none;
+            display: grid;
+            gap: var(--mk-space-2);
+            padding: 0;
+            margin: 0;
+          }
+
+          .history-item {
+            display: grid;
+            grid-template-columns: auto auto;
+            gap: var(--mk-space-2);
+            align-items: center;
+            padding: var(--mk-space-3);
+            border-radius: var(--mk-radius-md);
+            background: color-mix(in srgb, var(--mk-surface-1) 82%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 60%, transparent);
+          }
+
+          .history-item strong {
+            font-weight: 600;
+          }
+
+          .history-item time {
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted);
+          }
+
+          .history-item span.delta {
+            justify-self: end;
+            font-family: var(--mk-font-display);
+          }
+
+          footer.auto-foot {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          footer.auto-foot .select-row {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          @media (min-width: 520px) {
+            footer.auto-foot .select-row {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+        </style>
+
+        <script type="application/json" data-m-env>
+          {
+            "theme": "light",
+            "lang": "ar",
+            "dir": "rtl"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="head">
+          {
+            "title": "مشكاة — عداد HTMLx التلقائي"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="i18n.strings">
+          {
+            "app.badge": { "ar": "HTMLx Auto", "en": "HTMLx Auto" },
+            "app.title": { "ar": "عداد متعدد اللغات", "en": "Multilingual Counter" },
+            "app.subtitle": {
+              "ar": "جرّب التبديل بين اللغات والثيمات، كل شيء يعمل تلقائيًا.",
+              "en": "Toggle languages and themes — everything wires itself."
+            },
+            "status.language": { "ar": "اللغة الحالية", "en": "Active language" },
+            "status.theme": { "ar": "الثيم الحالي", "en": "Active theme" },
+            "counter.valueLabel": { "ar": "قيمة العداد", "en": "Counter value" },
+            "counter.hint": {
+              "ar": "الأزرار التالية تستخدم أوامر Mishkah و HTMLx معًا.",
+              "en": "The buttons below rely on Mishkah orders and HTMLx together."
+            },
+            "actions.increment": { "ar": "⬆️ زيادة", "en": "⬆️ Increase" },
+            "actions.decrement": { "ar": "⬇️ إنقاص", "en": "⬇️ Decrease" },
+            "actions.reset": { "ar": "🔄 إعادة الضبط", "en": "🔄 Reset" },
+            "history.title": { "ar": "سجل الحركات", "en": "Action log" },
+            "history.empty": {
+              "ar": "ابدأ باستخدام الأزرار وستظهر الحركة هنا.",
+              "en": "Use the controls and entries will appear here."
+            },
+            "footer.langSelect": { "ar": "اختيار لغة موسع", "en": "Extended language select" },
+            "footer.themeSelect": { "ar": "اختيار الثيم", "en": "Theme select" }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data.counter">
+          {
+            "value": 1,
+            "initial": 1,
+            "history": []
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data.copy.history">
+          {
+            "increment": {
+              "ar": "تمت زيادة العداد",
+              "en": "Counter incremented"
+            },
+            "decrement": {
+              "ar": "تم إنقاص العداد",
+              "en": "Counter decreased"
+            },
+            "reset": {
+              "ar": "إعادة ضبط العداد",
+              "en": "Counter reset"
+            }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data.labels.lang">
+          {
+            "ar": { "ar": "العربية", "en": "Arabic" },
+            "en": { "ar": "الإنجليزية", "en": "English" },
+            "fr": { "ar": "الفرنسية", "en": "French" },
+            "tr": { "ar": "التركية", "en": "Turkish" },
+            "du": { "ar": "الهولندية", "en": "Dutch" }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data.labels.theme">
+          {
+            "light": { "ar": "فاتح", "en": "Light" },
+            "dark": { "ar": "داكن", "en": "Dark" },
+            "sunny": { "ar": "مشمس", "en": "Sunny" }
+          }
+        </script>
+
+        <div class="auto-shell">
+          <header class="auto-head">
+            <span class="badge">{trans('app.badge')}</span>
+            <h1>{trans('app.title')}</h1>
+            <p class="lead">{trans('app.subtitle')}</p>
+            <div class="switchers">
+              <lang-switcher langs="ar,en"></lang-switcher>
+              <theme-switcher themes="light,dark,sunny"></theme-switcher>
+            </div>
+          </header>
+
+          <section class="status">
+            <div class="status-block">
+              <span class="status-label">{trans('status.language')}</span>
+              <span class="status-value">
+                {(state.data.labels.lang[state.env.lang] &&
+                  (state.data.labels.lang[state.env.lang][state.env.lang] || state.data.labels.lang[state.env.lang].en))
+                  || state.env.lang}
+              </span>
+            </div>
+            <div class="status-block">
+              <span class="status-label">{trans('status.theme')}</span>
+              <span class="status-value">
+                {(state.data.labels.theme[state.env.theme] &&
+                  (state.data.labels.theme[state.env.theme][state.env.lang] || state.data.labels.theme[state.env.theme].en))
+                  || state.env.theme}
+              </span>
+            </div>
+          </section>
+
+          <section class="card">
+            <header>
+              <h2>{trans('counter.valueLabel')}</h2>
+              <p>{trans('counter.hint')}</p>
+            </header>
+            <div class="counter-value">{state.data.counter.value}</div>
+            <div class="actions">
+              <button class="primary" onclick="increment(event, ctx)">{trans('actions.increment')}</button>
+              <button class="secondary" onclick="reset(event, ctx)">{trans('actions.reset')}</button>
+              <button class="secondary" onclick="decrement(event, ctx)">{trans('actions.decrement')}</button>
+            </div>
+          </section>
+
+          <section class="history">
+            <h2>{trans('history.title')}</h2>
+            <p x-if="!state.data.counter.history.length">{trans('history.empty')}</p>
+            <ul class="history-list" x-if="state.data.counter.history.length">
+              <li class="history-item" x-for="entry in state.data.counter.history" key="entry.id">
+                <div>
+                  <strong>
+                    {state.data.copy.history[entry.kind][state.env.lang] || state.data.copy.history[entry.kind].en}
+                  </strong>
+                  <time>{entry.time}</time>
+                </div>
+                <span class="delta">{entry.delta > 0 ? '+' + entry.delta : entry.delta}</span>
+              </li>
+            </ul>
+          </section>
+
+          <footer class="auto-foot">
+            <div class="select-row">
+              <lang-select langs="ar,en,fr,tr,du" label="{trans('footer.langSelect')}"></lang-select>
+              <theme-select themes="light,dark,sunny" label="{trans('footer.themeSelect')}"></theme-select>
+            </div>
+          </footer>
+        </div>
+
+        <script>
+          function resolveLocale(lang) {
+            if (!lang) return 'en-US';
+            if (lang === 'ar') return 'ar-EG';
+            if (lang === 'en') return 'en-US';
+            return lang + '-' + lang.toUpperCase();
+          }
+
+          function timestamp(ctx) {
+            var lang = ctx.get('env.lang') || 'ar';
+            try {
+              var formatter = new Intl.DateTimeFormat(resolveLocale(lang), {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              return formatter.format(new Date());
+            } catch (error) {
+              return new Date().toLocaleTimeString();
+            }
+          }
+
+          function applyDelta(ctx, amount, kind) {
+            var stamp = timestamp(ctx);
+            commit(ctx, function (draft) {
+              draft.data = draft.data || {};
+              draft.data.counter = draft.data.counter || { value: 0, history: [] };
+              var counter = draft.data.counter;
+              counter.value = (counter.value || 0) + amount;
+              if (!Array.isArray(counter.history)) counter.history = [];
+              counter.history.unshift({
+                id: 'entry-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                delta: amount,
+                kind: kind,
+                time: stamp
+              });
+              counter.history = counter.history.slice(0, 6);
+            });
+          }
+
+          function increment(event, ctx) {
+            applyDelta(ctx, 1, 'increment');
+          }
+
+          function decrement(event, ctx) {
+            applyDelta(ctx, -1, 'decrement');
+          }
+
+          function reset(event, ctx) {
+            var initial = ctx.get('data.counter.initial') || 0;
+            var stamp = timestamp(ctx);
+            commit(ctx, function (draft) {
+              draft.data = draft.data || {};
+              draft.data.counter = draft.data.counter || { value: 0, history: [] };
+              var counter = draft.data.counter;
+              counter.value = initial;
+              if (!Array.isArray(counter.history)) counter.history = [];
+              counter.history.unshift({
+                id: 'entry-' + Date.now() + '-reset',
+                delta: 0,
+                kind: 'reset',
+                time: stamp
+              });
+              counter.history = counter.history.slice(0, 6);
+            });
+          }
+
+          function __init__(ctx) {}
+        </script>
+      </section>
+    </template>
+
+    <script>
+      (function (global) {
+        function boot(M) {
+          if (!M || !M.HTMLxAgent) {
+            console.error('Mishkah HTMLx agent is required.');
+            return;
+          }
+          var start = M.HTMLxAgent.make({ templateId: 'auto-counter-demo', mount: '#app' });
+          Promise.resolve(start)
+            .then(function (app) {
+              if (global.MishkahAuto && typeof global.MishkahAuto.attach === 'function') {
+                global.MishkahAuto.attach(app);
+              }
+              return app;
+            })
+            .catch(function (error) {
+              console.error('Failed to start Mishkah auto counter demo:', error);
+            });
+        }
+
+        var auto = global.MishkahAuto;
+        if (auto && auto.whenReady) {
+          auto.whenReady.then(boot).catch(function (error) {
+            console.error('MishkahAuto failed before bootstrap:', error);
+          });
+        } else if (global.Mishkah || global.Mishka) {
+          boot(global.Mishkah || global.Mishka);
+        } else {
+          global.addEventListener('mishkah:ready', function () {
+            boot(global.Mishkah || global.Mishka);
+          }, { once: true });
+        }
+      })(window);
+    </script>
+  </body>
+</html>
