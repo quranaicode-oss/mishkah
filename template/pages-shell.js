@@ -206,20 +206,33 @@
     }
   }
 
+  function getNavState(db) {
+    const ui = ensureDict(db.ui);
+    const shell = ensureDict(ui.pagesShell);
+    const nav = ensureDict(shell.nav);
+    return nav;
+  }
+
   function renderNavButton(page, activeKey, orientation, langInfo) {
     const key = page.key;
     const label = page.label || {};
     const icon = page.icon || '';
     const isActive = key === activeKey;
-    const baseClasses = orientation === 'mobile'
+    const isMobileInline = orientation === 'mobile-inline';
+    const isMobileOverlay = orientation === 'mobile-overlay';
+    const baseClasses = isMobileInline
       ? tw`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition` + ' flex items-center gap-2'
-      : tw`w-full justify-start rounded-xl px-4 py-3 font-semibold text-sm transition` + ' flex items-center gap-3';
-    const activeClasses = orientation === 'mobile'
+      : isMobileOverlay
+        ? tw`w-full justify-between rounded-2xl px-4 py-3 text-base font-semibold transition` + ' flex items-center gap-3'
+        : tw`w-full justify-start rounded-xl px-4 py-3 font-semibold text-sm transition` + ' flex items-center gap-3';
+    const activeClasses = isMobileInline || isMobileOverlay
       ? tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow`
       : tw`bg-[color-mix(in_oklab,var(--primary)75%,transparent)] text-[var(--primary-foreground)] shadow`;
-    const inactiveClasses = orientation === 'mobile'
+    const inactiveClasses = isMobileInline
       ? tw`bg-[color-mix(in_oklab,var(--surface-1)80%,transparent)] text-[var(--foreground)]`
-      : tw`bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)12%,transparent)]`;
+      : isMobileOverlay
+        ? tw`bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)15%,transparent)]`
+        : tw`bg-[color-mix(in_oklab,var(--surface-1)85%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)12%,transparent)]`;
     const localizedSource = typeof label.title === 'object' ? label.title : label;
     const fallbackLabel = typeof label.title === 'string'
       ? label.title
@@ -233,25 +246,73 @@
         class: cx(baseClasses, isActive ? activeClasses : inactiveClasses)
       },
       variant: 'ghost',
-      size: orientation === 'mobile' ? 'sm' : 'md'
+      size: isMobileOverlay ? 'md' : (isMobileInline ? 'sm' : 'md')
     }, [icon ? `${icon} ${buttonLabel}` : buttonLabel]);
   }
 
   function renderNavigation(db, pages, activeKey) {
     const langInfo = getLangInfo(db);
-    const mobileNav = D.Containers.Nav({
-      attrs: {
-        class: tw`md:hidden px-4 pt-4 pb-2 overflow-x-auto`
-      }
+    const navState = getNavState(db);
+    const mobileOpen = !!navState.mobileOpen;
+    const openLabel = langInfo.lang === 'ar' ? 'استعراض الصفحات' : 'Browse pages';
+    const closeLabel = langInfo.lang === 'ar' ? 'إغلاق القائمة' : 'Close menu';
+    const menuTitle = langInfo.lang === 'ar' ? 'قائمة الصفحات' : 'Pages menu';
+
+    const toggleButton = D.Containers.Div({
+      attrs: { class: tw`md:hidden sticky top-20 z-50 px-3 pt-3 pb-2` }
     }, [
-      D.Lists.Ul({
+      UI.Button({
         attrs: {
-          class: tw`flex items-center gap-2 min-w-max`
-        }
-      }, pages.map((page) => D.Lists.Li({ attrs: { key: `m-${page.key}` } }, [
-        renderNavButton(page, activeKey, 'mobile', langInfo)
-      ])))
+          gkey: 'pages:nav:toggle',
+          class: cx(
+            tw`flex w-full items-center justify-between rounded-full px-4 py-3 text-sm font-semibold transition shadow-sm`,
+            mobileOpen
+              ? tw`bg-[var(--primary)] text-[var(--primary-foreground)]`
+              : tw`bg-[color-mix(in_oklab,var(--surface-1)88%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)12%,transparent)]`
+          )
+        },
+        variant: 'ghost',
+        size: 'sm'
+      }, [mobileOpen ? `✖️ ${closeLabel}` : `📖 ${openLabel}`])
     ]);
+
+    const mobileList = pages.map((page) => D.Lists.Li({ attrs: { key: `m-${page.key}` } }, [
+      renderNavButton(page, activeKey, 'mobile-overlay', langInfo)
+    ]));
+
+    const mobilePanel = mobileOpen
+      ? D.Containers.Div({
+        attrs: {
+          class: tw`md:hidden fixed inset-x-3 top-24 z-40 space-y-3 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)94%,transparent)] p-4 shadow-xl backdrop-blur`
+        }
+      }, [
+        D.Containers.Div({
+          attrs: { class: tw`flex items-center justify-between` }
+        }, [
+          D.Text.Strong({ attrs: { class: tw`text-base` } }, [menuTitle]),
+          UI.Button({
+            attrs: {
+              gkey: 'pages:nav:close',
+              class: tw`rounded-full px-3 py-1 text-sm`
+            },
+            variant: 'ghost',
+            size: 'sm'
+          }, [closeLabel])
+        ]),
+        D.Lists.Ul({ attrs: { class: tw`grid gap-2` } }, mobileList)
+      ])
+      : null;
+
+    const mobileNav = D.Containers.Div({ attrs: { class: tw`md:hidden` } }, [mobilePanel, toggleButton]);
+
+    const mobileOverlay = mobileOpen
+      ? D.Containers.Div({
+        attrs: {
+          class: tw`md:hidden fixed inset-0 z-30 bg-[rgba(15,23,42,0.45)] backdrop-blur-sm`,
+          gkey: 'pages:nav:close'
+        }
+      })
+      : null;
 
     const sideNav = D.Containers.Aside({
       attrs: {
@@ -265,7 +326,7 @@
       }, pages.map((page) => renderNavButton(page, activeKey, 'desktop', langInfo)))
     ]);
 
-    return { mobileNav, sideNav };
+    return { mobileNav, mobileOverlay, sideNav };
   }
 
   function renderPage(db, registry, pages, activeKey) {
@@ -532,6 +593,49 @@
     };
   }
 
+  function createNavUiOrders() {
+    return {
+      'pages.nav.toggle': {
+        on: ['click'],
+        gkeys: ['pages:nav:toggle'],
+        handler: (_event, context) => {
+          context.setState((prev) => {
+            const prevUi = ensureDict(prev.ui);
+            const prevShell = ensureDict(prevUi.pagesShell);
+            const prevNav = ensureDict(prevShell.nav);
+            const mobileOpen = !!prevNav.mobileOpen;
+            return Object.assign({}, prev, {
+              ui: Object.assign({}, prevUi, {
+                pagesShell: Object.assign({}, prevShell, {
+                  nav: Object.assign({}, prevNav, { mobileOpen: !mobileOpen })
+                })
+              })
+            });
+          });
+        }
+      },
+      'pages.nav.close': {
+        on: ['click'],
+        gkeys: ['pages:nav:close'],
+        handler: (_event, context) => {
+          context.setState((prev) => {
+            const prevUi = ensureDict(prev.ui);
+            const prevShell = ensureDict(prevUi.pagesShell);
+            const prevNav = ensureDict(prevShell.nav);
+            if (!prevNav.mobileOpen) return prev;
+            return Object.assign({}, prev, {
+              ui: Object.assign({}, prevUi, {
+                pagesShell: Object.assign({}, prevShell, {
+                  nav: Object.assign({}, prevNav, { mobileOpen: false })
+                })
+              })
+            });
+          });
+        }
+      }
+    };
+  }
+
   const PagesShell = {
     render(db) {
       const registry = db.registry || (db.data && db.data.registry) || {};
@@ -550,7 +654,7 @@
       const headerNode = callComponent(registry, slots.header, db);
       const footerNode = callComponent(registry, slots.footer, db);
 
-      const { mobileNav, sideNav } = renderNavigation(db, pages, activeKey);
+      const { mobileNav, mobileOverlay, sideNav } = renderNavigation(db, pages, activeKey);
       const pageNode = renderPage(db, registry, pages, activeKey);
       const themeLabButton = renderThemeLabButton(db, themeConfig, langInfo);
       const customThemeLab = callComponent(registry, slots.themeLab, db);
@@ -564,16 +668,17 @@
           class: tw`min-h-screen bg-[color-mix(in_oklab,var(--background)96%,transparent)] text-[var(--foreground)]`
         }
       }, [
+        mobileOverlay,
         headerNode ? D.Containers.Header({ attrs: { class: tw`shadow-sm` } }, [headerNode]) : null,
         mobileNav,
         D.Containers.Main({
           attrs: {
-            class: tw`flex-1` + ' ' + tw`px-4 pb-10`
+            class: tw`flex-1` + ' ' + tw`px-3 pb-16 sm:px-6 lg:px-8`
           }
         }, [
           D.Containers.Div({
             attrs: {
-              class: tw`mx-auto flex w-full max-w-6xl flex-col gap-6 md:flex-row`
+              class: tw`mx-auto flex w-full max-w-6xl flex-col gap-4 sm:gap-6 md:flex-row`
             }
           }, [
             sideNav,
@@ -584,7 +689,7 @@
             }, [
               D.Containers.Div({
                 attrs: {
-                  class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] p-6 shadow-sm space-y-6`
+                  class: tw`rounded-3xl border border-[color-mix(in_oklab,var(--border)50%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] p-3 sm:p-6 lg:p-8 shadow-sm space-y-5 sm:space-y-6`
                 }
               }, [
                 showThemeButton && themeLabButton ? D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [themeLabButton]) : null,
@@ -606,14 +711,20 @@
         acc[`pages.go.${key}`] = {
           on: ['click'],
           gkeys: [`pages:go:${key}`],
-          handler: (event, context) => {
-            context.setState((prev) => ({
-              ...prev,
-              data: {
-                ...prev.data,
-                active: key
-              }
-            }));
+          handler: (_event, context) => {
+            context.setState((prev) => {
+              const prevUi = ensureDict(prev.ui);
+              const prevShell = ensureDict(prevUi.pagesShell);
+              const prevNav = ensureDict(prevShell.nav);
+              return Object.assign({}, prev, {
+                data: Object.assign({}, prev.data, { active: key }),
+                ui: Object.assign({}, prevUi, {
+                  pagesShell: Object.assign({}, prevShell, {
+                    nav: Object.assign({}, prevNav, { mobileOpen: false })
+                  })
+                })
+              });
+            });
           }
         };
         return acc;
@@ -624,7 +735,8 @@
       const pages = ensureArray((database && database.data && database.data.pages) || database.pages);
       const navOrders = this.createNavOrders(pages);
       const themeOrders = createThemeLabOrders();
-      return Object.assign({}, navOrders, themeOrders);
+      const navUiOrders = createNavUiOrders();
+      return Object.assign({}, navOrders, themeOrders, navUiOrders);
     }
   };
 
