@@ -108,6 +108,11 @@
       const parsed = parseMaybeJSONish(value);
       return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     };
+    const normalizeChannelName = (value, fallback='default')=>{
+      const base = value == null ? '' : String(value).trim();
+      const raw = base || fallback || 'default';
+      return raw.replace(/[^A-Za-z0-9:_-]+/g, '-').toLowerCase();
+    };
     const DEFAULT_PAYMENT_METHODS_SOURCE = [
       { id:'cash', icon:'💵', name:{ ar:'نقدي', en:'Cash' }, type:'cash' },
       { id:'card', icon:'💳', name:{ ar:'بطاقة', en:'Card' }, type:'card' }
@@ -284,6 +289,18 @@
     if(!currencySymbols.en) currencySymbols.en = currencyCode;
     if(!currencySymbols.ar) currencySymbols.ar = currencySymbols.en;
     const currencyDisplayMode = currencyConfig.display || 'symbol';
+    const syncSettings = ensurePlainObject(settings.sync);
+    const branchSettings = ensurePlainObject(settings.branch);
+    const branchChannelSource = syncSettings.channel
+      || syncSettings.branch_channel
+      || syncSettings.branchChannel
+      || branchSettings.channel
+      || branchSettings.branchChannel
+      || POS_INFO.id;
+    const BRANCH_CHANNEL = normalizeChannelName(branchChannelSource, POS_INFO.id);
+    if(typeof window !== 'undefined'){
+      window.MishkahBranchChannel = BRANCH_CHANNEL;
+    }
 
     const ORDER_TYPE_ICON_MAP = { dine_in:'🍽️', delivery:'🚚', takeaway:'🧾', cash:'🧾' };
     const rawOrderTypes = Array.isArray(MOCK.order_types) && MOCK.order_types.length ? MOCK.order_types : [
@@ -418,6 +435,8 @@
           receipt_15:'رول ‎15 سم‎', export_pdf:'تصدير PDF',
           orders_queue:'الطلبات المفتوحة', orders_queue_hint:'الطلبات المعلقة/المفتوحة', orders_queue_empty:'لا توجد طلبات في الانتظار.',
           orders_queue_open:'فتح الطلب', orders_queue_status_open:'مفتوح', orders_queue_status_held:'معلّق',
+          orders_view_jobs:'تفاصيل التحضير', orders_jobs_title:'حالة الطلب في المطبخ', orders_jobs_description:'عرض حالة الأصناف والمحطات المرتبطة بالطلب.',
+          orders_jobs_empty:'لا توجد بيانات تحضير بعد', orders_jobs_station:'قسم المطبخ', orders_jobs_status:'الحالة', orders_jobs_items:'الأصناف', orders_jobs_updated:'آخر تحديث',
           orders_tab_all:'كل الطلبات', orders_tab_dine_in:'طلبات الصالة', orders_tab_delivery:'طلبات الدليفري', orders_tab_takeaway:'طلبات التيك أواي',
           orders_stage:'المرحلة', orders_status:'الحالة', orders_type:'نوع الطلب', orders_total:'الإجمالي', orders_updated:'آخر تحديث',
           orders_payment:'حالة الدفع', orders_line_count:'عدد الأصناف', orders_notes:'ملاحظات', orders_search_placeholder:'ابحث برقم الطلب أو الطاولة أو القسم',
@@ -551,6 +570,8 @@
           receipt_15:'15 cm roll', export_pdf:'Export PDF',
           orders_queue:'Open orders', orders_queue_hint:'Held / open orders in progress', orders_queue_empty:'No orders waiting.',
           orders_queue_open:'Open order', orders_queue_status_open:'Open', orders_queue_status_held:'Held',
+          orders_view_jobs:'Kitchen status', orders_jobs_title:'Kitchen production status', orders_jobs_description:'Review item progress across kitchen stations.',
+          orders_jobs_empty:'No prep data yet', orders_jobs_station:'Station', orders_jobs_status:'Status', orders_jobs_items:'Items', orders_jobs_updated:'Updated at',
           orders_tab_all:'All orders', orders_tab_dine_in:'Dining room', orders_tab_delivery:'Delivery', orders_tab_takeaway:'Takeaway',
           orders_stage:'Stage', orders_status:'Status', orders_type:'Order type', orders_total:'Total due', orders_updated:'Last update',
           orders_payment:'Payment state', orders_line_count:'Line items', orders_notes:'Notes', orders_search_placeholder:'Search by order, table or section',
@@ -2046,8 +2067,62 @@
         customerName: customerName || null,
         createdAt: createdIso
       };
-      return { order: orderSummary, jobOrders };
+      const kdsState = state?.data?.kds || {};
+      const masterSnapshot = {
+        channel: kdsState.channel || BRANCH_CHANNEL,
+        stations: Array.isArray(kdsState.stations) ? kdsState.stations.map(station=> ({ ...station })) : [],
+        stationCategoryRoutes: Array.isArray(kdsState.stationCategoryRoutes)
+          ? kdsState.stationCategoryRoutes.map(route=> ({ ...route }))
+          : [],
+        metadata:{ ...(kdsState.metadata || {}) },
+        sync:{ ...(kdsState.sync || {}), channel: kdsState.channel || BRANCH_CHANNEL },
+        drivers: Array.isArray(kdsState.drivers) ? kdsState.drivers.map(driver=> ({ ...driver })) : [],
+        kitchenSections: Array.isArray(state?.data?.kitchenSections)
+          ? state.data.kitchenSections.map(section=> ({ ...section }))
+          : [],
+        categorySections: Array.isArray(state?.data?.categorySections)
+          ? state.data.categorySections.map(entry=> ({ ...entry }))
+          : [],
+        categories: Array.isArray(state?.data?.menu?.categories)
+          ? state.data.menu.categories.map(category=> ({ ...category }))
+          : [],
+        items: Array.isArray(state?.data?.menu?.items)
+          ? state.data.menu.items.map(item=> ({ ...item }))
+          : []
+      };
+      const deliveriesSnapshot = {
+        assignments:{ ...(kdsState.deliveries?.assignments || {}) },
+        settlements:{ ...(kdsState.deliveries?.settlements || {}) }
+      };
+      const handoffSnapshot = { ...(kdsState.handoff || {}) };
+      return {
+        order: orderSummary,
+        jobOrders,
+        master: masterSnapshot,
+        deliveries: deliveriesSnapshot,
+        handoff: handoffSnapshot,
+        drivers: masterSnapshot.drivers,
+        meta:{ channel: masterSnapshot.channel, branch: BRANCH_CHANNEL, posId: POS_INFO.id, emittedAt: new Date().toISOString() }
+      };
     }
+
+    const buildOrderEnvelope = (orderPayload, state)=>{
+      const payload = serializeOrderForKDS(orderPayload, state);
+      if(!payload) return null;
+      const nowIso = new Date().toISOString();
+      const baseHandoff = (payload.handoff && typeof payload.handoff === 'object') ? { ...payload.handoff } : {};
+      if(orderPayload && orderPayload.id){
+        baseHandoff[orderPayload.id] = {
+          ...(baseHandoff[orderPayload.id] || {}),
+          status:'pending',
+          updatedAt: nowIso
+        };
+      }
+      payload.handoff = baseHandoff;
+      payload.meta = { ...(payload.meta || {}), publishedAt: nowIso };
+      const channel = payload.meta?.channel || BRANCH_CHANNEL;
+      return { payload, channel, publishedAt: nowIso };
+    };
 
     function createKDSSync(options={}){
       const WebSocketX = U.WebSocketX || U.WebSocket;
@@ -2058,19 +2133,53 @@
       if(!endpoint){
         console.warn('[Mishkah][POS][KDS] No KDS endpoint configured; sync bridge is inactive.');
       }
+      const requestedChannel = options.channel ? normalizeChannelName(options.channel, BRANCH_CHANNEL) : '';
+      const localEmitter = typeof options.localEmitter === 'function'
+        ? options.localEmitter
+        : (options.localChannel ? (message)=>{
+            if(!options.localChannel || typeof options.localChannel.postMessage !== 'function') return;
+            try { options.localChannel.postMessage({ origin:'pos', ...message }); } catch(_err){}
+          }
+          : ()=>{});
+      const pushLocal = (type, data={}, metaOverride={})=>{
+        if(typeof localEmitter !== 'function') return;
+        const baseMeta = {
+          channel: requestedChannel || BRANCH_CHANNEL,
+          via:'pos:local',
+          publishedAt: new Date().toISOString()
+        };
+        const meta = { ...baseMeta, ...metaOverride };
+        try { localEmitter({ type, ...data, meta }); } catch(_err){}
+      };
       if(!WebSocketX || !endpoint){
         return {
           connect:()=>{},
-          publishOrder:()=>{},
-          publishJobUpdate:()=>{},
-          publishDeliveryUpdate:()=>{},
-          publishHandoffUpdate:()=>{}
+          publishOrder(orderPayload, state){
+            const envelope = buildOrderEnvelope(orderPayload, state);
+            if(!envelope) return null;
+            pushLocal('orders:payload', { payload: envelope.payload }, { channel: envelope.channel, publishedAt: envelope.publishedAt });
+            return envelope.payload;
+          },
+          publishJobUpdate(update){
+            if(!update || !update.jobId) return;
+            pushLocal('job:update', { jobId: update.jobId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          },
+          publishDeliveryUpdate(update){
+            if(!update || !update.orderId) return;
+            pushLocal('delivery:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          },
+          publishHandoffUpdate(update){
+            if(!update || !update.orderId) return;
+            pushLocal('handoff:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          }
         };
       }
-      const topicOrders = options.topicOrders || 'pos:kds:orders';
-      const topicJobs = options.topicJobs || 'kds:jobs:updates';
-      const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
-      const topicHandoff = options.topicHandoff || 'kds:handoff:updates';
+      const channelName = requestedChannel;
+      const topicPrefix = channelName ? `${channelName}:` : '';
+      const topicOrders = options.topicOrders || `${topicPrefix}pos:kds:orders`;
+      const topicJobs = options.topicJobs || `${topicPrefix}kds:jobs:updates`;
+      const topicDelivery = options.topicDelivery || `${topicPrefix}kds:delivery:updates`;
+      const topicHandoff = options.topicHandoff || `${topicPrefix}kds:handoff:updates`;
       const handlers = options.handlers || {};
       const token = options.token;
       let socket = null;
@@ -2152,22 +2261,14 @@
       return {
         connect,
         publishOrder(orderPayload, state){
-          const payload = serializeOrderForKDS(orderPayload, state);
-          if(!payload){
+          const envelope = buildOrderEnvelope(orderPayload, state);
+          if(!envelope){
             console.warn('[Mishkah][POS][KDS] Skipped publishing order payload — serialization failed.', { orderId: orderPayload?.id });
-            return;
+            return null;
           }
-          const nowIso = new Date().toISOString();
-          const baseHandoff = (payload.handoff && typeof payload.handoff === 'object') ? { ...payload.handoff } : {};
-          if(orderPayload && orderPayload.id){
-            baseHandoff[orderPayload.id] = {
-              ...(baseHandoff[orderPayload.id] || {}),
-              status:'pending',
-              updatedAt: nowIso
-            };
-          }
-          payload.handoff = baseHandoff;
-          sendEnvelope({ type:'publish', topic: topicOrders, data: payload });
+          sendEnvelope({ type:'publish', topic: topicOrders, data: envelope.payload });
+          pushLocal('orders:payload', { payload: envelope.payload }, { channel: envelope.channel, publishedAt: envelope.publishedAt });
+          return envelope.payload;
         },
         publishJobUpdate(update){
           if(!update || !update.jobId){
@@ -2175,6 +2276,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicJobs, data: update });
+          pushLocal('job:update', { jobId: update.jobId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         },
         publishDeliveryUpdate(update){
           if(!update || !update.orderId){
@@ -2182,6 +2284,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicDelivery, data: update });
+          pushLocal('delivery:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         },
         publishHandoffUpdate(update){
           if(!update || !update.orderId){
@@ -2189,6 +2292,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicHandoff, data: update });
+          pushLocal('handoff:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         }
       };
     }
@@ -2196,6 +2300,28 @@
     const posDB = createIndexedDBAdapter('mishkah-pos', 4);
 
     const pendingKdsMessages = [];
+
+    const mergeJobOrderCollections = (current={}, patch={})=>{
+      const mergeList = (base=[], updates=[], key='id')=>{
+        const map = new Map();
+        (Array.isArray(base) ? base : []).forEach(item=>{
+          if(!item || item[key] == null) return;
+          map.set(String(item[key]), { ...item });
+        });
+        (Array.isArray(updates) ? updates : []).forEach(item=>{
+          if(!item || item[key] == null) return;
+          const id = String(item[key]);
+          map.set(id, Object.assign({}, map.get(id) || {}, item));
+        });
+        return Array.from(map.values());
+      };
+      return {
+        headers: mergeList(current.headers, patch.headers),
+        details: mergeList(current.details, patch.details),
+        modifiers: mergeList(current.modifiers, patch.modifiers),
+        statusHistory: mergeList(current.statusHistory, patch.statusHistory)
+      };
+    };
 
     function mergeHandoffRecord(base, patch){
       const source = base && typeof base === 'object' ? base : {};
@@ -2209,6 +2335,150 @@
         }
       });
       return { next: target, changed };
+    }
+
+    function applyKdsOrderSnapshotNow(payload={}, meta={}){
+      if(!payload || !payload.jobOrders) return;
+      const normalizedOrders = normalizeJobOrdersSnapshot(payload.jobOrders);
+      const deliveriesPatch = payload.deliveries || {};
+      const handoffPatch = payload.handoff || {};
+      const driversPatch = Array.isArray(payload.drivers) ? payload.drivers : [];
+      const master = payload.master || {};
+      const updateState = (state)=>{
+        const data = state.data || {};
+        const currentKds = data.kds || {};
+        const mergedOrders = mergeJobOrderCollections(currentKds.jobOrders || {}, normalizedOrders);
+        const assignmentsBase = currentKds.deliveries?.assignments || {};
+        const settlementsBase = currentKds.deliveries?.settlements || {};
+        const assignments = { ...assignmentsBase };
+        Object.keys(deliveriesPatch.assignments || {}).forEach(orderId=>{
+          assignments[orderId] = { ...(assignments[orderId] || {}), ...deliveriesPatch.assignments[orderId] };
+        });
+        const settlements = { ...settlementsBase };
+        Object.keys(deliveriesPatch.settlements || {}).forEach(orderId=>{
+          settlements[orderId] = { ...(settlements[orderId] || {}), ...deliveriesPatch.settlements[orderId] };
+        });
+        const mergedDrivers = mergeDriversLists(currentKds.drivers || [], driversPatch);
+        const nextKds = {
+          ...currentKds,
+          jobOrders: mergedOrders,
+          deliveries:{ assignments, settlements },
+          handoff:{ ...(currentKds.handoff || {}), ...handoffPatch },
+          drivers: mergedDrivers,
+          metadata:{ ...(currentKds.metadata || {}), ...(payload.metadata || {}) },
+          sync:{ ...(currentKds.sync || {}), ...(payload.sync || {}) },
+          lastSyncMeta:{ ...(currentKds.lastSyncMeta || {}), ...meta }
+        };
+        if(master.channel){
+          nextKds.channel = master.channel;
+          nextKds.sync = { ...(nextKds.sync || {}), channel: master.channel };
+        }
+        if(master.stations){
+          nextKds.stations = master.stations.map(station=> ({ ...station }));
+        }
+        if(master.stationCategoryRoutes){
+          nextKds.stationCategoryRoutes = master.stationCategoryRoutes.map(route=> ({ ...route }));
+        }
+        if(master.metadata){
+          nextKds.metadata = { ...(nextKds.metadata || {}), ...master.metadata };
+        }
+        if(master.sync){
+          nextKds.sync = { ...(nextKds.sync || {}), ...master.sync };
+          if(master.sync.channel){
+            nextKds.channel = master.sync.channel;
+          }
+        }
+        if(master.drivers){
+          nextKds.drivers = mergeDriversLists(nextKds.drivers || [], master.drivers);
+        }
+        const nextData = { ...data, kds: nextKds };
+        if(master.kitchenSections){
+          nextData.kitchenSections = master.kitchenSections.map(section=> ({ ...section }));
+        }
+        if(master.categorySections){
+          nextData.categorySections = master.categorySections.map(entry=> ({ ...entry }));
+        }
+        if(master.categories || master.items){
+          const menuState = nextData.menu || data.menu || {};
+          nextData.menu = {
+            ...menuState,
+            categories: master.categories ? master.categories.map(cat=> ({ ...cat })) : menuState.categories,
+            items: master.items ? master.items.map(item=> ({ ...item })) : menuState.items
+          };
+        }
+        return { ...state, data: nextData };
+      };
+      if(appRef && typeof appRef.setState === 'function'){
+        appRef.setState(updateState);
+      } else {
+        enqueueKdsMessage({ type:'orders', payload, meta });
+      }
+    }
+
+    function applyKdsJobUpdateNow(jobId, payload={}, meta={}){
+      const normalizedId = jobId != null ? String(jobId) : '';
+      if(!normalizedId) return;
+      const patch = {
+        headers:[{ id: normalizedId, ...payload }]
+      };
+      if(Array.isArray(payload.details)) patch.details = payload.details;
+      if(Array.isArray(payload.modifiers)) patch.modifiers = payload.modifiers;
+      if(Array.isArray(payload.statusHistory)) patch.statusHistory = payload.statusHistory;
+      const updater = (state)=>{
+        const data = state.data || {};
+        const currentKds = data.kds || {};
+        const merged = mergeJobOrderCollections(currentKds.jobOrders || {}, patch);
+        return {
+          ...state,
+          data:{
+            ...data,
+            kds:{
+              ...currentKds,
+              jobOrders: merged,
+              lastSyncMeta:{ ...(currentKds.lastSyncMeta || {}), ...meta }
+            }
+          }
+        };
+      };
+      if(appRef && typeof appRef.setState === 'function'){
+        appRef.setState(updater);
+      } else {
+        enqueueKdsMessage({ type:'job', jobId: normalizedId, payload, meta });
+      }
+    }
+
+    function applyKdsDeliveryUpdateNow(orderId, payload={}, meta={}){
+      const normalizedId = orderId != null ? String(orderId) : '';
+      if(!normalizedId) return;
+      const updater = (state)=>{
+        const data = state.data || {};
+        const currentKds = data.kds || {};
+        const deliveries = currentKds.deliveries || { assignments:{}, settlements:{} };
+        const assignments = { ...(deliveries.assignments || {}) };
+        const settlements = { ...(deliveries.settlements || {}) };
+        if(payload.assignment){
+          assignments[normalizedId] = { ...(assignments[normalizedId] || {}), ...payload.assignment };
+        }
+        if(payload.settlement){
+          settlements[normalizedId] = { ...(settlements[normalizedId] || {}), ...payload.settlement };
+        }
+        return {
+          ...state,
+          data:{
+            ...data,
+            kds:{
+              ...currentKds,
+              deliveries:{ assignments, settlements },
+              lastSyncMeta:{ ...(currentKds.lastSyncMeta || {}), ...meta }
+            }
+          }
+        };
+      };
+      if(appRef && typeof appRef.setState === 'function'){
+        appRef.setState(updater);
+      } else {
+        enqueueKdsMessage({ type:'delivery', orderId: normalizedId, payload, meta });
+      }
     }
 
     function applyHandoffUpdateNow(orderId, payload={}, meta={}){
@@ -2286,7 +2556,10 @@
           const currentOrder = data.order && String(data.order.id) === normalizedId
             ? updateEntry(data.order)
             : { value:data.order, changed:false };
-          if(!queueChanged && !historyChanged && !currentOrder.changed){
+          const currentKds = data.kds || {};
+          const currentHandoffEntry = currentKds.handoff?.[normalizedId];
+          const { next: kdsHandoffEntry, changed: kdsHandoffChanged } = mergeHandoffRecord(currentHandoffEntry, patch);
+          if(!queueChanged && !historyChanged && !currentOrder.changed && !kdsHandoffChanged){
             return state;
           }
           return {
@@ -2295,7 +2568,14 @@
               ...data,
               order: currentOrder.value,
               ordersQueue: queueChanged ? queueNext : data.ordersQueue,
-              ordersHistory: historyChanged ? historyNext : data.ordersHistory
+              ordersHistory: historyChanged ? historyNext : data.ordersHistory,
+              kds:{
+                ...currentKds,
+                handoff:{
+                  ...(currentKds.handoff || {}),
+                  [normalizedId]: kdsHandoffEntry
+                }
+              }
             }
           };
         });
@@ -2354,6 +2634,12 @@
       backlog.forEach(entry=>{
         if(entry && entry.type === 'handoff'){
           applyHandoffUpdateNow(entry.orderId, entry.payload, entry.meta);
+        } else if(entry && entry.type === 'orders'){
+          applyKdsOrderSnapshotNow(entry.payload, entry.meta || {});
+        } else if(entry && entry.type === 'job'){
+          applyKdsJobUpdateNow(entry.jobId, entry.payload, entry.meta || {});
+        } else if(entry && entry.type === 'delivery'){
+          applyKdsDeliveryUpdateNow(entry.orderId, entry.payload, entry.meta || {});
         }
       });
     }
@@ -2369,6 +2655,37 @@
         return;
       }
       applyHandoffUpdateNow(orderId, payload, meta);
+    }
+
+    function handleKdsOrderPayload(message={}, meta={}){
+      if(!message || !message.jobOrders) return;
+      if(!appRef || typeof appRef.setState !== 'function'){
+        enqueueKdsMessage({ type:'orders', payload: message, meta });
+        return;
+      }
+      applyKdsOrderSnapshotNow(message, meta);
+    }
+
+    function handleKdsJobUpdate(message={}, meta={}){
+      const jobId = message.jobId || message.id;
+      if(!jobId) return;
+      const payload = message.payload && typeof message.payload === 'object' ? message.payload : {};
+      if(!appRef || typeof appRef.setState !== 'function'){
+        enqueueKdsMessage({ type:'job', jobId: String(jobId), payload, meta });
+        return;
+      }
+      applyKdsJobUpdateNow(jobId, payload, meta);
+    }
+
+    function handleKdsDeliveryUpdate(message={}, meta={}){
+      const orderId = message.orderId || message.id;
+      if(!orderId) return;
+      const payload = message.payload && typeof message.payload === 'object' ? message.payload : {};
+      if(!appRef || typeof appRef.setState !== 'function'){
+        enqueueKdsMessage({ type:'delivery', orderId: String(orderId), payload, meta });
+        return;
+      }
+      applyKdsDeliveryUpdateNow(orderId, payload, meta);
     }
 
     function installTempOrderWatcher(){
@@ -2549,7 +2866,8 @@
     }
 
     applyThemePreferenceStyles(savedThemePrefs);
-    const DEFAULT_KDS_ENDPOINT = 'wss://ws.mas.com.eg/ws';
+    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
+    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || 'wss://ws.mas.com.eg/ws';
     const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
     const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
     if(!mockEndpoint){
@@ -2562,8 +2880,41 @@
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
     const kdsBridge = createKDSBridge(kdsEndpoint);
-    const kdsSyncHandlers = { onHandoffUpdate: handleKdsHandoffUpdate };
-    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers });
+    const LOCAL_SYNC_CHANNEL_NAME = 'mishkah-pos-kds-sync';
+    const localKdsChannel = typeof BroadcastChannel !== 'undefined'
+      ? new BroadcastChannel(LOCAL_SYNC_CHANNEL_NAME)
+      : null;
+    const emitLocalKdsMessage = (message)=>{
+      if(!localKdsChannel || !message) return;
+      try { localKdsChannel.postMessage({ origin:'pos', ...message }); } catch(_err){}
+    };
+    if(localKdsChannel){
+      localKdsChannel.onmessage = (event)=>{
+        const msg = event?.data;
+        if(!msg || !msg.type || msg.origin === 'pos') return;
+        const meta = msg.meta || {};
+        if(msg.type === 'orders:payload' && msg.payload){
+          handleKdsOrderPayload(msg.payload, meta);
+          return;
+        }
+        if(msg.type === 'job:update' && msg.jobId){
+          handleKdsJobUpdate({ jobId: msg.jobId, payload: msg.payload || {} }, meta);
+        }
+        if(msg.type === 'delivery:update' && msg.orderId){
+          handleKdsDeliveryUpdate({ orderId: msg.orderId, payload: msg.payload || {} }, meta);
+        }
+        if(msg.type === 'handoff:update' && msg.orderId){
+          handleKdsHandoffUpdate({ orderId: msg.orderId, payload: msg.payload || {} }, meta);
+        }
+      };
+    }
+    const kdsSyncHandlers = {
+      onOrders: handleKdsOrderPayload,
+      onJobUpdate: handleKdsJobUpdate,
+      onDeliveryUpdate: handleKdsDeliveryUpdate,
+      onHandoffUpdate: handleKdsHandoffUpdate
+    };
+    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers, channel: BRANCH_CHANNEL, localEmitter: emitLocalKdsMessage });
     if(kdsSync && typeof kdsSync.connect === 'function'){
       kdsSync.connect();
     }
@@ -2574,6 +2925,7 @@
     let menuItems;
     let menuIndex;
     let modifiersCatalog;
+    let kdsConfig;
 
     function deriveMenuStructures(source){
       const dataset = source || {};
@@ -2654,6 +3006,113 @@
       };
     }
 
+    const normalizeJobOrdersSnapshot = (source={})=>({
+      headers: Array.isArray(source.headers) ? source.headers.map(entry=> ({ ...entry })) : [],
+      details: Array.isArray(source.details) ? source.details.map(entry=> ({ ...entry })) : [],
+      modifiers: Array.isArray(source.modifiers) ? source.modifiers.map(entry=> ({ ...entry })) : [],
+      statusHistory: Array.isArray(source.statusHistory) ? source.statusHistory.map(entry=> ({ ...entry })) : [],
+      expoPassTickets: Array.isArray(source.expoPassTickets) ? source.expoPassTickets.map(entry=> ({ ...entry })) : []
+    });
+
+    const mergeDriversLists = (primary=[], secondary=[])=>{
+      const map = new Map();
+      const append = (list)=>{
+        list.forEach(driver=>{
+          if(!driver) return;
+          const id = driver.id != null ? String(driver.id) : null;
+          if(id){
+            map.set(id, { ...driver });
+          } else {
+            map.set(`driver-${map.size + 1}`, { ...driver });
+          }
+        });
+      };
+      append(Array.isArray(primary) ? primary : []);
+      append(Array.isArray(secondary) ? secondary : []);
+      return Array.from(map.values());
+    };
+
+    function deriveKdsStructures(dataset, menuDerived){
+      const data = dataset || {};
+      const kdsSource = ensurePlainObject(data.kds);
+      const derivedMenu = menuDerived || deriveMenuStructures(data);
+      const sections = Array.isArray(derivedMenu.kitchenSections) ? derivedMenu.kitchenSections : [];
+      const stationsRaw = Array.isArray(kdsSource.stations) ? kdsSource.stations : [];
+      const stations = stationsRaw.length
+        ? stationsRaw.map(station=> ({ ...station }))
+        : sections.map((section, idx)=>({
+            id: section.id,
+            code: section.id ? String(section.id).toUpperCase() : `ST-${idx + 1}`,
+            nameAr: section.name?.ar || section.id || `Station ${idx + 1}`,
+            nameEn: section.name?.en || section.id || `Station ${idx + 1}`,
+            stationType: section.id === 'expo' ? 'expo' : 'prep',
+            isExpo: section.id === 'expo',
+            sequence: idx + 1,
+            themeColor: null,
+            autoRouteRules: [],
+            displayConfig: { layout:'grid', columns:2 },
+            createdAt: null,
+            updatedAt: null
+          }));
+      const stationRoutesRaw = Array.isArray(kdsSource.stationCategoryRoutes) ? kdsSource.stationCategoryRoutes : [];
+      const fallbackRoutes = Array.isArray(data.category_sections)
+        ? data.category_sections.map((entry, idx)=>({
+            id: entry.id || `route-${idx + 1}`,
+            categoryId: entry.category_id || entry.categoryId,
+            stationId: entry.section_id || entry.sectionId,
+            priority: entry.priority || 1,
+            isActive: entry.is_active !== false && entry.isActive !== false,
+            createdAt: entry.created_at || entry.createdAt || null,
+            updatedAt: entry.updated_at || entry.updatedAt || null
+          }))
+        : [];
+      const stationCategoryRoutes = (stationRoutesRaw.length ? stationRoutesRaw : fallbackRoutes)
+        .map(route=> ({ ...route }));
+      const drivers = mergeDriversLists(data.drivers, kdsSource.drivers);
+      const metadata = ensurePlainObject(kdsSource.metadata);
+      const sync = ensurePlainObject(kdsSource.sync);
+      const channel = normalizeChannelName(
+        sync.channel || sync.branch_channel || sync.branchChannel || branchChannelSource || BRANCH_CHANNEL,
+        BRANCH_CHANNEL
+      );
+      return {
+        stations,
+        stationCategoryRoutes,
+        jobOrders: normalizeJobOrdersSnapshot(kdsSource.jobOrders),
+        deliveries:{ assignments:{}, settlements:{} },
+        handoff:{},
+        drivers,
+        metadata,
+        sync:{ ...sync, channel },
+        channel
+      };
+    }
+
+    function applyKdsDataset(source, menuDerived){
+      kdsConfig = deriveKdsStructures(source, menuDerived);
+      return kdsConfig;
+    }
+
+    function cloneKdsDerived(){
+      const snapshot = kdsConfig || deriveKdsStructures(MOCK, { kitchenSections, categorySections });
+      return {
+        stations: Array.isArray(snapshot.stations) ? snapshot.stations.map(station=> ({ ...station })) : [],
+        stationCategoryRoutes: Array.isArray(snapshot.stationCategoryRoutes)
+          ? snapshot.stationCategoryRoutes.map(route=> ({ ...route }))
+          : [],
+        jobOrders: normalizeJobOrdersSnapshot(snapshot.jobOrders),
+        deliveries:{
+          assignments:{ ...(snapshot.deliveries?.assignments || {}) },
+          settlements:{ ...(snapshot.deliveries?.settlements || {}) }
+        },
+        handoff:{ ...(snapshot.handoff || {}) },
+        drivers: Array.isArray(snapshot.drivers) ? snapshot.drivers.map(driver=> ({ ...driver })) : [],
+        metadata:{ ...(snapshot.metadata || {}) },
+        sync:{ ...(snapshot.sync || {}), channel: snapshot.channel || BRANCH_CHANNEL },
+        channel: snapshot.channel || BRANCH_CHANNEL
+      };
+    }
+
     function applyMenuDataset(source){
       const derived = deriveMenuStructures(source);
       kitchenSections = derived.kitchenSections;
@@ -2672,11 +3131,13 @@
         categories: cloneDeep(categories),
         menuItems: cloneDeep(menuItems),
         modifiersCatalog: cloneDeep(modifiersCatalog),
-        paymentMethods: clonePaymentMethods(PAYMENT_METHODS)
+        paymentMethods: clonePaymentMethods(PAYMENT_METHODS),
+        kds: cloneKdsDerived()
       };
     }
 
-    applyMenuDataset(MOCK);
+    const initialMenuDerived = applyMenuDataset(MOCK);
+    applyKdsDataset(MOCK, initialMenuDerived);
 
     let pendingRemoteResult = null;
     const assignRemoteData = (currentData, derivedSnapshot, remoteSnapshot)=>{
@@ -2696,6 +3157,31 @@
         activeMethod,
         split: Array.isArray(paymentsState.split) ? paymentsState.split.map(entry=> ({ ...entry })) : []
       };
+      const currentKds = currentData?.kds || {};
+      const derivedKds = derivedSnapshot.kds || cloneKdsDerived();
+      const nextKds = {
+        ...currentKds,
+        stations: Array.isArray(derivedKds.stations) ? derivedKds.stations.map(station=> ({ ...station })) : [],
+        stationCategoryRoutes: Array.isArray(derivedKds.stationCategoryRoutes)
+          ? derivedKds.stationCategoryRoutes.map(route=> ({ ...route }))
+          : [],
+        drivers: Array.isArray(derivedKds.drivers) ? derivedKds.drivers.map(driver=> ({ ...driver })) : [],
+        metadata:{ ...(derivedKds.metadata || {}) },
+        sync:{ ...(derivedKds.sync || {}) },
+        channel: derivedKds.channel || currentKds.channel || BRANCH_CHANNEL
+      };
+      if(!currentKds.jobOrders){
+        nextKds.jobOrders = normalizeJobOrdersSnapshot(derivedKds.jobOrders);
+      }
+      if(!currentKds.deliveries){
+        nextKds.deliveries = {
+          assignments:{ ...(derivedKds.deliveries?.assignments || {}) },
+          settlements:{ ...(derivedKds.deliveries?.settlements || {}) }
+        };
+      }
+      if(!currentKds.handoff){
+        nextKds.handoff = { ...(derivedKds.handoff || {}) };
+      }
       return {
         ...(currentData || {}),
         remotes:{
@@ -2710,7 +3196,8 @@
           items: derivedSnapshot.menuItems
         },
         modifiers: derivedSnapshot.modifiersCatalog,
-        payments: nextPayments
+        payments: nextPayments,
+        kds: nextKds
       };
     };
 
@@ -2718,7 +3205,8 @@
       if(result && result.data){
         MOCK = mergePreferRemote(MOCK_BASE, result.data);
         PAYMENT_METHODS = derivePaymentMethods(MOCK);
-        applyMenuDataset(MOCK);
+        const menuDerived = applyMenuDataset(MOCK);
+        applyKdsDataset(MOCK, menuDerived);
       }
       if(result && result.error){
         console.warn('[Mishkah][POS] remote catalog hydration error', result.error);
@@ -3204,6 +3692,7 @@
       }
     }
 
+    const initialKdsSnapshot = cloneKdsDerived();
     const initialTheme = 'dark';
 
     const posState = {
@@ -3283,6 +3772,22 @@
         tables,
         tableLocks,
         reservations,
+        kds:{
+          channel: initialKdsSnapshot.channel || BRANCH_CHANNEL,
+          stations: Array.isArray(initialKdsSnapshot.stations) ? initialKdsSnapshot.stations : [],
+          stationCategoryRoutes: Array.isArray(initialKdsSnapshot.stationCategoryRoutes)
+            ? initialKdsSnapshot.stationCategoryRoutes
+            : [],
+          jobOrders: normalizeJobOrdersSnapshot(initialKdsSnapshot.jobOrders),
+          deliveries:{
+            assignments:{ ...(initialKdsSnapshot.deliveries?.assignments || {}) },
+            settlements:{ ...(initialKdsSnapshot.deliveries?.settlements || {}) }
+          },
+          handoff:{ ...(initialKdsSnapshot.handoff || {}) },
+          drivers: Array.isArray(initialKdsSnapshot.drivers) ? initialKdsSnapshot.drivers : [],
+          metadata:{ ...(initialKdsSnapshot.metadata || {}) },
+          sync:{ ...(initialKdsSnapshot.sync || {}), channel: initialKdsSnapshot.channel || BRANCH_CHANNEL }
+        },
         ordersQueue,
         auditTrail,
         payments:{
@@ -3337,7 +3842,7 @@
         }
       },
       ui:{
-        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false, modifiers:false },
+        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false, modifiers:false, jobStatus:false },
         modalSizes: savedModalSizes,
         drawers:{},
         settings:{ open:false, activeTheme: initialTheme },
@@ -3350,7 +3855,8 @@
         customer:{ open:false, mode:'search', search:'', keypad:'', selectedCustomerId:null, selectedAddressId:null, form:createEmptyCustomerForm() },
         orderNav:{ showPad:false, value:'' },
         lineModifiers:{ lineId:null, addOns:[], removals:[] },
-        pendingAction:null
+        pendingAction:null,
+        jobStatus:null
       }
     };
 
@@ -3619,7 +4125,10 @@
           }
         }
         if(kdsSync && typeof kdsSync.publishOrder === 'function'){
-          kdsSync.publishOrder(orderPayload, state);
+          const publishedPayload = kdsSync.publishOrder(orderPayload, state);
+          if(publishedPayload){
+            applyKdsOrderSnapshotNow(publishedPayload, { source:'pos', local:true });
+          }
         }
         await posDB.markSync();
         const latestOrders = await posDB.listOrders({ onlyActive:true });
@@ -5174,7 +5683,12 @@
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: paidAmount, currency:getCurrency(db), locale:getLocale(db) })]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-sm` }}, [UI.PriceText({ amount: remainingAmount, currency:getCurrency(db), locale:getLocale(db) })]),
           D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-xs ${token('muted')}` }}, [formatDateTime(updatedStamp, db.env.lang, { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) || '—']),
-          D.Tables.Td({ attrs:{ class: tw`px-3 py-2 text-right` }}, [UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])])
+          D.Tables.Td({ attrs:{ class: tw`px-3 py-2` }}, [
+            D.Containers.Div({ attrs:{ class: tw`flex items-center justify-end gap-2` }}, [
+              UI.Button({ attrs:{ gkey:'pos:orders:view-jobs', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_view_jobs]),
+              UI.Button({ attrs:{ gkey:'pos:orders:open-order', 'data-order-id':order.id }, variant:'ghost', size:'sm' }, [t.ui.orders_queue_open])
+            ])
+          ])
         ]);
       });
 
@@ -5209,6 +5723,91 @@
         actions:[
           UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close])
         ]
+      });
+    }
+
+    function OrdersJobStatusModal(db){
+      const t = getTexts(db);
+      if(!db.ui.modals.jobStatus) return null;
+      const jobState = db.ui.jobStatus || {};
+      const orderId = jobState.orderId;
+      if(!orderId) return null;
+      const lang = db.env.lang || 'ar';
+      const kdsData = db.data.kds || {};
+      const jobOrders = kdsData.jobOrders || {};
+      const headers = Array.isArray(jobOrders.headers) ? jobOrders.headers.filter(header=> String(header.orderId) === String(orderId)) : [];
+      const details = Array.isArray(jobOrders.details) ? jobOrders.details : [];
+      const detailMap = new Map();
+      details.forEach(detail=>{
+        if(!detail || !detail.jobOrderId) return;
+        const list = detailMap.get(detail.jobOrderId) || [];
+        list.push(detail);
+        detailMap.set(detail.jobOrderId, list);
+      });
+      const stationsIndex = new Map((Array.isArray(kdsData.stations) ? kdsData.stations : []).map(station=> [station.id, station]));
+      const sectionIndex = new Map((Array.isArray(db.data.kitchenSections) ? db.data.kitchenSections : []).map(section=> [section.id, section]));
+      const findOrder = ()=>{
+        const candidates = [db.data.order, ...(db.data.ordersQueue || []), ...(db.data.ordersHistory || [])];
+        return candidates.find(entry=> entry && String(entry.id) === String(orderId)) || null;
+      };
+      const orderRecord = findOrder();
+      const summaryRows = [
+        { label: t.ui.order_id, value: orderId },
+        orderRecord && orderRecord.type ? { label: t.ui.service_type, value: localize(getOrderTypeConfig(orderRecord.type).label, lang) } : null,
+        orderRecord && orderRecord.customerName ? { label: t.ui.customer, value: orderRecord.customerName } : null,
+        orderRecord && Array.isArray(orderRecord.tableIds) && orderRecord.tableIds.length
+          ? { label: t.ui.tables, value: orderRecord.tableIds.join(', ') }
+          : null
+      ].filter(Boolean);
+      const summaryContent = summaryRows.length
+        ? D.Containers.Div({ attrs:{ class: tw`grid gap-2 sm:grid-cols-2` }}, summaryRows.map(row=>
+            D.Containers.Div({ attrs:{ class: tw`flex flex-col rounded border border-[var(--muted)] bg-[var(--surface-2)] px-3 py-2` }}, [
+              D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [row.label]),
+              D.Text.Strong({ attrs:{ class: tw`text-sm` }}, [row.value])
+            ])
+          ))
+        : null;
+      const cards = headers.map(header=>{
+        const station = stationsIndex.get(header.stationId) || sectionIndex.get(header.stationId) || {};
+        const stationLabel = lang === 'ar'
+          ? (station.nameAr || station.section_name?.ar || station.name || header.stationId || '—')
+          : (station.nameEn || station.section_name?.en || station.name || header.stationId || '—');
+        const statusLabel = header.status || header.progressState || 'queued';
+        const progress = `${Number(header.completedItems || 0)} / ${Number(header.totalItems || header.jobs?.length || 0)}`;
+        const itemRows = (detailMap.get(header.id) || []).map(detail=>{
+          const itemLabel = lang === 'ar'
+            ? (detail.itemNameAr || detail.itemNameEn || detail.itemCode || detail.id)
+            : (detail.itemNameEn || detail.itemNameAr || detail.itemCode || detail.id);
+          const detailStatus = detail.status || 'queued';
+          return D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between rounded bg-[var(--surface-2)] px-3 py-2 text-sm` }}, [
+            D.Text.Span({}, [`${itemLabel} × ${Number(detail.quantity || 1)}`]),
+            UI.Badge({ text: detailStatus, variant:'badge/ghost' })
+          ]);
+        });
+        return D.Containers.Div({ attrs:{ class: tw`space-y-3 rounded-lg border border-[var(--muted)] bg-[var(--surface-1)] p-4` }}, [
+          D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+            D.Text.Strong({}, [stationLabel || header.stationId || '—']),
+            UI.Badge({ text: statusLabel, variant:'badge/outline' })
+          ]),
+          D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between text-xs ${token('muted')}` }}, [
+            D.Text.Span({}, [`${t.ui.orders_jobs_items}: ${progress}`]),
+            header.updatedAt ? D.Text.Span({}, [`${t.ui.orders_jobs_updated}: ${formatDateTime(new Date(header.updatedAt).getTime(), lang, { hour:'2-digit', minute:'2-digit' })}`]) : null
+          ].filter(Boolean)),
+          itemRows.length ? D.Containers.Div({ attrs:{ class: tw`space-y-2` }}, itemRows) : UI.EmptyState({ icon:'🥘', title:t.ui.orders_jobs_empty })
+        ]);
+      });
+      const content = D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, [
+        summaryContent,
+        cards.length ? D.Containers.Div({ attrs:{ class: tw`space-y-4` }}, cards) : UI.EmptyState({ icon:'🥘', title:t.ui.orders_jobs_empty })
+      ].filter(Boolean));
+      return UI.Modal({
+        open:true,
+        size: db.ui?.modalSizes?.['orders-jobs'] || 'lg',
+        sizeKey:'orders-jobs',
+        title:`${t.ui.orders_jobs_title} — ${orderId}`,
+        description:t.ui.orders_jobs_description,
+        content,
+        actions:[ UI.Button({ attrs:{ gkey:'ui:modal:close', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.close]) ]
       });
     }
 
@@ -5956,6 +6555,7 @@
           PaymentsSheet(db),
           ReportsDrawer(db),
           OrdersQueueModal(db),
+          OrdersJobStatusModal(db),
           db.ui?.toasts ? UI.ToastHost({ toasts: db.ui.toasts }) : null
         ].filter(Boolean)
       });
@@ -6009,7 +6609,7 @@
         });
         return {
           ...s,
-          ui:{ ...(s.ui || {}), modalOpen:false, modals: current }
+          ui:{ ...(s.ui || {}), modalOpen:false, modals: current, jobStatus:null }
         };
       });
       return true;
@@ -8521,6 +9121,24 @@
           } catch(error){
             UI.pushToast(ctx, { title:t.toast.orders_failed, message:String(error), icon:'🛑' });
           }
+        }
+      },
+      'pos.orders.viewJobs':{
+        on:['click'],
+        gkeys:['pos:orders:view-jobs'],
+        handler:(e,ctx)=>{
+          const btn = e.target.closest('[data-order-id]');
+          if(!btn) return;
+          const orderId = btn.getAttribute('data-order-id');
+          if(!orderId) return;
+          ctx.setState(s=>({
+            ...s,
+            ui:{
+              ...(s.ui || {}),
+              modals:{ ...(s.ui?.modals || {}), jobStatus:true },
+              jobStatus:{ orderId }
+            }
+          }));
         }
       },
       'pos.orders.open-order':{
