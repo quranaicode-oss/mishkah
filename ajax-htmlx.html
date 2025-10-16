@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة — تغذية Ajax مصغرة</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page-bg: linear-gradient(160deg, #f6f8ff 0%, #eef2ff 100%);
+        --card-bg: rgba(255, 255, 255, 0.9);
+        --card-border: rgba(99, 102, 241, 0.22);
+        --accent: #6366f1;
+        --muted: rgba(30, 41, 59, 0.7);
+        --radius: 1.4rem;
+        --shadow: 0 28px 54px -40px rgba(79, 70, 229, 0.5);
+        font-family: 'Cairo', 'Tajawal', system-ui;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--page-bg);
+        color: #0f172a;
+      }
+
+      #app {
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="ajax-minimal">
+      <section data-m-scope="posts-board" class="canvas">
+        <style data-m-scope>
+          .canvas {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 3rem 1.5rem;
+          }
+
+          .card {
+            width: min(720px, 100%);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2.25rem;
+            display: grid;
+            gap: 1.5rem;
+          }
+
+          .card header {
+            display: grid;
+            gap: 0.45rem;
+          }
+
+          .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            background: color-mix(in oklab, var(--accent) 16%, white);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.85rem;
+          }
+
+          .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+          }
+
+          .actions button {
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.4rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(99, 102, 241, 1));
+            color: white;
+            box-shadow: 0 16px 32px -24px rgba(79, 70, 229, 0.6);
+          }
+
+          .actions select {
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 0.45rem 1rem;
+            font-weight: 600;
+            background: white;
+            color: #0f172a;
+          }
+
+          .status {
+            margin-inline-start: auto;
+            color: var(--muted);
+            font-weight: 600;
+          }
+
+          ul.posts {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 1rem;
+          }
+
+          ul.posts li {
+            border-radius: calc(var(--radius) - 0.4rem);
+            border: 1px solid var(--card-border);
+            background: rgba(248, 250, 255, 0.9);
+            padding: 1.1rem 1.3rem;
+            display: grid;
+            gap: 0.5rem;
+          }
+
+          ul.posts h3 {
+            margin: 0;
+            font-size: 1.05rem;
+          }
+
+          ul.posts p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.7;
+          }
+
+          .empty,
+          .error {
+            margin: 0;
+            padding: 1.1rem 1.3rem;
+            border-radius: calc(var(--radius) - 0.4rem);
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px dashed var(--card-border);
+            color: var(--muted);
+            text-align: center;
+          }
+
+          .error {
+            border-style: solid;
+            border-color: rgba(239, 68, 68, 0.35);
+            background: rgba(254, 226, 226, 0.7);
+            color: #b91c1c;
+          }
+        </style>
+
+        <script type="application/json" data-m-env>
+          {
+            "theme": "light",
+            "lang": "ar",
+            "dir": "rtl"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="head">
+          {
+            "title": "مشكاة — تغذية Ajax مصغرة"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="i18n.strings">
+          {
+            "app.badge": { "ar": "Mishkah HTMLx", "en": "Mishkah HTMLx" },
+            "app.title": { "ar": "ملخص مشاركات JSON", "en": "JSON posts digest" },
+            "app.subtitle": { "ar": "جلب مباشر من JSONPlaceholder مع تحكم بالحجم.", "en": "Live pull from JSONPlaceholder with adjustable size." },
+            "controls.limit": { "ar": "عدد العناصر", "en": "Items" },
+            "controls.refresh": { "ar": "تحديث", "en": "Refresh" },
+            "status.loading": { "ar": "جار التحميل", "en": "Loading" },
+            "status.ready": { "ar": "جاهز", "en": "Ready" },
+            "status.error": { "ar": "خطأ في الجلب", "en": "Failed" },
+            "empty.list": { "ar": "لم تصل بيانات بعد.", "en": "No data yet." },
+            "error.retry": { "ar": "أعد المحاولة", "en": "Try again" },
+            "posts.user": { "ar": "المستخدم", "en": "User" }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data">
+          {
+            "controls": {
+              "limit": 5,
+              "options": [3, 5, 7, 10]
+            },
+            "posts": {
+              "status": "idle",
+              "items": [],
+              "error": null,
+              "updatedAt": null
+            }
+          }
+        </script>
+
+        <div class="card">
+          <header>
+            <span class="badge">{trans('app.badge')}</span>
+            <h1>{trans('app.title')}</h1>
+            <p>{trans('app.subtitle')}</p>
+          </header>
+
+          <div class="actions">
+            <label>
+              {trans('controls.limit')}
+              <select onchange="changeLimit(event, ctx)">
+                <option x-for="option in state.data.controls.options" key="option" value="{option}" selected="{option === state.data.controls.limit ? 'selected' : null}">{option}</option>
+              </select>
+            </label>
+            <button onclick="reloadPosts(ctx)" data-disabled="{state.data.posts.status === 'loading' ? 'on' : null}">
+              🔄 {trans('controls.refresh')}
+            </button>
+            <span class="status">
+              {state.data.posts.status === 'error' ? trans('status.error') : (state.data.posts.status === 'ready' ? trans('status.ready') : trans('status.loading'))}
+            </span>
+          </div>
+
+          <ul class="posts" x-if="state.data.posts.items.length">
+            <li x-for="post in state.data.posts.items" key="post.id">
+              <h3>{post.title}</h3>
+              <p>{post.body}</p>
+              <small>{trans('posts.user')} ‎#{post.userId}</small>
+            </li>
+          </ul>
+
+          <p class="empty" x-if="state.data.posts.items.length === 0 && state.data.posts.status === 'ready'">
+            {trans('empty.list')}
+          </p>
+
+          <div class="error" x-if="state.data.posts.status === 'error'">
+            <strong>{state.data.posts.error || trans('status.error')}</strong>
+            <button onclick="reloadPosts(ctx)">{trans('error.retry')}</button>
+          </div>
+        </div>
+
+        <script>
+          function useRuntime() {
+            var host = typeof window !== 'undefined' ? window : globalThis;
+            var key = '__MISHKAH_AJAX_MINIMAL__';
+            var bucket = host[key];
+            if (!bucket || typeof bucket !== 'object') {
+              bucket = { requestSeed: 0 };
+              host[key] = bucket;
+            }
+            if (typeof bucket.requestSeed !== 'number' || !Number.isFinite(bucket.requestSeed)) {
+              bucket.requestSeed = 0;
+            }
+            return bucket;
+          }
+
+          function cloneState(prev) {
+            try {
+              return JSON.parse(JSON.stringify(prev || {}));
+            } catch (_err) {
+              return prev ? Object.assign({}, prev) : {};
+            }
+          }
+
+          function safeLimit(raw) {
+            var value = Number(raw);
+            if (!Number.isFinite(value)) return 5;
+            if (value < 1) return 1;
+            if (value > 20) return 20;
+            return value;
+          }
+
+          function commit(ctx, mutate, after) {
+            if (ctx == null || typeof ctx.setState !== 'function') return;
+            ctx.setState(function (prev) {
+              var draft = cloneState(prev);
+              if (typeof mutate === 'function') {
+                mutate(draft, prev || {});
+              }
+              return draft;
+            });
+            if (typeof after === 'function') {
+              window.setTimeout(function () {
+                try {
+                  after(ctx.getState(), ctx);
+                } catch (_err) {}
+              }, 0);
+            }
+          }
+
+          function fetchPosts(limit) {
+            var query = new URLSearchParams();
+            query.set('_limit', limit);
+            var base = 'https://jsonplaceholder.typicode.com/posts';
+            return fetch(base + '?' + query.toString(), { method: 'GET' }).then(function (response) {
+              if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+              }
+              return response.json();
+            });
+          }
+
+          function reloadPosts(ctx) {
+            if (ctx == null || typeof ctx.getState !== 'function') return;
+            var state = ctx.getState() || {};
+            var controls = (state.data && state.data.controls) || {};
+            var limit = safeLimit(controls.limit);
+            var runtime = useRuntime();
+            runtime.requestSeed += 1;
+            var token = runtime.requestSeed;
+            commit(ctx, function (draft) {
+              draft.data = draft.data || {};
+              draft.data.posts = draft.data.posts || {};
+              draft.data.posts.status = 'loading';
+              draft.data.posts.error = null;
+            });
+            fetchPosts(limit)
+              .then(function (items) {
+                var runtime = useRuntime();
+                if (token !== runtime.requestSeed) return;
+                commit(ctx, function (draft) {
+                  draft.data = draft.data || {};
+                  draft.data.posts = draft.data.posts || {};
+                  draft.data.posts.items = Array.isArray(items) ? items.slice(0, limit) : [];
+                  draft.data.posts.status = 'ready';
+                  draft.data.posts.updatedAt = new Date().toISOString();
+                });
+              })
+              .catch(function (error) {
+                var runtime = useRuntime();
+                if (token !== runtime.requestSeed) return;
+                commit(ctx, function (draft) {
+                  draft.data = draft.data || {};
+                  draft.data.posts = draft.data.posts || {};
+                  draft.data.posts.status = 'error';
+                  draft.data.posts.error = error && error.message ? error.message : 'Request failed';
+                });
+              });
+          }
+
+          function changeLimit(event, ctx) {
+            var nextLimit = event && event.target ? safeLimit(event.target.value) : null;
+            if (nextLimit == null) return;
+            commit(ctx, function (draft) {
+              draft.data = draft.data || {};
+              draft.data.controls = draft.data.controls || {};
+              draft.data.controls.limit = nextLimit;
+            }, function () {
+              reloadPosts(ctx);
+            });
+          }
+
+          function __init__(ctx) {
+            reloadPosts(ctx);
+          }
+        </script>
+      </section>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
+    <script>
+      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
+    </script>
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-htmlx.js"></script>
+    <script>
+      (function (window) {
+        'use strict';
+        var M = window.Mishkah;
+        if (!M || !M.HTMLxAgent) {
+          console.error('Mishkah HTMLx agent is required.');
+          return;
+        }
+        var start = M.HTMLxAgent.make();
+        Promise.resolve(start).catch(function (error) {
+          console.error('Failed to start Mishkah HTMLx demo:', error);
+        });
+      })(window);
+    </script>
+  </body>
+</html>

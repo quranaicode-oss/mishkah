@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة — مثال DSL مع Ajax</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page-bg: linear-gradient(160deg, #f0f4ff 0%, #e8ecff 100%);
+        --card-bg: rgba(255, 255, 255, 0.92);
+        --card-border: rgba(99, 102, 241, 0.18);
+        --accent: #6366f1;
+        --muted: rgba(30, 41, 59, 0.68);
+        --radius: 1.6rem;
+        --shadow: 0 26px 64px -42px rgba(79, 70, 229, 0.55);
+        font-family: 'Cairo', 'Tajawal', system-ui;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--page-bg);
+        color: #0f172a;
+      }
+
+      #app {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 3rem 1.5rem;
+      }
+
+      .dsl-card {
+        width: min(760px, 100%);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 2.5rem;
+        display: grid;
+        gap: 1.6rem;
+      }
+
+      .dsl-header {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .dsl-subtitle {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .dsl-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.85rem;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--accent) 18%, white);
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+
+      .dsl-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        align-items: center;
+      }
+
+      .dsl-actions button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.55rem 1.4rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(99, 102, 241, 1));
+        color: white;
+        box-shadow: 0 16px 32px -24px rgba(79, 70, 229, 0.6);
+      }
+
+      .dsl-actions select {
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 0.45rem 1rem;
+        font-weight: 600;
+        background: white;
+        color: #0f172a;
+      }
+
+      .dsl-status {
+        margin-inline-start: auto;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      ul.dsl-posts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 1rem;
+      }
+
+      ul.dsl-posts li {
+        border-radius: calc(var(--radius) - 0.45rem);
+        border: 1px solid var(--card-border);
+        background: rgba(248, 250, 255, 0.9);
+        padding: 1.15rem 1.35rem;
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      ul.dsl-posts h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      ul.dsl-posts p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .dsl-empty,
+      .dsl-error {
+        margin: 0;
+        padding: 1.15rem 1.35rem;
+        border-radius: calc(var(--radius) - 0.45rem);
+        border: 1px dashed var(--card-border);
+        background: rgba(255, 255, 255, 0.75);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .dsl-error {
+        border-style: solid;
+        border-color: rgba(239, 68, 68, 0.32);
+        background: rgba(254, 226, 226, 0.7);
+        color: #b91c1c;
+      }
+
+      .dsl-error .dsl-retry {
+        margin-top: 0.75rem;
+        border: none;
+        border-radius: 999px;
+        padding: 0.45rem 1.3rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.85), rgba(248, 113, 113, 0.95));
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script src="./mishkah-utils.js"></script>
+    <script src="./mishkah.core.js"></script>
+    <script src="./mishkah-ui.js"></script>
+    <script>
+      (function (window) {
+        'use strict';
+        var M = window.Mishkah;
+        if (!M || !M.DSL || !M.app) {
+          console.error('Mishkah core is required.');
+          return;
+        }
+        var h = M.DSL;
+
+        var database = {
+          env: { theme: 'light', lang: 'ar', dir: 'rtl' },
+          head: { title: 'مشكاة — مثال DSL مع Ajax' },
+          i18n: {
+            lang: 'ar',
+            strings: {
+              'app.badge': { ar: 'Mishkah DSL', en: 'Mishkah DSL' },
+              'app.title': { ar: 'قائمة مشاركات ديناميكية', en: 'Dynamic posts feed' },
+              'app.subtitle': { ar: 'استخدام DSL مع جلب خارجي من JSONPlaceholder.', en: 'Using the DSL with external JSONPlaceholder data.' },
+              'controls.limit': { ar: 'عدد العناصر', en: 'Items' },
+              'controls.refresh': { ar: 'تحديث', en: 'Refresh' },
+              'status.loading': { ar: 'جار التحميل', en: 'Loading' },
+              'status.ready': { ar: 'جاهز', en: 'Ready' },
+              'status.error': { ar: 'حدث خطأ', en: 'Failed' },
+              'empty.state': { ar: 'لم تصل بيانات بعد.', en: 'No data yet.' },
+              'posts.user': { ar: 'المستخدم', en: 'User' },
+              'error.retry': { ar: 'أعد المحاولة', en: 'Try again' }
+            }
+          },
+          data: {
+            controls: {
+              limit: 5,
+              options: [3, 5, 7, 10]
+            },
+            posts: {
+              status: 'idle',
+              items: [],
+              error: null,
+              updatedAt: null
+            }
+          }
+        };
+
+        function translate(db, key) {
+          var lang = (db.i18n && db.i18n.lang) || 'ar';
+          var dict = db.i18n && db.i18n.strings;
+          if (!dict || !dict[key]) return key;
+          return dict[key][lang] || dict[key].ar || key;
+        }
+
+        function AppView(db, h) {
+          var t = function (key) { return translate(db, key); };
+          var posts = (db.data && db.data.posts && db.data.posts.items) || [];
+          var status = (db.data && db.data.posts && db.data.posts.status) || 'idle';
+          var error = db.data && db.data.posts && db.data.posts.error;
+          var limit = db.data && db.data.controls && db.data.controls.limit;
+          var options = (db.data && db.data.controls && db.data.controls.options) || [];
+
+          var statusLabel = status === 'error' ? t('status.error') : (status === 'ready' ? t('status.ready') : t('status.loading'));
+
+          return h.Containers.Div({ attrs: { class: 'dsl-card', dir: db.env && db.env.dir } }, [
+            h.Containers.Div({ attrs: { class: 'dsl-header' } }, [
+              h.Text.Span({ attrs: { class: 'dsl-badge' } }, [t('app.badge')]),
+              h.Text.H1({}, [t('app.title')]),
+              h.Text.P({ attrs: { class: 'dsl-subtitle' } }, [t('app.subtitle')])
+            ]),
+            h.Containers.Div({ attrs: { class: 'dsl-actions' } }, [
+              h.Forms.Label({}, [
+                t('controls.limit'),
+                h.Inputs.Select({
+                  attrs: {
+                    value: String(limit || ''),
+                    onchange: function (event) { changeLimit(event, app); }
+                  }
+                }, options.map(function (option) {
+                  return h.Inputs.Option({ attrs: { value: String(option), selected: option === limit ? 'selected' : null } }, [String(option)]);
+                }))
+              ]),
+              h.Forms.Button({
+                attrs: {
+                  class: 'dsl-refresh',
+                  onclick: function () { reloadPosts(app); }
+                }
+              }, ['🔄 ', t('controls.refresh')]),
+              h.Text.Span({ attrs: { class: 'dsl-status' } }, [statusLabel])
+            ]),
+            posts.length
+              ? h.Lists.Ul({ attrs: { class: 'dsl-posts' } }, posts.map(function (post) {
+                  return h.Lists.Li({ attrs: { key: post.id } }, [
+                    h.Text.H3({}, [post.title]),
+                    h.Text.P({}, [post.body]),
+                    h.Text.Small({}, [t('posts.user') + ' ‎#' + post.userId])
+                  ]);
+                }))
+              : null,
+            posts.length === 0 && status === 'ready'
+              ? h.Text.P({ attrs: { class: 'dsl-empty' } }, [t('empty.state')])
+              : null,
+            status === 'error'
+              ? h.Containers.Div({ attrs: { class: 'dsl-error' } }, [
+                  h.Text.Strong({}, [error || t('status.error')]),
+                  h.Forms.Button({
+                    attrs: {
+                      class: 'dsl-retry',
+                      onclick: function () { reloadPosts(app); }
+                    }
+                  }, [t('error.retry')])
+                ])
+              : null
+          ]);
+        }
+
+        M.app.setBody(AppView);
+        var app = M.app.createApp(database, {});
+        app.mount('#app');
+
+        function cloneState(value) {
+          try {
+            return JSON.parse(JSON.stringify(value || {}));
+          } catch (_err) {
+            return value ? Object.assign({}, value) : {};
+          }
+        }
+
+        function commitApp(mutate, after) {
+          if (!app || typeof app.setState !== 'function') return;
+          app.setState(function (prev) {
+            var next = cloneState(prev);
+            if (typeof mutate === 'function') {
+              mutate(next, prev || {});
+            }
+            return next;
+          });
+          if (typeof after === 'function') {
+            window.setTimeout(function () {
+              try {
+                after(app.getState(), app);
+              } catch (_err) {}
+            }, 0);
+          }
+        }
+
+        function safeLimit(raw) {
+          var value = Number(raw);
+          if (!Number.isFinite(value)) return 5;
+          if (value < 1) return 1;
+          if (value > 20) return 20;
+          return value;
+        }
+
+        function fetchPosts(limit) {
+          var query = new URLSearchParams();
+          query.set('_limit', limit);
+          var url = 'https://jsonplaceholder.typicode.com/posts?' + query.toString();
+          return fetch(url).then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          });
+        }
+
+        var requestSeed = 0;
+
+        function reloadPosts(appInstance) {
+          var state = appInstance.getState();
+          var controls = (state.data && state.data.controls) || {};
+          var limit = safeLimit(controls.limit);
+          var token = ++requestSeed;
+          commitApp(function (draft) {
+            draft.data = draft.data || {};
+            draft.data.posts = draft.data.posts || {};
+            draft.data.posts.status = 'loading';
+            draft.data.posts.error = null;
+          });
+          fetchPosts(limit)
+            .then(function (items) {
+              if (token !== requestSeed) return;
+              commitApp(function (draft) {
+                draft.data = draft.data || {};
+                draft.data.posts = draft.data.posts || {};
+                draft.data.posts.items = Array.isArray(items) ? items.slice(0, limit) : [];
+                draft.data.posts.status = 'ready';
+                draft.data.posts.updatedAt = new Date().toISOString();
+              });
+            })
+            .catch(function (error) {
+              if (token !== requestSeed) return;
+              commitApp(function (draft) {
+                draft.data = draft.data || {};
+                draft.data.posts = draft.data.posts || {};
+                draft.data.posts.status = 'error';
+                draft.data.posts.error = error && error.message ? error.message : 'Request failed';
+              });
+            });
+        }
+
+        function changeLimit(event, appInstance) {
+          var value = event && event.target ? safeLimit(event.target.value) : null;
+          if (value == null) return;
+          commitApp(function (draft) {
+            draft.data = draft.data || {};
+            draft.data.controls = draft.data.controls || {};
+            draft.data.controls.limit = value;
+          }, function () {
+            reloadPosts(appInstance);
+          });
+        }
+
+        window.addEventListener('load', function () {
+          reloadPosts(app);
+        });
+      })(window);
+    </script>
+  </body>
+</html>
