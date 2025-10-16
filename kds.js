@@ -605,6 +605,21 @@
     return { list, byStation, byService, orders, stats };
   };
 
+  const computeStatsForJobs = (jobs)=>{
+    const stats = { total:0, expedite:0, alerts:0, ready:0, pending:0 };
+    const source = Array.isArray(jobs) ? jobs : [];
+    source.forEach(job=>{
+      if(!job) return;
+      stats.total += 1;
+      if(job.isExpedite) stats.expedite += 1;
+      if(job.hasAlerts) stats.alerts += 1;
+      if(job.status === 'ready' || job.status === 'completed') stats.ready += 1;
+      else stats.pending += 1;
+    });
+    stats.pending = Math.max(0, stats.pending);
+    return stats;
+  };
+
   const buildExpoTickets = (expoSource, jobsIndex)=>{
     const source = Array.isArray(expoSource) ? expoSource : [];
     const jobMap = new Map((jobsIndex.list || []).map(job=> [job.id, job]));
@@ -659,6 +674,17 @@
         return acc;
       }, {})
     : {});
+
+  const resolveStationId = (stations, stationMap, value)=>{
+    if(value == null) return null;
+    const raw = String(value).trim();
+    if(!raw) return null;
+    if(stationMap && stationMap[raw]) return raw;
+    const list = Array.isArray(stations) ? stations : [];
+    const lower = raw.toLowerCase();
+    const match = list.find(entry=> String(entry?.id ?? '').toLowerCase() === lower);
+    return match ? match.id : null;
+  };
 
   const buildTabs = (db, t)=>{
     const tabs = [];
@@ -724,10 +750,25 @@
   ]);
 
   const renderHeader = (db, t)=>{
-    const stats = db.data.jobs.stats || { total:0, expedite:0, alerts:0, ready:0, pending:0 };
+    const rawStats = db.data.jobs.stats || { total:0, expedite:0, alerts:0, ready:0, pending:0 };
+    const filters = db.data.filters || {};
+    const locked = !!filters.lockedSection;
     const lang = db.env.lang || 'ar';
     const theme = db.env.theme || 'dark';
     const now = db.data.now || Date.now();
+    const activeTab = filters.activeTab;
+    const stationJobs = locked ? (db.data.jobs?.byStation?.[activeTab] || []) : null;
+    const stats = locked ? computeStatsForJobs(stationJobs) : rawStats;
+    const stationMap = db.data.stationMap || {};
+    const activeStation = locked ? stationMap[activeTab] : null;
+    const stationName = locked
+      ? (activeStation
+        ? (lang === 'ar'
+          ? (activeStation.nameAr || activeStation.nameEn || activeTab)
+          : (activeStation.nameEn || activeStation.nameAr || activeTab))
+        : (activeTab || null))
+      : null;
+    const stationLabelText = locked ? (lang === 'ar' ? t.labels.station.ar : t.labels.station.en) : null;
     const statusState = db.data.sync?.state || 'online';
     const statusLabel = t.status[statusState] || t.status.online;
     const themeButtonClass = (mode)=> cx(
@@ -753,6 +794,7 @@
             createBadge(statusLabel, tw`border-sky-400/40 bg-sky-500/10 text-sky-100`),
             createBadge(formatClock(now, lang), tw`border-slate-500/40 bg-slate-800/60 text-slate-100`),
             createBadge(`${t.stats.total}: ${stats.total}`, tw`border-slate-600/40 bg-slate-800/70 text-slate-100`),
+            locked && stationName ? createBadge(`${stationLabelText}: ${stationName}`, tw`border-emerald-400/50 bg-emerald-500/15 text-emerald-50`) : null,
             D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/60 px-3 py-1` }}, [
               D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [t.controls.theme]),
               D.Forms.Button({ attrs:{ type:'button', gkey:'kds:theme:set', 'data-theme':'light', class: themeButtonClass('light') }}, [t.controls.light]),
@@ -763,7 +805,7 @@
               D.Forms.Button({ attrs:{ type:'button', gkey:'kds:lang:set', 'data-lang':'ar', class: langButtonClass('ar') }}, [t.controls.arabic]),
               D.Forms.Button({ attrs:{ type:'button', gkey:'kds:lang:set', 'data-lang':'en', class: langButtonClass('en') }}, [t.controls.english])
             ])
-          ])
+          ].filter(Boolean))
         ]),
         D.Containers.Div({ attrs:{ class: tw`grid gap-3 sm:grid-cols-2 xl:grid-cols-4` }}, [
           D.Containers.Div({ attrs:{ class: tw`rounded-2xl border border-slate-800/50 bg-slate-900/70 p-4` }}, [
@@ -1264,10 +1306,12 @@
   const expoTickets = buildExpoTickets(expoSource, jobsIndexed);
 
   const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-  const sectionParam = urlParams.get('section_id');
-  const lockedSection = !!sectionParam;
-  const firstStationId = stations.length ? stations[0].id : 'prep';
-  const defaultTab = lockedSection ? (stationMap[sectionParam] ? sectionParam : firstStationId) : 'prep';
+  const sectionParamRaw = urlParams.get('section_id')
+    ?? urlParams.get('station_id')
+    ?? urlParams.get('kitchen_section_id');
+  const resolvedSectionId = resolveStationId(stations, stationMap, sectionParamRaw);
+  const lockedSection = !!resolvedSectionId;
+  const defaultTab = lockedSection ? resolvedSectionId : 'prep';
 
   const initialState = {
     head:{ title: TEXT_DICT.title.ar },
@@ -1872,13 +1916,19 @@
         if(!btn) return;
         const sectionId = btn.getAttribute('data-section-id');
         if(!sectionId) return;
-        ctx.setState(state=>({
-          ...state,
-          data:{
-            ...state.data,
-            filters:{ ...state.data.filters, activeTab: sectionId }
+        ctx.setState(state=>{
+          const filters = state?.data?.filters || {};
+          if(filters.lockedSection && filters.activeTab && filters.activeTab !== sectionId){
+            return state;
           }
-        }));
+          return {
+            ...state,
+            data:{
+              ...state.data,
+              filters:{ ...filters, activeTab: sectionId }
+            }
+          };
+        });
       }
     },
     'kds.job.start':{
