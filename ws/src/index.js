@@ -345,6 +345,11 @@ function verifyToken(token) {
 }
 
 const CHAT_TOPIC_REGEX = /^chat:[a-z0-9:_-]+$/;
+const KITCHEN_TOPIC_REGEX = /^(pos:kds:orders|kds:(jobs|delivery|handoff):updates)$/;
+
+function isKitchenTopic(topic) {
+  return typeof topic === 'string' && KITCHEN_TOPIC_REGEX.test(topic);
+}
 
 function topicAllowed(topic, isPublish) {
   if (!topic || typeof topic !== 'string') {
@@ -1095,7 +1100,8 @@ async function handleMessage(ws, envelope) {
         return;
       }
       if (type === 'subscribe') {
-        if (config.requireAuthSub && !ws.user) {
+        const requiresAuth = config.requireAuthSub && !isKitchenTopic(topic);
+        if (requiresAuth && !ws.user) {
           sendJSON(ws, { type: 'error', code: 'unauthorized_sub', message: 'Authentication required before subscribing.' });
           return;
         }
@@ -1122,7 +1128,8 @@ async function handleMessage(ws, envelope) {
       break;
 
     case 'publish':
-      if (config.requireAuthPub && !ws.user) {
+      const requiresAuth = config.requireAuthPub && !isKitchenTopic(topic);
+      if (requiresAuth && !ws.user) {
         sendJSON(ws, { type: 'error', code: 'unauthorized_pub', message: 'Authentication required before publishing.' });
         return;
       }
