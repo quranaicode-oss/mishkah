@@ -108,6 +108,41 @@
       const parsed = parseMaybeJSONish(value);
       return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     };
+    const firstDefined = (...values)=>{
+      for(let i = 0; i < values.length; i += 1){
+        if(values[i] !== undefined) return values[i];
+      }
+      return undefined;
+    };
+    const ensureBoolean = (value, fallback=false)=>{
+      if(value === undefined || value === null) return fallback;
+      if(typeof value === 'boolean') return value;
+      if(typeof value === 'number') return value !== 0;
+      if(typeof value === 'string'){
+        const normalized = value.trim().toLowerCase();
+        if(!normalized) return fallback;
+        if(['1', 'true', 'yes', 'y', 'on', 'enable', 'enabled'].includes(normalized)) return true;
+        if(['0', 'false', 'no', 'n', 'off', 'disable', 'disabled'].includes(normalized)) return false;
+      }
+      return fallback;
+    };
+    const normalizeEndpointString = (value)=>{
+      if(typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    };
+    const isSameOriginEndpoint = (endpoint)=>{
+      if(typeof endpoint !== 'string') return false;
+      const trimmed = endpoint.trim();
+      if(!trimmed) return false;
+      if(typeof globalThis === 'undefined' || !globalThis.location) return false;
+      try {
+        const resolved = new URL(trimmed, globalThis.location.origin);
+        return resolved.origin === globalThis.location.origin;
+      } catch(_err){
+        return false;
+      }
+    };
     const normalizeChannelName = (value, fallback='default')=>{
       const base = value == null ? '' : String(value).trim();
       const raw = base || fallback || 'default';
@@ -310,6 +345,24 @@
     if(!currencySymbols.ar) currencySymbols.ar = currencySymbols.en;
     const currencyDisplayMode = currencyConfig.display || 'symbol';
     const syncSettings = ensurePlainObject(settings.sync);
+    const staticRealtimeOverrideSource = firstDefined(
+      MOCK_BASE?.sync?.allow_static_sync,
+      MOCK_BASE?.sync?.allowStaticSync,
+      MOCK_BASE?.sync?.enable_static_sync,
+      MOCK_BASE?.sync?.enableStaticSync,
+      syncSettings.allow_static_sync,
+      syncSettings.allowStaticSync,
+      syncSettings.enable_static_sync,
+      syncSettings.enableStaticSync,
+      syncSettings.force_static_sync,
+      syncSettings.forceStaticSync
+    );
+    const allowStaticRealtime = ensureBoolean(staticRealtimeOverrideSource, false);
+    const disableRealtimeInStaticDemo = isStaticDemoEnvironment && !allowStaticRealtime;
+    if(disableRealtimeInStaticDemo){
+      const hostname = typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location.hostname : null;
+      console.info('[Mishkah][POS] Static demo host detected, disabling realtime endpoints.', { hostname });
+    }
     const branchSettings = ensurePlainObject(settings.branch);
     const DEFAULT_BRANCH_CHANNEL = 'branch-main'; // غيّر هذه القيمة لتبديل قناة POS وKDS معًا.
     const branchChannelSource = syncSettings.channel
@@ -2501,12 +2554,14 @@
         return { snapshot:null, version, disabled:true };
       }
       const response = await fetch(httpEndpoint, { headers });
-      if(response.status === 404 || response.status === 405){
-        disableSync(`Central sync endpoint unavailable (HTTP ${response.status}).`, { httpStatus: response.status });
-        return { snapshot:null, version, disabled:true, httpStatus: response.status };
+      const statusNumber = Number(response.status);
+      const httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
+      if(httpStatus === 404 || httpStatus === 405 || httpStatus === 410){
+        disableSync(`Central sync endpoint unavailable (HTTP ${httpStatus}).`, { httpStatus });
+        return { snapshot:null, version, disabled:true, httpStatus };
       }
       if(!response.ok){
-        throw createSyncError('POS_SYNC_HTTP', `HTTP ${response.status}`);
+        throw createSyncError('POS_SYNC_HTTP', `HTTP ${httpStatus}`);
       }
       return response.json();
     };
@@ -2736,10 +2791,19 @@
     };
   }
 
-    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
-    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || (isStaticDemoEnvironment ? null : 'wss://ws.mas.com.eg/ws');
-    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
-    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
+    const rawKdsEndpointSetting = normalizeEndpointString(firstDefined(
+      syncSettings.ws_endpoint,
+      syncSettings.wsEndpoint,
+      syncSettings.kds_ws_endpoint,
+      syncSettings.kdsWsEndpoint
+    ));
+    const kdsEndpointSetting = disableRealtimeInStaticDemo ? null : rawKdsEndpointSetting;
+    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || (disableRealtimeInStaticDemo ? null : 'wss://ws.mas.com.eg/ws');
+    const mockEndpoint = normalizeEndpointString(firstDefined(
+      MOCK_BASE?.kds?.endpoint,
+      MOCK_BASE?.kds?.wsEndpoint
+    ));
+    const kdsEndpoint = disableRealtimeInStaticDemo ? (mockEndpoint || null) : (mockEndpoint || DEFAULT_KDS_ENDPOINT);
     if(!mockEndpoint){
       if(kdsEndpoint){
         console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
@@ -2753,16 +2817,37 @@
     if(!kdsToken){
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
-    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
-      || syncSettings.http_endpoint
-      || syncSettings.httpEndpoint
-      || (isStaticDemoEnvironment ? null : '/api/pos-sync');
-    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
-      || syncSettings.pos_ws_endpoint
-      || syncSettings.posWsEndpoint
-      || syncSettings.ws_endpoint
-      || syncSettings.wsEndpoint
-      || (isStaticDemoEnvironment ? null : kdsEndpoint);
+    const mockSyncHttpBase = normalizeEndpointString(firstDefined(
+      MOCK_BASE?.sync?.httpEndpoint,
+      MOCK_BASE?.sync?.http_endpoint
+    ));
+    const configuredSyncHttpBase = normalizeEndpointString(firstDefined(
+      syncSettings.http_endpoint,
+      syncSettings.httpEndpoint
+    ));
+    let posSyncHttpBase = mockSyncHttpBase;
+    if(disableRealtimeInStaticDemo && posSyncHttpBase && isSameOriginEndpoint(posSyncHttpBase)){
+      posSyncHttpBase = null;
+    }
+    if(!posSyncHttpBase){
+      posSyncHttpBase = disableRealtimeInStaticDemo ? null : configuredSyncHttpBase;
+    }
+    if(!posSyncHttpBase && !disableRealtimeInStaticDemo){
+      posSyncHttpBase = '/api/pos-sync';
+    }
+    const mockSyncWsEndpoint = normalizeEndpointString(firstDefined(
+      MOCK_BASE?.sync?.wsEndpoint,
+      MOCK_BASE?.sync?.ws_endpoint
+    ));
+    const configuredSyncWsEndpoint = normalizeEndpointString(firstDefined(
+      syncSettings.pos_ws_endpoint,
+      syncSettings.posWsEndpoint,
+      syncSettings.ws_endpoint,
+      syncSettings.wsEndpoint
+    ));
+    const posSyncWsEndpoint = disableRealtimeInStaticDemo
+      ? (mockSyncWsEndpoint && !isSameOriginEndpoint(mockSyncWsEndpoint) ? mockSyncWsEndpoint : null)
+      : (mockSyncWsEndpoint || configuredSyncWsEndpoint || kdsEndpoint);
     const posSyncToken = (MOCK_BASE?.sync?.token)
       || syncSettings.pos_token
       || syncSettings.posToken
