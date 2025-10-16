@@ -158,6 +158,25 @@
     'game.revealPrompt': { ar: 'انقر لاكتشاف الحكمة كاملة بعد نهاية الجولة.', en: 'Tap to reveal the full wisdom after the round.' },
     'readme.title': { ar: 'وثيقة مشكاة', en: 'Mishkah Readme' },
     'readme.hint': { ar: 'بدّل اللغة من الأعلى لقراءة الوثيقة بلغتك المفضلة.', en: 'Switch language from the header to read in your preferred language.' },
+    'projects.viewer.info': { ar: 'معلومات', en: 'Info' },
+    'projects.viewer.enterFullscreen': { ar: 'ملء الشاشة', en: 'Full screen' },
+    'projects.viewer.exitFullscreen': { ar: 'إنهاء الملء', en: 'Exit full screen' },
+    'projects.viewer.openNew': { ar: 'فتح في تبويب جديد', en: 'Open in new tab' },
+    'projects.viewer.hint': {
+      ar: 'يمكنك استكشاف الصفحات مباشرة داخل هذه الواجهة أو فتحها في تبويب مستقل.',
+      en: 'Preview each experience inside the shell or pop it into a dedicated tab.'
+    },
+    'projects.viewer.modal.desc': {
+      ar: 'نظرة سريعة على وظائف الصفحة وأهم ما تقدمه.',
+      en: 'A quick look at what the page delivers and how it behaves.'
+    },
+    'projects.viewer.modal.close': { ar: 'إغلاق', en: 'Close' },
+    'projects.viewer.modal.summary': { ar: 'ملخص', en: 'Summary' },
+    'projects.viewer.modal.highlights': { ar: 'أهم الوظائف', en: 'Key functions' },
+    'projects.viewer.modal.section.ar': { ar: 'الوصف العربي', en: 'Arabic copy' },
+    'projects.viewer.modal.section.en': { ar: 'الوصف الإنجليزي', en: 'English copy' },
+    'projects.viewer.modal.empty': { ar: 'لم تتم إضافة وصف بعد.', en: 'No description added yet.' },
+    'projects.viewer.fullscreen.back': { ar: 'عودة', en: 'Back' },
     'readme.section.tec': { ar: 'الوثيقة التقنية', en: 'Technical Document' },
     'readme.section.base': { ar: 'الوثيقة الأساسية', en: 'Foundational Document' },
     'sequence.title': { ar: 'لعبة تخمين المتواليات العددية', en: 'Number Sequence Challenge' },
@@ -854,6 +873,743 @@
       url: 'https://www.fesliyanstudios.com/musicfiles/2018-07-22_-_The_Unsolved_Murder_-_David_Fesliyan.mp3'
     }
   ];
+
+  const PROJECT_LIBRARY = [
+    {
+      key: 'project:pos-v2',
+      icon: '🛒',
+      order: 40,
+      classKey: 'projects.pos',
+      label: {
+        ar: 'نقطة البيع — الإصدار الثاني',
+        en: 'POS Command Center v2'
+      },
+      desc: {
+        ar: 'لوحة زجاجية تنسق المنتجات، الضيوف، والتحصيل في واجهة واحدة.',
+        en: 'A glassmorphism POS that aligns menu, guests, and checkout in one pane.'
+      },
+      url: 'pos-v2.html',
+      height: 760,
+      info: {
+        summary: {
+          ar: 'واجهة HTMLx متقدمة لنقطة البيع تمزج إدارة المائدة مع العروض والخصومات في تدفق واحد.',
+          en: 'An advanced HTMLx POS surface that blends table service with promotions inside a single flow.'
+        },
+        bullets: [
+          {
+            ar: 'أزرار الفئات تعرض عدّاد العناصر وتبدل القوائم فورًا للتركيز على ما يطلبه الضيف.',
+            en: 'Category chips surface item counts and swap menus instantly around guest intent.'
+          },
+          {
+            ar: 'ملخص الجلسة يحفظ الضيوف، الطاولة، والمضيف مع تحديثات حيّة لكل تعديل على التذكرة.',
+            en: 'Session context keeps guests, table, and host in sync with every ticket update.'
+          },
+          {
+            ar: 'منطقة الدفع تجمع الملاحظات، الخصومات، ووسائل السداد المتعددة قبل إنهاء الطلب.',
+            en: 'Checkout stack collates notes, discounts, and multi-tender options before closing the order.'
+          }
+        ]
+      },
+      keywords: ['pos', 'ordering', 'checkout', 'restaurant', 'htmlx']
+    },
+    {
+      key: 'project:pos-classic',
+      icon: '🍽️',
+      order: 41,
+      classKey: 'projects.pos',
+      label: {
+        ar: 'نقطة البيع — الإصدار الأول',
+        en: 'Restaurant POS (v1)'
+      },
+      desc: {
+        ar: 'تجربة POS كلاسيكية مبنية على DSL مع تكامل المطبخ والطباعة الفورية.',
+        en: 'A classic DSL-driven POS with kitchen routing and instant printing built in.'
+      },
+      url: 'pos.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'النسخة الأولى من POS على مشكاة تعرض شاشة واسعة للأصناف، الطلب النشط، وسجل الطاولات.',
+          en: 'The first Mishkah POS edition spreads products, active orders, and table history across a widescreen layout.'
+        },
+        bullets: [
+          {
+            ar: 'ثلاثة أعمدة مترابطة تربط قوائم المنتجات بالطلب الحالي وشريط التنبيهات التشغيلية.',
+            en: 'Tri-column layout links product shelves with the live ticket and operational alerts.'
+          },
+          {
+            ar: 'أوامر الخصم والملاحظات تطبع تلقائيًا إيصالات العميل والمطبخ والملخص المالي.',
+            en: 'Discount and note workflows trigger customer, kitchen, and finance printouts automatically.'
+          },
+          {
+            ar: 'قنوات KDS جاهزة لتمرير كل بند إلى محطة التحضير الصحيحة دون مجهود يدوي.',
+            en: 'KDS channels dispatch every line item to the right prep station with no manual routing.'
+          }
+        ]
+      },
+      keywords: ['pos', 'dsl', 'kitchen', 'printing', 'hospitality']
+    },
+    {
+      key: 'project:kds',
+      icon: '🍳',
+      order: 42,
+      classKey: 'projects.pos',
+      label: {
+        ar: 'لوحة المطبخ المتزامنة',
+        en: 'Kitchen Display System'
+      },
+      desc: {
+        ar: 'لوحة KDS مظلمة تتابع تدفق الطلب من التحضير حتى التسليم.',
+        en: 'A dark KDS board that tracks every ticket from prep through completion.'
+      },
+      url: 'kds.html',
+      height: 700,
+      info: {
+        summary: {
+          ar: 'تطبيق مطبخ لحظي يعرض الطلبات حسب الحالة مع مؤقتات وألوان تفاعلية.',
+          en: 'A live kitchen app that groups tickets by status with timers and contextual colour states.'
+        },
+        bullets: [
+          {
+            ar: 'أعمدة مخصصة لمراحل التحضير، الجاهز، والتحصيل تسهل رؤية الاختناقات.',
+            en: 'Dedicated columns for prep, ready, and settlement stages spotlight bottlenecks instantly.'
+          },
+          {
+            ar: 'مؤقتات مدمجة تلوّن البطاقات المتأخرة وتُظهر زمن الانتظار لكل ضيف.',
+            en: 'Inline timers colour late tickets and expose guest wait times at a glance.'
+          },
+          {
+            ar: 'تكامل مباشر مع POS لعرض اسم السائق وعدد الأطباق والملاحظات الحرجة.',
+            en: 'Direct POS integration surfaces runner names, item counts, and critical notes.'
+          }
+        ]
+      },
+      keywords: ['kds', 'kitchen', 'operations', 'timers', 'pos']
+    },
+    {
+      key: 'project:delivery',
+      icon: '🚚',
+      order: 43,
+      classKey: 'projects.ops',
+      label: {
+        ar: 'لوحة عمليات التوصيل',
+        en: 'Delivery Control Board'
+      },
+      desc: {
+        ar: 'إشراف كامل على الطلبات الجاهزة، في الطريق، والتحصيل النقدي.',
+        en: 'Oversight for ready orders, on-the-road drops, and cash settlement.'
+      },
+      url: 'delivery.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'واجهة تتبع لوجستي تعرض حالة كل طلب وسجل السائقين في نفس الشاشة.',
+          en: 'A logistics tracker that brings order states and courier roster into one canvas.'
+        },
+        bullets: [
+          {
+            ar: 'تقسيم مرئي للطلبات بين جاهز، في الطريق، وتسوية مع عدادات تلقائية.',
+            en: 'Visual swim lanes for ready, on-route, and settlement tickets with auto counters.'
+          },
+          {
+            ar: 'بطاقات تفصيلية تُظهر العميل، العنوان، طريقة الدفع، وقائمة الأصناف لكل رحلة.',
+            en: 'Detailed cards show customer, address, tender, and item breakdown per trip.'
+          },
+          {
+            ar: 'لوحة السائقين تعرض الاسم، الهاتف، ورقم المركبة لتنسيق سريع مع فريق التسليم.',
+            en: 'Courier roster lists name, phone, and vehicle ID for fast coordination.'
+          }
+        ]
+      },
+      keywords: ['delivery', 'logistics', 'drivers', 'orders']
+    },
+    {
+      key: 'project:dashboard',
+      icon: '📊',
+      order: 44,
+      classKey: 'projects.ops',
+      label: {
+        ar: 'لوحة النمو والتحليل',
+        en: 'Growth & Analytics Dashboard'
+      },
+      desc: {
+        ar: 'مؤشرات أداء للتجارة الإلكترونية مع رسوم بيانية متعددة المحاور.',
+        en: 'E-commerce KPIs rendered with multi-axis charting.'
+      },
+      url: 'dashboard.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'لوحة قيادة للفرق التجارية تعرض المبيعات، التحويلات، والأجهزة المفضلة.',
+          en: 'An executive cockpit for commerce teams covering sales, conversions, and device mix.'
+        },
+        bullets: [
+          {
+            ar: 'مؤشر يومي يدمج الإيراد مع نسب التحويل على محورين منفصلين.',
+            en: 'Daily trend combines revenue and conversion on dual axes.'
+          },
+          {
+            ar: 'مخطط أعمدة يقارن القنوات التسويقية مع نسب التحويل لكل حملة.',
+            en: 'Bar chart compares marketing channels by conversion uplift.'
+          },
+          {
+            ar: 'مخطط دونات يعرض توزيع الأجهزة مع تلميحات سياقية ومؤشر تصدير CSV.',
+            en: 'Donut visualises device split with contextual hints and a CSV export action.'
+          }
+        ]
+      },
+      keywords: ['analytics', 'charts', 'commerce', 'dashboard']
+    },
+    {
+      key: 'project:mobile',
+      icon: '📱',
+      order: 45,
+      classKey: 'projects.ops',
+      label: {
+        ar: 'تجربة التطبيق المصرفي',
+        en: 'Mobile Banking Experience'
+      },
+      desc: {
+        ar: 'واجهة محمولة لإدارة الحسابات، الأهداف، والتحويلات السريعة.',
+        en: 'A mobile console for balances, goals, and quick transfers.'
+      },
+      url: 'mobile.html',
+      height: 780,
+      info: {
+        summary: {
+          ar: 'قالب تطبيق مالي يعرض الرصيد، الأهداف، والتحليلات بمخططات تفاعلية.',
+          en: 'A financial app template showing balances, goals, and analytics with responsive charts.'
+        },
+        bullets: [
+          {
+            ar: 'رسوم بيانية مصغرة تتابع نمو الرصيد مع دعم Chart.js المدمج.',
+            en: 'Micro line charts follow balance growth using the built-in Chart.js bridge.'
+          },
+          {
+            ar: 'أزرار إجراءات سريعة للتحويل، تقسيم الفواتير، وشحن الرصيد مباشرة.',
+            en: 'Quick actions power transfers, bill splits, and top-ups without leaving the view.'
+          },
+          {
+            ar: 'تنقل سفلي بين الصفحة الرئيسية، البطاقات، والأهداف مع تكرار البيانات لكل قسم.',
+            en: 'Bottom navigation switches between overview, cards, and goals with tailored data per page.'
+          }
+        ]
+      },
+      keywords: ['mobile', 'banking', 'chart', 'twcss']
+    },
+    {
+      key: 'project:chat',
+      icon: '💬',
+      order: 46,
+      classKey: 'projects.ops',
+      label: {
+        ar: 'منصة الدردشة الموحّدة',
+        en: 'Unified Chat Support'
+      },
+      desc: {
+        ar: 'نموذج دردشة HTMLx مع انضمام محمي PIN وإعدادات خادم حية.',
+        en: 'HTMLx chat model with PIN join flow and live server controls.'
+      },
+      url: 'chat.html',
+      height: 740,
+      info: {
+        summary: {
+          ar: 'تجربة دعم لحظي تدير الغرف، الاتصالات، وسجل الرسائل بكفاءة.',
+          en: 'A live support experience that manages rooms, connectivity, and message history with clarity.'
+        },
+        bullets: [
+          {
+            ar: 'واجهة انضمام تتحقق من PIN وتعرض رسائل القفل الزمنية للمستخدم.',
+            en: 'Join screen validates PINs and surfaces lockout timers for the user.'
+          },
+          {
+            ar: 'لوحة المحادثة تعرض المستخدمين المتصلين وسجل الرسائل مع قوالب جاهزة للرد.',
+            en: 'Conversation pane lists online members and thread history alongside quick reply templates.'
+          },
+          {
+            ar: 'قسم إعداد الخادم يسمح بتحديث مسارات WebSocket والرموز من الواجهة.',
+            en: 'Server settings section lets agents adjust WebSocket endpoints and tokens from the UI.'
+          }
+        ]
+      },
+      keywords: ['chat', 'support', 'websocket', 'htmlx']
+    },
+    {
+      key: 'project:hotel',
+      icon: '🏨',
+      order: 47,
+      classKey: 'projects.verticals',
+      label: {
+        ar: 'G-remal PMS — إدارة الفنادق',
+        en: 'G-remal PMS — Hotel Management'
+      },
+      desc: {
+        ar: 'منظومة PMS متكاملة للحجوزات، الغرف، والفواتير.',
+        en: 'A full PMS canvas covering reservations, rooms, and folios.'
+      },
+      url: 'hotel-management-htmlx.html',
+      height: 780,
+      info: {
+        summary: {
+          ar: 'منصة إدارة فندقية ثنائية اللغة تتعامل مع الحجوزات الفردية والجماعية وتقارير الإيراد.',
+          en: 'A bilingual PMS canvas handling individual and group bookings with revenue insights.'
+        },
+        bullets: [
+          {
+            ar: 'نموذج الحجز يستعرض الضيوف، الضمانات، وأرصدة الفواتير مع قوائم الغرف.',
+            en: 'Reservation forms expose guests, guarantees, and folio balances alongside room lists.'
+          },
+          {
+            ar: 'خوارزمية توفر الغرف تربط نوع الغرفة بالتوافر الفعلي وتدعم التعيين الفوري.',
+            en: 'Room availability logic maps room types to live inventory for instant assignment.'
+          },
+          {
+            ar: 'لوحة التدقيق تعرض RevPAR، نسب الإشغال، وتدفقات الإيراد في جدول تفاعلي.',
+            en: 'Audit board highlights RevPAR, occupancy, and revenue streams within an interactive grid.'
+          }
+        ]
+      },
+      keywords: ['hospitality', 'pms', 'reservations', 'rooms']
+    },
+    {
+      key: 'project:ajax-htmlx',
+      icon: '🌐',
+      order: 48,
+      classKey: 'projects.core',
+      label: {
+        ar: 'تغذية Ajax بـ HTMLx',
+        en: 'Ajax Feed with HTMLx'
+      },
+      desc: {
+        ar: 'مثال HTMLx لجلب JSONPlaceholder مع تحكم بالحجم.',
+        en: 'HTMLx sample fetching JSONPlaceholder with live sizing.'
+      },
+      url: 'ajax-htmlx.html',
+      height: 620,
+      info: {
+        summary: {
+          ar: 'يعرض كيفية تشغيل أوامر HTMLx لجلب بيانات خارجية وتحديث الحالة دون لمس DOM.',
+          en: 'Shows how HTMLx orders fetch external data and mutate state without touching the DOM.'
+        },
+        bullets: [
+          {
+            ar: 'قائمة منسدلة تضبط حد العناصر وتعيد الجلب تلقائيًا.',
+            en: 'Dropdown control adjusts the item limit and re-fetches instantly.'
+          },
+          {
+            ar: 'شيفرة commit تعزل منطق التحديث مع حالات تحميل وخطأ واضحة.',
+            en: 'Commit helpers isolate state updates with explicit loading and error phases.'
+          },
+          {
+            ar: 'رسائل حالة جاهزة توضح نجاح الجلب أو فشله للمستخدم.',
+            en: 'Ready state messaging tells the user when fetches succeed or fail.'
+          }
+        ]
+      },
+      keywords: ['ajax', 'htmlx', 'jsonplaceholder', 'fetch']
+    },
+    {
+      key: 'project:ajax-dsl',
+      icon: '🧰',
+      order: 49,
+      classKey: 'projects.core',
+      label: {
+        ar: 'تغذية Ajax بـ DSL',
+        en: 'Ajax Feed with DSL'
+      },
+      desc: {
+        ar: 'النسخة القائمة على DSL لنفس تجربة JSONPlaceholder.',
+        en: 'DSL-powered sibling of the JSONPlaceholder feed.'
+      },
+      url: 'ajax-dsl.html',
+      height: 620,
+      info: {
+        summary: {
+          ar: 'يوضح كيف تبني DSL القوالب والأوامر بعزل كامل عن DOM.',
+          en: 'Demonstrates how the DSL structures templates and orders cleanly away from the DOM.'
+        },
+        bullets: [
+          {
+            ar: 'تعريف البيانات، القوالب، والأوامر يتم عبر وسوم DSL فقط.',
+            en: 'Data, templates, and orders are declared exclusively through DSL tags.'
+          },
+          {
+            ar: 'تعدد اللغات متكامل مع ترجمات عربية/إنجليزية للواجهة.',
+            en: 'Dual-language strings wired in for Arabic and English localisation.'
+          },
+          {
+            ar: 'نفس أوامر التحكم بالحجم وإعادة الجلب تعمل فوق طبقة DSL.',
+            en: 'Shared limit controls and refetch orders run on top of the DSL layer.'
+          }
+        ]
+      },
+      keywords: ['ajax', 'dsl', 'htmlx', 'fetch']
+    },
+    {
+      key: 'project:counter-htmx',
+      icon: '🔢',
+      order: 50,
+      classKey: 'projects.core',
+      label: {
+        ar: 'عداد HTMX التفاعلي',
+        en: 'Interactive HTMX Counter'
+      },
+      desc: {
+        ar: 'مثال تعليمي على دمج HTMX مع Mishkah.',
+        en: 'Educational demo blending HTMX with Mishkah.'
+      },
+      url: 'counter-htmx.html',
+      height: 520,
+      info: {
+        summary: {
+          ar: 'يشرح كيف تُدار طلبات الزيادة والنقصان بخادم وهمي عبر HTMX.',
+          en: 'Explains increment/decrement flows handled through a faux HTMX endpoint.'
+        },
+        bullets: [
+          {
+            ar: 'أزرار مضمنة ترسل طلبات POST و PATCH لتحديث العداد.',
+            en: 'Inline buttons issue POST and PATCH requests to update the counter.'
+          },
+          {
+            ar: 'عرض حي للقيمة الحالية مع إدارة حالة بسيطة.',
+            en: 'Live display of the current value with minimal state management.'
+          },
+          {
+            ar: 'مصدر شيفرة مختصر لتجربة HTMX ضمن منظومة مشكاة.',
+            en: 'Compact source that illustrates HTMX inside the Mishkah ecosystem.'
+          }
+        ]
+      },
+      keywords: ['htmx', 'counter', 'demo']
+    },
+    {
+      key: 'project:css-showcase',
+      icon: '🎨',
+      order: 51,
+      classKey: 'projects.core',
+      label: {
+        ar: 'معرض أنماط مشكاة CSS',
+        en: 'Mishkah CSS Showcase'
+      },
+      desc: {
+        ar: 'عرض بصري للتوكنات والمكوّنات المعتمدة على CSS.',
+        en: 'A visual atlas of Mishkah CSS tokens and components.'
+      },
+      url: 'mishkah-css-showcase.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'ينظم ألوان، خطوط، ومكوّنات مشكاة في بطاقات تفاعلية مع تبديل الثيم.',
+          en: 'Organises Mishkah colours, typography, and components with interactive theming.'
+        },
+        bullets: [
+          {
+            ar: 'خرائط توكنات تظهر القيم اللونية والظلّية القابلة للتخصيص.',
+            en: 'Token maps display tweakable colour and shadow values.'
+          },
+          {
+            ar: 'عروض قصص للمكوّنات الذكية مثل البطاقات، الشرائح، وأشرطة الحالة.',
+            en: 'Component stories cover smart cards, sliders, and status bars.'
+          },
+          {
+            ar: 'مبدل ثيم فوري يبرهن أن كل النمط مبني فوق متغيرات CSS فقط.',
+            en: 'Instant theme switcher proves every style rides on CSS variables alone.'
+          }
+        ]
+      },
+      keywords: ['css', 'tokens', 'design', 'theme']
+    },
+    {
+      key: 'project:pages-template',
+      icon: '🗂️',
+      order: 52,
+      classKey: 'projects.core',
+      label: {
+        ar: 'قالب صفحات مشكاة',
+        en: 'Mishkah Pages Template'
+      },
+      desc: {
+        ar: 'واجهة PagesShell مع فئات تنقل ومختبر الثيم.',
+        en: 'PagesShell interface with class navigation and theme lab.'
+      },
+      url: 'mishkah-pages-template.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'يعرض كيفية بناء مكتبة صفحات كاملة مع الفئات، البحث، ومختبر الألوان.',
+          en: 'Shows how to assemble a full page library with classes, search, and the theme lab.'
+        },
+        bullets: [
+          {
+            ar: 'تنقل هرمي يدعم الفئات الفرعية ويبرز الصفحة النشطة.',
+            en: 'Hierarchical navigation supports sub-classes and highlights the active page.'
+          },
+          {
+            ar: 'شريط أدوات علوي يتضمن بحثًا لحظيًا في الصفحات والوثائق.',
+            en: 'Top toolbar includes instant search across pages and docs.'
+          },
+          {
+            ar: 'مخبر ثيم يسمح بتعديل المتغيرات الحية وتصدير الإعدادات.',
+            en: 'Theme lab lets you tweak live variables and export presets.'
+          }
+        ]
+      },
+      keywords: ['pages', 'template', 'navigation', 'theme lab']
+    },
+    {
+      key: 'project:index-template',
+      icon: '🏠',
+      order: 53,
+      classKey: 'projects.core',
+      label: {
+        ar: 'قالب الواجهة المتكاملة',
+        en: 'Index Template v2'
+      },
+      desc: {
+        ar: 'صفحة هبوط جاهزة للأطر مع أقسام رؤية وفريق.',
+        en: 'A framework landing template covering vision, team, and roadmap.'
+      },
+      url: 'index-templatev2.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'مخطط هبوط يدمج العناوين الجذابة، شبكة القيمة، والجدول الزمني للإنجازات.',
+          en: 'Landing plan blending a striking hero, value grid, and milestone timeline.'
+        },
+        bullets: [
+          {
+            ar: 'قسم رؤوس يبرز القيمة مع دعوات إجراء متعددة.',
+            en: 'Hero section frames value with multi-CTA support.'
+          },
+          {
+            ar: 'شبكة مزايا تعرض حالات الاستخدام والنتائج المتوقعة.',
+            en: 'Benefit grid maps use cases to expected outcomes.'
+          },
+          {
+            ar: 'جدول زمني يسرد المراحل القادمة مع شارة الحالة لكل بند.',
+            en: 'Timeline lists upcoming phases with status badges for each entry.'
+          }
+        ]
+      },
+      keywords: ['landing', 'template', 'marketing']
+    },
+    {
+      key: 'project:index-htmlx',
+      icon: '🧭',
+      order: 54,
+      classKey: 'projects.core',
+      label: {
+        ar: 'تجربة HTMLx الأولى',
+        en: 'HTMLx Legacy Experience'
+      },
+      desc: {
+        ar: 'الإصدار الأول لصفحة مشكاة التفاعلية مع العداد ولعبة الأمثال.',
+        en: 'First interactive Mishkah page featuring the counter and proverbs game.'
+      },
+      url: 'index-htmlx.html',
+      height: 720,
+      info: {
+        summary: {
+          ar: 'تستعرض هذه النسخة المفاهيم الأولى لـ HTMLx عبر وثائق، عداد، ولعبة تعليمية.',
+          en: 'This edition introduces HTMLx concepts through docs, a counter, and a learning game.'
+        },
+        bullets: [
+          {
+            ar: 'سرد وثائقي ثنائي اللغة يشرح فلسفة الإطار.',
+            en: 'Bilingual documentation narrates the framework philosophy.'
+          },
+          {
+            ar: 'مكون عداد بسيط يوضح إدارة الحالة بالأوامر.',
+            en: 'Simple counter component demonstrates command-driven state.'
+          },
+          {
+            ar: 'لعبة أمثال تفاعلية توضح التبديل بين الثيم واللغة.',
+            en: 'Interactive proverbs game highlights theme and language switching.'
+          }
+        ]
+      },
+      keywords: ['htmlx', 'legacy', 'docs', 'counter', 'game']
+    },
+    {
+      key: 'project:erd',
+      icon: '🗺️',
+      order: 55,
+      classKey: 'projects.core',
+      label: {
+        ar: 'مصمم مخطط البيانات ERD',
+        en: 'Data ERD Designer'
+      },
+      desc: {
+        ar: 'أداة تفاعلية لنمذجة الكيانات والعلاقات باستخدام Mishkah.',
+        en: 'Interactive tool for modelling entities and relations with Mishkah.'
+      },
+      url: 'erd.html',
+      height: 780,
+      info: {
+        summary: {
+          ar: 'مصمم مخطط يساعد على تعريف الجداول، الحقول، والروابط مع ضوابط التحقق.',
+          en: 'Schema designer that captures tables, fields, and relations with guardrails.'
+        },
+        bullets: [
+          {
+            ar: 'نماذج تكميلية لتوليد الحقول وأنواع البيانات مع قواعد التحقق.',
+            en: 'Form wizards generate columns and data types with validation rules.'
+          },
+          {
+            ar: 'مساعد علاقات يربط المفاتيح الأساسية والخارجية عبر واجهة مرئية.',
+            en: 'Relation assistant connects primary and foreign keys via a visual interface.'
+          },
+          {
+            ar: 'سجل تدقيق يحصي الجداول، العلاقات، وتاريخ التعديلات لتتبع التغييرات.',
+            en: 'Audit log counts entities, relations, and change history to trace evolution.'
+          }
+        ]
+      },
+      keywords: ['erd', 'schema', 'designer', 'data']
+    },
+    {
+      key: 'project:almubdeat',
+      icon: '🛍️',
+      order: 56,
+      classKey: 'projects.verticals',
+      label: {
+        ar: 'منصة المبدعات — سطح المكتب',
+        en: 'Almubdeat Platform — Desktop'
+      },
+      desc: {
+        ar: 'منصة اجتماعية/تجارية لرائدات الأعمال مع دعم PWA.',
+        en: 'A social-commerce platform for creators with full PWA support.'
+      },
+      url: 'projects/almubdeat/almubdeat.html',
+      height: 780,
+      info: {
+        summary: {
+          ar: 'يوحد التجربة بين السوق، الحجوزات، والتفاعل الاجتماعي مع دعم كامل للثيم واللغة.',
+          en: 'Unifies marketplace, bookings, and social storytelling with full theme and language control.'
+        },
+        bullets: [
+          {
+            ar: 'قائمة تنقل تنقل بين القصص، الخدمات، والأحداث بثنائية اللغة.',
+            en: 'Navigation moves between stories, services, and events in both Arabic and English.'
+          },
+          {
+            ar: 'قسم المبدعات يعرض الملفات، التقييمات، وحزم الخدمات مع ترويسة تفاعلية.',
+            en: 'Creators spotlight shows profiles, ratings, and service bundles beneath a dynamic hero.'
+          },
+          {
+            ar: 'PWA مفعّل مع manifest وأصول مخبأة لاستخدام دون اتصال.',
+            en: 'PWA enabled with manifest and cached assets for offline access.'
+          }
+        ]
+      },
+      keywords: ['almubdeat', 'pwa', 'social commerce', 'creators']
+    },
+    {
+      key: 'project:almubdeat-mobile',
+      icon: '📸',
+      order: 57,
+      classKey: 'projects.verticals',
+      label: {
+        ar: 'منصة المبدعات — الهاتف',
+        en: 'Almubdeat Mobile Story'
+      },
+      desc: {
+        ar: 'نسخة محمولة مع ريلز، خدمات، وروابط الشراء السريع.',
+        en: 'Mobile cut showcasing reels, services, and quick purchase links.'
+      },
+      url: 'projects/almubdeat/almubdeat-mobail.html',
+      height: 760,
+      info: {
+        summary: {
+          ar: 'واجهة هاتفية تعتمد على Mishkah DSL تعرض ملفات المبدعات وريلز الفيديو.',
+          en: 'Phone-first interface built with the Mishkah DSL presenting creator profiles and video reels.'
+        },
+        bullets: [
+          {
+            ar: 'شريط حالة علوي وحزمة رأس تعرض الغلاف، الصورة، وتقييم المبدعة.',
+            en: 'Status bar and hero stack reveal cover art, avatar, and creator rating.'
+          },
+          {
+            ar: 'بطاقات خدمات مصغرة توضح الباقات والأسعار مع قوائم تفصيلية.',
+            en: 'Compact service cards outline packages and pricing with nested lists.'
+          },
+          {
+            ar: 'ريلز القصص تستخرج محتوى الفيديو المرتبط بالمبدعة لإبقاء الجمهور متفاعلاً.',
+            en: 'Story reels filter creator-specific video content to keep the audience engaged.'
+          }
+        ]
+      },
+      keywords: ['almubdeat', 'mobile', 'dsl', 'reels']
+    },
+    {
+      key: 'project:socialbnw',
+      icon: '🤝',
+      order: 58,
+      classKey: 'projects.verticals',
+      label: {
+        ar: 'شبكة SocialBNW',
+        en: 'SocialBNW Network'
+      },
+      desc: {
+        ar: 'شبكة للمسوقات تربط العروض الميدانية بالحملات الرقمية.',
+        en: 'A marketer network bridging field activations with digital campaigns.'
+      },
+      url: 'projects/socialbnw/socialbnw.html',
+      height: 780,
+      info: {
+        summary: {
+          ar: 'منصة اجتماعية/صناعية تجمع المبدعين، الحملات، ووثائق المتاجر مع دعم PWA.',
+          en: 'A social-industrial platform merging creators, campaigns, and retail dossiers with PWA support.'
+        },
+        bullets: [
+          {
+            ar: 'صفحة رئيسية تسرد القصص الحية، العروض، ومصادر التدريب.',
+            en: 'Home page streams live stories, showcases, and training resources.'
+          },
+          {
+            ar: 'ملفات المبدعين تعرض درجات الأداء، المتاجر المفضلة، وقنوات التواصل.',
+            en: 'Creator profiles expose performance scores, flagship stores, and contact channels.'
+          },
+          {
+            ar: 'PWA مدمج ببيانات manifest، الأيقونات، والتخزين المؤقت للأصول الحيوية.',
+            en: 'Integrated PWA includes manifest, icons, and runtime asset caching.'
+          }
+        ]
+      },
+      keywords: ['socialbnw', 'network', 'pwa', 'commerce', 'creators']
+    }
+  ];
+
+  const PROJECT_INFO_MAP = PROJECT_LIBRARY.reduce((acc, entry) => {
+    if (entry && entry.key) {
+      acc[entry.key] = entry;
+    }
+    return acc;
+  }, {});
+
+  const PROJECT_PAGE_ENTRIES = PROJECT_LIBRARY.map((entry, index) => {
+    const order = Number.isFinite(entry.order) ? entry.order : 60 + index;
+    const label = ensureDict(entry.label);
+    const desc = ensureDict(entry.desc);
+    const keywords = Array.isArray(entry.keywords) ? entry.keywords.slice() : [];
+    return {
+      key: entry.key,
+      order,
+      icon: entry.icon || '🧩',
+      label,
+      desc,
+      classKey: entry.classKey || 'projects.core',
+      comp: 'ProjectViewerComp',
+      keywords,
+      meta: {
+        project: {
+          url: entry.url || '',
+          height: entry.height,
+          info: ensureDict(entry.info)
+        }
+      }
+    };
+  });
 
   const DEFAULT_GAME_SETTINGS = {
     perChoiceSeconds: 35,
@@ -2623,6 +3379,178 @@ context.setState((s) => ({ ...s, data: { ...s.data, weather } }));`
     });
   }
 
+  function ProjectViewerComp(db) {
+    const { TL, lang } = makeLangLookup(db);
+    const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+    const data = ensureDict(db.data);
+    const pages = ensureArray(data.pages);
+    const activeKey = data.active || (pages[0] && pages[0].key) || null;
+    const activePage = pages.find((page) => page && page.key === activeKey) || null;
+    const pageLabel = localize(activePage && activePage.label, lang, fallbackLang) || TL('projects.viewer.info');
+    const pageDesc = localize(activePage && activePage.desc, lang, fallbackLang) || '';
+    const pageMeta = ensureDict(activePage && activePage.meta);
+    const projectMeta = ensureDict(pageMeta.project);
+    const fallbackEntry = PROJECT_INFO_MAP[activeKey] || {};
+    const iframeUrl = typeof projectMeta.url === 'string' && projectMeta.url
+      ? projectMeta.url
+      : (typeof fallbackEntry.url === 'string' ? fallbackEntry.url : '');
+    const previewHeight = Number.isFinite(projectMeta.height)
+      ? projectMeta.height
+      : (Number.isFinite(fallbackEntry.height) ? fallbackEntry.height : 640);
+    const infoPack = ensureDict(Object.keys(projectMeta.info || {}).length ? projectMeta.info : fallbackEntry.info);
+    const infoSummary = ensureDict(infoPack.summary);
+    const summaryAr = infoSummary.ar || infoSummary.en || '';
+    const summaryEn = infoSummary.en || infoSummary.ar || '';
+    const highlights = ensureArray(infoPack.bullets);
+    const uiState = ensureDict(db.ui);
+    const shellUi = ensureDict(uiState.pagesShell);
+    const previewUi = ensureDict(shellUi.projectPreview);
+    const previewActive = previewUi.activeKey || null;
+    const infoOpen = !!previewUi.infoOpen && previewActive === activeKey;
+    const fullscreenOn = !!previewUi.fullscreen && previewActive === activeKey;
+    const hasUrl = !!iframeUrl;
+
+    const infoButton = UI.Button({
+      attrs: Object.assign({ gkey: 'project:info:open' }, infoOpen ? { 'data-project-info': 'open' } : {}),
+      variant: infoOpen ? 'soft' : 'ghost',
+      size: 'sm'
+    }, [`ℹ️ ${TL('projects.viewer.info')}`]);
+
+    const fullscreenButton = UI.Button({
+      attrs: {
+        gkey: fullscreenOn ? 'project:fullscreen:exit' : 'project:fullscreen:enter',
+        'data-project-fullscreen-toggle': fullscreenOn ? 'exit' : 'enter',
+        disabled: hasUrl ? null : 'disabled'
+      },
+      variant: 'ghost',
+      size: 'sm'
+    }, [fullscreenOn ? `↩️ ${TL('projects.viewer.exitFullscreen')}` : `⛶ ${TL('projects.viewer.enterFullscreen')}`]);
+
+    const newTabButton = UI.Button({
+      attrs: {
+        gkey: 'project:open:newtab',
+        disabled: hasUrl ? null : 'disabled'
+      },
+      variant: 'ghost',
+      size: 'sm'
+    }, [`🆕 ${TL('projects.viewer.openNew')}`]);
+
+    const actionsRow = D.Containers.Div({
+      attrs: { class: tw`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between` }
+    }, [
+      D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]` } }, [TL('projects.viewer.hint')]),
+      D.Containers.Div({ attrs: { class: tw`flex flex-wrap items-center gap-2` } }, [infoButton, fullscreenButton, newTabButton])
+    ]);
+
+    const iframeNode = hasUrl
+      ? D.Containers.Div({
+        attrs: {
+          class: tw`overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-white shadow-sm`
+        }
+      }, [
+        D.Media.Iframe({
+          attrs: {
+            key: `${activeKey || 'project'}-preview`,
+            src: iframeUrl,
+            title: `${pageLabel} preview`,
+            loading: 'lazy',
+            class: tw`block h-full w-full`,
+            style: `height:${previewHeight}px; background:white; border:0;`,
+            referrerpolicy: 'no-referrer'
+          }
+        })
+      ])
+      : UI.EmptyState({
+        icon: '🧩',
+        title: pageLabel,
+        message: TL('projects.viewer.modal.empty')
+      });
+
+    const summaryGrid = D.Containers.Div({ attrs: { class: tw`grid gap-4 sm:grid-cols-2` } }, [
+      D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+        D.Text.H4({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted-foreground)]` } }, [TL('projects.viewer.modal.section.ar')]),
+        D.Text.P({ attrs: { class: tw`text-sm leading-7`, dir: 'rtl' } }, [summaryAr || TL('projects.viewer.modal.empty')])
+      ]),
+      D.Containers.Div({ attrs: { class: tw`space-y-2` } }, [
+        D.Text.H4({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted-foreground)]` } }, [TL('projects.viewer.modal.section.en')]),
+        D.Text.P({ attrs: { class: tw`text-sm leading-7`, dir: 'ltr' } }, [summaryEn || TL('projects.viewer.modal.empty')])
+      ])
+    ]);
+
+    const highlightsList = highlights.length
+      ? D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
+        D.Text.H4({ attrs: { class: tw`text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted-foreground)]` } }, [TL('projects.viewer.modal.highlights')]),
+        D.Lists.Ul({ attrs: { class: tw`space-y-3` } }, highlights.map((entry, idx) => {
+          const point = ensureDict(entry);
+          const ar = point.ar || point.en || '';
+          const en = point.en || point.ar || '';
+          return D.Lists.Li({
+            attrs: {
+              key: `project-highlight-${idx}`,
+              class: tw`rounded-2xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] px-4 py-3`
+            }
+          }, [
+            D.Text.P({ attrs: { class: tw`text-sm font-semibold`, dir: 'rtl' } }, [ar]),
+            D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)]`, dir: 'ltr' } }, [en])
+          ]);
+        }))
+      ])
+      : null;
+
+    const modalContent = D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [summaryGrid, highlightsList].filter(Boolean));
+
+    const infoModal = infoOpen
+      ? UI.Modal({
+        open: true,
+        title: pageLabel,
+        description: TL('projects.viewer.modal.desc'),
+        size: 'lg',
+        closeGkey: 'project:info:close',
+        content: modalContent,
+        actions: [
+          UI.Button({ attrs: { gkey: 'project:info:close' }, variant: 'soft', size: 'sm' }, [TL('projects.viewer.modal.close')])
+        ]
+      })
+      : null;
+
+    const fullscreenOverlay = fullscreenOn && hasUrl
+      ? D.Containers.Div({
+        attrs: {
+          class: tw`fixed inset-0 z-[70] bg-[rgba(2,6,23,0.88)] backdrop-blur-sm px-4 py-6 sm:px-6`,
+          'data-project-fullscreen': activeKey || ''
+        }
+      }, [
+        D.Containers.Div({ attrs: { class: tw`flex justify-end` } }, [
+          UI.Button({ attrs: { gkey: 'project:fullscreen:exit' }, variant: 'soft', size: 'sm' }, [`↩️ ${TL('projects.viewer.fullscreen.back')}`])
+        ]),
+        D.Containers.Div({ attrs: { class: tw`mt-4 h-[calc(100vh-6rem)]` } }, [
+          D.Media.Iframe({
+            attrs: {
+              key: `${activeKey || 'project'}-fullscreen`,
+              src: iframeUrl,
+              title: `${pageLabel} full screen`,
+              class: tw`h-full w-full rounded-2xl border-0 bg-white shadow-[0_40px_120px_rgba(15,23,42,0.45)]`,
+              loading: 'lazy',
+              referrerpolicy: 'no-referrer'
+            }
+          })
+        ])
+      ])
+      : null;
+
+    const cardContent = D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [actionsRow, iframeNode]);
+
+    return D.Containers.Div({ attrs: { class: tw`space-y-6` } }, [
+      UI.Card({
+        title: pageLabel,
+        description: pageDesc || null,
+        content: cardContent
+      }),
+      infoModal,
+      fullscreenOverlay
+    ].filter(Boolean));
+  }
+
   function CounterComp(db) {
     const { TL } = makeLangLookup(db);
     return UI.Card({
@@ -3140,6 +4068,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
     SDKShowcaseComp,
     PosShowcaseComp,
     KdsShowcaseComp,
+    ProjectViewerComp,
     CounterComp,
     SequenceGameComp,
     ProverbsGameComp,
@@ -3284,6 +4213,46 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       icon: '🎯',
       label: { ar: 'تجارب تعليمية', en: 'Learning challenges' },
       desc: { ar: 'لعبة الأمثال والمتواليات.', en: 'Proverbs and sequence challenges.' }
+    },
+    {
+      key: 'projects',
+      parent: null,
+      sort: 6,
+      icon: '🗂️',
+      label: { ar: 'المشاريع والتجارب', en: 'Projects & demos' },
+      desc: { ar: 'مجموعة النماذج المبنية على مشكاة.', en: 'Collection of Mishkah-built demos.' }
+    },
+    {
+      key: 'projects.core',
+      parent: 'projects',
+      sort: 1,
+      icon: '🧠',
+      label: { ar: 'العروض الأساسية', en: 'Core showcases' },
+      desc: { ar: 'القوالب، الأدوات، ودروس HTMLx.', en: 'Templates, tooling, and HTMLx lessons.' }
+    },
+    {
+      key: 'projects.pos',
+      parent: 'projects',
+      sort: 2,
+      icon: '🛒',
+      label: { ar: 'التجزئة والضيافة', en: 'Retail & hospitality' },
+      desc: { ar: 'POS، KDS، ولوحات الطلب.', en: 'POS, KDS, and ordering boards.' }
+    },
+    {
+      key: 'projects.ops',
+      parent: 'projects',
+      sort: 3,
+      icon: '🚚',
+      label: { ar: 'تشغيل ومتابعة', en: 'Operations & control' },
+      desc: { ar: 'التوصيل، التحليلات، والدعم.', en: 'Delivery, analytics, and support.' }
+    },
+    {
+      key: 'projects.verticals',
+      parent: 'projects',
+      sort: 4,
+      icon: '🌍',
+      label: { ar: 'حلول قطاعية', en: 'Vertical solutions' },
+      desc: { ar: 'منصات اجتماعية وتجارية متخصصة.', en: 'Specialised social & commerce platforms.' }
     }
   ];
 
@@ -3422,7 +4391,8 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       desc: { ar: 'تدريب على التحليل الرقمي والتنبؤ.', en: 'Practice numerical analysis and prediction.' },
       classKey: 'examples.games',
       comp: 'SequenceGameComp'
-    }
+    },
+    ...PROJECT_PAGE_ENTRIES
   ];
 
   function loadDocs() {
@@ -3540,7 +4510,8 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             showButton: false,
             open: false,
             draft: cloneThemeOverrides(themeOverrides)
-          }
+          },
+          projectPreview: { activeKey: null, infoOpen: false, fullscreen: false }
         }
       }
     };
@@ -3628,6 +4599,30 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       ? U.Num.randomInt(0, SEQUENCE_BANK.length - 1)
       : Math.floor(Math.random() * SEQUENCE_BANK.length);
     return SEQUENCE_BANK[idx];
+  }
+
+  function resolveActiveProject(state) {
+    const safeState = ensureDict(state);
+    const data = ensureDict(safeState.data);
+    const pages = ensureArray(data.pages);
+    const activeKey = data.active || (pages[0] && pages[0].key) || null;
+    if (!activeKey) {
+      return {
+        activeKey: null,
+        page: null,
+        projectMeta: {},
+        fallbackEntry: {},
+        iframeUrl: ''
+      };
+    }
+    const activePage = pages.find((page) => page && page.key === activeKey) || null;
+    const pageMeta = ensureDict(activePage && activePage.meta);
+    const projectMeta = ensureDict(pageMeta.project);
+    const fallbackEntry = PROJECT_INFO_MAP[activeKey] || {};
+    const iframeUrl = typeof projectMeta.url === 'string' && projectMeta.url
+      ? projectMeta.url
+      : (typeof fallbackEntry.url === 'string' ? fallbackEntry.url : '');
+    return { activeKey, page: activePage, projectMeta, fallbackEntry, iframeUrl };
   }
 
   IndexApp.orders = {
@@ -4299,11 +5294,149 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         context.setState((prev) => {
           const prevData = ensureDict(prev.data);
           const prevSearch = ensureDict(prevData.search);
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
           return {
             ...prev,
             data: Object.assign({}, prevData, {
               active: pageKey,
               search: Object.assign({}, prevSearch, { query: '', results: [], activeIndex: -1 })
+            }),
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: { activeKey: pageKey, infoOpen: false, fullscreen: false }
+              })
+            })
+          };
+        });
+      }
+    },
+    'project:info:open': {
+      on: ['click'],
+      gkeys: ['project:info:open'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const { activeKey } = resolveActiveProject(prev);
+          if (!activeKey) return prev;
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevPreview = ensureDict(prevShell.projectPreview);
+          if (prevPreview.infoOpen && prevPreview.activeKey === activeKey) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: Object.assign({}, prevPreview, {
+                  activeKey,
+                  infoOpen: true
+                })
+              })
+            })
+          };
+        });
+      }
+    },
+    'project:info:close': {
+      on: ['click'],
+      gkeys: ['project:info:close'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const { activeKey } = resolveActiveProject(prev);
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevPreview = ensureDict(prevShell.projectPreview);
+          const nextKey = activeKey || prevPreview.activeKey || null;
+          if (!prevPreview.infoOpen && prevPreview.activeKey === nextKey) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: Object.assign({}, prevPreview, {
+                  activeKey: nextKey,
+                  infoOpen: false
+                })
+              })
+            })
+          };
+        });
+      }
+    },
+    'project:fullscreen:enter': {
+      on: ['click'],
+      gkeys: ['project:fullscreen:enter'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const resolved = resolveActiveProject(prev);
+          if (!resolved.activeKey || !resolved.iframeUrl) return prev;
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevPreview = ensureDict(prevShell.projectPreview);
+          if (prevPreview.fullscreen && prevPreview.activeKey === resolved.activeKey) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: Object.assign({}, prevPreview, {
+                  activeKey: resolved.activeKey,
+                  fullscreen: true
+                })
+              })
+            })
+          };
+        });
+      }
+    },
+    'project:fullscreen:exit': {
+      on: ['click'],
+      gkeys: ['project:fullscreen:exit'],
+      handler: (_event, context) => {
+        context.setState((prev) => {
+          const resolved = resolveActiveProject(prev);
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevPreview = ensureDict(prevShell.projectPreview);
+          const nextKey = resolved.activeKey || prevPreview.activeKey || null;
+          if (!prevPreview.fullscreen && prevPreview.activeKey === nextKey) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: Object.assign({}, prevPreview, {
+                  activeKey: nextKey,
+                  fullscreen: false
+                })
+              })
+            })
+          };
+        });
+      }
+    },
+    'project:open:newtab': {
+      on: ['click'],
+      gkeys: ['project:open:newtab'],
+      handler: (_event, context) => {
+        const state = context.getState();
+        const resolved = resolveActiveProject(state);
+        if (!resolved.activeKey || !resolved.iframeUrl) return;
+        const w = typeof window !== 'undefined' ? window : null;
+        if (w && typeof w.open === 'function') {
+          w.open(resolved.iframeUrl, '_blank', 'noopener,noreferrer');
+        }
+        context.setState((prev) => {
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
+          const prevPreview = ensureDict(prevShell.projectPreview);
+          if (!prevPreview.infoOpen && !prevPreview.fullscreen && prevPreview.activeKey === resolved.activeKey) return prev;
+          return {
+            ...prev,
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: Object.assign({}, prevPreview, {
+                  activeKey: resolved.activeKey,
+                  infoOpen: false,
+                  fullscreen: false
+                })
+              })
             })
           };
         });
@@ -4323,9 +5456,16 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           const list = ensureArray(map[classKey]);
           const nextActive = fallbackPage || list[0] || prevData.active;
           if (!nextActive || nextActive === prevData.active) return prev;
+          const prevUi = ensureDict(prev.ui);
+          const prevShell = ensureDict(prevUi.pagesShell);
           return {
             ...prev,
-            data: Object.assign({}, prevData, { active: nextActive })
+            data: Object.assign({}, prevData, { active: nextActive }),
+            ui: Object.assign({}, prevUi, {
+              pagesShell: Object.assign({}, prevShell, {
+                projectPreview: { activeKey: nextActive, infoOpen: false, fullscreen: false }
+              })
+            })
           };
         });
       }

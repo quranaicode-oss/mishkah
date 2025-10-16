@@ -796,11 +796,13 @@
               const prevUi = ensureDict(prev.ui);
               const prevShell = ensureDict(prevUi.pagesShell);
               const prevNav = ensureDict(prevShell.nav);
+              const nextPreview = { activeKey: key, infoOpen: false, fullscreen: false };
               return Object.assign({}, prev, {
                 data: Object.assign({}, prev.data, { active: key }),
                 ui: Object.assign({}, prevUi, {
                   pagesShell: Object.assign({}, prevShell, {
-                    nav: Object.assign({}, prevNav, { mobileOpen: false })
+                    nav: Object.assign({}, prevNav, { mobileOpen: false }),
+                    projectPreview: nextPreview
                   })
                 })
               });
