@@ -5020,10 +5020,41 @@
       const sortState = ordersState.sort || { field:'updatedAt', direction:'desc' };
       const mergedOrders = [];
       const seen = new Set();
+      const isDraftOrder = (order)=>{
+        if(!order) return false;
+        const statusCandidates = [
+          order.status,
+          order.statusId,
+          order.state,
+          order.orderStatus,
+          order.lifecycleStatus,
+          order.lifecycle_state,
+          order.header?.status,
+          order.header?.status_id,
+          order.header?.statusId,
+          order.header?.order_status,
+          order.header?.orderStatus,
+          order.header?.state,
+          order.header?.lifecycle_state,
+          order.header?.lifecycleStatus
+        ];
+        if(statusCandidates.some(value=>{
+          if(value == null) return false;
+          const normalized = String(value).trim().toLowerCase();
+          if(!normalized) return false;
+          return normalized.includes('draft');
+        })){
+          return true;
+        }
+        const idSource = order.id || order.header?.id || '';
+        const idNormalized = String(idSource).trim().toLowerCase();
+        if(idNormalized.startsWith('draft')) return true;
+        if(order.isDraft === true || order.header?.is_draft === true || order.header?.isDraft === true) return true;
+        return false;
+      };
       [db.data.order, ...(db.data.ordersQueue || [])].forEach(order=>{
         if(!order || !order.id || seen.has(order.id)) return;
-        const statusId = String(order.status || order.header?.status_id || '').toLowerCase();
-        if(statusId && statusId.startsWith('draft')) return;
+        if(isDraftOrder(order)) return;
         seen.add(order.id);
         mergedOrders.push(order);
       });
