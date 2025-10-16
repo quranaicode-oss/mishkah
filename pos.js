@@ -138,6 +138,18 @@
         : DEFAULT_PAYMENT_METHODS_SOURCE;
       return list.map(sanitizePaymentMethod);
     };
+    const isStaticDemoEnvironment = (()=>{
+      if(typeof globalThis === 'undefined') return false;
+      const { location } = globalThis;
+      if(!location) return false;
+      const protocol = String(location.protocol || '').toLowerCase();
+      const hostname = String(location.hostname || '').toLowerCase();
+      if(!hostname && protocol === 'file:') return true;
+      if(!hostname) return false;
+      if(hostname === 'localhost' || hostname === '127.0.0.1') return false;
+      if(protocol === 'file:') return true;
+      return hostname.endsWith('.github.io');
+    })();
     const REMOTE_CONFIG = { endpoint:'/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
     const extractRemotePayload = (response)=>{
       if(!response || typeof response !== 'object') return null;
@@ -166,6 +178,14 @@
     function createRemoteHydrator(){
       const status = { status:'idle', error:null, startedAt:null, finishedAt:null, keys:[] };
       const { Net } = U;
+      if(isStaticDemoEnvironment){
+        status.status = 'skipped';
+        status.startedAt = Date.now();
+        status.finishedAt = status.startedAt;
+        status.error = null;
+        const promise = Promise.resolve({ data:null, status });
+        return { status, promise };
+      }
       const promise = (async()=>{
         status.status = 'loading';
         status.startedAt = Date.now();
@@ -2374,10 +2394,10 @@
     const WebSocketX = U.WebSocketX || U.WebSocket;
     const branch = options.branch ? normalizeChannelName(options.branch, BRANCH_CHANNEL) : BRANCH_CHANNEL;
     const topic = `pos:sync:${branch}`;
-    const httpBase = options.httpEndpoint || '/api/pos-sync';
-    const httpEndpoint = httpBase.endsWith(branch)
-      ? httpBase
-      : `${httpBase.replace(/\/$/, '')}/${branch}`;
+    const httpBase = options.httpEndpoint || null;
+    const httpEndpoint = httpBase
+      ? (httpBase.endsWith(branch) ? httpBase : `${httpBase.replace(/\/$/, '')}/${branch}`)
+      : null;
     const wsEndpoint = options.wsEndpoint;
     const token = options.token || null;
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
@@ -2386,6 +2406,8 @@
     let ready = false;
     let awaitingAuth = false;
     let online = false;
+    let disabled = !httpEndpoint && !wsEndpoint;
+    let disableReason = disabled ? 'Central sync disabled by configuration.' : null;
     let initialSyncComplete = false;
     let initialSyncPromise = null;
     let version = 0;
@@ -2393,10 +2415,11 @@
     const pendingFrames = [];
     const pendingMutations = new Map();
     let status = {
-      state: wsEndpoint && WebSocketX ? 'offline' : 'disabled',
+      state: disabled ? 'disabled' : (wsEndpoint && WebSocketX ? 'offline' : 'disabled'),
       version: 0,
       updatedAt: null,
-      endpoint: wsEndpoint || null
+      endpoint: wsEndpoint || null,
+      lastError: disableReason
     };
 
     const createSyncError = (code, message)=>{
@@ -2413,13 +2436,16 @@
     };
 
     const flushFrames = ()=>{
-      if(!socket || !ready || awaitingAuth) return;
+      if(disabled || !socket || !ready || awaitingAuth) return;
       while(pendingFrames.length){
         try { socket.send(pendingFrames.shift()); } catch(sendErr){ console.warn('[Mishkah][POS] Central sync send failed', sendErr); break; }
       }
     };
 
     const sendFrame = (frame)=>{
+      if(disabled){
+        return false;
+      }
       if(!socket){
         pendingFrames.push(frame);
         return false;
@@ -2437,6 +2463,21 @@
       entries.forEach(entry=>{ try { entry.reject(err); } catch(_rejectErr){} });
     };
 
+    const disableSync = (reason, extra={})=>{
+      if(disabled) return;
+      disabled = true;
+      disableReason = reason || 'Central sync disabled.';
+      awaitingAuth = false;
+      ready = false;
+      online = false;
+      if(socket && typeof socket.close === 'function'){
+        try { socket.close(1000, 'disabled'); } catch(_closeErr){}
+      }
+      socket = null;
+      rejectPending(createSyncError('POS_SYNC_DISABLED', disableReason));
+      emitStatus({ state:'disabled', endpoint:null, lastError: disableReason, ...extra });
+    };
+
     const waitForAck = (mutationId, timeoutMs=15000)=> new Promise((resolve, reject)=>{
       const timer = setTimeout(()=>{
         pendingMutations.delete(mutationId);
@@ -2449,10 +2490,21 @@
     });
 
     const fetchSnapshot = async ()=>{
+      if(disabled){
+        return { snapshot:null, version, disabled:true };
+      }
       if(typeof fetch !== 'function'){
         throw createSyncError('POS_SYNC_UNSUPPORTED', 'Fetch API is not available in this environment.');
       }
+      if(!httpEndpoint){
+        disableSync('Central sync HTTP endpoint unavailable.');
+        return { snapshot:null, version, disabled:true };
+      }
       const response = await fetch(httpEndpoint, { headers });
+      if(response.status === 404 || response.status === 405){
+        disableSync(`Central sync endpoint unavailable (HTTP ${response.status}).`, { httpStatus: response.status });
+        return { snapshot:null, version, disabled:true, httpStatus: response.status };
+      }
       if(!response.ok){
         throw createSyncError('POS_SYNC_HTTP', `HTTP ${response.status}`);
       }
@@ -2460,11 +2512,21 @@
     };
 
     const ensureInitialSync = async ()=>{
-      if(initialSyncComplete) return true;
+      if(initialSyncComplete) return disabled ? false : true;
       if(!initialSyncPromise){
         initialSyncPromise = (async()=>{
+          if(disabled){
+            initialSyncComplete = true;
+            emitStatus({ state:'disabled', endpoint:null, lastError: disableReason });
+            return false;
+          }
           emitStatus({ state:'syncing' });
           const remote = await fetchSnapshot();
+          if(remote && remote.disabled){
+            initialSyncComplete = true;
+            emitStatus({ state:'disabled', endpoint:null, lastError: disableReason });
+            return false;
+          }
           if(remote && remote.snapshot){
             try {
               await adapter.importSnapshot(remote.snapshot);
@@ -2478,6 +2540,11 @@
           emitStatus({ state: online ? 'online' : (status.state === 'disabled' ? 'disabled' : 'offline') });
           return true;
         })().catch(err=>{
+          if(disabled || err?.code === 'POS_SYNC_DISABLED'){
+            initialSyncComplete = true;
+            emitStatus({ state:'disabled', endpoint:null, lastError: disableReason || err?.message });
+            return false;
+          }
           emitStatus({ state:'offline', lastError: err?.message || String(err) });
           throw err;
         });
@@ -2505,6 +2572,9 @@
     };
 
     const pushSnapshot = async (reason, meta={})=>{
+      if(disabled){
+        return (typeof adapter.exportSnapshot === 'function') ? adapter.exportSnapshot() : null;
+      }
       if(!socket || !ready || awaitingAuth){
         throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
       }
@@ -2526,6 +2596,9 @@
     };
 
     const pushDestroy = async (reason)=>{
+      if(disabled){
+        return true;
+      }
       if(!socket || !ready || awaitingAuth){
         throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
       }
@@ -2539,6 +2612,10 @@
     };
 
     const connect = ()=>{
+      if(disabled){
+        emitStatus({ state:'disabled', endpoint:null, lastError: disableReason || 'Central sync disabled.' });
+        return;
+      }
       if(!WebSocketX || !wsEndpoint){
         emitStatus({ state:'offline', lastError:'WebSocket unavailable' });
         return;
@@ -2595,7 +2672,10 @@
     const run = (label, meta={}, executor)=>{
       if(typeof executor !== 'function') return Promise.resolve(null);
       const task = async ()=>{
-        await ensureInitialSync();
+        const synced = await ensureInitialSync();
+        if(disabled || synced === false){
+          return executor();
+        }
         if(!socket || !ready || awaitingAuth || !online){
           throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
         }
@@ -2624,7 +2704,10 @@
     };
 
     const destroy = async (reason)=>{
-      await ensureInitialSync();
+      const synced = await ensureInitialSync();
+      if(disabled || synced === false){
+        return true;
+      }
       if(!socket || !ready || awaitingAuth || !online){
         throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
       }
@@ -2652,6 +2735,42 @@
       createError: createSyncError
     };
   }
+
+    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
+    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || (isStaticDemoEnvironment ? null : 'wss://ws.mas.com.eg/ws');
+    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
+    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
+    if(!mockEndpoint){
+      if(kdsEndpoint){
+        console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
+      } else {
+        console.info('[Mishkah][POS] KDS WebSocket endpoint disabled for static demo environment.');
+      }
+    } else {
+      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
+    }
+    const kdsToken = MOCK_BASE?.kds?.token || null;
+    if(!kdsToken){
+      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
+    }
+    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
+      || syncSettings.http_endpoint
+      || syncSettings.httpEndpoint
+      || (isStaticDemoEnvironment ? null : '/api/pos-sync');
+    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
+      || syncSettings.pos_ws_endpoint
+      || syncSettings.posWsEndpoint
+      || syncSettings.ws_endpoint
+      || syncSettings.wsEndpoint
+      || (isStaticDemoEnvironment ? null : kdsEndpoint);
+    const posSyncToken = (MOCK_BASE?.sync?.token)
+      || syncSettings.pos_token
+      || syncSettings.posToken
+      || syncSettings.token
+      || null;
+    if(isStaticDemoEnvironment && !posSyncHttpBase && !posSyncWsEndpoint){
+      console.info('[Mishkah][POS] Central sync disabled for static demo environment (no HTTP or WS endpoints available).');
+    }
 
     let centralSyncStatus = {
       state: posSyncWsEndpoint ? 'offline' : 'disabled',
@@ -3290,34 +3409,6 @@
     }
 
     applyThemePreferenceStyles(savedThemePrefs);
-    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
-    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || 'wss://ws.mas.com.eg/ws';
-    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
-    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
-    if(!mockEndpoint){
-      console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
-    } else {
-      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
-    }
-    const kdsToken = MOCK_BASE?.kds?.token || null;
-    if(!kdsToken){
-      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
-    }
-    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
-      || syncSettings.http_endpoint
-      || syncSettings.httpEndpoint
-      || '/api/pos-sync';
-    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
-      || syncSettings.pos_ws_endpoint
-      || syncSettings.posWsEndpoint
-      || syncSettings.ws_endpoint
-      || syncSettings.wsEndpoint
-      || kdsEndpoint;
-    const posSyncToken = (MOCK_BASE?.sync?.token)
-      || syncSettings.pos_token
-      || syncSettings.posToken
-      || syncSettings.token
-      || null;
     const kdsBridge = createKDSBridge(kdsEndpoint);
     const LOCAL_SYNC_CHANNEL_NAME = 'mishkah-pos-kds-sync';
     const localKdsChannel = typeof BroadcastChannel !== 'undefined'
