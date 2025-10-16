@@ -98,6 +98,66 @@
             :root { --tile-size: 3.4rem; }
           }
 
+          @media (max-width: 1024px) {
+            :root {
+              --user-font-scale: 95;
+              --font-size-heading-1: 2.35rem;
+              --font-size-heading-2: 1.85rem;
+              --font-size-heading-3: 1.5rem;
+              --font-size-scale-3xl: 2.05rem;
+              --font-size-scale-2xl: 1.6rem;
+            }
+          }
+
+          @media (max-width: 768px) {
+            :root {
+              --user-font-scale: 90;
+              --font-size-body: 0.96rem;
+              --font-size-scale-xs: 0.72rem;
+              --font-size-scale-sm: 0.82rem;
+              --font-size-scale-md: 0.94rem;
+              --font-size-scale-lg: 1.05rem;
+              --font-size-scale-xl: 1.22rem;
+              --font-size-scale-2xl: 1.48rem;
+              --font-size-scale-3xl: 1.85rem;
+              --font-size-heading-1: 2.1rem;
+              --font-size-heading-2: 1.68rem;
+              --font-size-heading-3: 1.42rem;
+              --font-size-sidebar: 0.98rem;
+              --font-size-quote: 1.05rem;
+              --font-size-info: 1.08rem;
+              --font-size-letter: 1.16rem;
+              --font-size-status: 1.08rem;
+              --font-size-badge: 0.76rem;
+              --tile-size: 2.9rem;
+            }
+
+            body::before,
+            body::after {
+              opacity: 0.3;
+            }
+          }
+
+          @media (max-width: 480px) {
+            :root {
+              --user-font-scale: 86;
+              --font-size-body: 0.94rem;
+              --font-size-scale-xs: 0.7rem;
+              --font-size-scale-sm: 0.8rem;
+              --font-size-scale-md: 0.9rem;
+              --font-size-scale-lg: 1.02rem;
+              --font-size-scale-xl: 1.18rem;
+              --font-size-scale-2xl: 1.38rem;
+              --font-size-scale-3xl: 1.72rem;
+              --font-size-heading-1: 1.85rem;
+              --font-size-heading-2: 1.55rem;
+              --font-size-heading-3: 1.32rem;
+              --font-size-letter: 1.08rem;
+              --font-size-status: 1.02rem;
+              --tile-size: 2.75rem;
+            }
+          }
+
           *, *::before, *::after {
             box-sizing: border-box;
           }
