@@ -2653,6 +2653,35 @@
     };
   }
 
+    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
+    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || 'wss://ws.mas.com.eg/ws';
+    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
+    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
+    if(!mockEndpoint){
+      console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
+    } else {
+      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
+    }
+    const kdsToken = MOCK_BASE?.kds?.token || null;
+    if(!kdsToken){
+      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
+    }
+    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
+      || syncSettings.http_endpoint
+      || syncSettings.httpEndpoint
+      || '/api/pos-sync';
+    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
+      || syncSettings.pos_ws_endpoint
+      || syncSettings.posWsEndpoint
+      || syncSettings.ws_endpoint
+      || syncSettings.wsEndpoint
+      || kdsEndpoint;
+    const posSyncToken = (MOCK_BASE?.sync?.token)
+      || syncSettings.pos_token
+      || syncSettings.posToken
+      || syncSettings.token
+      || null;
+
     let centralSyncStatus = {
       state: posSyncWsEndpoint ? 'offline' : 'disabled',
       version: 0,
@@ -3290,34 +3319,6 @@
     }
 
     applyThemePreferenceStyles(savedThemePrefs);
-    const kdsEndpointSetting = syncSettings.ws_endpoint || syncSettings.wsEndpoint || null;
-    const DEFAULT_KDS_ENDPOINT = kdsEndpointSetting || 'wss://ws.mas.com.eg/ws';
-    const mockEndpoint = MOCK_BASE?.kds && (MOCK_BASE.kds.endpoint || MOCK_BASE.kds.wsEndpoint);
-    const kdsEndpoint = mockEndpoint || DEFAULT_KDS_ENDPOINT;
-    if(!mockEndpoint){
-      console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
-    } else {
-      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
-    }
-    const kdsToken = MOCK_BASE?.kds?.token || null;
-    if(!kdsToken){
-      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
-    }
-    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
-      || syncSettings.http_endpoint
-      || syncSettings.httpEndpoint
-      || '/api/pos-sync';
-    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
-      || syncSettings.pos_ws_endpoint
-      || syncSettings.posWsEndpoint
-      || syncSettings.ws_endpoint
-      || syncSettings.wsEndpoint
-      || kdsEndpoint;
-    const posSyncToken = (MOCK_BASE?.sync?.token)
-      || syncSettings.pos_token
-      || syncSettings.posToken
-      || syncSettings.token
-      || null;
     const kdsBridge = createKDSBridge(kdsEndpoint);
     const LOCAL_SYNC_CHANNEL_NAME = 'mishkah-pos-kds-sync';
     const localKdsChannel = typeof BroadcastChannel !== 'undefined'
