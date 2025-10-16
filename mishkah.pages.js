@@ -711,7 +711,8 @@
               headerMenus: Object.assign({}, prevMenus, {
                 templateOpen: false,
                 langOpen: false,
-                themeOpen: false
+                themeOpen: false,
+                mobileSettingsOpen: false
               })
             })
           })

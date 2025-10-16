@@ -254,28 +254,10 @@
     const langInfo = getLangInfo(db);
     const navState = getNavState(db);
     const mobileOpen = !!navState.mobileOpen;
-    const openLabel = langInfo.lang === 'ar' ? 'استعراض الصفحات' : 'Browse pages';
     const closeLabel = langInfo.lang === 'ar' ? 'إغلاق القائمة' : 'Close menu';
     const menuTitle = langInfo.lang === 'ar' ? 'قائمة الصفحات' : 'Pages menu';
 
-    const toggleButton = mobileOpen
-      ? null
-      : D.Containers.Div({
-        attrs: { class: tw`md:hidden sticky top-20 z-40 px-3 pt-3 pb-2` }
-      }, [
-        UI.Button({
-          attrs: {
-            gkey: 'pages:nav:toggle',
-            class: cx(
-              tw`flex w-full items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition shadow-sm`,
-              tw`bg-[color-mix(in_oklab,var(--surface-1)90%,transparent)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--primary)15%,transparent)]`
-            ),
-            'aria-label': openLabel
-          },
-          variant: 'ghost',
-          size: 'sm'
-        }, [`☰`, openLabel])
-      ]);
+    const toggleButton = null;
 
     const mobileList = pages.map((page) => D.Lists.Li({ attrs: { key: `m-${page.key}` } }, [
       renderNavButton(page, activeKey, 'mobile-overlay', langInfo)
@@ -654,11 +636,13 @@
             const prevUi = ensureDict(prev.ui);
             const prevShell = ensureDict(prevUi.pagesShell);
             const prevNav = ensureDict(prevShell.nav);
+            const prevMenus = ensureDict(prevShell.headerMenus);
             const mobileOpen = !!prevNav.mobileOpen;
             return Object.assign({}, prev, {
               ui: Object.assign({}, prevUi, {
                 pagesShell: Object.assign({}, prevShell, {
-                  nav: Object.assign({}, prevNav, { mobileOpen: !mobileOpen })
+                  nav: Object.assign({}, prevNav, { mobileOpen: !mobileOpen }),
+                  headerMenus: Object.assign({}, prevMenus, { mobileSettingsOpen: false })
                 })
               })
             });
@@ -673,11 +657,13 @@
             const prevUi = ensureDict(prev.ui);
             const prevShell = ensureDict(prevUi.pagesShell);
             const prevNav = ensureDict(prevShell.nav);
+            const prevMenus = ensureDict(prevShell.headerMenus);
             if (!prevNav.mobileOpen) return prev;
             return Object.assign({}, prev, {
               ui: Object.assign({}, prevUi, {
                 pagesShell: Object.assign({}, prevShell, {
-                  nav: Object.assign({}, prevNav, { mobileOpen: false })
+                  nav: Object.assign({}, prevNav, { mobileOpen: false }),
+                  headerMenus: Object.assign({}, prevMenus, { mobileSettingsOpen: false })
                 })
               })
             });
