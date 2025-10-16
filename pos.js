@@ -210,10 +210,11 @@
       finishedAt: status?.finishedAt || null,
       keys: Array.isArray(status?.keys) ? status.keys.slice() : []
     });
-    function createRemoteHydrator(){
+    function createRemoteHydrator(options={}){
       const status = { status:'idle', error:null, startedAt:null, finishedAt:null, keys:[] };
       const { Net } = U;
-      if(isStaticDemoEnvironment){
+      const shouldSkip = options.skip ?? isStaticDemoEnvironment;
+      if(shouldSkip){
         status.status = 'skipped';
         status.startedAt = Date.now();
         status.finishedAt = status.startedAt;
@@ -273,9 +274,6 @@
     const MOCK_BASE = cloneDeep(typeof window !== 'undefined' ? (window.database || {}) : {});
     let MOCK = cloneDeep(MOCK_BASE);
     let PAYMENT_METHODS = derivePaymentMethods(MOCK);
-    const remoteHydrator = createRemoteHydrator();
-    const remoteStatus = remoteHydrator.status;
-    const initialRemoteSnapshot = snapshotRemoteStatus(remoteStatus);
     let appRef = null;
     const settings = MOCK.settings || {};
     const currencyConfig = settings.currency || {};
@@ -357,12 +355,15 @@
       syncSettings.force_static_sync,
       syncSettings.forceStaticSync
     );
-    const allowStaticRealtime = ensureBoolean(staticRealtimeOverrideSource, false);
+    const allowStaticRealtime = ensureBoolean(staticRealtimeOverrideSource, true);
     const disableRealtimeInStaticDemo = isStaticDemoEnvironment && !allowStaticRealtime;
     if(disableRealtimeInStaticDemo){
       const hostname = typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location.hostname : null;
       console.info('[Mishkah][POS] Static demo host detected, disabling realtime endpoints.', { hostname });
     }
+    const remoteHydrator = createRemoteHydrator({ skip: disableRealtimeInStaticDemo });
+    const remoteStatus = remoteHydrator.status;
+    const initialRemoteSnapshot = snapshotRemoteStatus(remoteStatus);
     const branchSettings = ensurePlainObject(settings.branch);
     const DEFAULT_BRANCH_CHANNEL = 'branch-main'; // غيّر هذه القيمة لتبديل قناة POS وKDS معًا.
     const branchChannelSource = syncSettings.channel
