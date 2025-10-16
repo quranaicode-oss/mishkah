@@ -25,6 +25,15 @@ const database = {
         en: 'E£',
         ar: 'ج.م'
       }
+    },
+    sync: {
+      branch_id: 'branch-main',
+      branch_name: {
+        ar: 'الفرع الرئيسي',
+        en: 'Main branch'
+      },
+      channel: 'branch-main',
+      ws_endpoint: 'wss://ws.mas.com.eg/ws'
     }
   },
 
