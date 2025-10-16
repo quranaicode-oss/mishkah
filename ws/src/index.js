@@ -345,7 +345,7 @@ function verifyToken(token) {
 }
 
 const CHAT_TOPIC_REGEX = /^chat:[a-z0-9:_-]+$/;
-const KITCHEN_TOPIC_REGEX = /^(pos:kds:orders|kds:(jobs|delivery|handoff):updates)$/;
+const KITCHEN_TOPIC_REGEX = /^(?:[a-z0-9:_-]+:)?(pos:kds:orders|kds:(jobs|delivery|handoff):updates)$/;
 
 function isKitchenTopic(topic) {
   return typeof topic === 'string' && KITCHEN_TOPIC_REGEX.test(topic);
@@ -363,6 +363,9 @@ function topicAllowed(topic, isPublish) {
     if (regex.test(topic)) {
       return true;
     }
+  }
+  if (isKitchenTopic(topic)) {
+    return true;
   }
   if (CHAT_TOPIC_REGEX.test(topic)) {
     return true;
