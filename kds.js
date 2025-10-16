@@ -23,6 +23,12 @@
     }
   };
 
+  const normalizeChannelName = (value, fallback='default')=>{
+    const base = value == null ? '' : String(value).trim();
+    const raw = base || fallback || 'default';
+    return raw.replace(/[^A-Za-z0-9:_-]+/g, '-').toLowerCase();
+  };
+
   const TEXT_DICT = {
     "title": {
       "ar": "مشكاة — شاشة المطبخ",
@@ -634,6 +640,15 @@
     }));
   };
 
+  const toStationMap = (list)=> (Array.isArray(list)
+    ? list.reduce((acc, station)=>{
+        if(station && station.id != null){
+          acc[station.id] = station;
+        }
+        return acc;
+      }, {})
+    : {});
+
   const buildTabs = (db, t)=>{
     const tabs = [];
     const { filters, jobs } = db.data;
@@ -1162,11 +1177,53 @@
 
   const database = typeof window !== 'undefined' ? (window.database || {}) : {};
   const kdsSource = database.kds || {};
+  const settings = typeof database.settings === 'object' && database.settings ? database.settings : {};
+  const syncSettings = typeof settings.sync === 'object' && settings.sync ? settings.sync : {};
+  const branchSettings = typeof settings.branch === 'object' && settings.branch ? settings.branch : {};
+  const branchChannelSource = syncSettings.channel
+    || syncSettings.branch_channel
+    || syncSettings.branchChannel
+    || kdsSource?.sync?.channel
+    || branchSettings.channel
+    || branchSettings.branchChannel
+    || database.branch?.channel
+    || database.branchChannel
+    || 'branch-main';
+  const BRANCH_CHANNEL = normalizeChannelName(branchChannelSource, 'branch-main');
+  if(typeof window !== 'undefined'){
+    window.MishkahKdsChannel = BRANCH_CHANNEL;
+  }
   const stations = buildStations(database, kdsSource);
-  const stationMap = stations.reduce((acc, station)=>{
-    acc[station.id] = station;
-    return acc;
-  }, {});
+  const stationMap = toStationMap(stations);
+  const initialStationRoutes = Array.isArray(kdsSource.stationCategoryRoutes)
+    ? kdsSource.stationCategoryRoutes.map(route=> ({ ...route }))
+    : (Array.isArray(database?.station_category_routes)
+      ? database.station_category_routes.map(route=> ({ ...route }))
+      : []);
+  const initialKitchenSections = Array.isArray(kdsSource.kitchenSections)
+    ? kdsSource.kitchenSections.map(section=> ({ ...section }))
+    : (Array.isArray(database?.kitchen_sections)
+      ? database.kitchen_sections.map(section=> ({ ...section }))
+      : []);
+  const initialCategorySections = Array.isArray(kdsSource.categorySections)
+    ? kdsSource.categorySections.map(entry=> ({ ...entry }))
+    : (Array.isArray(database?.category_sections)
+      ? database.category_sections.map(entry=> ({ ...entry }))
+      : []);
+  const initialMenuCategories = Array.isArray(kdsSource.menu?.categories)
+    ? kdsSource.menu.categories.map(category=> ({ ...category }))
+    : (Array.isArray(database?.menu?.categories)
+      ? database.menu.categories.map(category=> ({ ...category }))
+      : []);
+  const initialMenuItems = Array.isArray(kdsSource.menu?.items)
+    ? kdsSource.menu.items.map(item=> ({ ...item }))
+    : (Array.isArray(database?.menu?.items)
+      ? database.menu.items.map(item=> ({ ...item }))
+      : []);
+  const initialMenu = {
+    categories: initialMenuCategories,
+    items: initialMenuItems
+  };
   const rawJobOrders = cloneDeep(kdsSource.jobOrders || {});
   const jobRecords = buildJobRecords(rawJobOrders);
   const jobsIndexed = indexJobs(jobRecords);
@@ -1185,13 +1242,17 @@
     i18n:{ dict: TEXT_FLAT, fallback:'ar' },
     data:{
       meta: kdsSource.metadata || {},
-      sync:{ state:'online', lastMessage:null },
+      sync:{ state:'online', lastMessage:null, channel: BRANCH_CHANNEL },
       stations,
       stationMap,
       jobs: jobsIndexed,
       expoSource,
       expoTickets,
       jobOrders: rawJobOrders,
+      stationCategoryRoutes: initialStationRoutes,
+      kitchenSections: initialKitchenSections,
+      categorySections: initialCategorySections,
+      menu: initialMenu,
       filters:{ activeTab: defaultTab, lockedSection },
       deliveries:{ assignments:{}, settlements:{} },
       handoff:{},
@@ -1210,7 +1271,7 @@
 
   const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
   const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
-  const syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken });
+  const syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken, channel: BRANCH_CHANNEL });
   if(syncClient){
     syncClient.connect();
   }
@@ -1310,7 +1371,11 @@
       const mergedOrders = mergeJobOrders(state.data.jobOrders || {}, payload.jobOrders);
       const jobRecordsNext = buildJobRecords(mergedOrders);
       const jobsIndexedNext = indexJobs(jobRecordsNext);
-      const expoTicketsNext = buildExpoTickets(state.data.expoSource, jobsIndexedNext);
+      const expoSourcePatch = Array.isArray(payload.jobOrders?.expoPassTickets)
+        ? payload.jobOrders.expoPassTickets.map(ticket=> ({ ...ticket }))
+        : state.data.expoSource;
+      const expoSourceNext = Array.isArray(expoSourcePatch) ? expoSourcePatch : [];
+      const expoTicketsNext = buildExpoTickets(expoSourceNext, jobsIndexedNext);
       let deliveriesNext = state.data.deliveries || { assignments:{}, settlements:{} };
       if(payload.deliveries){
         const assignments = { ...(deliveriesNext.assignments || {}) };
@@ -1336,6 +1401,13 @@
         });
         driversNext = Array.from(map.values());
       }
+      if(Array.isArray(payload.master?.drivers)){
+        const map = new Map((driversNext || []).map(driver=> [String(driver.id ?? driver.code ?? Math.random()), driver]));
+        payload.master.drivers.forEach(driver=>{
+          if(driver && driver.id != null) map.set(String(driver.id), driver);
+        });
+        driversNext = Array.from(map.values());
+      }
       let handoffNext = state.data.handoff || {};
       if(payload.handoff && typeof payload.handoff === 'object'){
         const merged = { ...handoffNext };
@@ -1344,16 +1416,80 @@
         });
         handoffNext = merged;
       }
+      let stationsNext = Array.isArray(state.data.stations)
+        ? state.data.stations.map(station=> ({ ...station }))
+        : [];
+      if(Array.isArray(payload.master?.stations) && payload.master.stations.length){
+        stationsNext = payload.master.stations.map(station=> ({ ...station }));
+      }
+      const stationMapNext = toStationMap(stationsNext);
+      let stationRoutesNext = Array.isArray(state.data.stationCategoryRoutes)
+        ? state.data.stationCategoryRoutes.map(route=> ({ ...route }))
+        : [];
+      if(Array.isArray(payload.master?.stationCategoryRoutes)){
+        stationRoutesNext = payload.master.stationCategoryRoutes.map(route=> ({ ...route }));
+      }
+      let kitchenSectionsNext = Array.isArray(state.data.kitchenSections)
+        ? state.data.kitchenSections.map(section=> ({ ...section }))
+        : [];
+      if(Array.isArray(payload.master?.kitchenSections)){
+        kitchenSectionsNext = payload.master.kitchenSections.map(section=> ({ ...section }));
+      }
+      let categorySectionsNext = Array.isArray(state.data.categorySections)
+        ? state.data.categorySections.map(entry=> ({ ...entry }))
+        : [];
+      if(Array.isArray(payload.master?.categorySections)){
+        categorySectionsNext = payload.master.categorySections.map(entry=> ({ ...entry }));
+      }
+      const baseMenu = state.data.menu || {};
+      let menuNext = {
+        categories: Array.isArray(baseMenu.categories) ? baseMenu.categories.map(category=> ({ ...category })) : [],
+        items: Array.isArray(baseMenu.items) ? baseMenu.items.map(item=> ({ ...item })) : []
+      };
+      if(Array.isArray(payload.master?.categories)){
+        menuNext = { ...menuNext, categories: payload.master.categories.map(category=> ({ ...category })) };
+      }
+      if(Array.isArray(payload.master?.items)){
+        menuNext = { ...menuNext, items: payload.master.items.map(item=> ({ ...item })) };
+      }
+      let metaNext = { ...(state.data.meta || {}) };
+      if(payload.master?.metadata){
+        metaNext = { ...metaNext, ...payload.master.metadata };
+      }
+      if(payload.meta){
+        metaNext = { ...metaNext, ...payload.meta };
+      }
+      let syncNext = { ...(state.data.sync || {}), channel: state.data.sync?.channel || BRANCH_CHANNEL };
+      syncNext.lastMessage = Date.now();
+      syncNext.state = 'online';
+      if(payload.master?.sync){
+        syncNext = { ...syncNext, ...payload.master.sync };
+      }
+      if(payload.master?.channel){
+        syncNext.channel = payload.master.channel;
+      }
+      if(!syncNext.channel){
+        syncNext.channel = BRANCH_CHANNEL;
+      }
       return {
         ...state,
         data:{
           ...state.data,
           jobOrders: mergedOrders,
           jobs: jobsIndexedNext,
+          expoSource: expoSourceNext,
           expoTickets: expoTicketsNext,
           deliveries: deliveriesNext,
           drivers: driversNext,
-          handoff: handoffNext
+          handoff: handoffNext,
+          stations: stationsNext,
+          stationMap: stationMapNext,
+          stationCategoryRoutes: stationRoutesNext,
+          kitchenSections: kitchenSectionsNext,
+          categorySections: categorySectionsNext,
+          menu: menuNext,
+          meta: metaNext,
+          sync: syncNext
         }
       };
     });
@@ -1369,10 +1505,12 @@
       console.warn('[Mishkah][KDS] Missing WebSocket endpoint. Sync is disabled.');
     }
     if(!WebSocketX || !endpoint) return null;
-    const topicOrders = options.topicOrders || 'pos:kds:orders';
-    const topicJobs = options.topicJobs || 'kds:jobs:updates';
-    const topicDelivery = options.topicDelivery || 'kds:delivery:updates';
-    const topicHandoff = options.topicHandoff || 'kds:handoff:updates';
+    const channelName = options.channel ? normalizeChannelName(options.channel, BRANCH_CHANNEL) : '';
+    const topicPrefix = channelName ? `${channelName}:` : '';
+    const topicOrders = options.topicOrders || `${topicPrefix}pos:kds:orders`;
+    const topicJobs = options.topicJobs || `${topicPrefix}kds:jobs:updates`;
+    const topicDelivery = options.topicDelivery || `${topicPrefix}kds:delivery:updates`;
+    const topicHandoff = options.topicHandoff || `${topicPrefix}kds:handoff:updates`;
     const token = options.token;
     let socket = null;
     let ready = false;
@@ -1441,32 +1579,45 @@
         if(msg.topic === topicJobs){
           const data = msg.data || {};
           if(data.jobId && data.payload){
-            appInstance.setState(state=> applyJobsUpdate(state, list=> list.map(job=>{
-              if(job.id !== data.jobId) return job;
-              const updated = { ...job, ...data.payload };
-              if(data.payload.startedAt){
-                updated.startedAt = data.payload.startedAt;
-                updated.startMs = parseTime(data.payload.startedAt) || updated.startMs;
-              }
-              if(data.payload.readyAt){
-                updated.readyAt = data.payload.readyAt;
-                updated.readyMs = parseTime(data.payload.readyAt) || updated.readyMs;
-              }
-              if(data.payload.completedAt){
-                updated.completedAt = data.payload.completedAt;
-                updated.completedMs = parseTime(data.payload.completedAt) || updated.completedMs;
-              }
-              if(data.payload.updatedAt){
-                updated.updatedAt = data.payload.updatedAt;
-                updated.updatedMs = parseTime(data.payload.updatedAt) || updated.updatedMs;
-              }
-              return updated;
-            })));
+            const now = Date.now();
+            appInstance.setState(state=>{
+              const baseNext = applyJobsUpdate(state, list=> list.map(job=>{
+                if(job.id !== data.jobId) return job;
+                const updated = { ...job, ...data.payload };
+                if(data.payload.startedAt){
+                  updated.startedAt = data.payload.startedAt;
+                  updated.startMs = parseTime(data.payload.startedAt) || updated.startMs;
+                }
+                if(data.payload.readyAt){
+                  updated.readyAt = data.payload.readyAt;
+                  updated.readyMs = parseTime(data.payload.readyAt) || updated.readyMs;
+                }
+                if(data.payload.completedAt){
+                  updated.completedAt = data.payload.completedAt;
+                  updated.completedMs = parseTime(data.payload.completedAt) || updated.completedMs;
+                }
+                if(data.payload.updatedAt){
+                  updated.updatedAt = data.payload.updatedAt;
+                  updated.updatedMs = parseTime(data.payload.updatedAt) || updated.updatedMs;
+                }
+                return updated;
+              }));
+              const syncBase = baseNext.data?.sync || state.data?.sync || {};
+              const sync = { ...syncBase, lastMessage: now, state:'online' };
+              return {
+                ...baseNext,
+                data:{
+                  ...baseNext.data,
+                  sync
+                }
+              };
+            });
           }
         }
         if(msg.topic === topicDelivery){
           const data = msg.data || {};
           if(data.orderId && data.payload){
+            const now = Date.now();
             appInstance.setState(state=>{
               const deliveries = state.data.deliveries || { assignments:{}, settlements:{} };
               const assignments = { ...(deliveries.assignments || {}) };
@@ -1477,11 +1628,20 @@
               if(data.payload.settlement){
                 settlements[data.orderId] = { ...(settlements[data.orderId] || {}), ...data.payload.settlement };
               }
-              return {
+              const baseNext = {
                 ...state,
                 data:{
                   ...state.data,
                   deliveries:{ assignments, settlements }
+                }
+              };
+              const syncBase = baseNext.data?.sync || state.data?.sync || {};
+              const sync = { ...syncBase, lastMessage: now, state:'online' };
+              return {
+                ...baseNext,
+                data:{
+                  ...baseNext.data,
+                  sync
                 }
               };
             });
@@ -1490,14 +1650,24 @@
         if(msg.topic === topicHandoff){
           const data = msg.data || {};
           if(data.orderId && data.payload){
+            const now = Date.now();
             appInstance.setState(state=>{
               const handoff = state.data.handoff || {};
               const next = { ...handoff, [data.orderId]: { ...(handoff[data.orderId] || {}), ...data.payload } };
-              return {
+              const baseNext = {
                 ...state,
                 data:{
                   ...state.data,
                   handoff: next
+                }
+              };
+              const syncBase = baseNext.data?.sync || state.data?.sync || {};
+              const sync = { ...syncBase, lastMessage: now, state:'online' };
+              return {
+                ...baseNext,
+                data:{
+                  ...baseNext.data,
+                  sync
                 }
               };
             });
