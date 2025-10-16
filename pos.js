@@ -2106,6 +2106,24 @@
       };
     }
 
+    const buildOrderEnvelope = (orderPayload, state)=>{
+      const payload = serializeOrderForKDS(orderPayload, state);
+      if(!payload) return null;
+      const nowIso = new Date().toISOString();
+      const baseHandoff = (payload.handoff && typeof payload.handoff === 'object') ? { ...payload.handoff } : {};
+      if(orderPayload && orderPayload.id){
+        baseHandoff[orderPayload.id] = {
+          ...(baseHandoff[orderPayload.id] || {}),
+          status:'pending',
+          updatedAt: nowIso
+        };
+      }
+      payload.handoff = baseHandoff;
+      payload.meta = { ...(payload.meta || {}), publishedAt: nowIso };
+      const channel = payload.meta?.channel || BRANCH_CHANNEL;
+      return { payload, channel, publishedAt: nowIso };
+    };
+
     function createKDSSync(options={}){
       const WebSocketX = U.WebSocketX || U.WebSocket;
       const endpoint = options.endpoint;
@@ -2115,16 +2133,48 @@
       if(!endpoint){
         console.warn('[Mishkah][POS][KDS] No KDS endpoint configured; sync bridge is inactive.');
       }
+      const requestedChannel = options.channel ? normalizeChannelName(options.channel, BRANCH_CHANNEL) : '';
+      const localEmitter = typeof options.localEmitter === 'function'
+        ? options.localEmitter
+        : (options.localChannel ? (message)=>{
+            if(!options.localChannel || typeof options.localChannel.postMessage !== 'function') return;
+            try { options.localChannel.postMessage({ origin:'pos', ...message }); } catch(_err){}
+          }
+          : ()=>{});
+      const pushLocal = (type, data={}, metaOverride={})=>{
+        if(typeof localEmitter !== 'function') return;
+        const baseMeta = {
+          channel: requestedChannel || BRANCH_CHANNEL,
+          via:'pos:local',
+          publishedAt: new Date().toISOString()
+        };
+        const meta = { ...baseMeta, ...metaOverride };
+        try { localEmitter({ type, ...data, meta }); } catch(_err){}
+      };
       if(!WebSocketX || !endpoint){
         return {
           connect:()=>{},
-          publishOrder:()=>{},
-          publishJobUpdate:()=>{},
-          publishDeliveryUpdate:()=>{},
-          publishHandoffUpdate:()=>{}
+          publishOrder(orderPayload, state){
+            const envelope = buildOrderEnvelope(orderPayload, state);
+            if(!envelope) return null;
+            pushLocal('orders:payload', { payload: envelope.payload }, { channel: envelope.channel, publishedAt: envelope.publishedAt });
+            return envelope.payload;
+          },
+          publishJobUpdate(update){
+            if(!update || !update.jobId) return;
+            pushLocal('job:update', { jobId: update.jobId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          },
+          publishDeliveryUpdate(update){
+            if(!update || !update.orderId) return;
+            pushLocal('delivery:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          },
+          publishHandoffUpdate(update){
+            if(!update || !update.orderId) return;
+            pushLocal('handoff:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
+          }
         };
       }
-      const channelName = options.channel ? normalizeChannelName(options.channel, BRANCH_CHANNEL) : '';
+      const channelName = requestedChannel;
       const topicPrefix = channelName ? `${channelName}:` : '';
       const topicOrders = options.topicOrders || `${topicPrefix}pos:kds:orders`;
       const topicJobs = options.topicJobs || `${topicPrefix}kds:jobs:updates`;
@@ -2211,24 +2261,14 @@
       return {
         connect,
         publishOrder(orderPayload, state){
-          const payload = serializeOrderForKDS(orderPayload, state);
-          if(!payload){
+          const envelope = buildOrderEnvelope(orderPayload, state);
+          if(!envelope){
             console.warn('[Mishkah][POS][KDS] Skipped publishing order payload — serialization failed.', { orderId: orderPayload?.id });
             return null;
           }
-          const nowIso = new Date().toISOString();
-          const baseHandoff = (payload.handoff && typeof payload.handoff === 'object') ? { ...payload.handoff } : {};
-          if(orderPayload && orderPayload.id){
-            baseHandoff[orderPayload.id] = {
-              ...(baseHandoff[orderPayload.id] || {}),
-              status:'pending',
-              updatedAt: nowIso
-            };
-          }
-          payload.handoff = baseHandoff;
-          payload.meta = { ...(payload.meta || {}), publishedAt: nowIso };
-          sendEnvelope({ type:'publish', topic: topicOrders, data: payload });
-          return payload;
+          sendEnvelope({ type:'publish', topic: topicOrders, data: envelope.payload });
+          pushLocal('orders:payload', { payload: envelope.payload }, { channel: envelope.channel, publishedAt: envelope.publishedAt });
+          return envelope.payload;
         },
         publishJobUpdate(update){
           if(!update || !update.jobId){
@@ -2236,6 +2276,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicJobs, data: update });
+          pushLocal('job:update', { jobId: update.jobId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         },
         publishDeliveryUpdate(update){
           if(!update || !update.orderId){
@@ -2243,6 +2284,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicDelivery, data: update });
+          pushLocal('delivery:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         },
         publishHandoffUpdate(update){
           if(!update || !update.orderId){
@@ -2250,6 +2292,7 @@
             return;
           }
           sendEnvelope({ type:'publish', topic: topicHandoff, data: update });
+          pushLocal('handoff:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
         }
       };
     }
@@ -2837,13 +2880,41 @@
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
     const kdsBridge = createKDSBridge(kdsEndpoint);
+    const LOCAL_SYNC_CHANNEL_NAME = 'mishkah-pos-kds-sync';
+    const localKdsChannel = typeof BroadcastChannel !== 'undefined'
+      ? new BroadcastChannel(LOCAL_SYNC_CHANNEL_NAME)
+      : null;
+    const emitLocalKdsMessage = (message)=>{
+      if(!localKdsChannel || !message) return;
+      try { localKdsChannel.postMessage({ origin:'pos', ...message }); } catch(_err){}
+    };
+    if(localKdsChannel){
+      localKdsChannel.onmessage = (event)=>{
+        const msg = event?.data;
+        if(!msg || !msg.type || msg.origin === 'pos') return;
+        const meta = msg.meta || {};
+        if(msg.type === 'orders:payload' && msg.payload){
+          handleKdsOrderPayload(msg.payload, meta);
+          return;
+        }
+        if(msg.type === 'job:update' && msg.jobId){
+          handleKdsJobUpdate({ jobId: msg.jobId, payload: msg.payload || {} }, meta);
+        }
+        if(msg.type === 'delivery:update' && msg.orderId){
+          handleKdsDeliveryUpdate({ orderId: msg.orderId, payload: msg.payload || {} }, meta);
+        }
+        if(msg.type === 'handoff:update' && msg.orderId){
+          handleKdsHandoffUpdate({ orderId: msg.orderId, payload: msg.payload || {} }, meta);
+        }
+      };
+    }
     const kdsSyncHandlers = {
       onOrders: handleKdsOrderPayload,
       onJobUpdate: handleKdsJobUpdate,
       onDeliveryUpdate: handleKdsDeliveryUpdate,
       onHandoffUpdate: handleKdsHandoffUpdate
     };
-    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers, channel: BRANCH_CHANNEL });
+    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers, channel: BRANCH_CHANNEL, localEmitter: emitLocalKdsMessage });
     if(kdsSync && typeof kdsSync.connect === 'function'){
       kdsSync.connect();
     }

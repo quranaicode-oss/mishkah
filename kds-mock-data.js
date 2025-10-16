@@ -204,10 +204,66 @@ const root = typeof window !== 'undefined' ? window
   : (typeof globalThis !== 'undefined' ? globalThis
     : (typeof global !== 'undefined' ? global : this));
 
+const cloneList = (list)=> Array.isArray(list) ? list.map(entry=> ({ ...entry })) : [];
+
+const buildFallbackSections = ()=> kdsDatabase.stations.map(station=>({
+  id: station.id,
+  section_name: {
+    ar: station.nameAr || station.code || station.id,
+    en: station.nameEn || station.code || station.id
+  },
+  description: { ar: '', en: '' }
+}));
+
+const buildFallbackCategorySections = ()=> kdsDatabase.stationCategoryRoutes.map(route=>({
+  category_id: route.categoryId,
+  section_id: route.stationId
+}));
+
+const resolveMasterPayload = (baseDatabase)=>{
+  const baseSettings = baseDatabase?.settings || {};
+  const syncSettings = baseSettings.sync || {};
+  const branchChannel = syncSettings.channel || syncSettings.branch_channel || 'branch-main';
+  const fallbackSections = buildFallbackSections();
+  const fallbackCategorySections = buildFallbackCategorySections();
+  const baseKitchenSections = cloneList(baseDatabase?.kitchen_sections);
+  const baseCategorySections = cloneList(baseDatabase?.category_sections);
+  const baseCategories = cloneList(baseDatabase?.categories);
+  const baseItems = cloneList(baseDatabase?.items);
+  const master = {
+    channel: branchChannel,
+    sync: {
+      channel: branchChannel,
+      endpoint: syncSettings.ws_endpoint || syncSettings.wsEndpoint || null
+    },
+    metadata: {
+      ...kdsDatabase.metadata,
+      branchId: syncSettings.branch_id || syncSettings.branchId || branchChannel,
+      branchName: syncSettings.branch_name || syncSettings.branchName || null
+    },
+    stations: cloneList(kdsDatabase.stations),
+    stationCategoryRoutes: cloneList(kdsDatabase.stationCategoryRoutes),
+    kitchenSections: baseKitchenSections.length ? baseKitchenSections : cloneList(fallbackSections),
+    categorySections: baseCategorySections.length ? baseCategorySections : cloneList(fallbackCategorySections),
+    categories: baseCategories,
+    items: baseItems,
+    drivers: cloneList(baseDatabase?.drivers),
+    menu: {
+      categories: baseCategories,
+      items: baseItems
+    }
+  };
+  if (!master.menu.categories.length) master.menu.categories = cloneList(baseCategories);
+  if (!master.menu.items.length) master.menu.items = cloneList(baseItems);
+  return master;
+};
+
 if (root && typeof root === 'object') {
-  root.kdsDatabase = kdsDatabase;
   const baseDatabase = root.database && typeof root.database === 'object' ? root.database : null;
+  const masterPayload = resolveMasterPayload(baseDatabase || {});
+  kdsDatabase.master = masterPayload;
+  root.kdsDatabase = kdsDatabase;
   if (baseDatabase) {
-    baseDatabase.kds = kdsDatabase;
+    baseDatabase.kds = { ...kdsDatabase, master: masterPayload };
   }
 }
