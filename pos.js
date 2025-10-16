@@ -356,7 +356,7 @@
           menu_loading:'جاري تحميل القائمة الحية…', menu_loading_hint:'نقوم بجلب الأصناف من النظام المركزي. يمكنك الاستمرار بالبيانات الحالية مؤقتًا.',
           menu_load_error:'تعذر تحديث القائمة الحية، يتم استخدام البيانات المخزنة.', menu_load_error_short:'تعذر التحديث',
           menu_live_badge:'القائمة الحية', menu_last_updated:'آخر تحديث', menu_load_success:'تم تحديث القائمة بنجاح.',
-          indexeddb:'قاعدة البيانات المحلية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
+          indexeddb:'قاعدة البيانات المحلية', central_sync:'المزامنة المركزية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
           subtotal:'الإجمالي الفرعي', service:'خدمة', vat:'ضريبة', discount:'خصم', delivery_fee:'رسوم التوصيل', total:'الإجمالي المستحق',
           cart_empty:'لم يتم إضافة أصناف بعد', choose_items:'اختر صنفًا من القائمة لإضافته إلى الطلب.', tables:'الطاولات',
           select_table:'اختر طاولة لإسناد الطلب', table_status:'حالة الطاولة', table_available:'متاحة', table_occupied:'مشغولة',
@@ -455,6 +455,7 @@
           order_additions_blocked:'لا يمكن إضافة أصناف جديدة لهذا النوع من الطلبات بعد الحفظ',
           order_stage_locked:'لا يمكن تعديل الأصناف في هذه المرحلة', orders_loaded:'تم تحديث قائمة الطلبات',
           orders_failed:'تعذر تحميل الطلبات',
+          central_sync_blocked:'تعذر حفظ الطلب', central_sync_offline:'الخادم المركزي غير متصل. يرجى التحقق من الاتصال.',
           customer_saved:'تم حفظ بيانات العميل', customer_attach_success:'تم ربط العميل بالطلب',
           customer_missing_selection:'اختر عميلًا أولًا', customer_missing_address:'اختر عنوانًا لهذا العميل', customer_form_invalid:'أكمل الاسم ورقم الهاتف',
           new_order:'تم إنشاء طلب جديد', order_type_changed:'تم تغيير نوع الطلب', table_assigned:'تم اختيار الطاولة',
@@ -492,7 +493,7 @@
           menu_loading:'Loading live menu…', menu_loading_hint:'Fetching the latest catalog from the central system. You can continue working with local data.',
           menu_load_error:'Live menu refresh failed, using cached data instead.', menu_load_error_short:'Update failed',
           menu_live_badge:'Live menu', menu_last_updated:'Last updated', menu_load_success:'Live menu updated.',
-          indexeddb:'Local database', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
+          indexeddb:'Local database', central_sync:'Central sync', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
           service:'Service', vat:'VAT', discount:'Discount', delivery_fee:'Delivery fee', total:'Amount due',
           cart_empty:'No items added yet', choose_items:'Pick an item from the menu to start the order.', tables:'Tables',
           select_table:'Select a table for this order', table_status:'Table status', table_available:'Available', table_occupied:'Occupied',
@@ -589,7 +590,7 @@
           order_locked:'This order is locked after saving', line_locked:'This line can no longer be modified',
           order_additions_blocked:'Cannot add new items to this order type after saving',
           order_stage_locked:'Items cannot be modified at this stage', orders_loaded:'Orders list refreshed',
-          orders_failed:'Failed to load orders',
+          orders_failed:'Failed to load orders', central_sync_blocked:'Unable to save order', central_sync_offline:'Central server unreachable. Please restore the connection.',
           customer_saved:'Customer saved successfully', customer_attach_success:'Customer linked to order',
           customer_missing_selection:'Select a customer first', customer_missing_address:'Select an address for this customer', customer_form_invalid:'Please enter name and phone number',
           new_order:'New order created', order_type_changed:'Order type changed', table_assigned:'Table assigned',
@@ -1415,6 +1416,62 @@
         return true;
       }
 
+      const STORE_IMPORT_ORDER = [
+        'orders',
+        'orderLines',
+        'orderNotes',
+        'orderEvents',
+        TEMP_STORE,
+        SHIFT_STORE,
+        META_STORE,
+        'syncLog'
+      ];
+
+      async function exportSnapshot(){
+        await ensureReady();
+        const stores = {};
+        const schemaStores = Object.keys(db?.schema?.stores || {});
+        const order = Array.from(new Set([...STORE_IMPORT_ORDER, ...schemaStores]));
+        for(const storeName of order){
+          if(!db?.schema?.stores?.[storeName]) continue;
+          try {
+            stores[storeName] = await db.getAll(storeName);
+          } catch(err){
+            console.warn('[Mishkah][POS][IndexedDB] Failed to export store', storeName, err);
+            stores[storeName] = [];
+          }
+        }
+        return {
+          stores,
+          meta:{
+            exportedAt: Date.now(),
+            dbVersion: db?.version || 0
+          }
+        };
+      }
+
+      async function importSnapshot(snapshot){
+        if(!snapshot || typeof snapshot !== 'object') return false;
+        const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
+        await ensureReady();
+        const schemaStores = Object.keys(db?.schema?.stores || {});
+        for(const storeName of schemaStores){
+          try { await db.clear(storeName); } catch(_err){ }
+        }
+        const ordered = Array.from(new Set([...STORE_IMPORT_ORDER, ...Object.keys(stores || {})]));
+        for(const storeName of ordered){
+          if(!db?.schema?.stores?.[storeName]) continue;
+          const rows = Array.isArray(stores[storeName]) ? stores[storeName] : [];
+          if(!rows.length) continue;
+          try {
+            await db.bulkPut(storeName, rows);
+          } catch(err){
+            console.warn('[Mishkah][POS][IndexedDB] Failed to import store rows', storeName, err);
+          }
+        }
+        return true;
+      }
+
       function hydrateLine(record){
       return {
         id: record.id,
@@ -1750,7 +1807,9 @@
         closeShiftRecord,
         nextInvoiceNumber,
         peekInvoiceCounter,
-        resetAll
+        resetAll,
+        exportSnapshot,
+        importSnapshot
       };
     }
 
@@ -2298,7 +2357,368 @@
       };
     }
 
+
+  function createCentralPosSync(options={}){
+    const adapter = options.adapter;
+    if(!adapter || typeof adapter.exportSnapshot !== 'function' || typeof adapter.importSnapshot !== 'function'){
+      console.warn('[Mishkah][POS] Central sync requires an adapter with snapshot support.');
+      return {
+        async ensureInitialSync(){ return false; },
+        connect(){},
+        async run(_label, _meta, executor){ return typeof executor === 'function' ? executor() : null; },
+        async destroy(){ const err = new Error('Central sync unavailable'); err.code = 'POS_SYNC_UNAVAILABLE'; throw err; },
+        isOnline(){ return false; },
+        getStatus(){ return { state:'disabled', version:0 }; }
+      };
+    }
+    const WebSocketX = U.WebSocketX || U.WebSocket;
+    const branch = options.branch ? normalizeChannelName(options.branch, BRANCH_CHANNEL) : BRANCH_CHANNEL;
+    const topic = `pos:sync:${branch}`;
+    const httpBase = options.httpEndpoint || '/api/pos-sync';
+    const httpEndpoint = httpBase.endsWith(branch)
+      ? httpBase
+      : `${httpBase.replace(/\/$/, '')}/${branch}`;
+    const wsEndpoint = options.wsEndpoint;
+    const token = options.token || null;
+    const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
+    const headers = token ? { authorization:`Bearer ${token}` } : {};
+    let socket = null;
+    let ready = false;
+    let awaitingAuth = false;
+    let online = false;
+    let initialSyncComplete = false;
+    let initialSyncPromise = null;
+    let version = 0;
+    let queue = Promise.resolve();
+    const pendingFrames = [];
+    const pendingMutations = new Map();
+    let status = {
+      state: wsEndpoint && WebSocketX ? 'offline' : 'disabled',
+      version: 0,
+      updatedAt: null,
+      endpoint: wsEndpoint || null
+    };
+
+    const createSyncError = (code, message)=>{
+      const err = new Error(message || code || 'POS sync error');
+      err.code = code || 'POS_SYNC_ERROR';
+      return err;
+    };
+
+    const emitStatus = (patch={})=>{
+      status = { ...status, ...patch };
+      if(typeof options.onStatus === 'function'){
+        try { options.onStatus({ ...status }); } catch(handlerError){ console.warn('[Mishkah][POS] Central sync status handler failed', handlerError); }
+      }
+    };
+
+    const flushFrames = ()=>{
+      if(!socket || !ready || awaitingAuth) return;
+      while(pendingFrames.length){
+        try { socket.send(pendingFrames.shift()); } catch(sendErr){ console.warn('[Mishkah][POS] Central sync send failed', sendErr); break; }
+      }
+    };
+
+    const sendFrame = (frame)=>{
+      if(!socket){
+        pendingFrames.push(frame);
+        return false;
+      }
+      if(ready && !awaitingAuth){
+        try { socket.send(frame); return true; } catch(sendErr){ console.warn('[Mishkah][POS] Central sync immediate send failed', sendErr); }
+      }
+      pendingFrames.push(frame);
+      return false;
+    };
+
+    const rejectPending = (err)=>{
+      const entries = Array.from(pendingMutations.values());
+      pendingMutations.clear();
+      entries.forEach(entry=>{ try { entry.reject(err); } catch(_rejectErr){} });
+    };
+
+    const waitForAck = (mutationId, timeoutMs=15000)=> new Promise((resolve, reject)=>{
+      const timer = setTimeout(()=>{
+        pendingMutations.delete(mutationId);
+        reject(createSyncError('POS_SYNC_TIMEOUT', 'Timed out waiting for central sync confirmation.'));
+      }, timeoutMs);
+      pendingMutations.set(mutationId, {
+        resolve:(ver)=>{ clearTimeout(timer); resolve(ver); },
+        reject:(err)=>{ clearTimeout(timer); reject(err); }
+      });
+    });
+
+    const fetchSnapshot = async ()=>{
+      if(typeof fetch !== 'function'){
+        throw createSyncError('POS_SYNC_UNSUPPORTED', 'Fetch API is not available in this environment.');
+      }
+      const response = await fetch(httpEndpoint, { headers });
+      if(!response.ok){
+        throw createSyncError('POS_SYNC_HTTP', `HTTP ${response.status}`);
+      }
+      return response.json();
+    };
+
+    const ensureInitialSync = async ()=>{
+      if(initialSyncComplete) return true;
+      if(!initialSyncPromise){
+        initialSyncPromise = (async()=>{
+          emitStatus({ state:'syncing' });
+          const remote = await fetchSnapshot();
+          if(remote && remote.snapshot){
+            try {
+              await adapter.importSnapshot(remote.snapshot);
+            } catch(importErr){
+              console.warn('[Mishkah][POS] Failed to import central snapshot', importErr);
+            }
+            version = Number(remote.version || 0) || 0;
+            emitStatus({ version, updatedAt: remote.updatedAt || Date.now() });
+          }
+          initialSyncComplete = true;
+          emitStatus({ state: online ? 'online' : (status.state === 'disabled' ? 'disabled' : 'offline') });
+          return true;
+        })().catch(err=>{
+          emitStatus({ state:'offline', lastError: err?.message || String(err) });
+          throw err;
+        });
+      }
+      return initialSyncPromise;
+    };
+
+    const handlePublish = async (payload={})=>{
+      if(payload.version != null){
+        const numeric = Number(payload.version);
+        if(Number.isFinite(numeric)) version = numeric;
+      }
+      if(payload.snapshot && typeof adapter.importSnapshot === 'function'){
+        try { await adapter.importSnapshot(payload.snapshot); } catch(importErr){ console.warn('[Mishkah][POS] Failed to apply central snapshot', importErr); }
+      }
+      online = true;
+      initialSyncComplete = true;
+      const syncTs = Date.now();
+      emitStatus({ state:'online', version, updatedAt: syncTs, lastSync: syncTs, cleared: !!payload.cleared });
+      if(payload.mutationId && pendingMutations.has(payload.mutationId)){
+        const entry = pendingMutations.get(payload.mutationId);
+        pendingMutations.delete(payload.mutationId);
+        try { entry.resolve(version); } catch(_resolveErr){}
+      }
+    };
+
+    const pushSnapshot = async (reason, meta={})=>{
+      if(!socket || !ready || awaitingAuth){
+        throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
+      }
+      const snapshot = await adapter.exportSnapshot();
+      const mutationId = `${clientId}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2,8)}`;
+      sendFrame({
+        type:'publish',
+        topic,
+        data:{
+          action:'snapshot',
+          baseVersion: version,
+          snapshot,
+          reason: reason || meta.reason || 'update',
+          clientId,
+          mutationId
+        }
+      });
+      return waitForAck(mutationId, options.timeout || 15000);
+    };
+
+    const pushDestroy = async (reason)=>{
+      if(!socket || !ready || awaitingAuth){
+        throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
+      }
+      const mutationId = `${clientId}-destroy-${Date.now().toString(36)}`;
+      sendFrame({
+        type:'publish',
+        topic,
+        data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId }
+      });
+      return waitForAck(mutationId, options.timeout || 15000);
+    };
+
+    const connect = ()=>{
+      if(!WebSocketX || !wsEndpoint){
+        emitStatus({ state:'offline', lastError:'WebSocket unavailable' });
+        return;
+      }
+      if(socket) return;
+      socket = new WebSocketX(wsEndpoint, {
+        autoReconnect:true,
+        ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
+      });
+      socket.on('open', ()=>{
+        ready = true;
+        online = true;
+        emitStatus({ state: initialSyncComplete ? 'online' : 'syncing', endpoint: wsEndpoint });
+        if(token){
+          awaitingAuth = true;
+          socket.send({ type:'auth', data:{ token } });
+        } else {
+          socket.send({ type:'subscribe', topic });
+          flushFrames();
+        }
+      });
+      socket.on('close', (event)=>{
+        ready = false;
+        awaitingAuth = false;
+        online = false;
+        emitStatus({ state: status.state === 'disabled' ? 'disabled' : 'offline', lastError: event?.reason || null });
+        rejectPending(createSyncError('POS_SYNC_OFFLINE', 'Central sync disconnected.'));
+      });
+      socket.on('error', (error)=>{
+        ready = false;
+        online = false;
+        emitStatus({ state:'offline', lastError: error?.message || String(error) });
+        rejectPending(createSyncError('POS_SYNC_ERROR', 'Central sync transport error.'));
+      });
+      socket.on('message', (msg)=>{
+        if(!msg || typeof msg !== 'object') return;
+        if(msg.type === 'ack'){
+          if(msg.event === 'auth'){
+            awaitingAuth = false;
+            socket.send({ type:'subscribe', topic });
+            flushFrames();
+          } else if(msg.event === 'subscribe'){
+            flushFrames();
+          }
+          return;
+        }
+        if(msg.type === 'publish' && msg.topic === topic){
+          handlePublish(msg.data || {});
+        }
+      });
+      try { socket.connect({ waitOpen:false }); } catch(_err){}
+    };
+
+    const run = (label, meta={}, executor)=>{
+      if(typeof executor !== 'function') return Promise.resolve(null);
+      const task = async ()=>{
+        await ensureInitialSync();
+        if(!socket || !ready || awaitingAuth || !online){
+          throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
+        }
+        emitStatus({ state:'syncing' });
+        let result;
+        try {
+          result = await executor();
+        } catch(execErr){
+          emitStatus({ state: online ? 'online' : 'offline', lastError: execErr?.message || String(execErr) });
+          throw execErr;
+        }
+        try {
+          const ackVersion = await pushSnapshot(label, meta || {});
+          if(Number.isFinite(ackVersion)) version = ackVersion;
+          const ts = Date.now();
+          emitStatus({ state:'online', version, lastSync: ts, updatedAt: ts });
+        } catch(syncErr){
+          emitStatus({ state:'offline', lastError: syncErr?.message || String(syncErr) });
+          throw syncErr;
+        }
+        return result;
+      };
+      const next = queue.then(()=> task(), ()=> task());
+      queue = next.catch(()=>{});
+      return next;
+    };
+
+    const destroy = async (reason)=>{
+      await ensureInitialSync();
+      if(!socket || !ready || awaitingAuth || !online){
+        throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
+      }
+      try {
+        const ackVersion = await pushDestroy(reason || 'reset');
+        if(Number.isFinite(ackVersion)) version = ackVersion;
+        const ts = Date.now();
+        emitStatus({ state:'online', version, lastSync: ts, updatedAt: ts });
+        return true;
+      } catch(err){
+        emitStatus({ state:'offline', lastError: err?.message || String(err) });
+        throw err;
+      }
+    };
+
+    emitStatus(status);
+
+    return {
+      connect,
+      ensureInitialSync,
+      run,
+      destroy,
+      isOnline(){ return online; },
+      getStatus(){ return { ...status, version }; },
+      createError: createSyncError
+    };
+  }
+
+    let centralSyncStatus = {
+      state: posSyncWsEndpoint ? 'offline' : 'disabled',
+      version: 0,
+      lastSync: null,
+      endpoint: posSyncWsEndpoint || null
+    };
+    let centralStatusHandler = null;
+    const handleCentralStatus = (nextStatus={})=>{
+      centralSyncStatus = { ...centralSyncStatus, ...nextStatus };
+      if(typeof centralStatusHandler === 'function'){
+        try { centralStatusHandler({ ...centralSyncStatus }); } catch(handlerError){ console.warn('[Mishkah][POS] Failed to propagate central sync status', handlerError); }
+      }
+    };
+
     const posDB = createIndexedDBAdapter('mishkah-pos', 4);
+
+    const centralSync = createCentralPosSync({
+      adapter: posDB,
+      branch: BRANCH_CHANNEL,
+      wsEndpoint: posSyncWsEndpoint,
+      httpEndpoint: posSyncHttpBase,
+      token: posSyncToken,
+      posId: POS_INFO.id,
+      onStatus: handleCentralStatus
+    });
+    centralSync.connect();
+    centralSync.ensureInitialSync().catch(err=>{
+      console.warn('[Mishkah][POS] Central sync bootstrap failed.', err);
+    });
+
+    const wrapDbMutation = (methodName, metaResolver)=>{
+      const original = posDB && typeof posDB[methodName] === 'function' ? posDB[methodName].bind(posDB) : null;
+      if(!original) return;
+      posDB[methodName] = async function wrappedMutation(...args){
+        if(!centralSync || typeof centralSync.run !== 'function'){
+          return original(...args);
+        }
+        const resolved = typeof metaResolver === 'function' ? metaResolver(...args) || {} : {};
+        const reason = resolved.reason || methodName;
+        const meta = resolved.meta || {};
+        return centralSync.run(reason, meta, ()=> original(...args));
+      };
+    };
+
+    wrapDbMutation('saveOrder', (order)=>({ reason:'order:save', meta:{ orderId: order?.id || null } }));
+    wrapDbMutation('saveTempOrder', (order)=>({ reason:'order:temp:save', meta:{ orderId: order?.id || null } }));
+    wrapDbMutation('deleteTempOrder', (orderId)=>({ reason:'order:temp:delete', meta:{ orderId: orderId || null } }));
+    wrapDbMutation('openShiftRecord', (record)=>({ reason:'shift:open', meta:{ shiftId: record?.id || null } }));
+    wrapDbMutation('closeShiftRecord', (id)=>({ reason:'shift:close', meta:{ shiftId: id || null } }));
+    wrapDbMutation('nextInvoiceNumber', (posId)=>({ reason:'invoice:next', meta:{ posId: posId || POS_INFO.id } }));
+
+    if(posDB && typeof posDB.resetAll === 'function'){
+      const originalResetAll = posDB.resetAll.bind(posDB);
+      posDB.resetAll = async function resetAllWithCentral(...args){
+        if(centralSync && typeof centralSync.destroy === 'function'){
+          try {
+            await centralSync.ensureInitialSync();
+            await centralSync.destroy('reset');
+          } catch(err){
+            console.warn('[Mishkah][POS] Central reset broadcast failed.', err);
+            throw err;
+          }
+        }
+        return originalResetAll(...args);
+      };
+    }
 
     const pendingKdsMessages = [];
 
@@ -2832,6 +3252,9 @@
           return next.id;
         } catch(error){
           console.warn('[Mishkah][POS] invoice allocation failed', error);
+          if(error && typeof error.code === 'string' && error.code.startsWith('POS_SYNC')){
+            throw error;
+          }
         }
       }
       invoiceSequence += 1;
@@ -2880,6 +3303,21 @@
     if(!kdsToken){
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
+    const posSyncHttpBase = (MOCK_BASE?.sync?.httpEndpoint || MOCK_BASE?.sync?.http_endpoint)
+      || syncSettings.http_endpoint
+      || syncSettings.httpEndpoint
+      || '/api/pos-sync';
+    const posSyncWsEndpoint = (MOCK_BASE?.sync?.wsEndpoint || MOCK_BASE?.sync?.ws_endpoint)
+      || syncSettings.pos_ws_endpoint
+      || syncSettings.posWsEndpoint
+      || syncSettings.ws_endpoint
+      || syncSettings.wsEndpoint
+      || kdsEndpoint;
+    const posSyncToken = (MOCK_BASE?.sync?.token)
+      || syncSettings.pos_token
+      || syncSettings.posToken
+      || syncSettings.token
+      || null;
     const kdsBridge = createKDSBridge(kdsEndpoint);
     const LOCAL_SYNC_CHANNEL_NAME = 'mishkah-pos-kds-sync';
     const localKdsChannel = typeof BroadcastChannel !== 'undefined'
@@ -3715,7 +4153,13 @@
         },
         status:{
           indexeddb:{ state: posDB.available ? 'idle' : 'offline', lastSync: null },
-          kds:{ state:'idle', endpoint: DEFAULT_KDS_ENDPOINT }
+          kds:{ state:'idle', endpoint: DEFAULT_KDS_ENDPOINT },
+          central:{
+            state: centralSyncStatus.state,
+            lastSync: centralSyncStatus.lastSync,
+            version: centralSyncStatus.version,
+            endpoint: centralSyncStatus.endpoint
+          }
         },
         schema:{
           name: POS_SCHEMA_SOURCE?.name || 'mishkah_pos',
@@ -4211,6 +4655,25 @@
         UI.pushToast(ctx, { title:t.toast[toastKey], icon: finalize ? '✅' : '💾' });
         return { status:'saved', mode };
       } catch(error){
+        const errorCode = error && typeof error.code === 'string' ? error.code : '';
+        if(errorCode && errorCode.startsWith('POS_SYNC')){
+          UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
+          ctx.setState(s=>({
+            ...s,
+            data:{
+              ...s.data,
+              status:{
+                ...s.data.status,
+                central:{
+                  ...(s.data.status?.central || {}),
+                  state:'offline',
+                  lastSync: s.data.status?.central?.lastSync || null
+                }
+              }
+            }
+          }));
+          return { status:'error', reason:'central-sync', error };
+        }
         UI.pushToast(ctx, { title:t.toast.indexeddb_error, message:String(error), icon:'🛑' });
         ctx.setState(s=>({
           ...s,
@@ -4457,6 +4920,7 @@
           D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/footer')} flex flex-wrap items-center justify-between gap-3` }}, [
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2` }}, [
               statusBadge(db, remoteStatus === 'ready' ? 'online' : hasRemoteError ? 'offline' : 'idle', t.ui.menu_live_badge),
+              statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync),
               statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
             ].filter(Boolean)),
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
@@ -4902,6 +5366,7 @@
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
+          statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync),
           statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
         ],
         right:[
@@ -6568,6 +7033,35 @@
     if(pendingRemoteResult){
       flushRemoteUpdate();
     }
+    centralStatusHandler = (status={})=>{
+      const patch = {
+        state: status.state || 'offline',
+        lastSync: status.lastSync || null,
+        version: Number(status.version || 0),
+        endpoint: status.endpoint || posSyncWsEndpoint || null
+      };
+      if(app && typeof app.setState === 'function'){
+        app.setState(prev=>({
+          ...prev,
+          data:{
+            ...(prev.data || {}),
+            status:{
+              ...(prev.data?.status || {}),
+              central: patch
+            }
+          }
+        }));
+      } else {
+        posState.data = {
+          ...(posState.data || {}),
+          status:{
+            ...(posState.data?.status || {}),
+            central: patch
+          }
+        };
+      }
+    };
+    centralStatusHandler(centralSyncStatus);
     const POS_DEV_TOOLS = {
       async resetIndexedDB(){
         if(!posDB.available || typeof posDB.resetAll !== 'function'){
@@ -7639,6 +8133,11 @@
               : validatedShift;
           } catch(error){
             console.warn('[Mishkah][POS] shift open failed', error);
+            const errorCode = error && typeof error.code === 'string' ? error.code : '';
+            if(errorCode && errorCode.startsWith('POS_SYNC')){
+              UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
+              return;
+            }
             UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
             return;
           }
@@ -7763,11 +8262,16 @@
           if(posDB.available){
             try{
               closedShift = await posDB.closeShiftRecord(currentShift.id, baseClosed);
-            } catch(error){
-              console.warn('[Mishkah][POS] shift close failed', error);
-              UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
+          } catch(error){
+            console.warn('[Mishkah][POS] shift close failed', error);
+            const errorCode = error && typeof error.code === 'string' ? error.code : '';
+            if(errorCode && errorCode.startsWith('POS_SYNC')){
+              UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
               return;
             }
+            UI.pushToast(ctx, { title:t.toast.indexeddb_error, icon:'🛑' });
+            return;
+          }
           }
           const normalizedClosed = SHIFT_TABLE.createRecord({
             ...closedShift,
