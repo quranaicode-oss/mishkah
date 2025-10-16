@@ -678,13 +678,18 @@
       });
     });
     if(!locked){
+      const existingIds = new Set(tabs.map(tab=> tab.id));
       const stageTabs = [
         { id:'expo', label:t.tabs.expo, count: getExpoOrders(db).length },
         { id:'handoff', label:t.tabs.handoff, count: getHandoffOrders(db).length },
         { id:'delivery', label:t.tabs.delivery, count: getDeliveryOrders(db).length },
         { id:'delivery-pending', label:t.tabs.pendingDelivery, count: getPendingDeliveryOrders(db).length }
       ];
-      stageTabs.forEach(tab=> tabs.push(tab));
+      stageTabs.forEach(tab=>{
+        if(existingIds.has(tab.id)) return;
+        existingIds.add(tab.id);
+        tabs.push(tab);
+      });
     }
     return tabs;
   };
