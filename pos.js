@@ -291,13 +291,14 @@
     const currencyDisplayMode = currencyConfig.display || 'symbol';
     const syncSettings = ensurePlainObject(settings.sync);
     const branchSettings = ensurePlainObject(settings.branch);
+    const DEFAULT_BRANCH_CHANNEL = 'branch-main'; // غيّر هذه القيمة لتبديل قناة POS وKDS معًا.
     const branchChannelSource = syncSettings.channel
       || syncSettings.branch_channel
       || syncSettings.branchChannel
       || branchSettings.channel
       || branchSettings.branchChannel
-      || POS_INFO.id;
-    const BRANCH_CHANNEL = normalizeChannelName(branchChannelSource, POS_INFO.id);
+      || DEFAULT_BRANCH_CHANNEL;
+    const BRANCH_CHANNEL = normalizeChannelName(branchChannelSource, DEFAULT_BRANCH_CHANNEL);
     if(typeof window !== 'undefined'){
       window.MishkahBranchChannel = BRANCH_CHANNEL;
     }
