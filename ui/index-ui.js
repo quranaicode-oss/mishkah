@@ -2061,10 +2061,14 @@
     const shellUi = ensureDict(uiState.pagesShell);
     const headerMenusUi = ensureDict(shellUi.headerMenus);
     const themeLabUi = ensureDict(shellUi.themeLab);
+    const navState = ensureDict(shellUi.nav);
     const themeLabOpen = !!themeLabUi.open;
     const langOpen = !!headerMenusUi.langOpen;
     const themeOpen = !!headerMenusUi.themeOpen;
     const templateOpen = !!headerMenusUi.templateOpen;
+    const mobileSettingsOpen = !!headerMenusUi.mobileSettingsOpen;
+    const mobileNavOpen = !!navState.mobileOpen;
+    const isRtl = lang === 'ar';
 
     const optionBaseClass = tw`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`;
     const optionActiveClass = tw`bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_18px_38px_-22px_rgba(79,70,229,0.55)]`;
@@ -2074,6 +2078,11 @@
     const mobileLabelClass = tw`text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[color-mix(in_oklab,var(--muted-foreground)78%,transparent)]`;
     const mobileCardClass = tw`flex w-full flex-col gap-2 rounded-3xl border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)92%,transparent)] p-3 shadow-[0_18px_38px_-28px_rgba(15,23,42,0.4)] sm:hidden`;
     const mobileFieldWrapperClass = tw`flex flex-col gap-1`;
+    const mobileIconButtonClass = tw`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--border)55%,transparent)] bg-[color-mix(in_oklab,var(--surface-1)96%,transparent)] text-lg font-semibold text-[color-mix(in_oklab,var(--foreground)92%,transparent)] shadow-[0_14px_34px_-24px_rgba(15,23,42,0.4)] transition hover:bg-[color-mix(in_oklab,var(--primary)18%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,var(--accent)60%,transparent)]`;
+    const mobileIconButtonActiveClass = tw`border-[color-mix(in_oklab,var(--accent)55%,transparent)] text-[color-mix(in_oklab,var(--primary)92%,transparent)] bg-[color-mix(in_oklab,var(--primary)20%,transparent)]`;
+    const mobileSelectIconClass = tw`pointer-events-none absolute top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-[color-mix(in_oklab,var(--surface-2)88%,transparent)] text-base text-[color-mix(in_oklab,var(--foreground)90%,transparent)] shadow-inner`;
+    const mobileSettingsLabel = lang === 'ar' ? 'إعدادات العرض' : 'Display settings';
+    const mobilePagesLabel = lang === 'ar' ? 'استعراض الصفحات' : 'Browse pages';
 
     const langMenu = D.Containers.Div({
       attrs: {
@@ -2311,72 +2320,157 @@
       ]);
     }
 
-    const createMobileField = (labelText, controlNode) => D.Containers.Div({
-      attrs: { class: mobileFieldWrapperClass }
-    }, [
-      D.Text.Span({ attrs: { class: mobileLabelClass } }, [labelText]),
-      controlNode
-    ]);
+    const createMobileSelectField = (labelText, icon, attrs, options) => {
+      const selectAttrs = Object.assign({}, attrs);
+      selectAttrs.class = cx(
+        mobileSelectClass,
+        selectAttrs.class || '',
+        icon ? (isRtl ? tw`pr-12` : tw`pl-12`) : ''
+      );
+      const selectNode = D.Inputs.Select({ attrs: selectAttrs }, options);
+      const control = icon
+        ? D.Containers.Div({ attrs: { class: tw`relative` } }, [
+            D.Containers.Div({
+              attrs: {
+                class: cx(
+                  mobileSelectIconClass,
+                  isRtl ? tw`left-auto right-3` : tw`left-3`
+                )
+              }
+            }, [icon]),
+            selectNode
+          ])
+        : selectNode;
+      return D.Containers.Div({ attrs: { class: mobileFieldWrapperClass } }, [
+        D.Text.Span({ attrs: { class: mobileLabelClass } }, [labelText]),
+        control
+      ]);
+    };
 
     const mobileSwitchers = [];
 
     if (langOptions.length) {
-      const mobileLangSelect = D.Inputs.Select({
-        attrs: {
-          class: mobileSelectClass,
-          value: activeLang ? activeLang.value : lang,
-          'data-lang-select': 'true',
-          gkey: 'ui:lang:select',
-          'aria-label': TL('header.lang.label')
-        }
-      }, langOptions.map((option) => D.Inputs.Option({
+      const langSelectAttrs = {
+        value: activeLang ? activeLang.value : lang,
+        'data-lang-select': 'true',
+        gkey: 'ui:lang:select',
+        'aria-label': TL('header.lang.label')
+      };
+      const langOptionsNodes = langOptions.map((option) => D.Inputs.Option({
         attrs: { value: option.value }
-      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`])));
-      mobileSwitchers.push(createMobileField(TL('header.lang.label'), mobileLangSelect));
+      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`]));
+      mobileSwitchers.push(createMobileSelectField(
+        TL('header.lang.label'),
+        activeLang ? activeLang.emoji : '🌐',
+        langSelectAttrs,
+        langOptionsNodes
+      ));
     }
 
     if (themeOptions.length) {
-      const mobileThemeSelect = D.Inputs.Select({
-        attrs: {
-          class: mobileSelectClass,
-          value: activeTheme ? activeTheme.value : '',
-          'data-theme-select': 'true',
-          gkey: 'ui:theme:select',
-          'aria-label': TL('header.theme.label')
-        }
-      }, themeOptions.map((option) => {
+      const themeSelectAttrs = {
+        value: activeTheme ? activeTheme.value : '',
+        'data-theme-select': 'true',
+        gkey: 'ui:theme:select',
+        'aria-label': TL('header.theme.label')
+      };
+      const themeOptionNodes = themeOptions.map((option) => {
         const badge = option.mode === 'dark'
           ? (lang === 'ar' ? 'ليل' : 'Dark')
           : (lang === 'ar' ? 'نهار' : 'Light');
         const label = `${option.emoji ? `${option.emoji} ` : ''}${option.label} — ${badge}`;
         return D.Inputs.Option({ attrs: { value: option.value } }, [label]);
-      }));
-      mobileSwitchers.push(createMobileField(TL('header.theme.label'), mobileThemeSelect));
+      });
+      mobileSwitchers.push(createMobileSelectField(
+        TL('header.theme.label'),
+        activeTheme ? activeTheme.emoji : '🎨',
+        themeSelectAttrs,
+        themeOptionNodes
+      ));
     }
 
     if (templateOptions.length > 1) {
-      const mobileTemplateSelect = D.Inputs.Select({
-        attrs: {
-          class: mobileSelectClass,
-          value: activeTemplate ? activeTemplate.value : '',
-          'data-template': activeTemplate ? activeTemplate.value : '',
-          gkey: 'ui:template:set',
-          'aria-label': TL('header.templates.label')
-        }
-      }, templateOptions.map((option) => D.Inputs.Option({
+      const templateSelectAttrs = {
+        value: activeTemplate ? activeTemplate.value : '',
+        'data-template': activeTemplate ? activeTemplate.value : '',
+        gkey: 'ui:template:set',
+        'aria-label': TL('header.templates.label')
+      };
+      const templateOptionNodes = templateOptions.map((option) => D.Inputs.Option({
         attrs: { value: option.value }
-      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`])));
-      mobileSwitchers.push(createMobileField(TL('header.templates.label'), mobileTemplateSelect));
+      }, [`${option.emoji ? `${option.emoji} ` : ''}${option.label}`]));
+      mobileSwitchers.push(createMobileSelectField(
+        TL('header.templates.label'),
+        activeTemplate ? activeTemplate.emoji : '🧩',
+        templateSelectAttrs,
+        templateOptionNodes
+      ));
     }
 
     mobileSwitchers.push(themeLabButtonMobile);
 
     const mobileControlsContent = mobileSwitchers.filter(Boolean);
-    const mobileControls = mobileControlsContent.length
-      ? D.Containers.Div({ attrs: { class: mobileCardClass } }, mobileControlsContent)
+    const mobileControlsCard = mobileSettingsOpen && mobileControlsContent.length
+      ? D.Containers.Div({ attrs: { class: mobileCardClass, 'data-mobile-settings': 'panel' } }, mobileControlsContent)
       : null;
 
     const headerControls = [langMenu, themeMenu, templateMenu, themeLabButtonDesktop].filter(Boolean);
+
+    const hasMobileControls = mobileControlsContent.length > 0;
+    const mobileSettingsToggle = hasMobileControls
+      ? D.Forms.Button({
+          attrs: {
+            type: 'button',
+            class: cx(mobileIconButtonClass, mobileSettingsOpen ? mobileIconButtonActiveClass : ''),
+            'aria-label': mobileSettingsLabel,
+            'aria-expanded': mobileSettingsOpen ? 'true' : 'false',
+            'data-menu-toggle': 'mobile-settings',
+            gkey: 'ui:header:menuToggle'
+          }
+        }, [mobileSettingsOpen ? '✕' : '⚙️'])
+      : null;
+
+    const mobileSettingsSlot = mobileSettingsToggle
+      ? mobileSettingsToggle
+      : D.Containers.Div({ attrs: { class: tw`h-10 w-10` } });
+
+    const mobileNavToggle = D.Forms.Button({
+      attrs: {
+        type: 'button',
+        class: cx(mobileIconButtonClass, mobileNavOpen ? mobileIconButtonActiveClass : ''),
+        'aria-label': mobileNavOpen ? TL('header.menu.close') : mobilePagesLabel,
+        'aria-expanded': mobileNavOpen ? 'true' : 'false',
+        gkey: 'pages:nav:toggle'
+      }
+    }, [mobileNavOpen ? '✕' : '☰']);
+
+    const mobileTitleRow = D.Containers.Div({
+      attrs: { class: tw`flex w-full items-center justify-between gap-2 sm:hidden` }
+    }, [
+      mobileNavToggle,
+      D.Containers.Div({ attrs: { class: tw`flex min-w-0 flex-1 flex-col items-center gap-1 text-center` } }, [
+        D.Text.H1({ attrs: { class: tw`text-lg font-bold leading-tight` } }, [TL('app.title')]),
+        D.Text.P({ attrs: { class: tw`text-[0.7rem] text-[var(--muted-foreground)]` } }, [TL('header.subtitle')])
+      ]),
+      mobileSettingsSlot
+    ]);
+
+    const desktopTitleBlock = D.Containers.Div({
+      attrs: { class: tw`hidden min-w-[0] flex-col gap-1 sm:flex` }
+    }, [
+      D.Text.H1({ attrs: { class: tw`text-xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
+      D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)] sm:text-sm` } }, [TL('header.subtitle')])
+    ]);
+
+    const headerMainColumn = D.Containers.Div({
+      attrs: { class: tw`order-1 flex w-full flex-col gap-2 sm:order-none sm:min-w-0` }
+    }, [mobileTitleRow, desktopTitleBlock, mobileControlsCard].filter(Boolean));
+
+    const headerControlsBlock = headerControls.length
+      ? D.Containers.Div({
+          attrs: { class: tw`order-2 hidden w-full items-center justify-end gap-2 sm:flex sm:w-auto` }
+        }, headerControls)
+      : null;
 
     const searchState = ensureDict(data.search);
     const searchQuery = typeof searchState.query === 'string' ? searchState.query : '';
@@ -2475,27 +2569,8 @@
         }
       }, [
         D.Containers.Div({
-          attrs: {
-            class: tw`flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between`
-          }
-        }, [
-          headerControls.length
-            ? D.Containers.Div({
-                attrs: {
-                  class: tw`order-0 hidden w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap sm:order-none sm:flex sm:w-auto sm:justify-end`
-                }
-              }, headerControls)
-            : null,
-          D.Containers.Div({
-            attrs: {
-              class: tw`order-1 flex min-w-[0] flex-col gap-1 sm:order-none`
-            }
-          }, [
-            D.Text.H1({ attrs: { class: tw`text-xl font-bold leading-tight sm:text-3xl` } }, [TL('app.title')]),
-            D.Text.P({ attrs: { class: tw`text-xs text-[var(--muted-foreground)] sm:text-sm` } }, [TL('header.subtitle')])
-          ]),
-          mobileControls
-        ].filter(Boolean)),
+          attrs: { class: tw`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between` }
+        }, [headerMainColumn, headerControlsBlock].filter(Boolean)),
         searchRow
       ])
     ].filter(Boolean));
@@ -4596,7 +4671,7 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
       slots: ensureDict(cfg.slots),
       ui: {
         pagesShell: {
-          headerMenus: { langOpen: false, themeOpen: false, templateOpen: false },
+          headerMenus: { langOpen: false, themeOpen: false, templateOpen: false, mobileSettingsOpen: false },
           themeLab: {
             showButton: false,
             open: false,
@@ -5170,7 +5245,12 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             },
             ui: Object.assign({}, prevUi, {
               pagesShell: Object.assign({}, prevShell, {
-                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false, templateOpen: false })
+                headerMenus: Object.assign({}, prevMenus, {
+                  langOpen: false,
+                  themeOpen: false,
+                  templateOpen: false,
+                  mobileSettingsOpen: prevMenus.mobileSettingsOpen
+                })
               })
             })
           };
@@ -5211,7 +5291,12 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             },
             ui: Object.assign({}, prevUi, {
               pagesShell: Object.assign({}, prevShell, {
-                headerMenus: Object.assign({}, prevMenus, { langOpen: false, themeOpen: false, templateOpen: false }),
+                headerMenus: Object.assign({}, prevMenus, {
+                  langOpen: false,
+                  themeOpen: false,
+                  templateOpen: false,
+                  mobileSettingsOpen: prevMenus.mobileSettingsOpen
+                }),
                 themeLab: Object.assign({}, prevThemeLab, {
                   draft: Object.assign({}, overrides)
                 })
@@ -5237,19 +5322,28 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
           const nextMenus = Object.assign({}, prevMenus, {
             langOpen: target === 'lang' ? !prevMenus.langOpen : false,
             themeOpen: target === 'theme' ? !prevMenus.themeOpen : false,
-            templateOpen: target === 'template' ? !prevMenus.templateOpen : false
+            templateOpen: target === 'template' ? !prevMenus.templateOpen : false,
+            mobileSettingsOpen: target === 'mobile-settings' ? !prevMenus.mobileSettingsOpen : false
           });
           if (target === 'lang') {
             nextMenus.themeOpen = false;
             nextMenus.templateOpen = false;
+            nextMenus.mobileSettingsOpen = false;
           }
           if (target === 'theme') {
             nextMenus.langOpen = false;
             nextMenus.templateOpen = false;
+            nextMenus.mobileSettingsOpen = false;
           }
           if (target === 'template') {
             nextMenus.langOpen = false;
             nextMenus.themeOpen = false;
+            nextMenus.mobileSettingsOpen = false;
+          }
+          if (target === 'mobile-settings') {
+            nextMenus.langOpen = false;
+            nextMenus.themeOpen = false;
+            nextMenus.templateOpen = false;
           }
           return {
             ...prev,
@@ -5287,6 +5381,10 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
             if (nextMenus.templateOpen) changed = true;
             nextMenus.templateOpen = false;
           }
+          if (scope === 'mobile-settings' || scope === 'all') {
+            if (nextMenus.mobileSettingsOpen) changed = true;
+            nextMenus.mobileSettingsOpen = false;
+          }
           if (!changed) return prev;
           return {
             ...prev,
@@ -5309,23 +5407,29 @@ const board = D.Containers.Div({ attrs: { class: tw`space-y-3` } }, [
         if (target.closest('[data-menu-toggle]')) return;
         if (target.closest('[data-menu-overlay]')) return;
         if (target.closest('[data-menu-close]')) return;
+        if (target.closest('[data-mobile-settings]')) return;
         const state = context.getState();
         const prevUi = ensureDict(state.ui);
         const prevShell = ensureDict(prevUi.pagesShell);
         const prevMenus = ensureDict(prevShell.headerMenus);
-        if (!prevMenus.langOpen && !prevMenus.themeOpen && !prevMenus.templateOpen) return;
+        if (!prevMenus.langOpen && !prevMenus.themeOpen && !prevMenus.templateOpen && !prevMenus.mobileSettingsOpen) return;
         let changed = false;
         context.setState((prev) => {
           const prevUiState = ensureDict(prev.ui);
           const prevShellState = ensureDict(prevUiState.pagesShell);
           const prevMenuState = ensureDict(prevShellState.headerMenus);
-          if (!prevMenuState.langOpen && !prevMenuState.themeOpen && !prevMenuState.templateOpen) return prev;
+          if (!prevMenuState.langOpen && !prevMenuState.themeOpen && !prevMenuState.templateOpen && !prevMenuState.mobileSettingsOpen) return prev;
           changed = true;
           return {
             ...prev,
             ui: Object.assign({}, prevUiState, {
               pagesShell: Object.assign({}, prevShellState, {
-                headerMenus: Object.assign({}, prevMenuState, { langOpen: false, themeOpen: false, templateOpen: false })
+                headerMenus: Object.assign({}, prevMenuState, {
+                  langOpen: false,
+                  themeOpen: false,
+                  templateOpen: false,
+                  mobileSettingsOpen: false
+                })
               })
             })
           };
