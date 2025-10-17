@@ -150,6 +150,9 @@
       var next = child.nextSibling;
       if (child.nodeType === 1 && child.tagName.toLowerCase() === 'style' && !styles) {
         styles = child.textContent || '';
+        if (child.parentNode) {
+          child.parentNode.removeChild(child);
+        }
       } else {
         if (child.nodeType === 1 && child.tagName.toLowerCase() === 'script') {
           scripts.push(child.textContent || '');
@@ -1346,6 +1349,7 @@
     var nextPath = path.length ? path + '.' + tag : tag;
 
     if (tag === 'template') return null;
+    if (tag === 'style' || tag === 'script') return null;
 
     var descriptor;
     if (tag.indexOf('comp-') === 0) {
