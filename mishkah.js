@@ -28,6 +28,15 @@
     if (queryIndex !== -1) src = src.slice(0, queryIndex);
     baseUrl = src.replace(/[^\/]*$/, '');
   }
+  global.__MISHKAH_BASE__ = baseUrl;
+
+  function mapCssLibrary(name) {
+    if (!name) return null;
+    var normalized = String(name).trim().toLowerCase();
+    if (normalized === 'mishkah' || normalized === 'mi' || normalized === 'mk' || normalized === 'mishkah-css') return 'mi';
+    if (normalized === 'tailwind' || normalized === 'tw' || normalized === 'tailwindcss' || normalized === 'tailwind-css') return 'tw';
+    return normalized || null;
+  }
 
   function parseDatasetFlag(value, fallback) {
     if (value == null || value === '') return fallback;
@@ -56,6 +65,11 @@
   var cssOption = parseDatasetValue('css', null);
   if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
   cssOption = cssOption || 'mishkah';
+  var defaultCssLibrary = mapCssLibrary(cssOption) || 'mi';
+  global.__MISHKAH_DEFAULT_CSS__ = defaultCssLibrary;
+  if (!global.__MISHKAH_ACTIVE_CSS__) {
+    global.__MISHKAH_ACTIVE_CSS__ = defaultCssLibrary;
+  }
 
   var tailwindFlag = parseDatasetFlag(parseDatasetValue('tailwind', null), undefined);
   var tailwindEnabled = (typeof tailwindFlag === 'boolean') ? tailwindFlag
@@ -196,6 +210,7 @@
     config: {
       auto: autoEnabled,
       css: cssOption,
+      cssLibrary: defaultCssLibrary,
       tailwind: tailwindEnabled,
       baseUrl: baseUrl
     },
@@ -759,12 +774,14 @@
       var database = db || {};
       if (autoEnabled) {
         database = Object.assign({}, database);
-        database.env = Object.assign({ css: cssOption }, database.env || {});
+        var ensuredCss = ensureEnvCssConfig(database.env);
+        database.env = ensuredCss.env;
+        var cssLibrary = ensuredCss.library || mapCssLibrary(cssOption) || defaultCssLibrary;
         if (!database.env.theme) database.env.theme = userConfig.defaultTheme || 'light';
         if (!database.env.lang) database.env.lang = (Array.isArray(userConfig.defaultLangs) && userConfig.defaultLangs[0]) || 'ar';
         if (!database.env.dir) database.env.dir = RTL_LANGS.has(database.env.lang) ? 'rtl' : 'ltr';
         setDocumentLang(database.env.lang, database.env.dir);
-        if (cssOption === 'mishkah') {
+        if (cssLibrary === 'mi') {
           ensureStyle(cssHref, 'mishkah-css');
         }
       }
@@ -848,7 +865,7 @@
 
   var loadPromise = loadSequential(resources);
 
-  if (autoEnabled && cssOption === 'mishkah') {
+  if (autoEnabled && defaultCssLibrary === 'mi') {
     loadPromise = loadPromise.then(function () {
       ensureStyle(cssHref, 'mishkah-css');
       return true;
@@ -882,6 +899,38 @@
       return;
     }
     target[key] = value;
+  }
+
+  function ensureEnvCssConfig(env) {
+    var result = (env && typeof env === 'object' && !Array.isArray(env)) ? Object.assign({}, env) : {};
+    var cssConfig = result.css;
+    var normalizedLibrary = null;
+    if (cssConfig == null) {
+      result.css = cssOption;
+      normalizedLibrary = mapCssLibrary(cssOption) || defaultCssLibrary;
+    } else if (typeof cssConfig === 'string') {
+      normalizedLibrary = mapCssLibrary(cssConfig) || cssConfig;
+    } else if (cssConfig && typeof cssConfig === 'object' && !Array.isArray(cssConfig)) {
+      var cssCopy = Object.assign({}, cssConfig);
+      var explicit = cssCopy.library || cssCopy.engine || cssCopy.type || cssCopy.name || cssCopy.mode;
+      if (!explicit) {
+        explicit = cssOption;
+      }
+      var normalized = mapCssLibrary(explicit) || explicit;
+      if (!cssCopy.library) cssCopy.library = normalized;
+      if (!cssCopy.engine) cssCopy.engine = normalized;
+      result.css = cssCopy;
+      normalizedLibrary = normalized;
+    } else {
+      result.css = cssOption;
+      normalizedLibrary = mapCssLibrary(cssOption) || defaultCssLibrary;
+    }
+    if (!normalizedLibrary) {
+      normalizedLibrary = mapCssLibrary(cssOption) || defaultCssLibrary;
+    }
+    if (!result.cssLibrary) result.cssLibrary = normalizedLibrary;
+    if (!result.cssEngine) result.cssEngine = result.cssLibrary;
+    return { env: result, library: result.cssLibrary };
   }
 
   var api = global.MishkahAuto || {};
@@ -931,6 +980,8 @@
       assignSection(db, 'data', cfg.data);
       assignSection(db, 'i18n', cfg.i18n);
       assignSection(db, 'head', cfg.head);
+      var ensuredEnv = ensureEnvCssConfig(db.env);
+      db.env = ensuredEnv.env;
       if (cfg.templates != null) {
         if (Array.isArray(cfg.templates)) {
           db.templates = cfg.templates.slice();
