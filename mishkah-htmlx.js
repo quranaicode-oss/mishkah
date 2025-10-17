@@ -150,6 +150,9 @@
       var next = child.nextSibling;
       if (child.nodeType === 1 && child.tagName.toLowerCase() === 'style' && !styles) {
         styles = child.textContent || '';
+        if (child.parentNode) {
+          child.parentNode.removeChild(child);
+        }
       } else {
         if (child.nodeType === 1 && child.tagName.toLowerCase() === 'script') {
           scripts.push(child.textContent || '');
@@ -1346,6 +1349,7 @@
     var nextPath = path.length ? path + '.' + tag : tag;
 
     if (tag === 'template') return null;
+    if (tag === 'style' || tag === 'script') return null;
 
     var descriptor;
     if (tag.indexOf('comp-') === 0) {
@@ -1353,8 +1357,20 @@
     } else if (ATOM_FAMILIES[tag]) {
       descriptor = { type: 'atom', family: ATOM_FAMILIES[tag][0], atom: ATOM_FAMILIES[tag][1], attrs: {}, events: [], children: [], path: nextPath };
     } else {
-      warnings.push('E_ATOM_MISMATCH(' + nextPath + '): عنصر ' + tag + ' غير مصنف. سيتم تجاهله.');
-      return null;
+      var componentName = pascalCase(tag);
+      var hasUiComponent = Mishkah && Mishkah.UI && typeof Mishkah.UI[componentName] === 'function';
+      var isCustomElement = tag.indexOf('-') !== -1;
+      if (hasUiComponent) {
+        warnings.push('W_COMPONENT_PREFIX(' + nextPath + '): تم افتراض المكوّن ' + componentName + ' رغم غياب البادئة comp-.');
+        descriptor = { type: 'component', component: componentName, attrs: {}, events: [], children: [], path: nextPath };
+      } else {
+        if (!isCustomElement) {
+          warnings.push('E_ATOM_MISMATCH(' + nextPath + '): عنصر ' + tag + ' غير مصنف في DSL. سيتم تصييره كعنصر خام.');
+        } else if (!global.customElements || !global.customElements.get(tag)) {
+          warnings.push('W_CUSTOM_ELEMENT(' + nextPath + '): العنصر ' + tag + ' غير مسجل. سيتم التعامل معه كعنصر HTML مخصص.');
+        }
+        descriptor = { type: 'element', tag: tag, attrs: {}, events: [], children: [], path: nextPath };
+      }
     }
 
     var attrs = node.attributes || [];
@@ -1449,7 +1465,7 @@
     var grouped = [];
     for (var i = 0; i < children.length; i += 1) {
       var node = children[i];
-      if (!node || (node.type !== 'atom' && node.type !== 'component')) {
+      if (!node || (node.type !== 'atom' && node.type !== 'component' && node.type !== 'element')) {
         grouped.push(node);
         continue;
       }
@@ -1462,7 +1478,7 @@
         var j = i + 1;
         while (j < children.length) {
           var sibling = children[j];
-          if (!sibling || (sibling.type !== 'atom' && sibling.type !== 'component')) break;
+          if (!sibling || (sibling.type !== 'atom' && sibling.type !== 'component' && sibling.type !== 'element')) break;
           if (!sibling.elseType) break;
           chain.push({ test: sibling.elseType === 'else' ? null : sibling.xIf, node: sibling });
           i = j;
@@ -1731,6 +1747,15 @@
           props.content = kids;
         }
         return componentFactory(props);
+      }
+      if (node.type === 'element') {
+        var hFactory = (activeScope.D && typeof activeScope.D.h === 'function') ? activeScope.D.h
+          : (Mishkah && Mishkah.DSL && typeof Mishkah.DSL.h === 'function' ? Mishkah.DSL.h : null);
+        if (!hFactory) {
+          console.warn('E_ELEMENT_UNSUPPORTED: لا يمكن إنشاء العنصر', node.tag, 'لأن DSL.h غير متوفر.');
+          return null;
+        }
+        return hFactory(node.tag, 'Custom', { attrs: attrs }, kids);
       }
       var family = node.family;
       var atom = node.atom;
@@ -3173,7 +3198,7 @@
 
   function collectEvents(node, list) {
     if (!node) return;
-    if ((node.type === 'atom' || node.type === 'component') && Array.isArray(node.events)) {
+    if ((node.type === 'atom' || node.type === 'component' || node.type === 'element') && Array.isArray(node.events)) {
       for (var i = 0; i < node.events.length; i += 1) {
         list.push(node.events[i]);
       }
@@ -3292,14 +3317,14 @@
       for (var si = 0; si < grouped.length; si += 1) {
         var target = grouped[si];
         if (!target) continue;
-        if (target.type === 'atom' || target.type === 'component') {
+        if (target.type === 'atom' || target.type === 'component' || target.type === 'element') {
           target.attrs['data-m-scope'] = mergeScopeAttr(target.attrs['data-m-scope'], scopedStyle.scopeAttr);
           break;
         }
         if (target.type === 'if-chain') {
           for (var ci = 0; ci < target.chain.length; ci += 1) {
             var branchNode = target.chain[ci].node;
-            if (branchNode && (branchNode.type === 'atom' || branchNode.type === 'component')) {
+            if (branchNode && (branchNode.type === 'atom' || branchNode.type === 'component' || branchNode.type === 'element')) {
               branchNode.attrs['data-m-scope'] = mergeScopeAttr(branchNode.attrs['data-m-scope'], scopedStyle.scopeAttr);
               si = grouped.length;
               break;
