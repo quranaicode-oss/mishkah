@@ -121,6 +121,7 @@
 
   pickAuthOff(externalAuthConfig.authOff, 'window.MishkahPosSyncAuth.authOff');
   pickAuthOff(externalAuthConfig.auth_off, 'window.MishkahPosSyncAuth.auth_off');
+  pickAuthOff(externalAuthConfig.authoff, 'window.MishkahPosSyncAuth.authoff');
   pickAuthOff(externalAuthConfig.authBypass, 'window.MishkahPosSyncAuth.authBypass');
   pickAuthOff(externalAuthConfig.auth_bypass, 'window.MishkahPosSyncAuth.auth_bypass');
 
@@ -136,6 +137,7 @@
   if(authOff){
     sync.auth_off = true;
     sync.authOff = true;
+    sync.authoff = true;
     sync.auth_bypass = true;
     sync.authBypass = true;
   }
@@ -145,6 +147,7 @@
     httpEndpoint,
     wsEndpoint,
     authOff,
+    authoff: authOff,
     tokenSource,
     httpSource,
     wsSource,
