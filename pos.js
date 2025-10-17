@@ -2928,13 +2928,26 @@
         return { snapshot:null, version, disabled:true, httpStatus };
       }
       if(httpStatus === 404 || httpStatus === 405 || httpStatus === 410){
-        emitDiagnostic('config:disable', {
+        const offlineMessage = `Central sync endpoint unavailable (HTTP ${httpStatus}).`;
+        const offlineData = { endpoint: httpEndpoint, httpStatus };
+        emitDiagnostic(requireOnline && !allowLocalFallback ? 'config:disable' : 'http:fetch:fallback', {
           level:'warn',
-          message:`Central sync endpoint unavailable (HTTP ${httpStatus}).`,
-          data:{ endpoint: httpEndpoint, httpStatus }
+          message: offlineMessage,
+          data:{ ...offlineData, allowLocalFallback }
         });
-        disableSync(`Central sync endpoint unavailable (HTTP ${httpStatus}).`, { httpStatus });
-        return { snapshot:null, version, disabled:true, httpStatus };
+        if(requireOnline && !allowLocalFallback){
+          disableSync(offlineMessage, { httpStatus });
+          return { snapshot:null, version, disabled:true, httpStatus };
+        }
+        emitStatus({ state:'offline', lastError: offlineMessage, httpStatus });
+        return {
+          snapshot:null,
+          version,
+          disabled:false,
+          httpStatus,
+          offline:true,
+          reason: offlineMessage
+        };
       }
       if(!response.ok){
         emitDiagnostic('http:fetch:error', {
@@ -2980,6 +2993,13 @@
               throw createSyncError('POS_SYNC_DISABLED', disableReason || 'Central sync disabled.');
             }
             return false;
+          }
+          if(remote && remote.offline){
+            emitDiagnostic('sync:initial:fallback', {
+              level:'warn',
+              message: remote.reason || 'Central sync offline — continuing in local mode.',
+              data:{ reason:'http-offline', httpStatus: remote.httpStatus || null }
+            });
           }
           if(remote && remote.snapshot){
             try {
