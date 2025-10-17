@@ -393,6 +393,90 @@ function isPosSyncTopic(topic) {
   return POS_SYNC_TOPIC_REGEX.test(topic);
 }
 
+function toArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (entry == null ? null : String(entry).trim()))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[,\s]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function collectScopes(claims = {}) {
+  const scopes = new Set();
+  toArray(claims.scope).forEach((entry) => scopes.add(entry));
+  toArray(claims.scopes).forEach((entry) => scopes.add(entry));
+  toArray(claims.permissions).forEach((entry) => scopes.add(entry));
+  toArray(claims.roles).forEach((entry) => scopes.add(`role:${entry}`));
+  return scopes;
+}
+
+function extractPosBranches(claims = {}) {
+  const branches = new Set();
+  const pushBranch = (value) => {
+    if (value === '*' || value === 'all') {
+      branches.add('*');
+      return;
+    }
+    const normalized = normalizeBranchId(value);
+    if (normalized) {
+      branches.add(normalized);
+    }
+  };
+  toArray(claims.branches || claims.branchIds || claims.pos_branches).forEach(pushBranch);
+  if (claims.branch || claims.posBranch) {
+    pushBranch(claims.branch || claims.posBranch);
+  }
+  if (claims.branchId) {
+    pushBranch(claims.branchId);
+  }
+  if (claims.pos && typeof claims.pos === 'object') {
+    toArray(claims.pos.branches || claims.pos.branchId).forEach(pushBranch);
+  }
+  return branches;
+}
+
+function hasScope(scopes, ...candidates) {
+  if (!scopes || scopes.size === 0) return false;
+  return candidates.some((candidate) => scopes.has(candidate));
+}
+
+function ensurePosTopicAuthorization(ws, topic) {
+  if (!isPosSyncTopic(topic)) {
+    return true;
+  }
+  const match = POS_SYNC_TOPIC_REGEX.exec(topic || '');
+  const branchId = normalizeBranchId(match ? match[1] : null);
+  if (!ws.posAuth) {
+    sendJSON(ws, {
+      type: 'error',
+      code: 'pos_sync_auth_required',
+      message: 'Authentication token with POS sync scope is required before accessing this channel.',
+      topic,
+    });
+    return false;
+  }
+  if (ws.posAuth.branches.has('*') || ws.posAuth.branches.has(branchId)) {
+    return true;
+  }
+  sendJSON(ws, {
+    type: 'error',
+    code: 'pos_sync_branch_forbidden',
+    message: 'Not authorized to access this POS branch.',
+    branch: branchId,
+    topic,
+  });
+  log.warn({ id: ws.id, branch: branchId }, 'POS sync branch forbidden for client');
+  return false;
+}
+
 function topicAllowed(topic, isPublish) {
   if (!topic || typeof topic !== 'string') {
     return false;
@@ -1287,6 +1371,9 @@ async function handleMessage(ws, envelope) {
           sendJSON(ws, { type: 'error', code: 'unauthorized_sub', message: 'Authentication required before subscribing.' });
           return;
         }
+        if (!ensurePosTopicAuthorization(ws, topic)) {
+          return;
+        }
         if (!topicAllowed(topic, false)) {
           sendJSON(ws, { type: 'error', code: 'topic_not_allowed', message: 'Topic is not allowed for subscription.' });
           return;
@@ -1313,6 +1400,9 @@ async function handleMessage(ws, envelope) {
       const requiresAuth = config.requireAuthPub && !isKitchenTopic(topic);
       if (requiresAuth && !ws.user) {
         sendJSON(ws, { type: 'error', code: 'unauthorized_pub', message: 'Authentication required before publishing.' });
+        return;
+      }
+      if (!ensurePosTopicAuthorization(ws, topic)) {
         return;
       }
       if (!topic || !topicAllowed(topic, true)) {
@@ -1350,14 +1440,47 @@ function handleAuth(ws, envelope) {
     sendJSON(ws, { type: 'error', code: 'auth_failed', message: 'Invalid or expired token.' });
     return;
   }
-  const room = getChatRoom(claims.conversationId);
-  if (!room) {
+
+  const scopes = collectScopes(claims);
+  const posBranches = extractPosBranches(claims);
+  const hasPosScope = hasScope(scopes, 'pos.sync', 'pos:sync', 'pos_sync', 'role:pos.sync', 'role:pos:sync', 'role:pos_sync');
+
+  if (hasPosScope && posBranches.size === 0) {
+    sendJSON(ws, {
+      type: 'error',
+      code: 'pos_sync_branch_required',
+      message: 'POS sync tokens must include at least one authorized branch.',
+    });
+    log.warn({ id: ws.id }, 'POS sync token missing branch information');
+    return;
+  }
+
+  const room = claims.conversationId ? getChatRoom(claims.conversationId) : null;
+  if (claims.conversationId && !room) {
     sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
     return;
   }
-  ws.user = normalizeUserClaims(claims);
-  ws.roomId = room.id;
-  sendJSON(ws, { type: 'ack', event: 'auth', user: ws.user, ts: nowTs() });
+
+  ws.user = {
+    ...normalizeUserClaims(claims),
+    scopes: Array.from(scopes),
+  };
+  ws.roomId = room ? room.id : null;
+  if (hasPosScope) {
+    ws.posAuth = {
+      branches: posBranches.size > 0 ? posBranches : new Set(['*']),
+      token: claims.jti || null,
+    };
+    log.info({ id: ws.id, branches: Array.from(ws.posAuth.branches) }, 'POS sync authentication granted');
+  }
+
+  sendJSON(ws, {
+    type: 'ack',
+    event: 'auth',
+    user: ws.user,
+    ts: nowTs(),
+    pos: ws.posAuth ? { branches: Array.from(ws.posAuth.branches) } : null,
+  });
 }
 
 async function publishMessage(ws, { topic, data, meta }) {

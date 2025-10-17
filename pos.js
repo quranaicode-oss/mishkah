@@ -600,16 +600,19 @@
             'connect:start':'بدء الاتصال',
             'ws:open':'تم فتح قناة الويب سوكيت',
             'ws:auth:sent':'إرسال بيانات التوثيق',
+            'ws:auth:missing':'لم يتم توفير رمز التوثيق',
             'ws:auth:ack':'توثيق ناجح',
             'ws:subscribe':'الاشتراك في القناة',
             'ws:close':'انتهاء الاتصال',
             'ws:error':'خطأ في القناة',
+            'ws:error:frame':'رسالة خطأ من الخادم',
             'ws:message':'رسالة واردة',
             'sync:status':'تحديث الحالة',
             'sync:queue:flush':'إرسال الرسائل المؤجلة',
             'http:fetch:start':'بدء جلب HTTP',
             'http:fetch:success':'تم جلب نسخة HTTP',
             'http:fetch:error':'فشل جلب HTTP',
+            'http:fetch:unauthorized':'رفض التوثيق عبر HTTP',
             'sync:initial:start':'بدء المزامنة الأولية',
             'sync:initial:success':'اكتملت المزامنة الأولية',
             'sync:initial:error':'خطأ في المزامنة الأولية',
@@ -771,16 +774,19 @@
             'connect:start':'Connecting to WebSocket',
             'ws:open':'WebSocket opened',
             'ws:auth:sent':'Auth payload sent',
+            'ws:auth:missing':'Missing auth token',
             'ws:auth:ack':'Authentication acknowledged',
             'ws:subscribe':'Subscribed to topic',
             'ws:close':'WebSocket closed',
             'ws:error':'WebSocket error',
+            'ws:error:frame':'Server error frame',
             'ws:message':'Message received',
             'sync:status':'Status updated',
             'sync:queue:flush':'Flushed pending frames',
             'http:fetch:start':'Fetching HTTP snapshot',
             'http:fetch:success':'HTTP snapshot received',
             'http:fetch:error':'HTTP fetch failed',
+            'http:fetch:unauthorized':'HTTP auth rejected',
             'sync:initial:start':'Initial sync started',
             'sync:initial:success':'Initial sync complete',
             'sync:initial:error':'Initial sync error',
@@ -2688,6 +2694,8 @@
     const token = options.token || null;
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = token ? { authorization:`Bearer ${token}` } : {};
+    const requireOnline = options.requireOnline !== false;
+    const allowLocalFallback = options.allowLocalFallback === true;
     const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
     let socket = null;
     let ready = false;
@@ -2701,12 +2709,16 @@
     let queue = Promise.resolve();
     const pendingFrames = [];
     const pendingMutations = new Map();
+    const mode = requireOnline ? (allowLocalFallback ? 'hybrid' : 'central-only') : 'permissive';
     let status = {
       state: disabled ? 'disabled' : (wsEndpoint && WebSocketX ? 'offline' : 'disabled'),
       version: 0,
       updatedAt: null,
       endpoint: wsEndpoint || null,
-      lastError: disableReason
+      lastError: disableReason,
+      mode,
+      requireOnline,
+      allowLocalFallback
     };
 
     const serializeError = (err)=>{
@@ -2726,7 +2738,10 @@
       endpoint: wsEndpoint || null,
       httpEndpoint,
       queueSize: pendingFrames.length,
-      pendingMutations: pendingMutations.size
+      pendingMutations: pendingMutations.size,
+      requireOnline,
+      allowLocalFallback,
+      mode
     });
 
     const emitDiagnostic = (event, info={})=>{
@@ -2746,7 +2761,7 @@
     };
 
     emitDiagnostic('config:init', {
-      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token }
+      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token, requireOnline, allowLocalFallback }
     });
 
     const createSyncError = (code, message)=>{
@@ -2887,6 +2902,18 @@
       }
       const statusNumber = Number(response.status);
       const httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
+      if(httpStatus === 401 || httpStatus === 403){
+        emitDiagnostic('http:fetch:unauthorized', {
+          level:'error',
+          message:`Central sync rejected token (HTTP ${httpStatus}).`,
+          data:{ endpoint: httpEndpoint, httpStatus }
+        });
+        if(requireOnline && !allowLocalFallback){
+          disableSync(`Central sync requires authentication (HTTP ${httpStatus}).`, { httpStatus });
+          throw createSyncError('POS_SYNC_UNAUTHORIZED', `Central sync requires authentication (HTTP ${httpStatus}).`);
+        }
+        return { snapshot:null, version, disabled:true, httpStatus };
+      }
       if(httpStatus === 404 || httpStatus === 405 || httpStatus === 410){
         emitDiagnostic('config:disable', {
           level:'warn',
@@ -2936,6 +2963,9 @@
               message:'Initial sync disabled by configuration.',
               data:{ reason:'remote-disabled' }
             });
+            if(requireOnline && !allowLocalFallback){
+              throw createSyncError('POS_SYNC_DISABLED', disableReason || 'Central sync disabled.');
+            }
             return false;
           }
           if(remote && remote.snapshot){
@@ -3108,6 +3138,15 @@
             data:{ endpoint: wsEndpoint }
           });
         } else {
+          emitDiagnostic('ws:auth:missing', {
+            level: requireOnline ? 'error' : 'warn',
+            message:'No auth token configured for central sync.',
+            data:{ endpoint: wsEndpoint }
+          });
+          if(requireOnline && !allowLocalFallback){
+            disableSync('Central sync token missing.');
+            return;
+          }
           socket.send({ type:'subscribe', topic });
           emitDiagnostic('ws:subscribe', {
             level:'debug',
@@ -3166,6 +3205,17 @@
           }
           return;
         }
+        if(msg.type === 'error'){
+          emitDiagnostic('ws:error:frame', {
+            level:'error',
+            message: msg.message || 'Central sync error frame received.',
+            data:{ code: msg.code || null, topic: msg.topic || topic, branch: msg.branch || null }
+          });
+          if(msg.code === 'pos_sync_branch_forbidden' && requireOnline && !allowLocalFallback){
+            disableSync('Central sync token not authorized for branch.', { branch: msg.branch || null });
+          }
+          return;
+        }
         if(msg.type === 'publish' && msg.topic === topic){
           handlePublish(msg.data || {});
         }
@@ -3177,8 +3227,17 @@
       if(typeof executor !== 'function') return Promise.resolve(null);
       const task = async ()=>{
         const synced = await ensureInitialSync();
-        if(disabled || synced === false){
-          return executor();
+        if(disabled){
+          if(allowLocalFallback){
+            return executor();
+          }
+          throw createSyncError('POS_SYNC_DISABLED', disableReason || 'Central sync disabled.');
+        }
+        if(synced === false){
+          if(allowLocalFallback){
+            return executor();
+          }
+          throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
         }
         if(!socket || !ready || awaitingAuth || !online){
           throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
@@ -3302,6 +3361,28 @@
       || syncSettings.posToken
       || syncSettings.token
       || null;
+    const centralOnlyOverrideSource = firstDefined(
+      MOCK_BASE?.sync?.central_only,
+      MOCK_BASE?.sync?.centralOnly,
+      MOCK_BASE?.sync?.disable_indexeddb,
+      MOCK_BASE?.sync?.disableIndexeddb,
+      MOCK_BASE?.sync?.disableIndexedDb,
+      syncSettings.central_only,
+      syncSettings.centralOnly,
+      syncSettings.disable_indexeddb,
+      syncSettings.disableIndexeddb,
+      syncSettings.disableIndexedDb
+    );
+    const allowFallbackOverrideSource = firstDefined(
+      MOCK_BASE?.sync?.allow_indexeddb_fallback,
+      MOCK_BASE?.sync?.allowIndexeddbFallback,
+      MOCK_BASE?.sync?.allowIndexedDbFallback,
+      syncSettings.allow_indexeddb_fallback,
+      syncSettings.allowIndexeddbFallback,
+      syncSettings.allowIndexedDbFallback
+    );
+    const enforceCentralOnly = ensureBoolean(centralOnlyOverrideSource, !isStaticDemoEnvironment);
+    const allowIndexedDbFallback = ensureBoolean(allowFallbackOverrideSource, isStaticDemoEnvironment);
     if(isStaticDemoEnvironment && !posSyncHttpBase && !posSyncWsEndpoint){
       console.info('[Mishkah][POS] Central sync disabled for static demo environment (no HTTP or WS endpoints available).');
     }
@@ -3310,7 +3391,10 @@
       state: posSyncWsEndpoint ? 'offline' : 'disabled',
       version: 0,
       lastSync: null,
-      endpoint: posSyncWsEndpoint || null
+      endpoint: posSyncWsEndpoint || null,
+      mode: enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive',
+      requireOnline: enforceCentralOnly,
+      allowLocalFallback: allowIndexedDbFallback
     };
     let centralStatusHandler = null;
     const handleCentralStatus = (nextStatus={})=>{
@@ -3321,6 +3405,10 @@
     };
 
     const posDB = createIndexedDBAdapter('mishkah-pos', 4);
+    if(posDB && typeof posDB === 'object'){
+      posDB.centralMode = enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive';
+      posDB.allowLocalFallback = allowIndexedDbFallback;
+    }
 
     const centralSync = createCentralPosSync({
       adapter: posDB,
@@ -3328,6 +3416,8 @@
       wsEndpoint: posSyncWsEndpoint,
       httpEndpoint: posSyncHttpBase,
       token: posSyncToken,
+      requireOnline: enforceCentralOnly,
+      allowLocalFallback: allowIndexedDbFallback,
       posId: POS_INFO.id,
       onStatus: handleCentralStatus,
       onDiagnostic: pushCentralDiagnostic
