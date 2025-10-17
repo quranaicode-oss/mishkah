@@ -3456,10 +3456,12 @@
     const posSyncAuthOffSource = firstDefined(
       posAuthRuntime.authOff,
       posAuthRuntime.auth_off,
+      posAuthRuntime.authoff,
       posAuthRuntime.authBypass,
       posAuthRuntime.auth_bypass,
       syncSettings.auth_off,
       syncSettings.authOff,
+      syncSettings.authoff,
       syncSettings.auth_bypass,
       syncSettings.authBypass,
       syncSettings.disable_auth,
