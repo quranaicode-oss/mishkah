@@ -126,6 +126,55 @@
       }
       return fallback;
     };
+
+    function createDiagnosticsStore(limit=200){
+      let entries = [];
+      const subscribers = new Set();
+      const notify = ()=>{
+        const snapshot = entries.slice();
+        subscribers.forEach(fn=>{
+          try { fn(snapshot); } catch(_err){}
+        });
+      };
+      return {
+        push(entry={}){
+          const record = {
+            id: entry.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+            ts: entry.ts || Date.now(),
+            level: entry.level || 'info',
+            source: entry.source || 'central-sync',
+            event: entry.event || 'unknown',
+            message: entry.message || '',
+            data: entry.data || {},
+            status: entry.status || null
+          };
+          entries = [...entries.slice(Math.max(0, entries.length - (limit - 1))), record];
+          notify();
+          return record;
+        },
+        clear(){
+          entries = [];
+          notify();
+        },
+        getEntries(){
+          return entries.slice();
+        },
+        subscribe(fn){
+          if(typeof fn !== 'function') return ()=>{};
+          subscribers.add(fn);
+          return ()=> subscribers.delete(fn);
+        }
+      };
+    }
+
+    const centralDiagnosticsStore = createDiagnosticsStore(250);
+
+    const pushCentralDiagnostic = (entry)=> centralDiagnosticsStore.push({
+      ...entry,
+      source: entry?.source || 'central-sync'
+    });
+
+    const clearCentralDiagnostics = ()=> centralDiagnosticsStore.clear();
     const normalizeEndpointString = (value)=>{
       if(typeof value !== 'string') return null;
       const trimmed = value.trim();
@@ -535,6 +584,40 @@
           menu_load_error:'تعذر تحديث القائمة الحية، يتم استخدام البيانات المخزنة.', menu_load_error_short:'تعذر التحديث',
           menu_live_badge:'القائمة الحية', menu_last_updated:'آخر تحديث', menu_load_success:'تم تحديث القائمة بنجاح.',
           indexeddb:'قاعدة البيانات المحلية', central_sync:'المزامنة المركزية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
+          central_diag_title:'تشخيص الاتصال المركزي',
+          central_diag_description:'راقب دورة حياة الاتصال بالمخدم المركزي وتحقق من رسائل الأخطاء مباشرة.',
+          central_diag_empty:'لم يتم تسجيل أي أحداث بعد.',
+          central_diag_wait:'بمجرد محاولة الاتصال سنعرض التفاصيل هنا.',
+          central_diag_clear:'مسح السجل',
+          central_diag_cleared:'تم مسح سجل المزامنة.',
+          central_diag_status:'حالة الاتصال',
+          central_diag_details:'تفاصيل إضافية',
+          central_diag_levels:{ info:'معلومة', warn:'تحذير', error:'خطأ', debug:'تفاصيل' },
+          central_diag_events:{
+            'config:init':'تهيئة الإعدادات',
+            'config:disable':'تم تعطيل المزامنة',
+            'connect:skipped':'تخطي الاتصال',
+            'connect:start':'بدء الاتصال',
+            'ws:open':'تم فتح قناة الويب سوكيت',
+            'ws:auth:sent':'إرسال بيانات التوثيق',
+            'ws:auth:ack':'توثيق ناجح',
+            'ws:subscribe':'الاشتراك في القناة',
+            'ws:close':'انتهاء الاتصال',
+            'ws:error':'خطأ في القناة',
+            'ws:message':'رسالة واردة',
+            'sync:status':'تحديث الحالة',
+            'sync:queue:flush':'إرسال الرسائل المؤجلة',
+            'http:fetch:start':'بدء جلب HTTP',
+            'http:fetch:success':'تم جلب نسخة HTTP',
+            'http:fetch:error':'فشل جلب HTTP',
+            'sync:initial:start':'بدء المزامنة الأولية',
+            'sync:initial:success':'اكتملت المزامنة الأولية',
+            'sync:initial:error':'خطأ في المزامنة الأولية',
+            'mutation:publish':'إرسال تحديث',
+            'mutation:ack':'تأكيد التحديث',
+            'mutation:timeout':'انتهاء مهلة التحديث',
+            'sync:disable':'إيقاف المزامنة'
+          },
           subtotal:'الإجمالي الفرعي', service:'خدمة', vat:'ضريبة', discount:'خصم', delivery_fee:'رسوم التوصيل', total:'الإجمالي المستحق',
           cart_empty:'لم يتم إضافة أصناف بعد', choose_items:'اختر صنفًا من القائمة لإضافته إلى الطلب.', tables:'الطاولات',
           select_table:'اختر طاولة لإسناد الطلب', table_status:'حالة الطاولة', table_available:'متاحة', table_occupied:'مشغولة',
@@ -672,6 +755,40 @@
           menu_load_error:'Live menu refresh failed, using cached data instead.', menu_load_error_short:'Update failed',
           menu_live_badge:'Live menu', menu_last_updated:'Last updated', menu_load_success:'Live menu updated.',
           indexeddb:'Local database', central_sync:'Central sync', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
+          central_diag_title:'Central sync diagnostics',
+          central_diag_description:'Inspect the live connection lifecycle with the central server and surface any transport errors.',
+          central_diag_empty:'No events captured yet.',
+          central_diag_wait:'As soon as the POS tries to connect we will list the trace here.',
+          central_diag_clear:'Clear log',
+          central_diag_cleared:'Central sync log cleared.',
+          central_diag_status:'Connection snapshot',
+          central_diag_details:'Details',
+          central_diag_levels:{ info:'Info', warn:'Warn', error:'Error', debug:'Debug' },
+          central_diag_events:{
+            'config:init':'Configuration loaded',
+            'config:disable':'Sync disabled',
+            'connect:skipped':'Connection skipped',
+            'connect:start':'Connecting to WebSocket',
+            'ws:open':'WebSocket opened',
+            'ws:auth:sent':'Auth payload sent',
+            'ws:auth:ack':'Authentication acknowledged',
+            'ws:subscribe':'Subscribed to topic',
+            'ws:close':'WebSocket closed',
+            'ws:error':'WebSocket error',
+            'ws:message':'Message received',
+            'sync:status':'Status updated',
+            'sync:queue:flush':'Flushed pending frames',
+            'http:fetch:start':'Fetching HTTP snapshot',
+            'http:fetch:success':'HTTP snapshot received',
+            'http:fetch:error':'HTTP fetch failed',
+            'sync:initial:start':'Initial sync started',
+            'sync:initial:success':'Initial sync complete',
+            'sync:initial:error':'Initial sync error',
+            'mutation:publish':'Publishing payload',
+            'mutation:ack':'Update acknowledged',
+            'mutation:timeout':'Update timed out',
+            'sync:disable':'Sync disabled'
+          },
           service:'Service', vat:'VAT', discount:'Discount', delivery_fee:'Delivery fee', total:'Amount due',
           cart_empty:'No items added yet', choose_items:'Pick an item from the menu to start the order.', tables:'Tables',
           select_table:'Select a table for this order', table_status:'Table status', table_available:'Available', table_occupied:'Occupied',
@@ -2540,6 +2657,17 @@
     const adapter = options.adapter;
     if(!adapter || typeof adapter.exportSnapshot !== 'function' || typeof adapter.importSnapshot !== 'function'){
       console.warn('[Mishkah][POS] Central sync requires an adapter with snapshot support.');
+      if(typeof options.onDiagnostic === 'function'){
+        try {
+          options.onDiagnostic({
+            event:'config:disable',
+            level:'error',
+            message:'Central sync adapter missing snapshot helpers.',
+            data:{ reason:'adapter-missing' },
+            status:{ state:'disabled', endpoint:null }
+          });
+        } catch(_err){}
+      }
       return {
         async ensureInitialSync(){ return false; },
         connect(){},
@@ -2560,6 +2688,7 @@
     const token = options.token || null;
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = token ? { authorization:`Bearer ${token}` } : {};
+    const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
     let socket = null;
     let ready = false;
     let awaitingAuth = false;
@@ -2580,6 +2709,46 @@
       lastError: disableReason
     };
 
+    const serializeError = (err)=>{
+      if(!err) return null;
+      const message = err.message || String(err);
+      const code = err.code || err.name || null;
+      const stack = typeof err.stack === 'string' ? err.stack.split('\n').slice(0, 4).join('\n') : null;
+      return { message, code, stack };
+    };
+
+    const snapshotStatus = ()=>({
+      ready,
+      awaitingAuth,
+      online,
+      disabled,
+      version,
+      endpoint: wsEndpoint || null,
+      httpEndpoint,
+      queueSize: pendingFrames.length,
+      pendingMutations: pendingMutations.size
+    });
+
+    const emitDiagnostic = (event, info={})=>{
+      if(!onDiagnostic) return;
+      const level = info.level || 'info';
+      const message = info.message || '';
+      const data = info.data || {};
+      const error = info.error ? serializeError(info.error) : null;
+      const payload = {
+        event,
+        level,
+        message,
+        data: error ? { ...data, error } : data,
+        status: snapshotStatus()
+      };
+      try { onDiagnostic(payload); } catch(handlerErr){ console.warn('[Mishkah][POS] Central diagnostics handler failed', handlerErr); }
+    };
+
+    emitDiagnostic('config:init', {
+      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token }
+    });
+
     const createSyncError = (code, message)=>{
       const err = new Error(message || code || 'POS sync error');
       err.code = code || 'POS_SYNC_ERROR';
@@ -2587,7 +2756,25 @@
     };
 
     const emitStatus = (patch={})=>{
+      const previous = { ...status };
       status = { ...status, ...patch };
+      if(patch && (patch.state && patch.state !== previous.state)){
+        const stateLevel = status.state === 'online'
+          ? 'info'
+          : status.state === 'syncing' ? 'debug'
+            : status.state === 'offline' ? 'warn' : 'warn';
+        emitDiagnostic('sync:status', {
+          level: stateLevel,
+          message: `State → ${status.state}`,
+          data:{ previous, current: status }
+        });
+      } else if(patch && patch.lastError && patch.lastError !== previous.lastError){
+        emitDiagnostic('sync:status', {
+          level:'error',
+          message: patch.lastError,
+          data:{ previous, current: status }
+        });
+      }
       if(typeof options.onStatus === 'function'){
         try { options.onStatus({ ...status }); } catch(handlerError){ console.warn('[Mishkah][POS] Central sync status handler failed', handlerError); }
       }
@@ -2595,8 +2782,16 @@
 
     const flushFrames = ()=>{
       if(disabled || !socket || !ready || awaitingAuth) return;
+      const flushed = pendingFrames.length;
       while(pendingFrames.length){
         try { socket.send(pendingFrames.shift()); } catch(sendErr){ console.warn('[Mishkah][POS] Central sync send failed', sendErr); break; }
+      }
+      if(flushed){
+        emitDiagnostic('sync:queue:flush', {
+          level:'debug',
+          message:`Flushed ${flushed} frame(s)`,
+          data:{ count: flushed }
+        });
       }
     };
 
@@ -2633,12 +2828,22 @@
       }
       socket = null;
       rejectPending(createSyncError('POS_SYNC_DISABLED', disableReason));
+      emitDiagnostic('sync:disable', {
+        level:'warn',
+        message: disableReason,
+        data:{ reason: disableReason, ...extra }
+      });
       emitStatus({ state:'disabled', endpoint:null, lastError: disableReason, ...extra });
     };
 
     const waitForAck = (mutationId, timeoutMs=15000)=> new Promise((resolve, reject)=>{
       const timer = setTimeout(()=>{
         pendingMutations.delete(mutationId);
+        emitDiagnostic('mutation:timeout', {
+          level:'error',
+          message:`Mutation ${mutationId} timed out`,
+          data:{ mutationId, timeoutMs }
+        });
         reject(createSyncError('POS_SYNC_TIMEOUT', 'Timed out waiting for central sync confirmation.'));
       }, timeoutMs);
       pendingMutations.set(mutationId, {
@@ -2655,20 +2860,57 @@
         throw createSyncError('POS_SYNC_UNSUPPORTED', 'Fetch API is not available in this environment.');
       }
       if(!httpEndpoint){
+        emitDiagnostic('config:disable', {
+          level:'warn',
+          message:'Central sync HTTP endpoint unavailable.',
+          data:{ endpoint:null, reason:'http-missing' }
+        });
         disableSync('Central sync HTTP endpoint unavailable.');
         return { snapshot:null, version, disabled:true };
       }
-      const response = await fetch(httpEndpoint, { headers });
+      emitDiagnostic('http:fetch:start', {
+        level:'debug',
+        message:'Fetching central snapshot via HTTP.',
+        data:{ endpoint: httpEndpoint }
+      });
+      let response;
+      try{
+        response = await fetch(httpEndpoint, { headers });
+      } catch(fetchError){
+        emitDiagnostic('http:fetch:error', {
+          level:'error',
+          message:'HTTP fetch failed.',
+          data:{ endpoint: httpEndpoint },
+          error: fetchError
+        });
+        throw fetchError;
+      }
       const statusNumber = Number(response.status);
       const httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
       if(httpStatus === 404 || httpStatus === 405 || httpStatus === 410){
+        emitDiagnostic('config:disable', {
+          level:'warn',
+          message:`Central sync endpoint unavailable (HTTP ${httpStatus}).`,
+          data:{ endpoint: httpEndpoint, httpStatus }
+        });
         disableSync(`Central sync endpoint unavailable (HTTP ${httpStatus}).`, { httpStatus });
         return { snapshot:null, version, disabled:true, httpStatus };
       }
       if(!response.ok){
+        emitDiagnostic('http:fetch:error', {
+          level:'error',
+          message:`HTTP ${httpStatus}`,
+          data:{ endpoint: httpEndpoint, httpStatus }
+        });
         throw createSyncError('POS_SYNC_HTTP', `HTTP ${httpStatus}`);
       }
-      return response.json();
+      const body = await response.json();
+      emitDiagnostic('http:fetch:success', {
+        level:'info',
+        message:'Central snapshot fetched successfully.',
+        data:{ endpoint: httpEndpoint, httpStatus, version: body?.version ?? null, hasSnapshot: !!body?.snapshot }
+      });
+      return body;
     };
 
     const ensureInitialSync = async ()=>{
@@ -2680,11 +2922,20 @@
             emitStatus({ state:'disabled', endpoint:null, lastError: disableReason });
             return false;
           }
+          emitDiagnostic('sync:initial:start', {
+            level:'debug',
+            message:'Initial HTTP snapshot sync started.'
+          });
           emitStatus({ state:'syncing' });
           const remote = await fetchSnapshot();
           if(remote && remote.disabled){
             initialSyncComplete = true;
             emitStatus({ state:'disabled', endpoint:null, lastError: disableReason });
+            emitDiagnostic('sync:initial:error', {
+              level:'warn',
+              message:'Initial sync disabled by configuration.',
+              data:{ reason:'remote-disabled' }
+            });
             return false;
           }
           if(remote && remote.snapshot){
@@ -2692,12 +2943,23 @@
               await adapter.importSnapshot(remote.snapshot);
             } catch(importErr){
               console.warn('[Mishkah][POS] Failed to import central snapshot', importErr);
+              emitDiagnostic('sync:initial:error', {
+                level:'warn',
+                message:'Failed to apply initial snapshot.',
+                data:{ reason:'import-error' },
+                error: importErr
+              });
             }
             version = Number(remote.version || 0) || 0;
             emitStatus({ version, updatedAt: remote.updatedAt || Date.now() });
           }
           initialSyncComplete = true;
           emitStatus({ state: online ? 'online' : (status.state === 'disabled' ? 'disabled' : 'offline') });
+          emitDiagnostic('sync:initial:success', {
+            level:'info',
+            message:'Initial sync completed.',
+            data:{ version }
+          });
           return true;
         })().catch(err=>{
           if(disabled || err?.code === 'POS_SYNC_DISABLED'){
@@ -2705,6 +2967,11 @@
             emitStatus({ state:'disabled', endpoint:null, lastError: disableReason || err?.message });
             return false;
           }
+          emitDiagnostic('sync:initial:error', {
+            level:'error',
+            message: err?.message || 'Initial sync failed.',
+            error: err
+          });
           emitStatus({ state:'offline', lastError: err?.message || String(err) });
           throw err;
         });
@@ -2724,10 +2991,20 @@
       initialSyncComplete = true;
       const syncTs = Date.now();
       emitStatus({ state:'online', version, updatedAt: syncTs, lastSync: syncTs, cleared: !!payload.cleared });
+      emitDiagnostic('ws:message', {
+        level:'debug',
+        message:`Publish ${payload.action || 'snapshot'} received.`,
+        data:{ action: payload.action || 'snapshot', mutationId: payload.mutationId || null, cleared: !!payload.cleared, version }
+      });
       if(payload.mutationId && pendingMutations.has(payload.mutationId)){
         const entry = pendingMutations.get(payload.mutationId);
         pendingMutations.delete(payload.mutationId);
         try { entry.resolve(version); } catch(_resolveErr){}
+        emitDiagnostic('mutation:ack', {
+          level:'info',
+          message:`Mutation ${payload.mutationId} acknowledged.`,
+          data:{ mutationId: payload.mutationId, version }
+        });
       }
     };
 
@@ -2740,6 +3017,9 @@
       }
       const snapshot = await adapter.exportSnapshot();
       const mutationId = `${clientId}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2,8)}`;
+      const summary = snapshot && typeof snapshot === 'object'
+        ? Object.keys(snapshot).slice(0, 6)
+        : [];
       sendFrame({
         type:'publish',
         topic,
@@ -2751,6 +3031,11 @@
           clientId,
           mutationId
         }
+      });
+      emitDiagnostic('mutation:publish', {
+        level:'info',
+        message:`Snapshot publish queued (${reason || meta.reason || 'update'}).`,
+        data:{ reason: reason || meta.reason || 'update', mutationId, snapshotKeys: summary }
       });
       return waitForAck(mutationId, options.timeout || 15000);
     };
@@ -2768,19 +3053,39 @@
         topic,
         data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId }
       });
+      emitDiagnostic('mutation:publish', {
+        level:'warn',
+        message:`Destroy command queued (${reason || 'reset'}).`,
+        data:{ reason: reason || 'reset', mutationId }
+      });
       return waitForAck(mutationId, options.timeout || 15000);
     };
 
     const connect = ()=>{
       if(disabled){
+        emitDiagnostic('connect:skipped', {
+          level:'warn',
+          message:'Central sync disabled — skipping WebSocket connect.',
+          data:{ reason: disableReason }
+        });
         emitStatus({ state:'disabled', endpoint:null, lastError: disableReason || 'Central sync disabled.' });
         return;
       }
       if(!WebSocketX || !wsEndpoint){
+        emitDiagnostic('connect:skipped', {
+          level:'warn',
+          message:'WebSocket adapter unavailable.',
+          data:{ endpoint: wsEndpoint, hasAdapter: !!WebSocketX }
+        });
         emitStatus({ state:'offline', lastError:'WebSocket unavailable' });
         return;
       }
       if(socket) return;
+      emitDiagnostic('connect:start', {
+        level:'debug',
+        message:'Opening central sync WebSocket.',
+        data:{ endpoint: wsEndpoint }
+      });
       socket = new WebSocketX(wsEndpoint, {
         autoReconnect:true,
         ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
@@ -2789,11 +3094,26 @@
         ready = true;
         online = true;
         emitStatus({ state: initialSyncComplete ? 'online' : 'syncing', endpoint: wsEndpoint });
+        emitDiagnostic('ws:open', {
+          level:'info',
+          message:'Central sync WebSocket connected.',
+          data:{ endpoint: wsEndpoint }
+        });
         if(token){
           awaitingAuth = true;
           socket.send({ type:'auth', data:{ token } });
+          emitDiagnostic('ws:auth:sent', {
+            level:'debug',
+            message:'Auth token sent to central sync.',
+            data:{ endpoint: wsEndpoint }
+          });
         } else {
           socket.send({ type:'subscribe', topic });
+          emitDiagnostic('ws:subscribe', {
+            level:'debug',
+            message:'Subscribed to central sync topic.',
+            data:{ topic }
+          });
           flushFrames();
         }
       });
@@ -2802,12 +3122,22 @@
         awaitingAuth = false;
         online = false;
         emitStatus({ state: status.state === 'disabled' ? 'disabled' : 'offline', lastError: event?.reason || null });
+        emitDiagnostic('ws:close', {
+          level: event?.code === 1000 ? 'info' : 'warn',
+          message:`WebSocket closed (code ${event?.code || 'unknown'})`,
+          data:{ code: event?.code || null, reason: event?.reason || null }
+        });
         rejectPending(createSyncError('POS_SYNC_OFFLINE', 'Central sync disconnected.'));
       });
       socket.on('error', (error)=>{
         ready = false;
         online = false;
         emitStatus({ state:'offline', lastError: error?.message || String(error) });
+        emitDiagnostic('ws:error', {
+          level:'error',
+          message: error?.message || 'WebSocket error.',
+          error
+        });
         rejectPending(createSyncError('POS_SYNC_ERROR', 'Central sync transport error.'));
       });
       socket.on('message', (msg)=>{
@@ -2816,8 +3146,22 @@
           if(msg.event === 'auth'){
             awaitingAuth = false;
             socket.send({ type:'subscribe', topic });
+            emitDiagnostic('ws:auth:ack', {
+              level:'info',
+              message:'Central sync authentication acknowledged.'
+            });
+            emitDiagnostic('ws:subscribe', {
+              level:'debug',
+              message:'Subscribed to central sync topic after auth.',
+              data:{ topic }
+            });
             flushFrames();
           } else if(msg.event === 'subscribe'){
+            emitDiagnostic('ws:subscribe', {
+              level:'debug',
+              message:'Subscription acknowledged.',
+              data:{ topic: msg.topic || topic }
+            });
             flushFrames();
           }
           return;
@@ -2985,7 +3329,8 @@
       httpEndpoint: posSyncHttpBase,
       token: posSyncToken,
       posId: POS_INFO.id,
-      onStatus: handleCentralStatus
+      onStatus: handleCentralStatus,
+      onDiagnostic: pushCentralDiagnostic
     });
     centralSync.connect();
     centralSync.ensureInitialSync().catch(err=>{
@@ -4442,6 +4787,12 @@
             endpoint: centralSyncStatus.endpoint
           }
         },
+        diagnostics:{
+          central:{
+            entries: centralDiagnosticsStore.getEntries(),
+            lastEvent: null
+          }
+        },
         schema:{
           name: POS_SCHEMA_SOURCE?.name || 'mishkah_pos',
           version: POS_SCHEMA_SOURCE?.version || 1,
@@ -4568,7 +4919,7 @@
         }
       },
       ui:{
-        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false, modifiers:false, jobStatus:false },
+        modals:{ tables:false, payments:false, reports:false, print:false, reservations:false, orders:false, modifiers:false, jobStatus:false, diagnostics:false },
         modalSizes: savedModalSizes,
         drawers:{},
         settings:{ open:false, activeTheme: initialTheme },
@@ -4970,15 +5321,19 @@
       }
     }
 
-    function statusBadge(db, state, label){
+    function statusBadge(db, state, label, options={}){
       const t = getTexts(db);
       const tone = state === 'online' ? 'status/online' : state === 'offline' ? 'status/offline' : 'status/idle';
       const stateText = state === 'online' ? t.ui.status_online : state === 'offline' ? t.ui.status_offline : t.ui.status_idle;
+      const extraAttrs = options.attrs || {};
+      const baseClass = tw`${token(tone)} text-xs`;
+      const finalClass = extraAttrs.class ? `${baseClass} ${extraAttrs.class}` : baseClass;
       return UI.Badge({
-        variant:'badge/status',
-        attrs:{ class: tw`${token(tone)} text-xs` },
-        leading: state === 'online' ? '●' : state === 'offline' ? '✖' : '…',
-        text: `${label} • ${stateText}`
+        variant: options.variant || 'badge/status',
+        attrs:{ ...extraAttrs, class: finalClass },
+        leading: options.leading !== undefined ? options.leading : (state === 'online' ? '●' : state === 'offline' ? '✖' : '…'),
+        text: options.text || `${label} • ${stateText}`,
+        trailing: options.trailing
       });
     }
 
@@ -5201,7 +5556,9 @@
           D.Containers.Div({ attrs:{ class: tw`${token('scroll-panel/footer')} flex flex-wrap items-center justify-between gap-3` }}, [
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-2` }}, [
               statusBadge(db, remoteStatus === 'ready' ? 'online' : hasRemoteError ? 'offline' : 'idle', t.ui.menu_live_badge),
-              statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync),
+              statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync, {
+                attrs:{ gkey:'pos:central:diagnostics', class: tw`cursor-pointer` }
+              }),
               statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
             ].filter(Boolean)),
             D.Containers.Div({ attrs:{ class: tw`flex flex-wrap items-center gap-3` }}, [
@@ -5647,7 +6004,9 @@
       return UI.Footerbar({
         left:[
           statusBadge(db, db.data.status.kds.state, t.ui.kds),
-          statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync),
+          statusBadge(db, db.data.status.central?.state || 'offline', t.ui.central_sync, {
+            attrs:{ gkey:'pos:central:diagnostics', class: tw`cursor-pointer` }
+          }),
           statusBadge(db, db.data.status.indexeddb.state, t.ui.indexeddb)
         ],
         right:[
@@ -6558,6 +6917,77 @@
       });
     }
 
+    function DiagnosticsModal(db){
+      if(!db.ui.modals.diagnostics) return null;
+      const t = getTexts(db);
+      const lang = db.env.lang;
+      const entries = Array.isArray(db.data.diagnostics?.central?.entries)
+        ? db.data.diagnostics.central.entries
+        : [];
+      const eventLabels = t.ui.central_diag_events || {};
+      const levelLabels = t.ui.central_diag_levels || {};
+      const levelTone = (level)=> level === 'error'
+        ? 'status/offline'
+        : level === 'warn'
+          ? 'status/idle'
+          : level === 'debug'
+            ? 'status/idle'
+            : 'status/online';
+      const formatLevel = (level)=> levelLabels[level] || level;
+      const formatEvent = (event)=> eventLabels[event] || event;
+      const formatJson = (value)=>{
+        try { return JSON.stringify(value, null, 2); } catch(_err){ return String(value); }
+      };
+      const detailCard = (title, payload)=>{
+        if(!payload || (typeof payload === 'object' && !Object.keys(payload).length)) return null;
+        return D.Containers.Div({ attrs:{ class: tw`space-y-1 rounded-xl bg-[color-mix(in oklab,var(--surface-2) 88%, transparent)] px-3 py-2` }}, [
+          D.Text.Span({ attrs:{ class: tw`text-xs font-semibold uppercase ${token('muted')}` }}, [title]),
+          D.Text.Pre({ attrs:{ class: tw`whitespace-pre-wrap break-words text-xs font-mono` }}, [formatJson(payload)])
+        ]);
+      };
+      const items = entries.length
+        ? entries.slice().reverse().map(entry=>{
+            const timestamp = formatDateTime(entry.ts, lang, { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            const eventLabel = formatEvent(entry.event);
+            const levelLabel = formatLevel(entry.level);
+            const badgeTone = levelTone(entry.level);
+            const statusBlock = detailCard(t.ui.central_diag_status, entry.status);
+            const dataBlock = detailCard(t.ui.central_diag_details, entry.data);
+            return UI.Card({
+              variant:'card/soft-2',
+              content: D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, [
+                D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-2` }}, [
+                  D.Text.Strong({}, [eventLabel]),
+                  UI.Badge({
+                    variant:'badge/status',
+                    attrs:{ class: tw`${token(badgeTone)} text-xs` },
+                    text: levelLabel,
+                    leading: entry.level === 'error' ? '✖' : entry.level === 'warn' ? '!' : '•'
+                  })
+                ]),
+                D.Text.Span({ attrs:{ class: tw`text-xs ${token('muted')}` }}, [timestamp]),
+                entry.message ? D.Text.Span({ attrs:{ class: tw`text-sm` }}, [entry.message]) : null,
+                statusBlock,
+                dataBlock
+              ].filter(Boolean))
+            });
+          })
+        : [UI.EmptyState({ icon:'🛰️', title:t.ui.central_diag_empty, description:t.ui.central_diag_wait || '' })];
+      return UI.Modal({
+        open:true,
+        size: db.ui?.modalSizes?.['central-diagnostics'] || 'lg',
+        sizeKey:'central-diagnostics',
+        closeGkey:'pos:central:diagnostics:close',
+        title:t.ui.central_diag_title,
+        description:t.ui.central_diag_description,
+        content: UI.ScrollArea({ attrs:{ class: tw`max-h-[65vh]` }, children:[ D.Containers.Div({ attrs:{ class: tw`space-y-3` }}, items) ] }),
+        actions:[
+          UI.Button({ attrs:{ gkey:'pos:central:diagnostics:clear', class: tw`w-full` }, variant:'ghost', size:'sm' }, [t.ui.central_diag_clear]),
+          UI.Button({ attrs:{ gkey:'pos:central:diagnostics:close', class: tw`w-full` }, variant:'soft', size:'sm' }, [t.ui.close])
+        ]
+      });
+    }
+
     function activateOrder(ctx, order, options={}){
       if(!order) return;
       const typeConfig = getOrderTypeConfig(order.type || 'dine_in');
@@ -7303,6 +7733,7 @@
           ReportsDrawer(db),
           OrdersQueueModal(db),
           OrdersJobStatusModal(db),
+          DiagnosticsModal(db),
           db.ui?.toasts ? UI.ToastHost({ toasts: db.ui.toasts }) : null
         ].filter(Boolean)
       });
@@ -7343,6 +7774,35 @@
       }
     };
     centralStatusHandler(centralSyncStatus);
+    const syncCentralDiagnostics = ()=>{
+      const latest = centralDiagnosticsStore.getEntries();
+      const payload = {
+        entries: latest,
+        lastEvent: latest.length ? latest[latest.length - 1] : null
+      };
+      if(app && typeof app.setState === 'function'){
+        app.setState(prev=>({
+          ...prev,
+          data:{
+            ...(prev.data || {}),
+            diagnostics:{
+              ...(prev.data?.diagnostics || {}),
+              central: payload
+            }
+          }
+        }));
+      } else {
+        posState.data = {
+          ...(posState.data || {}),
+          diagnostics:{
+            ...(posState.data?.diagnostics || {}),
+            central: payload
+          }
+        };
+      }
+    };
+    syncCentralDiagnostics();
+    centralDiagnosticsStore.subscribe(()=>{ syncCentralDiagnostics(); });
     const POS_DEV_TOOLS = {
       async resetIndexedDB(){
         if(!posDB.available || typeof posDB.resetAll !== 'function'){
@@ -7362,6 +7822,11 @@
         registry: POS_SCHEMA_REGISTRY,
         toJSON(){ return POS_SCHEMA_REGISTRY.toJSON(); },
         generateSQL(options){ return POS_SCHEMA_REGISTRY.generateSQL(options || {}); }
+      },
+      diagnostics:{
+        entries(){ return centralDiagnosticsStore.getEntries(); },
+        clear(){ clearCentralDiagnostics(); },
+        push(entry){ return pushCentralDiagnostic(entry); }
       }
     };
     Object.defineProperty(window, '__MishkahPOSDev__', {
@@ -10491,6 +10956,35 @@
             ...s,
             ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), reports: !s.ui?.modals?.reports } }
           }));
+        }
+      },
+      'pos.central.diagnostics.open':{
+        on:['click'],
+        gkeys:['pos:central:diagnostics'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), diagnostics:true } }
+          }));
+        }
+      },
+      'pos.central.diagnostics.close':{
+        on:['click'],
+        gkeys:['pos:central:diagnostics:close'],
+        handler:(e,ctx)=>{
+          ctx.setState(s=>({
+            ...s,
+            ui:{ ...(s.ui || {}), modals:{ ...(s.ui?.modals || {}), diagnostics:false } }
+          }));
+        }
+      },
+      'pos.central.diagnostics.clear':{
+        on:['click'],
+        gkeys:['pos:central:diagnostics:clear'],
+        handler:(e,ctx)=>{
+          clearCentralDiagnostics();
+          const t = getTexts(ctx.getState());
+          UI.pushToast(ctx, { title:t.ui.central_diag_cleared, icon:'🧹' });
         }
       },
       'pos.indexeddb.sync':{
