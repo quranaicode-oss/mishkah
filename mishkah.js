@@ -203,7 +203,9 @@
     listeners: new Set(),
     pendingOps: [],
     currentState: null,
-    readyDeferred: createDeferred()
+    readyDeferred: createDeferred(),
+    readyResolved: false,
+    waitingForMake: false
   };
 
   var twcssAutoWarned = false;
@@ -788,12 +790,60 @@
     M.app.make.__mishkahAutoPatch = true;
   }
 
+  function markReady(M) {
+    if (autoState.readyResolved) return;
+    autoState.readyResolved = true;
+    autoState.readyDeferred.resolve(M);
+  }
+
+  function watchAppMake(M) {
+    if (!M || !M.app || autoState.waitingForMake) return;
+    autoState.waitingForMake = true;
+    try {
+      var descriptor = Object.getOwnPropertyDescriptor(M.app, 'make');
+      var current = descriptor && 'value' in descriptor ? descriptor.value : M.app.make;
+      Object.defineProperty(M.app, 'make', {
+        configurable: true,
+        enumerable: true,
+        get: function () { return current; },
+        set: function (fn) {
+          current = fn;
+          if (typeof fn === 'function') {
+            try {
+              Object.defineProperty(M.app, 'make', {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value: fn
+              });
+            } catch (_err) {
+              if (global.console && console.warn) console.warn('[MishkahAuto] unable to redefine Mishkah.app.make', _err);
+            }
+            autoState.waitingForMake = false;
+            patchAppMake(M);
+            markReady(M);
+          }
+        }
+      });
+      if (typeof current === 'function') {
+        M.app.make = current;
+      }
+    } catch (err) {
+      autoState.waitingForMake = false;
+      if (global.console && console.warn) console.warn('[MishkahAuto] failed to observe Mishkah.app.make', err);
+    }
+  }
+
   function finalizeSetup() {
     var M = global.Mishkah || global.Mishka;
     if (!M || !M.app) return;
     global.Mishka = global.Mishkah = M;
-    patchAppMake(M);
-    autoState.readyDeferred.resolve(M);
+    if (typeof M.app.make === 'function') {
+      patchAppMake(M);
+      markReady(M);
+      return;
+    }
+    watchAppMake(M);
   }
 
   var loadPromise = loadSequential(resources);
@@ -809,7 +859,10 @@
     finalizeSetup();
   }).catch(function (error) {
     if (global.console && console.error) console.error('[MishkahAuto] failed to bootstrap', error);
-    autoState.readyDeferred.reject(error);
+    if (!autoState.readyResolved) {
+      autoState.readyResolved = true;
+      autoState.readyDeferred.reject(error);
+    }
   });
 
   function clonePlain(value) {
