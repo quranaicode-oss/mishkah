@@ -206,6 +206,8 @@
     readyDeferred: createDeferred()
   };
 
+  var twcssAutoWarned = false;
+
   function toList(input) {
     if (input == null) return [];
     if (Array.isArray(input)) return input;
@@ -735,6 +737,22 @@
     if (!M || !M.app || typeof M.app.make !== 'function') return;
     if (M.app.make.__mishkahAutoPatch) return;
     var originalMake = M.app.make;
+    function applyTwcssAuto(appInstance, databaseSnapshot) {
+      if (!autoEnabled || !appInstance) return;
+      try {
+        var host = global.Mishkah;
+        if (host && host.utils && host.utils.twcss && typeof host.utils.twcss.auto === 'function') {
+          host.utils.twcss.auto(databaseSnapshot, appInstance, { tailwind: tailwindEnabled });
+        } else if (!twcssAutoWarned) {
+          twcssAutoWarned = true;
+          if (global.console && console.warn) {
+            console.warn('[MishkahAuto] twcss.auto غير متوفر، لن يتم تفعيل توكنز Mishkah تلقائياً.');
+          }
+        }
+      } catch (err) {
+        if (global.console && console.warn) console.warn('[MishkahAuto] فشل تفعيل twcss.auto', err);
+      }
+    }
     M.app.make = function (db, options) {
       var database = db || {};
       if (autoEnabled) {
@@ -754,6 +772,7 @@
       }
       var result = originalMake.call(M.app, database, mergedOptions);
       var attach = function (app) {
+        applyTwcssAuto(app, database);
         attachApp(app);
         return app;
       };
