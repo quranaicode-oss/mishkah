@@ -185,7 +185,7 @@
       if(protocol === 'file:') return true;
       return hostname.endsWith('.github.io');
     })();
-    const REMOTE_CONFIG = { endpoint:'/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
+    const REMOTE_CONFIG = { endpoint:'https://quranaicode-oss.github.io/mishkah/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
     const extractRemotePayload = (response)=>{
       if(!response || typeof response !== 'object') return null;
       if(response.result && typeof response.result === 'object') return response.result;
