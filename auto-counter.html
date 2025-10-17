@@ -23,7 +23,7 @@
             padding: var(--mk-space-6);
           }
 
-          .auto-shell {
+          .mk-auto-shell {
             inline-size: min(560px, 100%);
             display: grid;
             gap: var(--mk-space-5);
@@ -34,12 +34,12 @@
             box-shadow: var(--mk-shadow-soft);
           }
 
-          header.auto-head {
+          .mk-auto-head {
             display: grid;
             gap: var(--mk-space-3);
           }
 
-          .badge {
+          .mk-auto-head .mk-badge {
             justify-self: start;
             display: inline-flex;
             align-items: center;
@@ -60,13 +60,13 @@
             line-height: 1.2;
           }
 
-          p.lead {
+          .mk-lead {
             margin: 0;
             color: var(--mk-muted);
             font-size: var(--mk-fs-md);
           }
 
-          .switchers {
+          .mk-switchers {
             display: flex;
             flex-wrap: wrap;
             gap: var(--mk-space-3);
@@ -80,7 +80,7 @@
             display: block;
           }
 
-          .status {
+          .mk-status {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: var(--mk-space-4);
@@ -90,23 +90,23 @@
             border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 50%, transparent);
           }
 
-          .status-block {
+          .mk-status-block {
             display: grid;
             gap: calc(var(--mk-space-1) * 2);
           }
 
-          .status-label {
+          .mk-status-label {
             font-size: var(--mk-fs-sm);
             color: var(--mk-muted);
           }
 
-          .status-value {
+          .mk-status-value {
             font-size: var(--mk-fs-xl);
             font-weight: 600;
             letter-spacing: 0.02em;
           }
 
-          .card {
+          .mk-card {
             display: grid;
             gap: var(--mk-space-4);
             padding: var(--mk-space-5);
@@ -116,7 +116,7 @@
             box-shadow: var(--mk-shadow);
           }
 
-          .counter-value {
+          .mk-counter-value {
             display: grid;
             place-items: center;
             font-size: clamp(var(--mk-fs-3xl), 4vw, 3rem);
@@ -127,45 +127,27 @@
             color: var(--mk-primary-contrast);
           }
 
-          .actions {
+          .mk-actions {
             display: flex;
             flex-wrap: wrap;
             gap: var(--mk-space-3);
             justify-content: center;
           }
 
-          .actions button {
+          .mk-actions .mk-btn {
             min-inline-size: 120px;
             padding-block: calc(var(--mk-space-2) * 1.6);
             padding-inline: var(--mk-space-4);
-            border-radius: var(--mk-radius-lg);
             font-weight: 600;
             font-size: var(--mk-fs-md);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
           }
 
-          .actions button.primary {
-            background: var(--mk-primary);
-            color: var(--mk-primary-contrast);
-            box-shadow: 0 18px 38px color-mix(in srgb, var(--mk-primary) 32%, transparent);
-          }
-
-          .actions button.secondary {
-            background: color-mix(in srgb, var(--mk-surface-0) 70%, transparent);
-            color: var(--mk-fg);
-            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 75%, transparent);
-          }
-
-          .actions button:hover {
-            transform: translateY(-2px);
-          }
-
-          .history {
+          .mk-history {
             display: grid;
             gap: var(--mk-space-3);
           }
 
-          .history-list {
+          .mk-history-list {
             list-style: none;
             display: grid;
             gap: var(--mk-space-2);
@@ -173,7 +155,7 @@
             margin: 0;
           }
 
-          .history-item {
+          .mk-history-item {
             display: grid;
             grid-template-columns: auto auto;
             gap: var(--mk-space-2);
@@ -184,32 +166,32 @@
             border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 60%, transparent);
           }
 
-          .history-item strong {
+          .mk-history-item strong {
             font-weight: 600;
           }
 
-          .history-item time {
+          .mk-history-item time {
             font-size: var(--mk-fs-sm);
             color: var(--mk-muted);
           }
 
-          .history-item span.delta {
+          .mk-history-item .mk-delta {
             justify-self: end;
             font-family: var(--mk-font-display);
           }
 
-          footer.auto-foot {
+          .mk-auto-foot {
             display: grid;
             gap: var(--mk-space-3);
           }
 
-          footer.auto-foot .select-row {
+          .mk-auto-foot .mk-select-row {
             display: grid;
             gap: var(--mk-space-3);
           }
 
           @media (min-width: 520px) {
-            footer.auto-foot .select-row {
+            .mk-auto-foot .mk-select-row {
               grid-template-columns: repeat(2, minmax(0, 1fr));
             }
           }
@@ -300,57 +282,57 @@
           }
         </script>
 
-        <div class="auto-shell">
-          <header class="auto-head">
-            <span class="badge">{trans('app.badge')}</span>
+        <div class="mk-auto-shell">
+          <header class="mk-auto-head">
+            <span class="mk-badge" data-tone="muted">{trans('app.badge')}</span>
             <h1>{trans('app.title')}</h1>
-            <p class="lead">{trans('app.subtitle')}</p>
-            <div class="switchers">
+            <p class="mk-lead">{trans('app.subtitle')}</p>
+            <div class="mk-switchers">
               <lang-switcher langs="ar,en"></lang-switcher>
               <theme-switcher themes="light,dark,sunny"></theme-switcher>
             </div>
           </header>
 
-          <section class="status">
-            <div class="status-block">
-              <span class="status-label">{trans('status.language')}</span>
-              <span class="status-value">{currentLanguageLabel(ctx)}</span>
+          <section class="mk-status">
+            <div class="mk-status-block">
+              <span class="mk-status-label">{trans('status.language')}</span>
+              <span class="mk-status-value">{currentLanguageLabel(ctx)}</span>
             </div>
-            <div class="status-block">
-              <span class="status-label">{trans('status.theme')}</span>
-              <span class="status-value">{currentThemeLabel(ctx)}</span>
+            <div class="mk-status-block">
+              <span class="mk-status-label">{trans('status.theme')}</span>
+              <span class="mk-status-value">{currentThemeLabel(ctx)}</span>
             </div>
           </section>
 
-          <section class="card">
+          <section class="mk-card">
             <header>
               <h2>{trans('counter.valueLabel')}</h2>
               <p>{trans('counter.hint')}</p>
             </header>
-            <div class="counter-value">{state.data.counter.value}</div>
-            <div class="actions">
-              <button class="primary" onclick="increment(event, ctx)">{trans('actions.increment')}</button>
-              <button class="secondary" onclick="reset(event, ctx)">{trans('actions.reset')}</button>
-              <button class="secondary" onclick="decrement(event, ctx)">{trans('actions.decrement')}</button>
+            <div class="mk-counter-value">{state.data.counter.value}</div>
+            <div class="mk-actions">
+              <button class="mk-btn" data-variant="primary" onclick="increment(event, ctx)">{trans('actions.increment')}</button>
+              <button class="mk-btn" data-variant="secondary" onclick="reset(event, ctx)">{trans('actions.reset')}</button>
+              <button class="mk-btn" data-variant="secondary" onclick="decrement(event, ctx)">{trans('actions.decrement')}</button>
             </div>
           </section>
 
-          <section class="history">
+          <section class="mk-history">
             <h2>{trans('history.title')}</h2>
             <p x-if="!state.data.counter.history.length">{trans('history.empty')}</p>
-            <ul class="history-list" x-if="state.data.counter.history.length">
-              <li class="history-item" x-for="entry in state.data.counter.history" key="entry.id">
+            <ul class="mk-history-list" x-if="state.data.counter.history.length">
+              <li class="mk-history-item" x-for="entry in state.data.counter.history" key="entry.id">
                 <div>
                   <strong>{historyEntryLabel(entry, ctx)}</strong>
                   <time>{entry.time}</time>
                 </div>
-                <span class="delta">{entry.delta > 0 ? '+' + entry.delta : entry.delta}</span>
+                <span class="mk-delta">{entry.delta > 0 ? '+' + entry.delta : entry.delta}</span>
               </li>
             </ul>
           </section>
 
-          <footer class="auto-foot">
-            <div class="select-row">
+          <footer class="mk-auto-foot">
+            <div class="mk-select-row">
               <lang-select langs="ar,en,fr,tr,du" label="{trans('footer.langSelect')}"></lang-select>
               <theme-select themes="light,dark,sunny" label="{trans('footer.themeSelect')}"></theme-select>
             </div>
