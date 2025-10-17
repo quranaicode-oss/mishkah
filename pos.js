@@ -3299,6 +3299,22 @@
           throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
         }
         if(!socket || !ready || awaitingAuth || !online){
+          if(allowLocalFallback){
+            const offlineMessage = 'Central sync offline.';
+            online = false;
+            emitDiagnostic('sync:fallback', {
+              level:'warn',
+              message: offlineMessage,
+              data:{ reason:'ws-offline', label, meta }
+            });
+            emitStatus({ state:'offline', lastError: offlineMessage });
+            try {
+              return await executor();
+            } catch(execErr){
+              emitStatus({ state:'offline', lastError: execErr?.message || String(execErr) });
+              throw execErr;
+            }
+          }
           throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
         }
         emitStatus({ state:'syncing' });
@@ -3315,7 +3331,22 @@
           const ts = Date.now();
           emitStatus({ state:'online', version, lastSync: ts, updatedAt: ts });
         } catch(syncErr){
-          emitStatus({ state:'offline', lastError: syncErr?.message || String(syncErr) });
+          const lastError = syncErr?.message || String(syncErr);
+          emitStatus({ state:'offline', lastError });
+          if(allowLocalFallback && (
+            syncErr?.code === 'POS_SYNC_TIMEOUT'
+            || syncErr?.code === 'POS_SYNC_OFFLINE'
+            || syncErr?.code === 'POS_SYNC_ERROR'
+            || syncErr?.code === 'POS_SYNC_DISABLED'
+          )){
+            online = false;
+            emitDiagnostic('sync:fallback', {
+              level:'warn',
+              message: lastError || 'Central sync failed — continuing locally.',
+              data:{ reason: syncErr?.code || 'unknown', label, meta }
+            });
+            return result;
+          }
           throw syncErr;
         }
         return result;
