@@ -28,6 +28,15 @@
     if (queryIndex !== -1) src = src.slice(0, queryIndex);
     baseUrl = src.replace(/[^\/]*$/, '');
   }
+  global.__MISHKAH_BASE__ = baseUrl;
+
+  function mapCssLibrary(name) {
+    if (!name) return null;
+    var normalized = String(name).trim().toLowerCase();
+    if (normalized === 'mishkah' || normalized === 'mi' || normalized === 'mk' || normalized === 'mishkah-css') return 'mi';
+    if (normalized === 'tailwind' || normalized === 'tw' || normalized === 'tailwindcss' || normalized === 'tailwind-css') return 'tw';
+    return normalized || null;
+  }
 
   function parseDatasetFlag(value, fallback) {
     if (value == null || value === '') return fallback;
@@ -56,6 +65,10 @@
   var cssOption = parseDatasetValue('css', null);
   if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
   cssOption = cssOption || 'mishkah';
+  global.__MISHKAH_DEFAULT_CSS__ = mapCssLibrary(cssOption) || 'mi';
+  if (!global.__MISHKAH_ACTIVE_CSS__) {
+    global.__MISHKAH_ACTIVE_CSS__ = global.__MISHKAH_DEFAULT_CSS__;
+  }
 
   var tailwindFlag = parseDatasetFlag(parseDatasetValue('tailwind', null), undefined);
   var tailwindEnabled = (typeof tailwindFlag === 'boolean') ? tailwindFlag
@@ -759,7 +772,8 @@
       var database = db || {};
       if (autoEnabled) {
         database = Object.assign({}, database);
-        database.env = Object.assign({ css: cssOption }, database.env || {});
+        var cssLibrary = mapCssLibrary(cssOption) || cssOption;
+        database.env = Object.assign({ css: cssOption, cssLibrary: cssLibrary, cssEngine: cssLibrary }, database.env || {});
         if (!database.env.theme) database.env.theme = userConfig.defaultTheme || 'light';
         if (!database.env.lang) database.env.lang = (Array.isArray(userConfig.defaultLangs) && userConfig.defaultLangs[0]) || 'ar';
         if (!database.env.dir) database.env.dir = RTL_LANGS.has(database.env.lang) ? 'rtl' : 'ltr';
