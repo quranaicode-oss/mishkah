@@ -1920,13 +1920,20 @@ function ensureScript(src, id){
     document.head.appendChild(el);
   });
 }
+const DEFAULT_SCAFFOLD_FONTS = [
+  { family:'Inter', weights:'400;600;800' },
+  { family:'Scheherazade New', weights:'400;700' }
+];
+
 function scaffold(opts={}){
   const w = window;
-  const {
-    title, rootId='app',
-    tailwind=true, tailwindSrc='https://cdn.tailwindcss.com',
-    fonts=[ {family:'Inter',weights:'400;600;800'}, {family:'Scheherazade New',weights:'400;700'} ],
-  }=opts;
+  const title = opts.title;
+  const rootId = opts.rootId || 'app';
+  const tailwind = typeof opts.tailwind === 'boolean' ? opts.tailwind : true;
+  const tailwindSrc = opts.tailwindSrc || 'https://cdn.tailwindcss.com';
+  const fonts = Array.isArray(opts.fonts)
+    ? opts.fonts
+    : (opts.fonts === null ? [] : DEFAULT_SCAFFOLD_FONTS);
 
   if(title) document.title=title;
   ensureMetaViewport();
@@ -1934,12 +1941,15 @@ function scaffold(opts={}){
   const href = googleFontsURL(fonts);
   if(href) ensureLink(href,'stylesheet','gfonts');
 
-  // Tailwind config BEFORE script
-  w.tailwind = w.tailwind || {};
-  w.tailwind.config = Object.assign({ darkMode:'class' }, w.tailwind.config||{});
+  let ready = Promise.resolve(true);
+  if(tailwind){
+    // Tailwind config BEFORE script
+    w.tailwind = w.tailwind || {};
+    w.tailwind.config = Object.assign({ darkMode:'class' }, w.tailwind.config||{});
+    ready = ensureScript(tailwindSrc,'twcdn');
+  }
 
   const root = ensureRoot(rootId);
-  const ready = tailwind? ensureScript(tailwindSrc,'twcdn'): Promise.resolve(true);
   return { root, ready };
 }
 
@@ -1947,6 +1957,13 @@ function scaffold(opts={}){
 function auto(db, app, opt={}){
   // theme vars
   const env = db.env||{};
+  const autoConfig = (typeof window !== 'undefined' && window.MishkahAuto && window.MishkahAuto.config)
+    ? window.MishkahAuto.config
+    : {};
+  const tailwindPref = Object.prototype.hasOwnProperty.call(opt, 'tailwind') ? opt.tailwind : undefined;
+  const tailwindEnabled = typeof tailwindPref === 'boolean'
+    ? tailwindPref
+    : (typeof autoConfig.tailwind === 'boolean' ? autoConfig.tailwind : true);
   let pwaOrders = {};
   try {
     if (U.pwa && typeof U.pwa.auto === 'function') {
@@ -1972,7 +1989,12 @@ function auto(db, app, opt={}){
   const useScaffold = opt.pageScaffold!==false;
   let gate = Promise.resolve(true);
   if(useScaffold){
-    const s = scaffold({ title: (db.head&&db.head.title)||'Mishkah App', fonts: opt.fonts });
+    const s = scaffold({
+      title: (db.head&&db.head.title)||'Mishkah App',
+      fonts: opt.fonts,
+      tailwind: tailwindEnabled,
+      tailwindSrc: opt.tailwindSrc
+    });
     gate = s.ready;
   }
 
