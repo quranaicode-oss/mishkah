@@ -2595,7 +2595,7 @@ function getPureJson(data) {
     const normalized = normalizeLooseJson(str);
     try { return JSON.parse(normalized); }
     catch (e) {
-      console.error("فشل في التحليل بعد التطبيع:", e.message);
+   //   console.error("فشل في التحليل بعد التطبيع:", e.message);
       // مفيد للتشخيص:
       // console.log("بعد التطبيع:", normalized);
       throw e;
@@ -2621,7 +2621,7 @@ function getPureJson(data) {
           try {
             obj[key] = traverse(tryParseLoose(str));
           } catch (e) {
-            console.warn(`فشل في تحليل الحقل '${key}': ${e.message}`);
+          //  console.warn(`فشل في تحليل الحقل '${key}': ${e.message}`);
             // اتركه كسلسلة كما هو، أو عيّنه null حسب رغبتك:
             // obj[key] = null;
           }
@@ -2645,5 +2645,6 @@ function getPureJson(data) {
   
   
 })(window);
+
 
 
