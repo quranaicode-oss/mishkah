@@ -13,6 +13,10 @@ import { PosSyncStore } from './services/pos-sync-store.js';
  * Configuration
  * ------------------------------------------------------------
  */
+if (process.env.authoff != null && process.env.AUTH_OFF == null) {
+  process.env.AUTH_OFF = process.env.authoff;
+}
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   HOST: z.string().default('0.0.0.0'),
@@ -20,6 +24,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16).optional(),
   REQUIRE_AUTH_SUBSCRIBE: z.coerce.boolean().default(true),
   REQUIRE_AUTH_PUBLISH: z.coerce.boolean().default(true),
+  AUTH_OFF: z.coerce.boolean().default(false),
   ALLOWED_SUBSCRIBE: z.string().default('^(app|pos|kds|ui|chat|rtc):[a-z0-9:_-]+$'),
   ALLOWED_PUBLISH: z.string().default('^(app|pos|kds|ui|chat|rtc):[a-z0-9:_-]+$'),
   MAX_PAYLOAD_BYTES: z.coerce.number().int().positive().default(1024 * 1024),
@@ -74,13 +79,24 @@ const config = {
   demoGuestTokenTtlSecs: parsedEnv.DEMO_GUEST_TOKEN_TTL_SECS,
   posSyncLiveDir: parsedEnv.POS_SYNC_LIVE_DIR,
   posSyncHistoryDir: parsedEnv.POS_SYNC_HISTORY_DIR,
+  authOff: parsedEnv.AUTH_OFF,
 };
+
+if (config.authOff) {
+  config.requireAuthSub = false;
+  config.requireAuthPub = false;
+  config.apiRequireAuth = false;
+}
 
 const log = pino({
   level: config.logLevel,
   base: undefined,
   redact: ['req.headers.authorization', 'token'],
 });
+
+if (config.authOff) {
+  log.warn('Authentication bypass is ENABLED via AUTH_OFF=1; all requests will be treated as authenticated.');
+}
 
 const STATUS_TEXT = {
   200: 'OK',
@@ -364,6 +380,9 @@ function extractEnvelopeToken(envelope) {
 }
 
 function verifyToken(token) {
+  if (config.authOff) {
+    return createAuthBypassClaims();
+  }
   const normalized = normalizeToken(token);
   if (!normalized) {
     return null;
@@ -416,6 +435,74 @@ function collectScopes(claims = {}) {
   toArray(claims.permissions).forEach((entry) => scopes.add(entry));
   toArray(claims.roles).forEach((entry) => scopes.add(`role:${entry}`));
   return scopes;
+}
+
+function createAuthBypassClaims() {
+  return {
+    sub: 'dev:auth-off',
+    roles: ['developer', 'pos.sync'],
+    scope: ['*', 'pos.sync', 'pos:sync', 'pos_sync'],
+    permissions: ['*'],
+    branches: ['*'],
+    pos: { branches: ['*'] },
+    iss: 'auth-off',
+    iat: Math.floor(Date.now() / 1000),
+  };
+}
+
+function applyAuthClaims(ws, claims, { sendAck = true } = {}) {
+  const scopes = collectScopes(claims);
+  const posBranches = extractPosBranches(claims);
+  const hasPosScope = hasScope(scopes, 'pos.sync', 'pos:sync', 'pos_sync', 'role:pos.sync', 'role:pos:sync', 'role:pos_sync');
+
+  if (hasPosScope && posBranches.size === 0) {
+    sendJSON(ws, {
+      type: 'error',
+      code: 'pos_sync_branch_required',
+      message: 'POS sync tokens must include at least one authorized branch.',
+    });
+    log.warn({ id: ws.id }, 'POS sync token missing branch information');
+    return false;
+  }
+
+  const room = claims.conversationId ? getChatRoom(claims.conversationId) : null;
+  if (claims.conversationId && !room) {
+    sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
+    return false;
+  }
+
+  ws.user = {
+    ...normalizeUserClaims(claims),
+    scopes: Array.from(scopes),
+  };
+  ws.roomId = room ? room.id : null;
+
+  if (hasPosScope) {
+    const branches = posBranches.size > 0 ? posBranches : new Set(['*']);
+    ws.posAuth = {
+      branches,
+      token: claims.jti || null,
+    };
+    log.info({ id: ws.id, branches: Array.from(ws.posAuth.branches) }, 'POS sync authentication granted');
+  } else {
+    ws.posAuth = null;
+  }
+
+  if (sendAck) {
+    sendJSON(ws, {
+      type: 'ack',
+      event: 'auth',
+      user: ws.user,
+      ts: nowTs(),
+      pos: ws.posAuth ? { branches: Array.from(ws.posAuth.branches) } : null,
+    });
+  }
+
+  return true;
+}
+
+function grantAuthBypass(ws, options = {}) {
+  return applyAuthClaims(ws, createAuthBypassClaims(), options);
 }
 
 function extractPosBranches(claims = {}) {
@@ -585,6 +672,9 @@ function handleAsync(res, handler) {
 }
 
 function authenticateRequest(req) {
+  if (config.authOff) {
+    return createAuthBypassClaims();
+  }
   const authHeader = req.getHeader('authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
   return verifyToken(token);
@@ -596,6 +686,9 @@ function normalizeUserClaims(claims) {
 }
 
 function requireHttpUser(req, res) {
+  if (config.authOff) {
+    return normalizeUserClaims(createAuthBypassClaims());
+  }
   if (!config.apiRequireAuth) {
     return { id: null, roles: [], claims: null };
   }
@@ -1285,6 +1378,10 @@ app.ws('/*', {
     ws.rate = { count: 0, resetAt: Date.now() + 10_000 };
     log.info({ id: ws.id }, 'Client connected');
 
+    if (config.authOff) {
+      grantAuthBypass(ws, { sendAck: false });
+    }
+
     const initialToken = ws.token;
     if (initialToken) {
       handleAuth(ws, { type: 'auth', data: { token: initialToken } });
@@ -1430,6 +1527,10 @@ async function handleMessage(ws, envelope) {
 }
 
 function handleAuth(ws, envelope) {
+  if (config.authOff) {
+    grantAuthBypass(ws);
+    return;
+  }
   const token = extractEnvelopeToken(envelope);
   if (!token) {
     sendJSON(ws, { type: 'error', code: 'token_required', message: 'Authentication token is required.' });
@@ -1440,47 +1541,7 @@ function handleAuth(ws, envelope) {
     sendJSON(ws, { type: 'error', code: 'auth_failed', message: 'Invalid or expired token.' });
     return;
   }
-
-  const scopes = collectScopes(claims);
-  const posBranches = extractPosBranches(claims);
-  const hasPosScope = hasScope(scopes, 'pos.sync', 'pos:sync', 'pos_sync', 'role:pos.sync', 'role:pos:sync', 'role:pos_sync');
-
-  if (hasPosScope && posBranches.size === 0) {
-    sendJSON(ws, {
-      type: 'error',
-      code: 'pos_sync_branch_required',
-      message: 'POS sync tokens must include at least one authorized branch.',
-    });
-    log.warn({ id: ws.id }, 'POS sync token missing branch information');
-    return;
-  }
-
-  const room = claims.conversationId ? getChatRoom(claims.conversationId) : null;
-  if (claims.conversationId && !room) {
-    sendJSON(ws, { type: 'error', code: 'unknown_room', message: 'Conversation is not available.' });
-    return;
-  }
-
-  ws.user = {
-    ...normalizeUserClaims(claims),
-    scopes: Array.from(scopes),
-  };
-  ws.roomId = room ? room.id : null;
-  if (hasPosScope) {
-    ws.posAuth = {
-      branches: posBranches.size > 0 ? posBranches : new Set(['*']),
-      token: claims.jti || null,
-    };
-    log.info({ id: ws.id, branches: Array.from(ws.posAuth.branches) }, 'POS sync authentication granted');
-  }
-
-  sendJSON(ws, {
-    type: 'ack',
-    event: 'auth',
-    user: ws.user,
-    ts: nowTs(),
-    pos: ws.posAuth ? { branches: Array.from(ws.posAuth.branches) } : null,
-  });
+  applyAuthClaims(ws, claims);
 }
 
 async function publishMessage(ws, { topic, data, meta }) {

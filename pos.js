@@ -293,6 +293,11 @@
             if(typeof error?.message === 'string'){
               const msg = error.message.toLowerCase();
               if(msg.includes('405') || msg.includes('method not allowed')) return true;
+              if(msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) return true;
+            }
+            if(error && typeof error === 'object'){
+              if(error.name === 'TypeError') return true;
+              if(error.cause && error.cause !== error) return shouldFallbackToGet(error.cause);
             }
             return false;
           };
@@ -2692,6 +2697,7 @@
       : null;
     const wsEndpoint = options.wsEndpoint;
     const token = options.token || null;
+    const authOff = ensureBoolean(options.authOff, false);
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = token ? { authorization:`Bearer ${token}` } : {};
     const requireOnline = options.requireOnline !== false;
@@ -2718,7 +2724,8 @@
       lastError: disableReason,
       mode,
       requireOnline,
-      allowLocalFallback
+      allowLocalFallback,
+      authOff
     };
 
     const serializeError = (err)=>{
@@ -2741,7 +2748,8 @@
       pendingMutations: pendingMutations.size,
       requireOnline,
       allowLocalFallback,
-      mode
+      mode,
+      authOff
     });
 
     const emitDiagnostic = (event, info={})=>{
@@ -2761,7 +2769,7 @@
     };
 
     emitDiagnostic('config:init', {
-      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token, requireOnline, allowLocalFallback }
+      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token, requireOnline, allowLocalFallback, authOff }
     });
 
     const createSyncError = (code, message)=>{
@@ -2904,10 +2912,15 @@
       const httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
       if(httpStatus === 401 || httpStatus === 403){
         emitDiagnostic('http:fetch:unauthorized', {
-          level:'error',
-          message:`Central sync rejected token (HTTP ${httpStatus}).`,
-          data:{ endpoint: httpEndpoint, httpStatus }
+          level: authOff ? 'warn' : 'error',
+          message: authOff
+            ? `Central sync responded with HTTP ${httpStatus}, but auth bypass is active.`
+            : `Central sync rejected token (HTTP ${httpStatus}).`,
+          data:{ endpoint: httpEndpoint, httpStatus, authOff }
         });
+        if(authOff){
+          return { snapshot:null, version, disabled:false, httpStatus, authOff:true };
+        }
         if(requireOnline && !allowLocalFallback){
           disableSync(`Central sync requires authentication (HTTP ${httpStatus}).`, { httpStatus });
           throw createSyncError('POS_SYNC_UNAUTHORIZED', `Central sync requires authentication (HTTP ${httpStatus}).`);
@@ -3150,6 +3163,19 @@
             message:'Auth token sent to central sync.',
             data:{ endpoint: wsEndpoint }
           });
+        } else if(authOff){
+          emitDiagnostic('ws:auth:bypass', {
+            level:'info',
+            message:'Auth bypass active; skipping token handshake.',
+            data:{ endpoint: wsEndpoint }
+          });
+          socket.send({ type:'subscribe', topic });
+          emitDiagnostic('ws:subscribe', {
+            level:'debug',
+            message:'Subscribed to central sync topic.',
+            data:{ topic }
+          });
+          flushFrames();
         } else {
           emitDiagnostic('ws:auth:missing', {
             level: requireOnline ? 'error' : 'warn',
@@ -3424,6 +3450,29 @@
       || syncSettings.posToken
       || syncSettings.token
       || null;
+    const posAuthRuntime = (typeof window !== 'undefined' && window.MishkahPosSyncAuth)
+      ? window.MishkahPosSyncAuth
+      : {};
+    const posSyncAuthOffSource = firstDefined(
+      posAuthRuntime.authOff,
+      posAuthRuntime.auth_off,
+      posAuthRuntime.authoff,
+      posAuthRuntime.authBypass,
+      posAuthRuntime.auth_bypass,
+      syncSettings.auth_off,
+      syncSettings.authOff,
+      syncSettings.authoff,
+      syncSettings.auth_bypass,
+      syncSettings.authBypass,
+      syncSettings.disable_auth,
+      syncSettings.disableAuth
+    );
+    const posSyncAuthOff = ensureBoolean(posSyncAuthOffSource, false);
+    if(posSyncAuthOff){
+      console.info('[Mishkah][POS] Central sync auth bypass enabled via frontend settings.', {
+        source: posAuthRuntime.authOffSource || (posSyncAuthOffSource != null ? 'settings.sync.*' : 'default')
+      });
+    }
     const centralOnlyOverrideSource = firstDefined(
       MOCK_BASE?.sync?.central_only,
       MOCK_BASE?.sync?.centralOnly,
@@ -3479,6 +3528,7 @@
       wsEndpoint: posSyncWsEndpoint,
       httpEndpoint: posSyncHttpBase,
       token: posSyncToken,
+      authOff: posSyncAuthOff,
       requireOnline: enforceCentralOnly,
       allowLocalFallback: allowIndexedDbFallback,
       posId: POS_INFO.id,
