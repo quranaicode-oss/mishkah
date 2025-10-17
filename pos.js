@@ -429,7 +429,26 @@
       })();
       return { status, promise };
     }
-    const MOCK_BASE = cloneDeep(typeof window !== 'undefined' ? (window.database || {}) : {});
+    const dataSource = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
+    async function loadInitialDataset(){
+      if(typeof window === 'undefined') return {};
+      if(dataSource){
+        try {
+          if(typeof dataSource.whenReady === 'function'){
+            return await dataSource.whenReady();
+          }
+          if(dataSource.ready && typeof dataSource.ready.then === 'function'){
+            return await dataSource.ready;
+          }
+        } catch(error){
+          console.warn('[Mishkah][POS] Failed to resolve WS2 dataset promise.', error);
+        }
+      }
+      const fallback = window.database && typeof window.database === 'object' ? window.database : {};
+      return fallback || {};
+    }
+    const initialDataset = await loadInitialDataset();
+    let MOCK_BASE = cloneDeep(initialDataset);
     let MOCK = cloneDeep(MOCK_BASE);
     let PAYMENT_METHODS = derivePaymentMethods(MOCK);
     let appRef = null;
@@ -4459,6 +4478,45 @@
     applyKdsDataset(MOCK, initialMenuDerived);
 
     let pendingRemoteResult = null;
+
+    function applyLiveSnapshotFromWs2(snapshot, meta={}){
+      if(!snapshot || typeof snapshot !== 'object') return;
+      MOCK_BASE = cloneDeep(snapshot);
+      MOCK = cloneDeep(MOCK_BASE);
+      PAYMENT_METHODS = derivePaymentMethods(MOCK);
+      const menuDerived = applyMenuDataset(MOCK);
+      applyKdsDataset(MOCK, menuDerived);
+      pendingRemoteResult = {
+        derived: cloneMenuDerived(),
+        remote: snapshotRemoteStatus(remoteStatus)
+      };
+      if(meta.reason !== 'subscribe'){
+        diagnosticsStore.push({
+          level:'info',
+          source:'central-sync',
+          event:'ws2:snapshot',
+          message:'Received live dataset from WS2 gateway.',
+          data:{
+            branchId: meta.branchId || syncSettings.branch_id || BRANCH_CHANNEL,
+            version: meta.version || null,
+            historySize: meta.historySize || null,
+            serverId: meta.serverId || null
+          }
+        });
+      }
+      if(appRef){
+        flushRemoteUpdate();
+      }
+    }
+
+    if(dataSource && typeof dataSource.subscribe === 'function'){
+      dataSource.subscribe(event=>{
+        if(event && event.type === 'snapshot' && event.snapshot){
+          const meta = { ...(event.meta || {}), branchId: event.connection?.branchId };
+          applyLiveSnapshotFromWs2(event.snapshot, meta);
+        }
+      });
+    }
     const assignRemoteData = (currentData, derivedSnapshot, remoteSnapshot)=>{
       const menuState = currentData?.menu || {};
       const paymentsState = currentData?.payments || {};

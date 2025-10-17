@@ -1,0 +1,15 @@
+{
+  "name": "mishkah-ws2",
+  "version": "0.1.0",
+  "description": "Lightweight dynamic WebSocket gateway for Mishkah POS experiments.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "dev": "NODE_ENV=development node ./src/server.js"
+  },
+  "dependencies": {
+    "pino": "^9.1.0",
+    "ws": "^8.18.0"
+  }
+}
