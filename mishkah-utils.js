@@ -1410,6 +1410,69 @@ const U = M.utils = M.utils || {};
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 const cx = (...xs)=> xs.flat(Infinity).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
 
+const CSS_LIBRARY_ALIASES = {
+  tw: 'tw',
+  tailwind: 'tw',
+  'tailwindcss': 'tw',
+  'tailwind-css': 'tw',
+  mishkah: 'mi',
+  mi: 'mi',
+  mk: 'mi',
+  'mishkah-css': 'mi'
+};
+
+let activeLibrary = 'tw';
+let defaultLibraryPromise = null;
+let cachedDefaultLibrary = null;
+
+function normalizeLibrary(input) {
+  if (!input) return null;
+  const normalized = String(input).trim().toLowerCase();
+  return CSS_LIBRARY_ALIASES[normalized] || null;
+}
+
+function setLibrary(next) {
+  const normalized = normalizeLibrary(next) || 'tw';
+  activeLibrary = normalized;
+  cachedDefaultLibrary = normalized;
+  if (typeof document !== 'undefined' && document.documentElement) {
+    try {
+      document.documentElement.dataset.cssLibrary = normalized;
+    } catch (_err) { /* ignore */ }
+  }
+  if (typeof window !== 'undefined') {
+    window.__MISHKAH_ACTIVE_CSS__ = normalized;
+  }
+  return normalized;
+}
+
+function getLibrary() {
+  return activeLibrary;
+}
+
+function fetchDefaultLibrary(basePath) {
+  if (cachedDefaultLibrary) return Promise.resolve(cachedDefaultLibrary);
+  if (defaultLibraryPromise) return defaultLibraryPromise;
+  if (typeof fetch !== 'function') {
+    cachedDefaultLibrary = activeLibrary;
+    return Promise.resolve(activeLibrary);
+  }
+  const base = typeof window !== 'undefined' && window.__MISHKAH_BASE__ ? window.__MISHKAH_BASE__ : '';
+  const href = (basePath || base || '') + 'env.css.default';
+  defaultLibraryPromise = fetch(href, { cache: 'no-store' })
+    .then((res) => res.ok ? res.text() : '')
+    .then((text) => {
+      const normalized = normalizeLibrary(text);
+      cachedDefaultLibrary = normalized || activeLibrary || 'tw';
+      return cachedDefaultLibrary;
+    })
+    .catch(() => {
+      cachedDefaultLibrary = activeLibrary || 'tw';
+      return cachedDefaultLibrary;
+    });
+  return defaultLibraryPromise;
+}
+
 function normalizeClass(cls) {
   if (!cls) return '';
 
@@ -1477,18 +1540,66 @@ const groups = {
   return filtered.join(' ');
 }
 
+function flattenTokenValue(value) {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(flattenTokenValue).filter(Boolean).join(' ');
+  if (isObj(value)) {
+    if (value.class) return flattenTokenValue(value.class);
+    if (value.classes) return flattenTokenValue(value.classes);
+    return '';
+  }
+  return String(value);
+}
+
+function expandTokenEntry(entry) {
+  if (!entry) return '';
+  const order = [activeLibrary];
+  if (typeof entry.default === 'string' && entry.default) order.push('__default__');
+  if (activeLibrary !== 'tw') order.push('tw');
+  if (activeLibrary !== 'mi') order.push('mi');
+  Object.keys(entry).forEach((key) => {
+    if (key === 'default') return;
+    if (!order.includes(key)) order.push(key);
+  });
+  for (const key of order) {
+    if (key === '__default__') {
+      const val = entry.default;
+      if (typeof val === 'string' && val) return val;
+      continue;
+    }
+    const val = entry[key];
+    if (typeof val === 'string' && val) return val;
+  }
+  return '';
+}
+
+function expandTokenIdentifiers(cls) {
+  if (!cls) return '';
+  const parts = cls.split(/\s+/);
+  const expanded = [];
+  for (const part of parts) {
+    if (!part) continue;
+    const key = part.startsWith('@') ? part.slice(1) : part;
+    const entry = TOKENS[key];
+    if (entry) {
+      const value = expandTokenEntry(entry);
+      if (value) {
+        expanded.push(value);
+        continue;
+      }
+      continue;
+    }
+    expanded.push(part);
+  }
+  return expanded.join(' ');
+}
 
 function tw(strings,...vals){
-const raw = Array.isArray(strings)? String.raw({raw:strings},...vals): strings;
-
-let result =String(raw).trim().replace(/\s+/g,' ');
-
-
-return normalizeClass(result);
-
-
-
- }
+  const raw = Array.isArray(strings)? String.raw({raw:strings},...vals): strings;
+  let result =String(raw).trim().replace(/\s+/g,' ');
+  result = expandTokenIdentifiers(result);
+  return normalizeClass(result);
+}
 
 
 
@@ -1857,9 +1968,50 @@ function setTheme(mode){ document.documentElement.classList.toggle('dark', mode=
 function setDir(dir){ document.documentElement.setAttribute('dir', dir||'ltr') }
 
 // ========== Tokens (aliases) ==========
-const TOKENS = {};
-function def(map){ Object.assign(TOKENS, map||{}) }
-function token(name){ return TOKENS[name]||'' }
+const TOKENS = Object.create(null);
+function miClassName(key){
+  const base = String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\/]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return 'mi-' + base.replace(/\//g, '--');
+}
+function def(map){
+  if (!isObj(map)) return;
+  Object.keys(map).forEach((key) => {
+    const raw = map[key];
+    const entry = TOKENS[key] || (TOKENS[key] = {});
+    if (typeof raw === 'string' || Array.isArray(raw)) {
+      entry.tw = normalizeClass(flattenTokenValue(raw));
+      return;
+    }
+    if (isObj(raw)) {
+      Object.keys(raw).forEach((libKey) => {
+        const flattened = flattenTokenValue(raw[libKey]);
+        if (!flattened) return;
+        if (libKey === 'default') {
+          entry.default = normalizeClass(flattened);
+          return;
+        }
+        const normalized = normalizeLibrary(libKey) || libKey;
+        entry[normalized] = normalizeClass(flattened);
+      });
+    }
+    if (!Object.prototype.hasOwnProperty.call(entry, 'mi')) {
+      entry.mi = normalizeClass(miClassName(key));
+    }
+  });
+}
+function token(name){
+  if (!name) return '';
+  const key = String(name).trim();
+  if (!key) return '';
+  const entry = TOKENS[key];
+  if (!entry) return '';
+  return normalizeClass(expandTokenEntry(entry));
+}
 
 // ========== Head helpers (Auto scaffold) ==========
 function ensureRoot(id='app'){
@@ -1957,6 +2109,34 @@ function scaffold(opts={}){
 function auto(db, app, opt={}){
   // theme vars
   const env = db.env||{};
+  const cssConfig = env.css;
+  const explicitOpt = opt && (opt.cssLibrary || opt.library || opt.cssEngine);
+  let requestedLibrary = explicitOpt || null;
+  if (!requestedLibrary) {
+    if (typeof cssConfig === 'string') requestedLibrary = cssConfig;
+    else if (isObj(cssConfig)) {
+      requestedLibrary = cssConfig.library || cssConfig.engine || cssConfig.type || cssConfig.name || cssConfig.mode || null;
+    }
+  }
+  if (!requestedLibrary && typeof window !== 'undefined') {
+    requestedLibrary = window.__MISHKAH_ACTIVE_CSS__ || window.__MISHKAH_DEFAULT_CSS__ || null;
+  }
+  const normalizedLibrary = normalizeLibrary(requestedLibrary);
+  const hasExplicitLibrary = !!normalizedLibrary;
+  if (normalizedLibrary) {
+    setLibrary(normalizedLibrary);
+    fetchDefaultLibrary(opt && opt.basePath).catch(() => {});
+  } else {
+    if (cachedDefaultLibrary) {
+      setLibrary(cachedDefaultLibrary);
+    } else if (typeof window !== 'undefined' && window.__MISHKAH_DEFAULT_CSS__) {
+      const fallbackFromWindow = normalizeLibrary(window.__MISHKAH_DEFAULT_CSS__);
+      if (fallbackFromWindow) setLibrary(fallbackFromWindow);
+    }
+    fetchDefaultLibrary(opt && opt.basePath).then((lib) => {
+      if (!hasExplicitLibrary) setLibrary(lib);
+    }).catch(() => {});
+  }
   const autoConfig = (typeof window !== 'undefined' && window.MishkahAuto && window.MishkahAuto.config)
     ? window.MishkahAuto.config
     : {};
@@ -2029,7 +2209,19 @@ function auto(db, app, opt={}){
 }
 
 // ========== Export ==========
-U.twcss = { tw, cx, def, token, auto, setTheme, setDir, PALETTE: DEFAULT_PALETTE };
+U.twcss = {
+  tw,
+  cx,
+  def,
+  token,
+  auto,
+  setTheme,
+  setDir,
+  setLibrary,
+  getLibrary,
+  ensureLibrary: fetchDefaultLibrary,
+  PALETTE: DEFAULT_PALETTE
+};
 
 // ========== PWA Auto ==========
 const DEFAULT_PWA_CONFIG = {
