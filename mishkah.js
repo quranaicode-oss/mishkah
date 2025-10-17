@@ -793,6 +793,25 @@
     autoState.readyDeferred.reject(error);
   });
 
+  function clonePlain(value) {
+    if (!value || typeof value !== 'object') return {};
+    if (Array.isArray(value)) return value.slice();
+    return Object.assign({}, value);
+  }
+
+  function assignSection(target, key, value) {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      target[key] = value.slice();
+      return;
+    }
+    if (typeof value === 'object') {
+      target[key] = Object.assign({}, value);
+      return;
+    }
+    target[key] = value;
+  }
+
   var api = global.MishkahAuto || {};
   api.__version = autoState.__version;
   api.config = autoState.config;
@@ -811,5 +830,83 @@
   api.formatTheme = function (theme) { return formatLabel(THEME_LABELS, String(theme || '').toLowerCase()); };
 
   global.MishkahAuto = api;
-  global.Mishka = global.Mishkah || global.Mishka;
+
+  var host = global.Mishkah;
+  if (!host || typeof host !== 'object') {
+    host = {};
+    global.Mishkah = host;
+  }
+  if (!global.Mishka || typeof global.Mishka !== 'object') {
+    global.Mishka = host;
+  }
+
+  var autoNamespace = host.auto || {};
+  host.auto = autoNamespace;
+  autoNamespace.config = api.config;
+  autoNamespace.ready = api.ready;
+  autoNamespace.whenReady = api.whenReady;
+  autoNamespace.onState = api.onState;
+  autoNamespace.attach = api.attach;
+  autoNamespace.make = function (config) {
+    var cfg = (config && typeof config === 'object') ? config : {};
+    var promise = api.whenReady.then(function (M) {
+      if (!M || !M.app || typeof M.app.make !== 'function') {
+        throw new Error('Mishkah.auto.make يتطلب توفر Mishkah.app.make.');
+      }
+      var dbSource = cfg.db || cfg.database || {};
+      var db = clonePlain(dbSource);
+      assignSection(db, 'env', cfg.env);
+      assignSection(db, 'data', cfg.data);
+      assignSection(db, 'i18n', cfg.i18n);
+      assignSection(db, 'head', cfg.head);
+      if (cfg.templates != null) {
+        if (Array.isArray(cfg.templates)) {
+          db.templates = cfg.templates.slice();
+        } else if (typeof cfg.templates === 'object') {
+          db.templates = Object.assign({}, cfg.templates);
+        }
+      } else if (db.templates && Array.isArray(db.templates)) {
+        db.templates = db.templates.slice();
+      }
+      var options = {};
+      if (cfg.options && typeof cfg.options === 'object') {
+        options = Object.assign({}, cfg.options);
+      }
+      var optionKeys = ['mount', 'templateId', 'init', 'orders', 'ajax', 'root'];
+      for (var i = 0; i < optionKeys.length; i += 1) {
+        var key = optionKeys[i];
+        if (cfg[key] != null && options[key] == null) {
+          options[key] = cfg[key];
+        }
+      }
+      return M.app.make(db, options);
+    }).catch(function (error) {
+      if (global.console && console.error) {
+        console.error('[MishkahAuto] auto.make failed', error);
+      }
+      throw error;
+    });
+    return promise;
+  };
+
+  if (doc && typeof doc.dispatchEvent === 'function') {
+    api.whenReady.then(function (M) {
+      try {
+        var readyEvent = null;
+        if (typeof global.CustomEvent === 'function') {
+          readyEvent = new CustomEvent('mishkah:auto-ready', { detail: { Mishkah: M } });
+        } else if (doc.createEvent) {
+          readyEvent = doc.createEvent('Event');
+          readyEvent.initEvent('mishkah:auto-ready', true, true);
+          readyEvent.detail = { Mishkah: M };
+        }
+        if (readyEvent) {
+          doc.dispatchEvent(readyEvent);
+        }
+      } catch (_err) {}
+      return M;
+    }).catch(function () {});
+  }
+
+  global.Mishka = host;
 })(typeof window !== 'undefined' ? window : this);

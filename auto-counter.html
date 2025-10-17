@@ -358,6 +358,32 @@
         </div>
 
         <script>
+          function cloneState(prev) {
+            try {
+              return JSON.parse(JSON.stringify(prev || {}));
+            } catch (_error) {
+              return prev ? Object.assign({}, prev) : {};
+            }
+          }
+
+          function commit(ctx, mutate, after) {
+            if (!ctx || typeof ctx.setState !== 'function') return;
+            ctx.setState(function (prev) {
+              var draft = cloneState(prev);
+              if (typeof mutate === 'function') {
+                mutate(draft, prev || {});
+              }
+              return draft;
+            });
+            if (typeof after === 'function') {
+              window.setTimeout(function () {
+                try {
+                  after(ctx.getState(), ctx);
+                } catch (_error) {}
+              }, 0);
+            }
+          }
+
           function resolveLocale(lang) {
             if (!lang) return 'en-US';
             if (lang === 'ar') return 'ar-EG';
@@ -468,38 +494,18 @@
     </template>
 
     <script>
-      (function (global) {
-        function boot(M) {
-          if (!M || !M.HTMLxAgent) {
-            console.error('Mishkah HTMLx agent is required.');
-            return;
-          }
-          var start = M.HTMLxAgent.make({ templateId: 'auto-counter-demo', mount: '#app' });
-          Promise.resolve(start)
-            .then(function (app) {
-              if (global.MishkahAuto && typeof global.MishkahAuto.attach === 'function') {
-                global.MishkahAuto.attach(app);
-              }
-              return app;
-            })
-            .catch(function (error) {
-              console.error('Failed to start Mishkah auto counter demo:', error);
-            });
-        }
-
-        var auto = global.MishkahAuto;
-        if (auto && auto.whenReady) {
-          auto.whenReady.then(boot).catch(function (error) {
-            console.error('MishkahAuto failed before bootstrap:', error);
+      if (window.Mishkah && window.Mishkah.auto && typeof window.Mishkah.auto.make === 'function') {
+        window.Mishkah.auto.make().catch(function (error) {
+          console.error('Failed to start Mishkah auto counter demo:', error);
+        });
+      } else {
+        window.addEventListener('mishkah:auto-ready', function handleAutoReady() {
+          window.removeEventListener('mishkah:auto-ready', handleAutoReady);
+          window.Mishkah.auto.make().catch(function (error) {
+            console.error('Failed to start Mishkah auto counter demo:', error);
           });
-        } else if (global.Mishkah || global.Mishka) {
-          boot(global.Mishkah || global.Mishka);
-        } else {
-          global.addEventListener('mishkah:ready', function () {
-            boot(global.Mishkah || global.Mishka);
-          }, { once: true });
-        }
-      })(window);
+        });
+      }
     </script>
   </body>
 </html>
