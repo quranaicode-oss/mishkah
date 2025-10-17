@@ -293,6 +293,11 @@
             if(typeof error?.message === 'string'){
               const msg = error.message.toLowerCase();
               if(msg.includes('405') || msg.includes('method not allowed')) return true;
+              if(msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) return true;
+            }
+            if(error && typeof error === 'object'){
+              if(error.name === 'TypeError') return true;
+              if(error.cause && error.cause !== error) return shouldFallbackToGet(error.cause);
             }
             return false;
           };
