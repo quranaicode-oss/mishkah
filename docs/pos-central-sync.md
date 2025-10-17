@@ -98,3 +98,23 @@ The central sync service promotes the WebSocket server to the single source of t
 > - يُنصح بتشغيل خدمة الـ WS مع مراقبة للملفات (log rotation) لضمان عدم امتلاء مجلد التاريخ.
 > - تأكد من عمل Redis عند النشر الأفقي حتى يصل البث لكل نسخ الخادم.【F:ws/src/index.js†L780-L828】
 
+## 11. تهيئة التوثيق · Auth Configuration
+
+**العربية:**
+
+يجب توفير رمز توثيق (Bearer Token) قبل الاشتراك في قناة التزامن المركزي. يمكنك ضبطه بطريقتين:
+
+1. **تعديل الملف الجاهز `pos-sync-auth.js`:** افتح الملف وضع قيمة `POS_SYNC_TOKEN` (وأي عناوين HTTP/WS اختيارية). الملف مضمَّن بعد `pos-mock-data.js` في `pos.html` بحيث يحدّث تلقائيًا حقول `settings.sync.token` و`settings.sync.pos_token` قبل تشغيل التطبيق، ويطبع في Console مصدر التكوين عند نجاحه.【F:pos-sync-auth.js†L1-L108】【F:pos.html†L21-L28】
+2. **أو ضبطه من ملف البيانات الأصلي:** أضف التوكن داخل `database.settings.sync.token` في `pos-mock-data.js` إذا كنت تريد تضمينه مباشرةً ضمن بيانات الموك الافتراضية.【F:pos-mock-data.js†L29-L37】
+
+يمكن أيضًا تخزين الرمز في `localStorage` تحت المفتاح `MISHKAH_POS_SYNC_TOKEN`، أو تمريره في وقت التشغيل عبر `window.MishkahPosSyncAuth = { token: '...' }` قبل تحميل `pos-sync-auth.js`. كل هذه المسارات يستخدمها الملف نفسه لاختيار أول قيمة متاحة ثم يرفعها إلى `window.MishkahPosSyncAuth` لسهولة الفحص.【F:pos-sync-auth.js†L19-L88】
+
+**English:**
+
+Before the POS can subscribe to the central sync channel you must provide a Bearer token. There are two supported paths:
+
+1. **Edit the dedicated `pos-sync-auth.js` helper:** set the `POS_SYNC_TOKEN` constant (and optional HTTP/WS overrides). Because `pos.html` loads this file right after the mock dataset it updates `settings.sync.token/pos_token` before the app boots and logs the source once the token is applied.【F:pos-sync-auth.js†L1-L108】【F:pos.html†L21-L28】
+2. **Or bake it into the mock data:** place the token under `database.settings.sync.token` inside `pos-mock-data.js` if you prefer shipping it with the seeded dataset.【F:pos-mock-data.js†L29-L37】
+
+You may also stash the token in `localStorage` under `MISHKAH_POS_SYNC_TOKEN`, or assign `window.MishkahPosSyncAuth = { token: '...' }` before `pos-sync-auth.js` executes. The helper checks every source, picks the first non-empty value, pushes it back onto `window.MishkahPosSyncAuth`, and surfaces the result in the developer console for quick verification.【F:pos-sync-auth.js†L19-L108】
+

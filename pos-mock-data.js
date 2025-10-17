@@ -33,7 +33,8 @@ const database = {
         en: 'Main branch'
       },
       channel: 'branch-main',
-      ws_endpoint: 'wss://ws.mas.com.eg/ws'
+      ws_endpoint: 'wss://ws.mas.com.eg/ws',
+      token: null // ← أدخل رمز التوثيق الفعلي هنا عند الحاجة أو استخدم pos-sync-auth.js لتكوينه آليًا.
     }
   },
 
