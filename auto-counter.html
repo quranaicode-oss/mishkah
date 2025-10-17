@@ -314,19 +314,11 @@
           <section class="status">
             <div class="status-block">
               <span class="status-label">{trans('status.language')}</span>
-              <span class="status-value">
-                {(state.data.labels.lang[state.env.lang] &&
-                  (state.data.labels.lang[state.env.lang][state.env.lang] || state.data.labels.lang[state.env.lang].en))
-                  || state.env.lang}
-              </span>
+              <span class="status-value">{currentLanguageLabel(ctx)}</span>
             </div>
             <div class="status-block">
               <span class="status-label">{trans('status.theme')}</span>
-              <span class="status-value">
-                {(state.data.labels.theme[state.env.theme] &&
-                  (state.data.labels.theme[state.env.theme][state.env.lang] || state.data.labels.theme[state.env.theme].en))
-                  || state.env.theme}
-              </span>
+              <span class="status-value">{currentThemeLabel(ctx)}</span>
             </div>
           </section>
 
@@ -349,9 +341,7 @@
             <ul class="history-list" x-if="state.data.counter.history.length">
               <li class="history-item" x-for="entry in state.data.counter.history" key="entry.id">
                 <div>
-                  <strong>
-                    {state.data.copy.history[entry.kind][state.env.lang] || state.data.copy.history[entry.kind].en}
-                  </strong>
+                  <strong>{historyEntryLabel(entry, ctx)}</strong>
                   <time>{entry.time}</time>
                 </div>
                 <span class="delta">{entry.delta > 0 ? '+' + entry.delta : entry.delta}</span>
@@ -386,6 +376,45 @@
             } catch (error) {
               return new Date().toLocaleTimeString();
             }
+          }
+
+          function getState(ctx) {
+            return (ctx && typeof ctx.getState === 'function') ? ctx.getState() : null;
+          }
+
+          function currentLanguageLabel(ctx) {
+            var state = getState(ctx);
+            var lang = (state && state.env && state.env.lang) || 'en';
+            var labels = state && state.data && state.data.labels && state.data.labels.lang;
+            var langEntry = labels && labels[lang];
+            if (langEntry && (langEntry[lang] || langEntry.en)) {
+              return langEntry[lang] || langEntry.en;
+            }
+            return lang;
+          }
+
+          function currentThemeLabel(ctx) {
+            var state = getState(ctx);
+            var theme = (state && state.env && state.env.theme) || 'light';
+            var lang = (state && state.env && state.env.lang) || 'en';
+            var labels = state && state.data && state.data.labels && state.data.labels.theme;
+            var themeEntry = labels && labels[theme];
+            if (themeEntry && (themeEntry[lang] || themeEntry.en)) {
+              return themeEntry[lang] || themeEntry.en;
+            }
+            return theme;
+          }
+
+          function historyEntryLabel(entry, ctx) {
+            if (!entry) return '';
+            var state = getState(ctx);
+            var lang = (state && state.env && state.env.lang) || 'en';
+            var historyCopy = state && state.data && state.data.copy && state.data.copy.history;
+            var entryCopy = historyCopy && historyCopy[entry.kind];
+            if (entryCopy && (entryCopy[lang] || entryCopy.en)) {
+              return entryCopy[lang] || entryCopy.en;
+            }
+            return entry.kind;
           }
 
           function applyDelta(ctx, amount, kind) {
