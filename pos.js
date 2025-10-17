@@ -2997,12 +2997,25 @@
             emitStatus({ state:'disabled', endpoint:null, lastError: disableReason || err?.message });
             return false;
           }
+          const fallbackPermitted = allowLocalFallback || !requireOnline;
+          const errorMessage = err?.message || String(err);
+          if(fallbackPermitted){
+            initialSyncComplete = true;
+            emitDiagnostic('sync:initial:fallback', {
+              level:'warn',
+              message: errorMessage || 'Initial sync failed — falling back to local mode.',
+              data:{ reason:'http-error' },
+              error: err
+            });
+            emitStatus({ state:'offline', lastError: errorMessage });
+            return false;
+          }
           emitDiagnostic('sync:initial:error', {
             level:'error',
-            message: err?.message || 'Initial sync failed.',
+            message: errorMessage || 'Initial sync failed.',
             error: err
           });
-          emitStatus({ state:'offline', lastError: err?.message || String(err) });
+          emitStatus({ state:'offline', lastError: errorMessage });
           throw err;
         });
       }
