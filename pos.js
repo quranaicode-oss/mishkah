@@ -3299,6 +3299,8 @@
     };
   }
 
+    const kdsSettings = ensurePlainObject(settings.kds);
+    const kdsSyncSettings = ensurePlainObject(kdsSettings.sync);
     const rawKdsEndpointSetting = normalizeEndpointString(firstDefined(
       syncSettings.ws_endpoint,
       syncSettings.wsEndpoint,
@@ -3321,8 +3323,56 @@
     } else {
       console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
     }
-    const kdsToken = MOCK_BASE?.kds?.token || null;
-    if(!kdsToken){
+    const resolveStoredKdsToken = ()=>{
+      if(typeof window === 'undefined') return null;
+      const candidates = [];
+      try {
+        if(window.localStorage){
+          candidates.push(window.localStorage.getItem('mishkah:kds:token'));
+          candidates.push(window.localStorage.getItem('pos.kds.token'));
+        }
+      } catch(_err){}
+      try {
+        if(window.sessionStorage){
+          candidates.push(window.sessionStorage.getItem('mishkah:kds:token'));
+          candidates.push(window.sessionStorage.getItem('pos.kds.token'));
+        }
+      } catch(_err){}
+      for(let i = 0; i < candidates.length; i += 1){
+        const value = candidates[i];
+        if(typeof value === 'string' && value.trim()) return value.trim();
+      }
+      return null;
+    };
+    const kdsTokenSource = firstDefined(
+      kdsSyncSettings.token,
+      kdsSyncSettings.ws_token,
+      kdsSyncSettings.wsToken,
+      kdsSyncSettings.auth_token,
+      kdsSyncSettings.authToken,
+      kdsSettings.token,
+      kdsSettings.auth_token,
+      kdsSettings.authToken,
+      syncSettings.kds_token,
+      syncSettings.kdsToken,
+      syncSettings.kds_auth_token,
+      syncSettings.kdsAuthToken,
+      syncSettings.kds_ws_token,
+      syncSettings.kdsWsToken,
+      syncSettings.ws_token,
+      syncSettings.wsToken,
+      MOCK_BASE?.kds?.sync?.token,
+      MOCK_BASE?.kds?.sync?.authToken,
+      MOCK_BASE?.kds?.sync?.auth_token,
+      MOCK_BASE?.kds?.token,
+      MOCK_BASE?.kds?.authToken,
+      MOCK_BASE?.kds?.auth_token,
+      resolveStoredKdsToken()
+    );
+    const kdsToken = typeof kdsTokenSource === 'string' && kdsTokenSource.trim() ? kdsTokenSource.trim() : null;
+    if(kdsToken){
+      console.info('[Mishkah][POS] Using configured KDS auth token.', { length: kdsToken.length });
+    } else {
       console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
     }
     const mockSyncHttpBase = normalizeEndpointString(firstDefined(
