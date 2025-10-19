@@ -2,7 +2,7 @@
   if (!global) return;
   const watchers = new Set();
   const config = global.POS_WS2_CONFIG || {};
-  const endpoint = config.endpoint || global.POS_WS2_ENDPOINT || 'ws://localhost:3200';
+  const endpoint = config.endpoint || global.POS_WS2_ENDPOINT || 'ws://ws.mas.com.eg';
   const branchId = config.branchId || (global.database && global.database.settings && global.database.settings.sync && global.database.settings.sync.branch_id) || 'branch-main';
   const role = config.role || 'pos-app';
   const reconnectDelay = typeof config.reconnectDelay === 'number' ? Math.max(config.reconnectDelay, 500) : 3000;
