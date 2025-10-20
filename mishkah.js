@@ -827,6 +827,64 @@
     };
   }
 
+  function autoWireCharts(app, options, attempt) {
+    if (!autoEnabled || !app) return;
+    var tries = typeof attempt === 'number' && attempt >= 0 ? attempt : 0;
+    var host = global.Mishkah || global.Mishka || null;
+    var chartApi = host && host.UI && host.UI.Chart ? host.UI.Chart : null;
+    if (!chartApi) {
+      if (tries >= 8 || typeof setTimeout !== 'function') return;
+      setTimeout(function () {
+        autoWireCharts(app, options, tries + 1);
+      }, 40 * (tries + 1));
+      return;
+    }
+    if (app.__mishkahAutoChartsBound) {
+      try {
+        if (typeof chartApi.hydrate === 'function') {
+          var hydrateTarget = null;
+          if (options) {
+            if (options.mount != null) hydrateTarget = options.mount;
+            else if (options.root != null) hydrateTarget = options.root;
+          }
+          chartApi.hydrate(hydrateTarget || null);
+        }
+      } catch (_err) {}
+      return;
+    }
+    var mountTarget = null;
+    if (options) {
+      if (options.mount != null) mountTarget = options.mount;
+      else if (options.root != null) mountTarget = options.root;
+    }
+    try {
+      if (app.__mishkahAutoChartsBinding && typeof app.__mishkahAutoChartsBinding.unbind === 'function') {
+        try { app.__mishkahAutoChartsBinding.unbind(); }
+        catch (_cleanupErr) {}
+      }
+      var binding = null;
+      if (typeof chartApi.bindApp === 'function') {
+        binding = chartApi.bindApp(app, mountTarget || null);
+      }
+      if (binding && typeof binding.unbind === 'function') {
+        app.__mishkahAutoChartsBinding = binding;
+      } else {
+        app.__mishkahAutoChartsBinding = null;
+      }
+      if (typeof chartApi.ensureLibrary === 'function') {
+        chartApi.ensureLibrary();
+      }
+      if (typeof chartApi.hydrate === 'function') {
+        chartApi.hydrate(mountTarget || null);
+      }
+      app.__mishkahAutoChartsBound = true;
+    } catch (err) {
+      if (global.console && console.warn) {
+        console.warn('[MishkahAuto] chart auto-wiring failed', err);
+      }
+    }
+  }
+
   function patchAppMake(M) {
     if (!M || !M.app || typeof M.app.make !== 'function') return;
     if (M.app.make.__mishkahAutoPatch) return;
@@ -869,6 +927,7 @@
       var attach = function (app) {
         applyTwcssAuto(app, database);
         attachApp(app);
+        autoWireCharts(app, mergedOptions);
         return app;
       };
       if (result && typeof result.then === 'function') {
