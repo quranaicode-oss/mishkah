@@ -581,6 +581,7 @@
         colAmount: 'Amount',
         colReference: 'Reference',
         filterTerminal: 'Terminal',
+        filterTerminalAll: 'All Terminals',
         filterDate: 'Business Date',
         footerHint: 'Confirming closure will archive today\'s orders into history and clean the live workspace.',
         actionReset: 'Reset Workspace',
@@ -624,6 +625,7 @@
         colAmount: 'المبلغ',
         colReference: 'المرجع',
         filterTerminal: 'المحطة',
+        filterTerminalAll: 'كل المحطات',
         filterDate: 'تاريخ العمل',
         footerHint: 'تأكيد الإقفال سينقل طلبات اليوم إلى الأرشيف ويُنظف مساحة العمل المباشرة.',
         actionReset: 'إعادة تهيئة المساحة',
@@ -645,11 +647,11 @@
     };
 
     const sampleData = {
-      businessDate: new Date().toISOString().slice(0, 10),
-      terminal: 'POS-A1',
+      businessDate: '2024-09-15',
       orders: [
         {
           id: 'INV-2024-0915-01',
+          terminal: 'POS-A1',
           customerName: 'John Carter',
           closedAt: '2024-09-15T22:10:00Z',
           notes: 'Preferred pickup at front desk.',
@@ -672,6 +674,7 @@
         },
         {
           id: 'INV-2024-0915-02',
+          terminal: 'POS-B2',
           customerName: 'أحمد العسيري',
           closedAt: '2024-09-15T23:05:00Z',
           notes: 'إرجاع 10 ريال بسبب عرض خاص.',
@@ -691,6 +694,7 @@
         },
         {
           id: 'INV-2024-0915-03',
+          terminal: 'POS-A1',
           customerName: 'Walk-in Guest',
           closedAt: '2024-09-15T21:18:00Z',
           notes: '',
@@ -864,11 +868,24 @@
     }
 
     function hydrateTerminalFilter() {
-      const terminals = ['All', sampleData.terminal, 'POS-B2'];
-      elements.filterTerminal.innerHTML = terminals
-        .map((terminal) => `<option value="${terminal}">${terminal}</option>`)
+      const currentValue = elements.filterTerminal.value || 'All';
+      const terminals = Array.from(
+        new Set(sampleData.orders.map((order) => order.terminal).filter(Boolean))
+      );
+      const options = [
+        { value: 'All', label: translations[activeLang].filterTerminalAll },
+        ...terminals.map((terminal) => ({ value: terminal, label: terminal }))
+      ];
+
+      elements.filterTerminal.innerHTML = options
+        .map((option) => `<option value="${option.value}">${option.label}</option>`)
         .join('');
-      elements.filterTerminal.value = 'All';
+
+      if (options.some((option) => option.value === currentValue)) {
+        elements.filterTerminal.value = currentValue;
+      } else {
+        elements.filterTerminal.value = 'All';
+      }
     }
 
     function hydrateDateFilter() {
@@ -894,6 +911,7 @@
         button.classList.toggle('active', button.dataset.lang === lang);
       });
 
+      hydrateTerminalFilter();
       document.querySelectorAll('[data-i18n]').forEach((node) => {
         const key = node.getAttribute('data-i18n');
         const text = translations[lang][key];
@@ -903,7 +921,7 @@
       });
 
       updateThemeToggleLabel();
-      renderOrders();
+      applyFilters();
     }
 
     function bindThemeToggle() {
@@ -928,8 +946,11 @@
       const selectedDate = elements.filterDate.value;
 
       filteredOrders = sampleData.orders.filter((order) => {
-        const matchesTerminal = selectedTerminal === 'All' || selectedTerminal === sampleData.terminal;
-        const matchesDate = !selectedDate || sampleData.businessDate === selectedDate;
+        const matchesTerminal =
+          selectedTerminal === 'All' || (order.terminal && order.terminal === selectedTerminal);
+        const orderDate = order.businessDate ||
+          (typeof order.closedAt === 'string' ? order.closedAt.slice(0, 10) : null);
+        const matchesDate = !selectedDate || (orderDate && orderDate === selectedDate);
         return matchesTerminal && matchesDate;
       });
 
