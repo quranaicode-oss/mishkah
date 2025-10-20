@@ -1045,6 +1045,11 @@
       </script>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
+    <script>
+      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
+    </script>
     <script src="./mishkah-htmlx.js"></script>
     <script>
       window.addEventListener('DOMContentLoaded', function () {
