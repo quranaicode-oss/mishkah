@@ -936,8 +936,158 @@
       </div>
 
       <script>
+        function runtime() {
+          return ensureHotelRuntime();
+        }
+
+        function ensureHotelRuntime() {
+          var bag = window.__G_REMAL_RUNTIME__ = window.__G_REMAL_RUNTIME__ || {};
+          var STORAGE_KEY = bag.storageKey || 'mishkah:g-remal:prefs';
+          bag.storageKey = STORAGE_KEY;
+
+          if (typeof bag.restorePrefs !== 'function') {
+            bag.restorePrefs = function () {
+              if (typeof window === 'undefined' || !window.localStorage) return {};
+              try {
+                var raw = window.localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) || {} : {};
+              } catch (_err) {
+                return {};
+              }
+            };
+          }
+
+          if (typeof bag.persistPrefs !== 'function') {
+            bag.persistPrefs = function (state) {
+              if (!state || typeof window === 'undefined' || !window.localStorage) return;
+              try {
+                var payload = {
+                  lang: state.env && state.env.lang,
+                  dir: state.env && state.env.dir,
+                  theme: state.env && state.env.theme
+                };
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+              } catch (_err) {
+                /* ignore */
+              }
+            };
+          }
+
+          if (typeof bag.applyEnvironment !== 'function') {
+            bag.applyEnvironment = function (state) {
+              if (!state || !state.env) return;
+              var lang = state.env.lang || 'ar';
+              var dir = state.env.dir || (lang === 'ar' ? 'rtl' : 'ltr');
+              var theme = state.env.theme || 'light';
+              if (typeof document !== 'undefined' && document.documentElement) {
+                document.documentElement.lang = lang;
+                document.documentElement.dir = dir;
+                document.documentElement.classList.toggle('dark', theme === 'dark');
+              }
+            };
+          }
+
+          if (typeof bag.captureRoot !== 'function') {
+            bag.captureRoot = function (ctx) {
+              if (ctx && typeof ctx.getMount === 'function') {
+                try {
+                  var mount = ctx.getMount();
+                  if (mount) {
+                    bag.root = mount;
+                    return mount;
+                  }
+                } catch (_err) {
+                  /* ignore */
+                }
+              }
+              if (ctx && ctx.root) {
+                bag.root = ctx.root;
+                return ctx.root;
+              }
+              if (!bag.root && typeof document !== 'undefined') {
+                bag.root = document.querySelector('#app') || document.body || null;
+              }
+              return bag.root || null;
+            };
+          }
+
+          if (typeof bag.selectRoot !== 'function') {
+            bag.selectRoot = function (ctx) {
+              return bag.captureRoot(ctx);
+            };
+          }
+
+          return bag;
+        }
+
+        function cloneState(prev) {
+          return JSON.parse(JSON.stringify(prev || {}));
+        }
+
+        function commit(ctx, mutate, after) {
+          if (!ctx || typeof ctx.setState !== 'function') return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            if (typeof mutate === 'function') {
+              mutate(next, prev || {});
+            }
+            return next;
+          });
+          window.setTimeout(function () {
+            if (!ctx || typeof ctx.getState !== 'function') return;
+            var state;
+            try {
+              state = ctx.getState();
+            } catch (_err) {
+              return;
+            }
+            if (typeof after === 'function') {
+              after(state, ctx);
+            }
+          }, 0);
+        }
+
+        function mergeStoredEnv(database, stored) {
+          if (!database || typeof database !== 'object' || !stored || typeof stored !== 'object') return;
+          database.env = database.env && typeof database.env === 'object' ? database.env : {};
+          if (stored.lang) {
+            database.env.lang = stored.lang;
+            database.env.dir = stored.dir || (stored.lang === 'ar' ? 'rtl' : 'ltr');
+          }
+          if (stored.dir) {
+            database.env.dir = stored.dir;
+          }
+          if (stored.theme) {
+            database.env.theme = stored.theme;
+          }
+        }
+
+        function __bootstrap__(database) {
+          if (!database || typeof database !== 'object') return;
+          var bag = runtime();
+          var stored = bag.restorePrefs ? bag.restorePrefs() : null;
+          mergeStoredEnv(database, stored);
+          if (bag.applyEnvironment) {
+            bag.applyEnvironment({ env: database.env || {}, data: database.data || {} });
+          }
+        }
+
+        function __init__(ctx) {
+          if (!ctx || typeof ctx.getState !== 'function') return;
+          var bag = runtime();
+          bag.captureRoot(ctx);
+          var state = ctx.getState();
+          if (bag.applyEnvironment) {
+            bag.applyEnvironment(state);
+          }
+          if (bag.persistPrefs) {
+            bag.persistPrefs(state);
+          }
+        }
+
         function setTheme(theme, ctx) {
           commit(ctx, function (next) {
+            next.env = next.env && typeof next.env === 'object' ? next.env : {};
             next.env.theme = theme;
           }, function (state) {
             var env = runtime();
@@ -948,6 +1098,7 @@
 
         function setLanguage(lang, ctx) {
           commit(ctx, function (next) {
+            next.env = next.env && typeof next.env === 'object' ? next.env : {};
             next.env.lang = lang;
             next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
           }, function (state) {
@@ -973,6 +1124,8 @@
         function updateBookingField(field, event, ctx) {
           var value = event && event.target ? event.target.value : null;
           commit(ctx, function (next) {
+            next.data = next.data && typeof next.data === 'object' ? next.data : {};
+            next.data.booking = next.data.booking && typeof next.data.booking === 'object' ? next.data.booking : {};
             if (field === 'nights' || field === 'guests') {
               var parsed = parseInt(value, 10);
               next.data.booking[field] = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
@@ -999,12 +1152,15 @@
 
         function submitBooking(event, ctx) {
           if (event && typeof event.preventDefault === 'function') event.preventDefault();
+          if (!ctx || typeof ctx.getState !== 'function') return;
           var state = ctx.getState();
           var booking = state && state.data ? state.data.booking : null;
           if (!booking) return;
           var rooms = state.data.rooms || [];
           var selected = rooms.find(function (room) { return room.type === booking.roomType; });
           commit(ctx, function (next) {
+            next.env = next.env && typeof next.env === 'object' ? next.env : {};
+            next.data = next.data && typeof next.data === 'object' ? next.data : {};
             var lang = next.env.lang || 'ar';
             var total = calculateTotal(booking, selected);
             next.data.bookingSummary = {
