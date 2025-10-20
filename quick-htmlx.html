@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" data-htmlx="quick-dashboard">
+<html lang="ar" dir="rtl" data-htmlx="quick-dashboard" data-css-library="mi" data-theme="dark" class="dark">
   <head>
     <meta charset="utf-8" />
     <title>Mishkah Quick Dashboard</title>
@@ -9,12 +9,12 @@
   </head>
   <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
-      <script type="application/json" data-path="env">
+       <script type="application/json" data-m-env>
         {
+          "theme": "dark",
           "lang": "ar",
-          "dir": "rtl",
-          "theme": "auto",
-          "currency": "SAR"
+          "dir": "rtl"
+         
         }
       </script>
 
@@ -83,9 +83,9 @@
             <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.tagline')}</p>
           </div>
           <div class="flex items-center gap-2">
-            <comp name="ui.language-switch" lang="{state.env.lang}" dir="{state.env.dir}"></comp>
-            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="quick:theme"></comp>
-          </div>
+		   <theme-switcher class="hero-switcher" themes="dark,light"></theme-switcher>
+                <lang-switcher class="hero-switcher" langs="ar,en"></lang-switcher>
+           </div>
         </header>
 
         <div class="grid gap-4 sm:grid-cols-2">
