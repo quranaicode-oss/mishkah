@@ -5,16 +5,15 @@
     <title>Mishkah Quick Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
-    <script src="./mishkah-ui.js"></script>
   </head>
   <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
-       <script type="application/json" data-m-env>
+      <script type="application/json" data-path="env">
         {
           "theme": "dark",
           "lang": "ar",
-          "dir": "rtl"
-         
+          "dir": "rtl",
+          "currency": "SAR"
         }
       </script>
 
@@ -83,9 +82,9 @@
             <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.tagline')}</p>
           </div>
           <div class="flex items-center gap-2">
-		   <theme-switcher class="hero-switcher" themes="dark,light"></theme-switcher>
-                <lang-switcher class="hero-switcher" langs="ar,en"></lang-switcher>
-           </div>
+            <theme-switcher class="hero-switcher" themes="dark,light"></theme-switcher>
+            <lang-switcher class="hero-switcher" langs="ar,en"></lang-switcher>
+          </div>
         </header>
 
         <div class="grid gap-4 sm:grid-cols-2">

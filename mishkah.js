@@ -827,6 +827,123 @@
     };
   }
 
+  function resolveChartHydrateRoot(target) {
+    if (!target) return null;
+    if (target === doc) return doc;
+    if (typeof target === 'string') {
+      if (!doc || typeof doc.querySelector !== 'function') return null;
+      try {
+        return doc.querySelector(target) || null;
+      } catch (_err) {
+        return null;
+      }
+    }
+    if (target && typeof target.querySelectorAll === 'function') {
+      return target;
+    }
+    if (target && typeof target.nodeType === 'number') {
+      return target;
+    }
+    return null;
+  }
+
+  function scheduleChartHydrate(chartApi, root) {
+    if (!chartApi || typeof chartApi.hydrate !== 'function') return;
+    var target = root || null;
+    function safeCall(fn) {
+      try { fn(); }
+      catch (err) {
+        if (global.console && console.warn) console.warn('[MishkahAuto] chart pipeline failed', err);
+      }
+    }
+    function runHydrate() {
+      safeCall(function () { chartApi.hydrate(target); });
+    }
+    function runFreeze() {
+      if (!chartApi || typeof chartApi.freeze !== 'function') return;
+      safeCall(function () { chartApi.freeze(target); });
+    }
+    function delay(fn, ms) {
+      if (typeof setTimeout === 'function') setTimeout(fn, ms);
+      else fn();
+    }
+    delay(runHydrate, 90);
+    delay(runHydrate, 260);
+    delay(runFreeze, 190);
+    delay(runFreeze, 420);
+  }
+
+  function autoWireCharts(app, options, attempt) {
+    if (!autoEnabled || !app) return;
+    var tries = typeof attempt === 'number' && attempt >= 0 ? attempt : 0;
+    var host = global.Mishkah || global.Mishka || null;
+    var chartApi = host && host.UI && host.UI.Chart ? host.UI.Chart : null;
+    var mountRef = null;
+    if (options) {
+      if (options.mount != null) mountRef = options.mount;
+      else if (options.root != null) mountRef = options.root;
+    }
+    var hydrateRoot = resolveChartHydrateRoot(mountRef);
+    function triggerHydration() {
+      if (!chartApi) return;
+      var ensureResult = null;
+      if (typeof chartApi.ensureLibrary === 'function') {
+        try {
+          ensureResult = chartApi.ensureLibrary();
+        } catch (ensureErr) {
+          ensureResult = null;
+          if (global.console && console.warn) console.warn('[MishkahAuto] chart ensureLibrary failed', ensureErr);
+        }
+      }
+      var pipeline = function () { scheduleChartHydrate(chartApi, hydrateRoot); };
+      if (ensureResult && typeof ensureResult.then === 'function') {
+        ensureResult.then(function () { pipeline(); }).catch(function (err) {
+          if (global.console && console.warn) console.warn('[MishkahAuto] chart ensureLibrary rejected', err);
+          pipeline();
+        });
+      } else {
+        pipeline();
+      }
+    }
+    if (!chartApi) {
+      if (tries >= 8 || typeof setTimeout !== 'function') return;
+      setTimeout(function () {
+        autoWireCharts(app, options, tries + 1);
+      }, 40 * (tries + 1));
+      return;
+    }
+    if (app.__mishkahAutoChartsBound) {
+      triggerHydration();
+      return;
+    }
+    try {
+      if (app.__mishkahAutoChartsBinding && typeof app.__mishkahAutoChartsBinding.unbind === 'function') {
+        try { app.__mishkahAutoChartsBinding.unbind(); }
+        catch (_cleanupErr) {}
+      }
+      var binding = null;
+      if (typeof chartApi.bindApp === 'function') {
+        try {
+          binding = chartApi.bindApp(app, mountRef || null);
+        } catch (bindErr) {
+          binding = null;
+          if (global.console && console.warn) console.warn('[MishkahAuto] chart bindApp failed', bindErr);
+        }
+      }
+      if (binding && typeof binding.unbind === 'function') {
+        app.__mishkahAutoChartsBinding = binding;
+      } else {
+        app.__mishkahAutoChartsBinding = null;
+      }
+      app.__mishkahAutoChartsBound = true;
+      triggerHydration();
+    } catch (err) {
+      if (global.console && console.warn) {
+        console.warn('[MishkahAuto] chart auto-wiring failed', err);
+      }
+    }
+  }
+
   function patchAppMake(M) {
     if (!M || !M.app || typeof M.app.make !== 'function') return;
     if (M.app.make.__mishkahAutoPatch) return;
@@ -869,6 +986,7 @@
       var attach = function (app) {
         applyTwcssAuto(app, database);
         attachApp(app);
+        autoWireCharts(app, mergedOptions);
         return app;
       };
       if (result && typeof result.then === 'function') {
