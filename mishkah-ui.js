@@ -161,6 +161,195 @@ const ChartBridge = (() => {
   let fallbackUrl = './vendor/chart.umd.min.js';
   let libraryPromise = null;
 
+  const AUTO_SELECTOR = '[data-chart-auto],[data-chart-values],[data-chart-datasets],[data-chart-series]';
+  const CHART_TRIGGER_SELECTOR = `[data-m-chart],${AUTO_SELECTOR}`;
+
+  function readAttr(node, name) {
+    if (!node || typeof node.getAttribute !== 'function') return null;
+    return node.getAttribute(name);
+  }
+
+  function parseJsonMaybe(raw) {
+    if (raw == null) return null;
+    const text = String(raw).trim();
+    if (!text) return null;
+    if (text.charAt(0) === '{' || text.charAt(0) === '[') {
+      const parsed = parseSafe(text);
+      return parsed == null ? null : parsed;
+    }
+    return null;
+  }
+
+  function parseListAttr(node, name) {
+    const raw = readAttr(node, name);
+    if (raw == null) return [];
+    const parsed = parseJsonMaybe(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item));
+    }
+    return String(raw).split(',').map((part) => part.trim()).filter((part) => part.length);
+  }
+
+  function parseNumberListAttr(node, name) {
+    const raw = readAttr(node, name);
+    if (raw == null) return [];
+    const parsed = parseJsonMaybe(raw);
+    const source = Array.isArray(parsed) ? parsed : String(raw).split(',').map((part) => part.trim()).filter((part) => part.length);
+    const numbers = [];
+    for (let i = 0; i < source.length; i += 1) {
+      const entry = source[i];
+      const value = typeof entry === 'number' ? entry : parseFloat(entry);
+      if (Number.isFinite(value)) numbers.push(value);
+    }
+    return numbers;
+  }
+
+  const DEFAULT_BORDER = 'rgba(79,70,229,0.85)';
+  const DEFAULT_FILL = 'rgba(79,70,229,0.18)';
+
+  function buildDatasetFromValues(node, values) {
+    const label = readAttr(node, 'data-series-label') || readAttr(node, 'data-chart-label') || readAttr(node, 'data-chart-title') || 'Series';
+    const dataset = { label, data: values.slice() };
+    const color = readAttr(node, 'data-chart-color');
+    if (color) {
+      dataset.borderColor = color;
+      if (color.startsWith('#')) {
+        dataset.backgroundColor = `${color}33`;
+      } else if (color.includes('rgba') || color.includes('rgb')) {
+        dataset.backgroundColor = color;
+      } else {
+        dataset.backgroundColor = DEFAULT_FILL;
+      }
+    } else {
+      dataset.borderColor = DEFAULT_BORDER;
+      dataset.backgroundColor = DEFAULT_FILL;
+    }
+    dataset.fill = true;
+    const tensionAttr = readAttr(node, 'data-chart-tension');
+    if (tensionAttr != null && tensionAttr !== '') {
+      const tension = parseFloat(tensionAttr);
+      if (Number.isFinite(tension)) dataset.tension = tension;
+    }
+    return dataset;
+  }
+
+  function normalizeDataset(entry, index) {
+    if (!entry || typeof entry !== 'object') return null;
+    const copy = clone(entry) || Object.assign({}, entry);
+    if (!copy) return null;
+    if (!copy.label) copy.label = `Series ${index + 1}`;
+    if (Array.isArray(copy.data)) {
+      copy.data = copy.data.map((value) => {
+        const numeric = typeof value === 'number' ? value : parseFloat(value);
+        return Number.isFinite(numeric) ? numeric : null;
+      }).filter((value) => value != null);
+    }
+    if (!copy.borderColor) copy.borderColor = DEFAULT_BORDER;
+    if (!copy.backgroundColor) copy.backgroundColor = DEFAULT_FILL;
+    if (copy.fill == null) copy.fill = true;
+    return copy;
+  }
+
+  function parseDatasets(node) {
+    const list = [];
+    const rawDatasets = parseJsonMaybe(readAttr(node, 'data-chart-datasets'));
+    if (Array.isArray(rawDatasets)) {
+      for (let i = 0; i < rawDatasets.length; i += 1) {
+        const normalized = normalizeDataset(rawDatasets[i], i);
+        if (normalized && Array.isArray(normalized.data) && normalized.data.length) {
+          list.push(normalized);
+        }
+      }
+    }
+    if (!list.length) {
+      const rawSeries = readAttr(node, 'data-chart-series');
+      if (rawSeries != null) {
+        const parsed = parseJsonMaybe(rawSeries);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const normalizedSeries = normalizeDataset(parsed, list.length);
+          if (normalizedSeries && Array.isArray(normalizedSeries.data) && normalizedSeries.data.length) {
+            list.push(normalizedSeries);
+          }
+        } else {
+          const values = parseNumberListAttr(node, 'data-chart-series');
+          if (values.length) {
+            list.push(buildDatasetFromValues(node, values));
+          }
+        }
+      }
+    }
+    if (!list.length) {
+      const values = parseNumberListAttr(node, 'data-chart-values');
+      if (values.length) {
+        list.push(buildDatasetFromValues(node, values));
+      }
+    }
+    return list;
+  }
+
+  function parseOptionsAttr(node) {
+    const parsed = parseJsonMaybe(readAttr(node, 'data-chart-options'));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }
+
+  function ensureAutoCanvas(node) {
+    if (!node || typeof node.setAttribute !== 'function') return false;
+    if (node.getAttribute('data-m-chart')) return false;
+    const datasets = parseDatasets(node);
+    if (!datasets.length) return false;
+    const labels = parseListAttr(node, 'data-chart-labels').slice();
+    if (!labels.length) {
+      let max = 0;
+      for (let i = 0; i < datasets.length; i += 1) {
+        const data = Array.isArray(datasets[i].data) ? datasets[i].data : [];
+        if (data.length > max) max = data.length;
+      }
+      for (let i = 0; i < max; i += 1) {
+        labels.push(String(i + 1));
+      }
+    }
+    const options = parseOptionsAttr(node) || {};
+    const type = readAttr(node, 'data-chart-type') || readAttr(node, 'data-chart-auto') || 'line';
+    const payload = buildPayload(type, { labels, datasets }, options);
+    node.setAttribute('data-m-chart', encodePayload(payload));
+    const ariaLabel = readAttr(node, 'aria-label') || readAttr(node, 'data-chart-title') || readAttr(node, 'title');
+    if (ariaLabel && !node.hasAttribute('aria-label')) {
+      node.setAttribute('aria-label', ariaLabel);
+    }
+    if (!node.hasAttribute('role')) {
+      node.setAttribute('role', 'img');
+    }
+    const rawHeight = readAttr(node, 'data-chart-height');
+    const parsedHeight = rawHeight != null ? parseInt(rawHeight, 10) : NaN;
+    const height = Number.isFinite(parsedHeight) ? parsedHeight : 280;
+    if (!node.hasAttribute('height')) {
+      node.setAttribute('height', String(height));
+    }
+    if (node.style) {
+      if (!node.style.width) node.style.width = '100%';
+      if (!node.style.display) node.style.display = 'block';
+      if (!node.style.minHeight) node.style.minHeight = `${height}px`;
+    } else {
+      const inline = readAttr(node, 'style') || '';
+      if (inline.indexOf('min-height') === -1) {
+        node.setAttribute('style', inline ? `${inline};min-height:${height}px;` : `min-height:${height}px;`);
+      }
+    }
+    if (node.classList && !node.classList.contains('mishkah-chart-auto')) {
+      node.classList.add('mishkah-chart-auto');
+    }
+    return true;
+  }
+
+  function prepareAutoCharts(scope) {
+    if (!scope || typeof scope.querySelectorAll !== 'function') return;
+    const nodes = scope.querySelectorAll(AUTO_SELECTOR);
+    if (!nodes || !nodes.length) return;
+    for (let i = 0; i < nodes.length; i += 1) {
+      ensureAutoCanvas(nodes[i]);
+    }
+  }
+
   const warnedPaths = new Set();
 
   function warnNonSerializable(path, kind) {
@@ -450,6 +639,7 @@ const ChartBridge = (() => {
   function hydrateNow(root) {
     if (typeof document === 'undefined') return;
     const scope = (!root || root === document) ? document : root;
+    prepareAutoCharts(scope);
     const nodes = scope.querySelectorAll ? scope.querySelectorAll('[data-m-chart]') : [];
     if (!nodes.length) return;
     ensureLibrary().then((ChartLib) => {
@@ -472,6 +662,7 @@ const ChartBridge = (() => {
     const run = () => {
       scheduled.delete(key);
       const scope = (!root || root === document) ? document : root;
+      prepareAutoCharts(scope);
       const nodes = scope && scope.querySelectorAll ? scope.querySelectorAll('[data-m-chart]') : [];
       if (!nodes || nodes.length === 0) {
         if (attempt < 4) {
@@ -502,9 +693,9 @@ const ChartBridge = (() => {
     function watchForCharts(root) {
       if (typeof MutationObserver === 'undefined') return;
       if (observer || !root || root === document) return;
-      if (root.querySelector && root.querySelector('[data-m-chart]')) return;
+      if (root.querySelector && root.querySelector(CHART_TRIGGER_SELECTOR)) return;
       observer = new MutationObserver(() => {
-        if (!root.querySelector('[data-m-chart]')) return;
+        if (!root.querySelector(CHART_TRIGGER_SELECTOR)) return;
         if (observer) {
           observer.disconnect();
           observer = null;
@@ -603,6 +794,205 @@ ChartAPI.formatters = Object.assign({}, ChartBridge.formatters);
 
 UI.Chart = ChartAPI;
 UI.Charts = ChartAPI;
+
+
+/* ===================== Countdown Auto-Wiring ===================== */
+const CountdownManager = (() => {
+  if (typeof document === 'undefined') {
+    const noop = () => {};
+    const identity = (value) => value;
+    return { start: noop, stop: noop, refresh: noop, format: identity };
+  }
+
+  const active = new Map();
+
+  function parseSeconds(value) {
+    const numeric = typeof value === 'number' ? value : parseFloat(value);
+    if (!Number.isFinite(numeric)) return NaN;
+    return Math.max(0, Math.floor(numeric));
+  }
+
+  function formatTime(value, format) {
+    const total = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+    const lower = typeof format === 'string' ? format.toLowerCase() : 'mm:ss';
+    if (lower === 'seconds' || lower === 's') {
+      return `${total}s`;
+    }
+    if (lower === 'm' || lower === 'minutes') {
+      const minutesOnly = Math.floor(total / 60);
+      return `${minutesOnly}m`;
+    }
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const totalMinutes = Math.floor(total / 60);
+    if (lower === 'hh:mm:ss') {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${String(totalMinutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function render(node, record) {
+    const template = record.remaining > 0 ? record.template : (record.finishedTemplate || record.template);
+    const output = template.replace(/\{\{\s*time\s*\}\}/g, formatTime(record.remaining, record.format));
+    node.textContent = output;
+  }
+
+  function stop(node) {
+    const record = active.get(node);
+    if (!record) return;
+    if (record.timer) {
+      window.clearInterval(record.timer);
+      record.timer = null;
+    }
+    active.delete(node);
+  }
+
+  function tick(node) {
+    const record = active.get(node);
+    if (!record) return;
+    record.remaining = Math.max(0, record.remaining - 1);
+    render(node, record);
+    if (record.remaining <= 0) {
+      if (record.timer) {
+        window.clearInterval(record.timer);
+        record.timer = null;
+      }
+      if (node.dispatchEvent) {
+        try {
+          node.dispatchEvent(new CustomEvent('countdown:finished', { bubbles: true }));
+        } catch (_err) {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  function start(node) {
+    if (!node || node.nodeType !== 1) return;
+    const secondsAttr = node.getAttribute('data-countdown');
+    const seconds = parseSeconds(secondsAttr);
+    if (!Number.isFinite(seconds)) {
+      stop(node);
+      return;
+    }
+    const format = node.getAttribute('data-countdown-format') || 'mm:ss';
+    const template = node.getAttribute('data-countdown-template') || '{{time}}';
+    const finishedTemplate = node.getAttribute('data-countdown-finished-template') || template.replace(/\{\{\s*time\s*\}\}/g, '00:00');
+    const autostartAttr = node.getAttribute('data-countdown-autostart');
+    const autostart = autostartAttr == null || String(autostartAttr).toLowerCase() !== 'false';
+
+    const existing = active.get(node);
+    if (existing && existing.timer) {
+      window.clearInterval(existing.timer);
+    }
+
+    const record = {
+      total: seconds,
+      remaining: seconds,
+      format,
+      template,
+      finishedTemplate,
+      timer: null
+    };
+    active.set(node, record);
+    render(node, record);
+    if (autostart) {
+      record.timer = window.setInterval(() => tick(node), 1000);
+    }
+  }
+
+  function refresh(node) {
+    stop(node);
+    if (node && node.isConnected) {
+      start(node);
+    }
+  }
+
+  function hydrate(root) {
+    const scope = root || document;
+    if (!scope || typeof scope.querySelectorAll !== 'function') return;
+    const nodes = scope.querySelectorAll('[data-countdown]');
+    for (let i = 0; i < nodes.length; i += 1) {
+      if (!active.has(nodes[i])) {
+        start(nodes[i]);
+      }
+    }
+  }
+
+  function cleanupTree(node) {
+    if (!node) return;
+    if (active.has(node)) {
+      stop(node);
+    }
+    if (node.querySelectorAll) {
+      const nested = node.querySelectorAll('[data-countdown]');
+      for (let i = 0; i < nested.length; i += 1) {
+        stop(nested[i]);
+      }
+    }
+  }
+
+  function observe() {
+    if (typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver((mutations) => {
+      for (let i = 0; i < mutations.length; i += 1) {
+        const mutation = mutations[i];
+        if (mutation.type === 'attributes' && mutation.target && mutation.target.hasAttribute('data-countdown')) {
+          refresh(mutation.target);
+        }
+        if (mutation.type === 'childList') {
+          const added = mutation.addedNodes || [];
+          for (let j = 0; j < added.length; j += 1) {
+            const node = added[j];
+            if (node.nodeType !== 1) continue;
+            if (node.hasAttribute && node.hasAttribute('data-countdown')) {
+              start(node);
+            }
+            if (node.querySelectorAll) {
+              const nested = node.querySelectorAll('[data-countdown]');
+              for (let k = 0; k < nested.length; k += 1) {
+                start(nested[k]);
+              }
+            }
+          }
+          const removed = mutation.removedNodes || [];
+          for (let j = 0; j < removed.length; j += 1) {
+            const node = removed[j];
+            if (node.nodeType !== 1) continue;
+            cleanupTree(node);
+          }
+        }
+      }
+    });
+    observer.observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-countdown', 'data-countdown-autostart', 'data-countdown-template', 'data-countdown-format', 'data-countdown-finished-template']
+    });
+  }
+
+  const bootstrap = () => {
+    hydrate(document);
+    observe();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+  } else {
+    bootstrap();
+  }
+
+  return {
+    start,
+    stop,
+    refresh: hydrate,
+    format: formatTime
+  };
+})();
+
+UI.Countdown = CountdownManager;
 
 
 UI.AppRoot = ({ shell, overlays }) =>
