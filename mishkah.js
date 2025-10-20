@@ -317,6 +317,39 @@
     }
   }
 
+  function resolveRuntimeContext() {
+    var runtimeFn = null;
+    if (global.runtime && typeof global.runtime === 'function') {
+      runtimeFn = global.runtime;
+    } else if (global.Mishkah && typeof global.Mishkah.runtime === 'function') {
+      runtimeFn = global.Mishkah.runtime;
+    } else if (global.MishkahRuntime && typeof global.MishkahRuntime === 'function') {
+      runtimeFn = global.MishkahRuntime;
+    }
+    if (!runtimeFn) return null;
+    try {
+      var runtime = runtimeFn();
+      return runtime && typeof runtime === 'object' ? runtime : null;
+    } catch (err) {
+      if (global.console && console.warn) console.warn('[MishkahAuto] runtime() invocation failed', err);
+      return null;
+    }
+  }
+
+  function applyRuntimeEffects(state) {
+    if (!state) return;
+    var runtime = resolveRuntimeContext();
+    if (!runtime) return;
+    if (typeof runtime.applyEnvironment === 'function') {
+      try { runtime.applyEnvironment(state); }
+      catch (err) { if (global.console && console.warn) console.warn('[MishkahAuto] applyEnvironment failed', err); }
+    }
+    if (typeof runtime.persistPrefs === 'function') {
+      try { runtime.persistPrefs(state); }
+      catch (err) { if (global.console && console.warn) console.warn('[MishkahAuto] persistPrefs failed', err); }
+    }
+  }
+
   function normalizeLang(code) {
     if (!code) return null;
     return String(code).split(/[^a-zA-Z\u0621-\u064a0-9]+/)[0].toLowerCase();
@@ -353,7 +386,6 @@
         }
         return next;
       });
-      broadcast(app.getState());
     });
   }
 
@@ -380,7 +412,6 @@
         next.env = env;
         return next;
       });
-      broadcast(app.getState());
     });
   }
 
@@ -391,7 +422,11 @@
       var originalSetState = app.setState;
       app.setState = function (updater) {
         var result = originalSetState.call(app, updater);
-        try { broadcast(app.getState()); }
+        try {
+          var snapshot = app.getState ? app.getState() : null;
+          applyRuntimeEffects(snapshot);
+          broadcast(snapshot);
+        }
         catch (err) {
           if (global.console && console.warn) console.warn('[MishkahAuto] broadcast failed', err);
         }
@@ -407,7 +442,10 @@
     }
     try {
       var initial = app.getState ? app.getState() : null;
-      if (initial) broadcast(initial);
+      if (initial) {
+        applyRuntimeEffects(initial);
+        broadcast(initial);
+      }
     } catch (err) {
       if (global.console && console.warn) console.warn('[MishkahAuto] unable to read initial state', err);
     }
