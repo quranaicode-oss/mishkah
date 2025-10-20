@@ -790,9 +790,9 @@
               </div>
               <div class="highlights">
                 <div class="highlight-card" x-for="spot in state.data.highlights" key="spot.title.ar">
-                  <img src="{spot.image}" alt="{spot.title[state.env.lang]}" />
-                  <h3>{spot.title[state.env.lang]}</h3>
-                  <p>{spot.body[state.env.lang]}</p>
+                  <img src="{spot.image}" alt="{localize(spot.title, state.env.lang)}" />
+                  <h3>{localize(spot.title, state.env.lang)}</h3>
+                  <p>{localize(spot.body, state.env.lang)}</p>
                 </div>
               </div>
             </section>
@@ -804,14 +804,14 @@
               </div>
               <div class="rooms-grid">
                 <div class="room-card" x-for="room in state.data.rooms" key="room.id">
-                  <img src="{room.image}" alt="{room.name[state.env.lang]}" />
+                  <img src="{room.image}" alt="{localize(room.name, state.env.lang)}" />
                   <div class="room-body">
-                    <h3>{room.name[state.env.lang]}</h3>
-                    <p class="room-description">{room.description[state.env.lang]}</p>
+                    <h3>{localize(room.name, state.env.lang)}</h3>
+                    <p class="room-description">{localize(room.description, state.env.lang)}</p>
                     <div class="room-meta">
-                      <span>{trans('section.rooms.capacity')}: {room.capacity[state.env.lang]}</span>
-                      <span>{trans('section.rooms.beds')}: {room.beds[state.env.lang]}</span>
-                      <span>{trans('section.rooms.view')}: {room.view[state.env.lang]}</span>
+                      <span>{trans('section.rooms.capacity')}: {localize(room.capacity, state.env.lang)}</span>
+                      <span>{trans('section.rooms.beds')}: {localize(room.beds, state.env.lang)}</span>
+                      <span>{trans('section.rooms.view')}: {localize(room.view, state.env.lang)}</span>
                     </div>
                     <div class="room-price">{formatPrice(room.pricePerNight, state.env.lang, room.currency)}<span>/ {room.currency} {room.pricePerNight}</span></div>
                   </div>
@@ -827,8 +827,8 @@
               <div class="amenities-grid">
                 <div class="amenity-card" x-for="amenity in state.data.amenities" key="amenity.title.ar">
                   <span class="icon">{amenity.icon}</span>
-                  <strong>{amenity.title[state.env.lang]}</strong>
-                  <p>{amenity.description[state.env.lang]}</p>
+                  <strong>{localize(amenity.title, state.env.lang)}</strong>
+                  <p>{localize(amenity.description, state.env.lang)}</p>
                 </div>
               </div>
             </section>
@@ -839,7 +839,7 @@
                 <p>{trans('section.gallery.subtitle')}</p>
               </div>
               <div class="gallery-grid">
-                <img x-for="shot in state.data.gallery" key="shot.src" src="{shot.src}" alt="{shot.alt[state.env.lang]}" />
+                <img x-for="shot in state.data.gallery" key="shot.src" src="{shot.src}" alt="{localize(shot.alt, state.env.lang)}" />
               </div>
             </section>
 
@@ -850,8 +850,8 @@
               </div>
               <div class="testimonials">
                 <div class="testimonial-card" x-for="review in state.data.testimonials" key="review.author.ar">
-                  <p>“{review.quote[state.env.lang]}”</p>
-                  <strong>{review.author[state.env.lang]}</strong>
+                  <p>“{localize(review.quote, state.env.lang)}”</p>
+                  <strong>{localize(review.author, state.env.lang)}</strong>
                 </div>
               </div>
             </section>
@@ -866,7 +866,7 @@
                   <label class="field">
                     <span>{trans('booking.roomType')}</span>
                     <select onchange="updateBookingField('roomType', event, ctx)" value="{state.data.booking.roomType}">
-                      <option x-for="room in state.data.rooms" key="room.id" value="{room.type}" selected="{room.type === state.data.booking.roomType ? 'selected' : null}">{room.name[state.env.lang]}</option>
+                      <option x-for="room in state.data.rooms" key="room.id" value="{room.type}" selected="{room.type === state.data.booking.roomType ? 'selected' : null}">{localize(room.name, state.env.lang)}</option>
                     </select>
                   </label>
                   <label class="field">
@@ -934,6 +934,69 @@
       </div>
 
       <script>
+        function ensureLanguage(lang) {
+          if (typeof lang === 'string' && lang) {
+            return lang === 'ar' || lang === 'en' ? lang : lang.toLowerCase();
+          }
+          return 'ar';
+        }
+
+        function localize(entry, lang) {
+          if (entry == null) return '';
+          if (typeof entry === 'string') return entry;
+          var key = ensureLanguage(lang);
+          if (entry && typeof entry === 'object') {
+            if (Object.prototype.hasOwnProperty.call(entry, key) && entry[key] != null) {
+              return entry[key];
+            }
+            var fallback = key === 'ar' ? 'en' : 'ar';
+            if (Object.prototype.hasOwnProperty.call(entry, fallback) && entry[fallback] != null) {
+              return entry[fallback];
+            }
+            var firstKey = Object.keys(entry).find(function (name) {
+              return entry[name] != null && typeof entry[name] !== 'object';
+            });
+            if (firstKey) {
+              return entry[firstKey];
+            }
+          }
+          return '';
+        }
+
+        function cloneState(prev) {
+          try {
+            return JSON.parse(JSON.stringify(prev || {}));
+          } catch (err) {
+            if (!prev || typeof prev !== 'object') return {};
+            var shallow = Array.isArray(prev) ? prev.slice() : Object.assign({}, prev);
+            return shallow;
+          }
+        }
+
+        function commit(ctx, producer, after) {
+          if (!ctx) return;
+          if (typeof ctx.commit === 'function') {
+            return ctx.commit(producer, after);
+          }
+          if (typeof ctx.setState !== 'function') return;
+          ctx.setState(function (prev) {
+            var next = cloneState(prev);
+            if (typeof producer === 'function') {
+              producer(next, prev || {});
+            }
+            return next;
+          });
+          if (typeof after === 'function') {
+            window.setTimeout(function () {
+              try {
+                after(ctx.getState ? ctx.getState() : null, ctx);
+              } catch (err) {
+                console.error('[Mishkah] commit after hook failed', err);
+              }
+            }, 0);
+          }
+        }
+
         function scrollToSection(id, ctx) {
           var env = runtime();
           if (env && typeof env.selectRoot === 'function') {
@@ -987,10 +1050,10 @@
           commit(ctx, function (next) {
             next.env = next.env && typeof next.env === 'object' ? next.env : {};
             next.data = next.data && typeof next.data === 'object' ? next.data : {};
-            var lang = next.env.lang || 'ar';
+            var lang = ensureLanguage(next.env.lang);
             var total = calculateTotal(booking, selected);
             next.data.bookingSummary = {
-              roomName: selected ? selected.name[lang] : '',
+              roomName: selected ? localize(selected.name, lang) : '',
               guests: booking.guests,
               nights: booking.nights,
               totalLabel: formatPrice(total, lang, selected ? selected.currency : 'USD')
