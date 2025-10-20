@@ -5,6 +5,7 @@
     <title>Mishkah Quick Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
+    <script src="./mishkah-ui.js"></script>
   </head>
   <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
@@ -66,7 +67,8 @@
             { "id": "flatwhite", "nameKey": "quick.cart.items.flatwhite", "price": 19 },
             { "id": "cheesecake", "nameKey": "quick.cart.items.cheesecake", "price": 26.5 },
             { "id": "cinnamon", "nameKey": "quick.cart.items.cinnamon", "price": 21 }
-          ]
+          ],
+          "ui": { "countdownTemplate": "⏱️ {{time}}" }
         }
       </script>
 
@@ -106,7 +108,11 @@
 
         <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
           <span class="text-sm text-[var(--muted-foreground)]">{trans('quick.timer')}</span>
-          <strong class="inline-flex items-center gap-2 text-2xl font-semibold" data-countdown="{state.data.timer.seconds}" data-countdown-template="⏱️ {{time}}"></strong>
+          <strong
+            class="inline-flex items-center gap-2 text-2xl font-semibold"
+            data-countdown="{state.data.timer.seconds}"
+            data-countdown-template="{state.data.ui.countdownTemplate}"
+          ></strong>
         </div>
 
         <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
