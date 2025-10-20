@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مشكاة — نقطة بيع للتابلت</title>
+    <script src="./mishkah.js" data-css="mishkah"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="pos-tablet">
+      <section data-m-scope="pos.tablet">
+        <style data-m-scope>
+          :host {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(165deg, color-mix(in srgb, var(--mk-bg) 94%, var(--mk-surface-2) 6%), color-mix(in srgb, var(--mk-bg) 86%, var(--mk-surface-3) 14%));
+            color: var(--mk-fg);
+            font-family: var(--mk-font-sans-ar);
+            padding: clamp(var(--mk-space-4), 2vw, var(--mk-space-7));
+            box-sizing: border-box;
+          }
+
+          .pos-tablet-shell {
+            inline-size: min(1200px, 100%);
+            margin: 0 auto;
+            display: grid;
+            gap: clamp(var(--mk-space-4), 2vw, var(--mk-space-6));
+          }
+
+          .pos-header {
+            display: grid;
+            gap: var(--mk-space-4);
+            padding: clamp(var(--mk-space-4), 2vw, var(--mk-space-6));
+            border-radius: var(--mk-radius-2xl);
+            background: color-mix(in srgb, var(--mk-surface-1) 86%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 60%, transparent);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          .pos-header h1 {
+            margin: 0;
+            font-family: var(--mk-font-display);
+            font-size: clamp(var(--mk-fs-2xl), 5vw, var(--mk-fs-4xl));
+            line-height: 1.2;
+          }
+
+          .pos-header p {
+            margin: 0;
+            color: var(--mk-muted);
+            font-size: clamp(var(--mk-fs-md), 3.2vw, var(--mk-fs-lg));
+          }
+
+          .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            align-items: center;
+          }
+
+          .header-meta .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+            padding-inline: var(--mk-space-3);
+            padding-block: calc(var(--mk-space-1) * 1.4);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--mk-primary) 16%, transparent);
+            color: var(--mk-primary);
+            font-weight: 600;
+            font-size: var(--mk-fs-sm);
+            letter-spacing: 0.06em;
+          }
+
+          .header-meta .meta-chip[data-tone="soft"] {
+            background: color-mix(in srgb, var(--mk-surface-2) 82%, transparent);
+            color: var(--mk-muted-strong);
+          }
+
+          .tablet-layout {
+            display: grid;
+            gap: clamp(var(--mk-space-4), 2vw, var(--mk-space-6));
+            grid-template-columns: 1fr;
+          }
+
+          @media (min-width: 960px) {
+            .tablet-layout {
+              grid-template-columns: minmax(220px, 0.95fr) minmax(340px, 1.6fr) minmax(280px, 1fr);
+            }
+          }
+
+          .column-panels {
+            display: grid;
+            gap: var(--mk-space-4);
+            align-content: start;
+          }
+
+          .panel {
+            display: grid;
+            gap: var(--mk-space-4);
+            padding: clamp(var(--mk-space-4), 2vw, var(--mk-space-6));
+            border-radius: var(--mk-radius-2xl);
+            background: color-mix(in srgb, var(--mk-surface-0) 75%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 58%, transparent);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-3);
+          }
+
+          .panel-head h2 {
+            margin: 0;
+            font-size: clamp(var(--mk-fs-lg), 3vw, var(--mk-fs-xl));
+            font-weight: 700;
+          }
+
+          .panel-head .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-inline-size: 2.5rem;
+            padding-inline: var(--mk-space-2);
+            padding-block: calc(var(--mk-space-1) * 1.2);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--mk-primary) 18%, transparent);
+            color: var(--mk-primary);
+            font-weight: 600;
+            font-size: var(--mk-fs-sm);
+          }
+
+          .tables-grid {
+            display: grid;
+            gap: var(--mk-space-3);
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+
+          .table-card {
+            position: relative;
+            border-radius: var(--mk-radius-xl);
+            padding: var(--mk-space-4);
+            background: color-mix(in srgb, var(--mk-surface-1) 90%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 55%, transparent);
+            box-shadow: var(--mk-shadow-sm);
+            display: grid;
+            gap: var(--mk-space-2);
+            align-content: start;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            text-align: start;
+          }
+
+          .table-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .table-card.is-active {
+            border-color: color-mix(in srgb, var(--mk-primary) 45%, transparent);
+            background: color-mix(in srgb, var(--mk-primary) 18%, var(--mk-surface-1));
+            color: color-mix(in srgb, var(--mk-primary-contrast) 88%, var(--mk-fg));
+          }
+
+          .table-name {
+            font-weight: 700;
+            font-size: clamp(var(--mk-fs-md), 3vw, var(--mk-fs-lg));
+          }
+
+          .table-meta,
+          .table-status,
+          .table-orders {
+            font-size: var(--mk-fs-sm);
+            color: color-mix(in srgb, currentColor 82%, transparent);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-1);
+          }
+
+          .table-status[data-status="available"] {
+            color: var(--mk-success);
+          }
+
+          .table-status[data-status="occupied"],
+          .table-status[data-status="preparing"] {
+            color: var(--mk-warning);
+          }
+
+          .table-status[data-status="reserved"] {
+            color: var(--mk-accent);
+          }
+
+          .table-orders {
+            font-weight: 600;
+          }
+
+          .menu-controls {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          .menu-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-2);
+          }
+
+          .menu-tabs button {
+            border: none;
+            border-radius: 999px;
+            padding-inline: var(--mk-space-4);
+            padding-block: calc(var(--mk-space-1) * 1.6);
+            background: color-mix(in srgb, var(--mk-surface-2) 80%, transparent);
+            color: var(--mk-muted-strong);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+          }
+
+          .menu-tabs button.active {
+            background: var(--mk-primary);
+            color: var(--mk-primary-contrast);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .menu-search {
+            position: relative;
+          }
+
+          .menu-search input[type="search"] {
+            inline-size: 100%;
+            padding-inline: calc(var(--mk-space-4) + 1.5rem);
+            padding-block: calc(var(--mk-space-2) * 1.2);
+            border-radius: var(--mk-radius-xl);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 55%, transparent);
+            background: color-mix(in srgb, var(--mk-surface-1) 88%, transparent);
+            color: inherit;
+            font-size: var(--mk-fs-md);
+          }
+
+          .menu-search span.icon {
+            position: absolute;
+            inset-inline-end: var(--mk-space-3);
+            inset-block-start: 50%;
+            transform: translateY(-50%);
+            color: var(--mk-muted);
+            pointer-events: none;
+            font-size: 1.25rem;
+          }
+
+          .menu-grid {
+            display: grid;
+            gap: var(--mk-space-3);
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          }
+
+          .menu-item {
+            display: grid;
+            gap: var(--mk-space-2);
+            align-content: start;
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 55%, transparent);
+            background: color-mix(in srgb, var(--mk-surface-1) 90%, transparent);
+            cursor: pointer;
+            transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            text-align: start;
+          }
+
+          .menu-item:hover {
+            transform: translateY(-4px);
+            border-color: color-mix(in srgb, var(--mk-primary) 40%, transparent);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .menu-item strong {
+            font-size: clamp(var(--mk-fs-md), 3vw, var(--mk-fs-lg));
+          }
+
+          .menu-item .item-price {
+            font-weight: 600;
+            font-size: var(--mk-fs-md);
+            color: var(--mk-primary);
+          }
+
+          .item-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-2);
+            color: var(--mk-muted);
+            font-size: var(--mk-fs-xs);
+          }
+
+          .item-tags span {
+            padding-inline: var(--mk-space-2);
+            padding-block: calc(var(--mk-space-1) * 1.2);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--mk-surface-2) 78%, transparent);
+          }
+
+          .cart-panel .empty,
+          .orders-panel .empty {
+            margin: 0;
+            color: var(--mk-muted);
+            font-size: var(--mk-fs-sm);
+          }
+
+          .cart-table-label {
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted-strong);
+          }
+
+          .cart-list {
+            list-style: none;
+            display: grid;
+            gap: var(--mk-space-3);
+            padding: 0;
+            margin: 0;
+          }
+
+          .cart-item {
+            display: grid;
+            gap: var(--mk-space-2);
+            border-radius: var(--mk-radius-lg);
+            padding: var(--mk-space-3);
+            background: color-mix(in srgb, var(--mk-surface-2) 85%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 40%, transparent);
+          }
+
+          .cart-item-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-3);
+          }
+
+          .cart-item-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+          }
+
+          .cart-item-actions button {
+            inline-size: 2.2rem;
+            block-size: 2.2rem;
+            border-radius: 999px;
+            border: none;
+            background: color-mix(in srgb, var(--mk-surface-3) 70%, transparent);
+            color: inherit;
+            font-weight: 600;
+            cursor: pointer;
+          }
+
+          .cart-item-actions span {
+            min-inline-size: 2rem;
+            text-align: center;
+            font-weight: 600;
+          }
+
+          .cart-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--mk-space-3);
+            border-radius: var(--mk-radius-lg);
+            background: color-mix(in srgb, var(--mk-surface-1) 90%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 40%, transparent);
+            font-size: var(--mk-fs-md);
+          }
+
+          .cart-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            justify-content: flex-end;
+          }
+
+          .cart-actions button {
+            border: none;
+            border-radius: var(--mk-radius-xl);
+            padding-inline: clamp(var(--mk-space-4), 2vw, var(--mk-space-6));
+            padding-block: calc(var(--mk-space-2) * 1.4);
+            font-weight: 600;
+            cursor: pointer;
+            background: color-mix(in srgb, var(--mk-surface-3) 75%, transparent);
+            color: var(--mk-muted-strong);
+          }
+
+          .cart-actions button[data-variant="primary"] {
+            background: var(--mk-primary);
+            color: var(--mk-primary-contrast);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .cart-actions button[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+          }
+
+          .orders-list {
+            list-style: none;
+            display: grid;
+            gap: var(--mk-space-3);
+            padding: 0;
+            margin: 0;
+          }
+
+          .order-card {
+            display: grid;
+            gap: var(--mk-space-3);
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            background: color-mix(in srgb, var(--mk-surface-1) 90%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 45%, transparent);
+            box-shadow: var(--mk-shadow-sm);
+          }
+
+          .order-card header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-2);
+            justify-content: space-between;
+            font-weight: 700;
+          }
+
+          .order-card .order-time {
+            margin: 0;
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted);
+          }
+
+          .order-items {
+            display: grid;
+            gap: var(--mk-space-2);
+          }
+
+          .order-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted-strong);
+          }
+
+          .order-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .order-status {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+            padding-inline: var(--mk-space-3);
+            padding-block: calc(var(--mk-space-1) * 1.3);
+            border-radius: 999px;
+            font-size: var(--mk-fs-sm);
+            font-weight: 600;
+          }
+
+          .order-status.status-preparing {
+            background: color-mix(in srgb, var(--mk-warning) 18%, transparent);
+            color: var(--mk-warning-strong, #b45309);
+          }
+
+          .order-status.status-served {
+            background: color-mix(in srgb, var(--mk-success) 18%, transparent);
+            color: var(--mk-success-strong, #166534);
+          }
+
+          .order-actions {
+            display: flex;
+            justify-content: flex-end;
+          }
+
+          .order-actions button {
+            border: none;
+            border-radius: var(--mk-radius-lg);
+            padding-inline: var(--mk-space-4);
+            padding-block: calc(var(--mk-space-2) * 1.2);
+            background: var(--mk-primary);
+            color: var(--mk-primary-contrast);
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--mk-shadow-sm);
+          }
+
+          button {
+            font-family: inherit;
+          }
+        </style>
+
+        <script type="application/json" data-m-env>
+          {
+            "theme": "light",
+            "lang": "ar",
+            "dir": "rtl",
+            "flags": {
+              "htmlx": true
+            }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="head">
+          {
+            "title": "مشكاة — نقطة بيع للتابلت"
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="i18n.strings">
+          {
+            "posTablet": {
+              "header": {
+                "title": {
+                  "ar": "إدارة أوامر الصالة للتابلت",
+                  "en": "Tablet dining room orders"
+                },
+                "subtitle": {
+                  "ar": "التقط الطلبات بسرعة واختر الطاولة المناسبة في واجهة مبسطة.",
+                  "en": "Capture dine-in orders quickly with a tablet-friendly layout."
+                },
+                "shift": {
+                  "ar": "الوردية",
+                  "en": "Shift"
+                },
+                "server": {
+                  "ar": "الموظف",
+                  "en": "Server"
+                },
+                "location": {
+                  "ar": "الموقع",
+                  "en": "Location"
+                }
+              },
+              "tables": {
+                "title": {
+                  "ar": "الطاولات",
+                  "en": "Tables"
+                },
+                "capacity": {
+                  "ar": "عدد المقاعد",
+                  "en": "Seats"
+                },
+                "activeOrders": {
+                  "ar": "طلبات نشطة",
+                  "en": "Active orders"
+                },
+                "status": {
+                  "available": {
+                    "ar": "متاحة",
+                    "en": "Available"
+                  },
+                  "occupied": {
+                    "ar": "مشغولة",
+                    "en": "Occupied"
+                  },
+                  "preparing": {
+                    "ar": "قيد التحضير",
+                    "en": "Preparing"
+                  },
+                  "reserved": {
+                    "ar": "محجوزة",
+                    "en": "Reserved"
+                  }
+                }
+              },
+              "menu": {
+                "title": {
+                  "ar": "قائمة المأكولات",
+                  "en": "Menu"
+                },
+                "search": {
+                  "ar": "ابحث عن طبق أو مشروب...",
+                  "en": "Search dishes or drinks..."
+                },
+                "categories": {
+                  "all": {
+                    "ar": "الكل",
+                    "en": "All"
+                  },
+                  "hot": {
+                    "ar": "مشروبات ساخنة",
+                    "en": "Hot drinks"
+                  },
+                  "cold": {
+                    "ar": "مشروبات باردة",
+                    "en": "Cold drinks"
+                  },
+                  "main": {
+                    "ar": "أطباق رئيسية",
+                    "en": "Main courses"
+                  },
+                  "dessert": {
+                    "ar": "حلويات",
+                    "en": "Desserts"
+                  }
+                }
+              },
+              "cart": {
+                "title": {
+                  "ar": "السلة",
+                  "en": "Cart"
+                },
+                "currentTable": {
+                  "ar": "الطاولة الحالية",
+                  "en": "Current table"
+                },
+                "empty": {
+                  "ar": "لم يتم إضافة أي عناصر بعد.",
+                  "en": "No items added yet."
+                },
+                "total": {
+                  "ar": "الإجمالي",
+                  "en": "Total"
+                },
+                "clear": {
+                  "ar": "إفراغ السلة",
+                  "en": "Clear cart"
+                },
+                "submit": {
+                  "ar": "إرسال الطلب",
+                  "en": "Send order"
+                }
+              },
+              "orders": {
+                "title": {
+                  "ar": "الطلبات الحالية",
+                  "en": "Current orders"
+                },
+                "empty": {
+                  "ar": "لا توجد طلبات قيد التنفيذ حاليًا.",
+                  "en": "No running orders right now."
+                },
+                "status": {
+                  "preparing": {
+                    "ar": "قيد التحضير",
+                    "en": "Preparing"
+                  },
+                  "served": {
+                    "ar": "تم التقديم",
+                    "en": "Served"
+                  }
+                },
+                "markServed": {
+                  "ar": "إنهاء الطلب",
+                  "en": "Mark as served"
+                }
+              }
+            }
+          }
+        </script>
+
+        <script type="application/json" data-m-data data-m-path="data">
+          {
+            "session": {
+              "location": "الصالة الرئيسية",
+              "shift": "الفترة الصباحية",
+              "server": "أمينة"
+            },
+            "tables": [
+              { "id": "T1", "name": "طاولة 1", "capacity": 4, "status": "available" },
+              { "id": "T2", "name": "طاولة 2", "capacity": 2, "status": "occupied" },
+              { "id": "T3", "name": "طاولة 3", "capacity": 6, "status": "available" },
+              { "id": "T4", "name": "طاولة 4", "capacity": 4, "status": "reserved" },
+              { "id": "T5", "name": "طاولة 5", "capacity": 3, "status": "available" },
+              { "id": "T6", "name": "طاولة 6", "capacity": 2, "status": "available" }
+            ],
+            "menu": {
+              "categories": [
+                { "id": "all", "labelKey": "posTablet.menu.categories.all" },
+                { "id": "hot", "labelKey": "posTablet.menu.categories.hot" },
+                { "id": "cold", "labelKey": "posTablet.menu.categories.cold" },
+                { "id": "main", "labelKey": "posTablet.menu.categories.main" },
+                { "id": "dessert", "labelKey": "posTablet.menu.categories.dessert" }
+              ],
+              "items": [
+                { "id": "espresso", "name": "قهوة إسبريسو", "price": 12, "category": "hot", "tags": ["سنجل", "ساخن"] },
+                { "id": "flat-white", "name": "فلات وايت", "price": 18, "category": "hot", "tags": ["حليب", "مشروب متخصص"] },
+                { "id": "iced-latte", "name": "آيس لاتيه بالفانيلا", "price": 20, "category": "cold", "tags": ["بارد", "موسمي"] },
+                { "id": "lemonade", "name": "ليمون بالنعناع", "price": 16, "category": "cold", "tags": ["بارد", "مفضل"] },
+                { "id": "shawarma", "name": "شاورما دجاج بالمشواة", "price": 32, "category": "main", "tags": ["طبق سريع"] },
+                { "id": "steak", "name": "ستيك مشوي بالأعشاب", "price": 68, "category": "main", "tags": ["مميز"] },
+                { "id": "salmon", "name": "فيليه سلمون بصوص الليمون", "price": 74, "category": "main", "tags": ["موسمي"] },
+                { "id": "kunafa", "name": "كنافة بالقشطة", "price": 22, "category": "dessert", "tags": ["ساخن"] },
+                { "id": "cheesecake", "name": "تشيز كيك بالتوت", "price": 24, "category": "dessert", "tags": ["بارد"] }
+              ]
+            },
+            "filters": {
+              "query": "",
+              "category": "all"
+            },
+            "cart": {
+              "tableId": "",
+              "items": []
+            },
+            "orders": [
+              {
+                "id": "ORD-1024",
+                "tableId": "T2",
+                "tableName": "طاولة 2",
+                "startedAt": "10:05",
+                "status": "preparing",
+                "items": [
+                  { "id": "shawarma", "name": "شاورما دجاج بالمشواة", "qty": 2, "price": 32 },
+                  { "id": "lemonade", "name": "ليمون بالنعناع", "qty": 2, "price": 16 }
+                ],
+                "total": 96
+              },
+              {
+                "id": "ORD-1023",
+                "tableId": "T4",
+                "tableName": "طاولة 4",
+                "startedAt": "09:58",
+                "status": "preparing",
+                "items": [
+                  { "id": "steak", "name": "ستيك مشوي بالأعشاب", "qty": 1, "price": 68 },
+                  { "id": "espresso", "name": "قهوة إسبريسو", "qty": 2, "price": 12 }
+                ],
+                "total": 92
+              }
+            ]
+          }
+        </script>
+
+        <div class="pos-tablet-shell">
+          <header class="pos-header">
+            <div>
+              <h1>{trans('posTablet.header.title')}</h1>
+              <p>{trans('posTablet.header.subtitle')}</p>
+            </div>
+            <div class="header-meta">
+              <span class="meta-chip">📍 {trans('posTablet.header.location')} • {state.data.session.location}</span>
+              <span class="meta-chip" data-tone="soft">🕒 {trans('posTablet.header.shift')} • {state.data.session.shift}</span>
+              <span class="meta-chip" data-tone="soft">🧑‍🍳 {trans('posTablet.header.server')} • {state.data.session.server}</span>
+            </div>
+          </header>
+
+          <div class="tablet-layout">
+            <aside class="panel tables-panel">
+              <div class="panel-head">
+                <h2>{trans('posTablet.tables.title')}</h2>
+                <span class="badge">{state.data.tables.length}</span>
+              </div>
+              <div class="tables-grid">
+                <button
+                  class="table-card {state.data.cart.tableId === table.id ? 'is-active' : ''}"
+                  x-for="table in state.data.tables"
+                  key="table.id"
+                  onclick="selectTable(table.id, ctx)"
+                >
+                  <span class="table-name">{table.name}</span>
+                  <span class="table-meta">{trans('posTablet.tables.capacity')} • {table.capacity}</span>
+                  <span class="table-status" data-status="{table.status}">{tableStatusLabel(table, ctx)}</span>
+                  <span class="table-orders" x-if="activeOrdersCount(table.id, ctx)">
+                    {activeOrdersCount(table.id, ctx)} {trans('posTablet.tables.activeOrders')}
+                  </span>
+                </button>
+              </div>
+            </aside>
+
+            <section class="panel menu-panel">
+              <div class="panel-head">
+                <h2>{trans('posTablet.menu.title')}</h2>
+                <span class="badge">{state.data.visibleMenu ? state.data.visibleMenu.length : state.data.menu.items.length}</span>
+              </div>
+              <div class="menu-controls">
+                <div class="menu-tabs">
+                  <button
+                    x-for="category in state.data.menu.categories"
+                    key="category.id"
+                    class="{state.data.filters.category === category.id ? 'active' : ''}"
+                    onclick="setCategory(category.id, ctx)"
+                  >
+                    {trans(category.labelKey)}
+                  </button>
+                </div>
+                <label class="menu-search">
+                  <span class="icon">🔍</span>
+                  <input
+                    type="search"
+                    placeholder="{trans('posTablet.menu.search')}"
+                    value="{state.data.filters.query}"
+                    oninput="updateQuery(event, ctx)"
+                  />
+                </label>
+              </div>
+              <div class="menu-grid" x-if="state.data.visibleMenu && state.data.visibleMenu.length">
+                <button
+                  class="menu-item"
+                  x-for="item in state.data.visibleMenu"
+                  key="item.id"
+                  onclick="addToCart(item.id, ctx)"
+                >
+                  <strong>{item.name}</strong>
+                  <span class="item-price">{formatPrice(item.price, ctx)}</span>
+                  <div class="item-tags" x-if="item.tags && item.tags.length">
+                    <span x-for="tag in item.tags" key="item.id + '-' + tag">#{tag}</span>
+                  </div>
+                </button>
+              </div>
+              <p class="empty" x-if="!state.data.visibleMenu || !state.data.visibleMenu.length">{trans('posTablet.cart.empty')}</p>
+            </section>
+
+            <aside class="column-panels">
+              <section class="panel cart-panel">
+                <div class="panel-head">
+                  <h2>{trans('posTablet.cart.title')}</h2>
+                  <span class="cart-table-label" x-if="cartTableName(ctx)">
+                    {trans('posTablet.cart.currentTable')} • {cartTableName(ctx)}
+                  </span>
+                </div>
+                <p class="empty" x-if="!state.data.cart.items.length">{trans('posTablet.cart.empty')}</p>
+                <ul class="cart-list" x-if="state.data.cart.items.length">
+                  <li class="cart-item" x-for="item in state.data.cart.items" key="item.id">
+                    <div class="cart-item-content">
+                      <div>
+                        <strong>{item.name}</strong>
+                        <div class="item-tags">
+                          <span>{formatPrice(item.price, ctx)}</span>
+                        </div>
+                      </div>
+                      <div class="cart-item-actions">
+                        <button onclick="adjustCart(item.id, -1, ctx)">−</button>
+                        <span>{item.qty}</span>
+                        <button onclick="adjustCart(item.id, 1, ctx)">+</button>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+                <div class="cart-summary" x-if="state.data.cart.items.length">
+                  <span>{trans('posTablet.cart.total')}</span>
+                  <strong>{formatPrice(cartTotal(ctx), ctx)}</strong>
+                </div>
+                <div class="cart-actions" x-if="state.data.cart.items.length">
+                  <button onclick="clearCart(ctx)">{trans('posTablet.cart.clear')}</button>
+                  <button data-variant="primary" onclick="submitOrder(ctx)" disabled="{!canSubmitOrder(ctx)}">
+                    {trans('posTablet.cart.submit')}
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel orders-panel">
+                <div class="panel-head">
+                  <h2>{trans('posTablet.orders.title')}</h2>
+                  <span class="badge">{state.data.orders.length}</span>
+                </div>
+                <p class="empty" x-if="!state.data.orders.length">{trans('posTablet.orders.empty')}</p>
+                <ul class="orders-list" x-if="state.data.orders.length">
+                  <li class="order-card" x-for="order in state.data.orders" key="order.id">
+                    <header>
+                      <span>{order.id}</span>
+                      <span>🪑 {order.tableName}</span>
+                    </header>
+                    <p class="order-time">🕒 {order.startedAt}</p>
+                    <div class="order-items">
+                      <div class="order-item-row" x-for="orderItem in order.items" key="orderItem.id + '-' + order.id">
+                        <span>{orderItem.qty}× {orderItem.name}</span>
+                        <span>{formatPrice(orderItem.price * orderItem.qty, ctx)}</span>
+                      </div>
+                    </div>
+                    <div class="order-footer">
+                      <span class="order-status status-{order.status}">{orderStatusLabel(order, ctx)}</span>
+                      <strong>{formatPrice(order.total, ctx)}</strong>
+                    </div>
+                    <div class="order-actions" x-if="order.status !== 'served'">
+                      <button onclick="completeOrder(order.id, ctx)">{trans('posTablet.orders.markServed')}</button>
+                    </div>
+                  </li>
+                </ul>
+              </section>
+            </aside>
+          </div>
+        </div>
+
+        <script>
+          function cloneState(prev) {
+            try {
+              return JSON.parse(JSON.stringify(prev || {}));
+            } catch (_error) {
+              return prev ? Object.assign({}, prev) : {};
+            }
+          }
+
+          function commit(ctx, mutate, after) {
+            if (!ctx || typeof ctx.setState !== 'function') return;
+            ctx.setState(function (prev) {
+              var draft = cloneState(prev);
+              if (typeof mutate === 'function') {
+                mutate(draft, prev || {});
+              }
+              return draft;
+            });
+            if (typeof after === 'function') {
+              try {
+                after(ctx.getState(), ctx);
+              } catch (_err) {}
+            }
+          }
+
+          function getState(ctx) {
+            if (!ctx || typeof ctx.getState !== 'function') return null;
+            return ctx.getState();
+          }
+
+          function ensureData(target) {
+            target.data = target.data || {};
+            return target.data;
+          }
+
+          function computeVisibleMenu(data) {
+            data = data || {};
+            var items = (data.menu && data.menu.items) || [];
+            var filters = data.filters || {};
+            var query = (filters.query || '').toLowerCase();
+            var category = filters.category || 'all';
+            return items.filter(function (item) {
+              var matchesCategory = category === 'all' || item.category === category;
+              if (!matchesCategory) return false;
+              if (!query) return true;
+              var name = (item.name || '').toLowerCase();
+              var tags = Array.isArray(item.tags) ? item.tags.join(' ').toLowerCase() : '';
+              return name.indexOf(query) !== -1 || tags.indexOf(query) !== -1;
+            });
+          }
+
+          function syncTableStatuses(data) {
+            data = data || {};
+            var tables = Array.isArray(data.tables) ? data.tables : [];
+            var orders = Array.isArray(data.orders) ? data.orders : [];
+            tables.forEach(function (table) {
+              var active = orders.filter(function (order) {
+                return order.tableId === table.id && order.status !== 'served';
+              }).length;
+              if (active > 0) {
+                table.status = table.status === 'reserved' ? 'reserved' : 'occupied';
+              } else if (table.status !== 'reserved') {
+                table.status = 'available';
+              }
+            });
+          }
+
+          function selectTable(tableId, ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              data.cart = data.cart || { tableId: '', items: [] };
+              data.cart.tableId = tableId;
+            });
+          }
+
+          function updateQuery(event, ctx) {
+            var value = event && event.target ? event.target.value : '';
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              data.filters = data.filters || { query: '', category: 'all' };
+              data.filters.query = value;
+              data.visibleMenu = computeVisibleMenu(data);
+            });
+          }
+
+          function setCategory(categoryId, ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              data.filters = data.filters || { query: '', category: 'all' };
+              data.filters.category = categoryId;
+              data.visibleMenu = computeVisibleMenu(data);
+            });
+          }
+
+          function addToCart(itemId, ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              var menuItems = (data.menu && data.menu.items) || [];
+              var item = menuItems.find(function (menuItem) {
+                return menuItem.id === itemId;
+              });
+              if (!item) return;
+              data.cart = data.cart || { tableId: '', items: [] };
+              if (!data.cart.tableId) {
+                var tables = Array.isArray(data.tables) ? data.tables : [];
+                data.cart.tableId = tables.length ? tables[0].id : '';
+              }
+              data.cart.items = Array.isArray(data.cart.items) ? data.cart.items : [];
+              var existing = data.cart.items.find(function (entry) {
+                return entry.id === itemId;
+              });
+              if (existing) {
+                existing.qty += 1;
+              } else {
+                data.cart.items.push({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price,
+                  qty: 1
+                });
+              }
+            });
+          }
+
+          function adjustCart(itemId, delta, ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              if (!data.cart || !Array.isArray(data.cart.items)) return;
+              data.cart.items = data.cart.items.reduce(function (acc, item) {
+                if (item.id !== itemId) {
+                  acc.push(item);
+                  return acc;
+                }
+                var nextQty = (item.qty || 0) + delta;
+                if (nextQty > 0) {
+                  item.qty = nextQty;
+                  acc.push(item);
+                }
+                return acc;
+              }, []);
+            });
+          }
+
+          function clearCart(ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              if (!data.cart) return;
+              data.cart.items = [];
+            });
+          }
+
+          function cartTableName(ctx) {
+            var state = getState(ctx);
+            if (!state || !state.data) return '';
+            var cart = state.data.cart || {};
+            if (!cart.tableId) return '';
+            var tables = Array.isArray(state.data.tables) ? state.data.tables : [];
+            var table = tables.find(function (entry) {
+              return entry.id === cart.tableId;
+            });
+            return table ? table.name : cart.tableId;
+          }
+
+          function cartTotal(ctx) {
+            var state = getState(ctx);
+            if (!state || !state.data) return 0;
+            var items = (state.data.cart && state.data.cart.items) || [];
+            return items.reduce(function (sum, item) {
+              return sum + item.price * item.qty;
+            }, 0);
+          }
+
+          function canSubmitOrder(ctx) {
+            var state = getState(ctx);
+            if (!state || !state.data) return false;
+            var cart = state.data.cart || {};
+            return Boolean(cart.tableId && cart.items && cart.items.length);
+          }
+
+          function formatPrice(value, ctx) {
+            var amount = Number(value || 0);
+            var state = getState(ctx);
+            var lang = (state && state.env && state.env.lang) || 'ar';
+            try {
+              return new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-US', {
+                style: 'currency',
+                currency: 'SAR',
+                minimumFractionDigits: amount % 1 === 0 ? 0 : 2
+              }).format(amount);
+            } catch (_error) {
+              return amount.toFixed(amount % 1 === 0 ? 0 : 2) + ' ر.س';
+            }
+          }
+
+          function activeOrdersCount(tableId, ctx) {
+            var state = getState(ctx);
+            if (!state || !state.data) return 0;
+            var orders = Array.isArray(state.data.orders) ? state.data.orders : [];
+            return orders.filter(function (order) {
+              return order.tableId === tableId && order.status !== 'served';
+            }).length;
+          }
+
+          function orderStatusLabel(order, ctx) {
+            if (!order) return '';
+            var key = 'posTablet.orders.status.' + (order.status || 'preparing');
+            return typeof trans === 'function' ? trans(key) : order.status;
+          }
+
+          function completeOrder(orderId, ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              var orders = Array.isArray(data.orders) ? data.orders : [];
+              var order = orders.find(function (entry) {
+                return entry.id === orderId;
+              });
+              if (!order) return;
+              order.status = 'served';
+              syncTableStatuses(data);
+            });
+          }
+
+          function submitOrder(ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              var cart = data.cart || {};
+              if (!cart.tableId || !Array.isArray(cart.items) || !cart.items.length) return;
+              var tables = Array.isArray(data.tables) ? data.tables : [];
+              var table = tables.find(function (entry) {
+                return entry.id === cart.tableId;
+              });
+              var now = new Date();
+              var stamp;
+              try {
+                stamp = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+              } catch (_error) {
+                stamp = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+              }
+              var orderId = 'ORD-' + now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0') + now.getSeconds().toString().padStart(2, '0');
+              var items = cart.items.map(function (item) {
+                return {
+                  id: item.id,
+                  name: item.name,
+                  qty: item.qty,
+                  price: item.price
+                };
+              });
+              var total = items.reduce(function (sum, item) {
+                return sum + item.price * item.qty;
+              }, 0);
+              data.orders = Array.isArray(data.orders) ? data.orders : [];
+              data.orders.unshift({
+                id: orderId,
+                tableId: cart.tableId,
+                tableName: table ? table.name : cart.tableId,
+                startedAt: stamp,
+                status: 'preparing',
+                items: items,
+                total: total
+              });
+              data.cart.items = [];
+              syncTableStatuses(data);
+            });
+          }
+
+          function tableStatusLabel(table, ctx) {
+            if (!table) return '';
+            var key = 'posTablet.tables.status.' + (table.status || 'available');
+            return typeof trans === 'function' ? trans(key) : table.status;
+          }
+
+          function __init__(ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              data.visibleMenu = computeVisibleMenu(data);
+              if (!data.cart) {
+                data.cart = { tableId: '', items: [] };
+              }
+              if (!data.cart.tableId) {
+                var tables = Array.isArray(data.tables) ? data.tables : [];
+                data.cart.tableId = tables.length ? tables[0].id : '';
+              }
+              syncTableStatuses(data);
+            });
+          }
+        </script>
+      </section>
+    </template>
+
+    <script>
+      if (window.Mishkah && window.Mishkah.auto && typeof window.Mishkah.auto.make === 'function') {
+        window.Mishkah.auto
+          .make()
+          .catch(function (error) {
+            console.error('Mishkah auto init failed', error);
+          });
+
+        window.addEventListener('mishkah:auto-ready', function handleAutoReady() {
+          window.Mishkah.auto
+            .make()
+            .catch(function (error) {
+              console.error('Mishkah auto re-init failed', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
