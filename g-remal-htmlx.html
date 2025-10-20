@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>G-Remal Hotel — Alexandria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Playfair+Display:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --mk-body-font: 'Cairo', system-ui;
+        --mk-display-font: 'Playfair Display', 'Cairo', system-ui;
+        --mk-bg: linear-gradient(160deg, #f4f6fb 0%, #dfe7ff 100%);
+        --mk-surface: rgba(255, 255, 255, 0.82);
+        --mk-panel: rgba(255, 255, 255, 0.94);
+        --mk-border: rgba(59, 130, 246, 0.18);
+        --mk-muted: rgba(75, 85, 99, 0.72);
+        --mk-foreground: #0f172a;
+        --mk-primary: #2563eb;
+        --mk-primary-soft: rgba(37, 99, 235, 0.12);
+        --mk-primary-foreground: #f8fafc;
+        --mk-accent: rgba(99, 102, 241, 0.18);
+        --mk-card-shadow: 0 25px 65px -35px rgba(15, 23, 42, 0.35);
+        --mk-glow-1: radial-gradient(circle at 25% 20%, rgba(59, 130, 246, 0.18), transparent 60%);
+        --mk-glow-2: radial-gradient(circle at 80% 80%, rgba(14, 165, 233, 0.16), transparent 55%);
+      }
+
+      :root.dark {
+        --mk-bg: linear-gradient(160deg, #0b1224 0%, #182544 100%);
+        --mk-surface: rgba(15, 23, 42, 0.78);
+        --mk-panel: rgba(15, 23, 42, 0.86);
+        --mk-border: rgba(148, 163, 184, 0.32);
+        --mk-muted: rgba(203, 213, 225, 0.78);
+        --mk-foreground: #f8fafc;
+        --mk-primary: #60a5fa;
+        --mk-primary-soft: rgba(96, 165, 250, 0.16);
+        --mk-primary-foreground: #0b1224;
+        --mk-accent: rgba(96, 165, 250, 0.28);
+        --mk-card-shadow: 0 28px 65px -28px rgba(15, 23, 42, 0.65);
+        --mk-glow-1: radial-gradient(circle at 25% 20%, rgba(76, 29, 149, 0.32), transparent 65%);
+        --mk-glow-2: radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.28), transparent 60%);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--mk-body-font);
+        background: var(--mk-bg);
+        color: var(--mk-foreground);
+      }
+
+      .page-shell {
+        position: relative;
+        min-height: 100vh;
+        padding: 2rem 1.5rem 3.5rem;
+        overflow: hidden;
+      }
+
+      .page-shell::before,
+      .page-shell::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .page-shell::before {
+        background: var(--mk-glow-1);
+      }
+
+      .page-shell::after {
+        background: var(--mk-glow-2);
+      }
+
+      .app-card {
+        max-width: 1320px;
+        margin: 0 auto;
+        border-radius: 2.5rem;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-surface);
+        backdrop-filter: blur(22px);
+        box-shadow: var(--mk-card-shadow);
+        overflow: hidden;
+        display: grid;
+        gap: 3rem;
+      }
+
+      header.hero {
+        display: grid;
+        gap: 1.75rem;
+        padding: 2.75rem 2.5rem 0;
+      }
+
+      .hero-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.55rem 1.4rem;
+        border-radius: 999px;
+        background: var(--mk-primary-soft);
+        color: var(--mk-primary);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .segmented {
+        display: inline-flex;
+        align-items: center;
+        background: var(--mk-panel);
+        border-radius: 999px;
+        border: 1px solid var(--mk-border);
+        padding: 0.3rem;
+        gap: 0.3rem;
+      }
+
+      .segmented button {
+        border: none;
+        background: transparent;
+        color: var(--mk-muted);
+        font-weight: 600;
+        padding: 0.55rem 1.25rem;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .segmented button.active {
+        background: var(--mk-primary);
+        color: var(--mk-primary-foreground);
+        box-shadow: 0 16px 42px -28px rgba(37, 99, 235, 0.8);
+      }
+
+      .hero-grid {
+        display: grid;
+        gap: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: center;
+      }
+
+      .hero-text h1 {
+        margin: 0;
+        font-family: var(--mk-display-font);
+        font-size: clamp(2.4rem, 4vw, 3.6rem);
+        line-height: 1.12;
+      }
+
+      .hero-text p {
+        margin: 0.85rem 0 1.5rem;
+        color: var(--mk-muted);
+        font-size: 1.05rem;
+        line-height: 1.7;
+      }
+
+      .button {
+        border: none;
+        border-radius: 999px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.7rem 1.6rem;
+        transition: transform 0.18s ease, box-shadow 0.22s ease;
+      }
+
+      .button.primary {
+        background: var(--mk-primary);
+        color: var(--mk-primary-foreground);
+        box-shadow: 0 14px 36px -20px rgba(37, 99, 235, 0.65);
+      }
+
+      .button.ghost {
+        background: transparent;
+        color: var(--mk-foreground);
+        border: 1px solid var(--mk-border);
+      }
+
+      .button.primary:hover {
+        transform: translateY(-2px);
+      }
+
+      .button.ghost:hover {
+        transform: translateY(-1px);
+      }
+
+      .hero-image {
+        position: relative;
+        border-radius: 2rem;
+        overflow: hidden;
+        min-height: 300px;
+        border: 1px solid var(--mk-border);
+        box-shadow: var(--mk-card-shadow);
+      }
+
+      .hero-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      main.content {
+        display: grid;
+        gap: 2.5rem;
+        padding: 0 2.5rem 3rem;
+      }
+
+      .section {
+        border-radius: 2rem;
+        background: var(--mk-panel);
+        border: 1px solid var(--mk-border);
+        padding: 2.25rem;
+        box-shadow: var(--mk-card-shadow);
+        display: grid;
+        gap: 1.6rem;
+      }
+
+      .section-header {
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      .section-header h2 {
+        margin: 0;
+        font-size: 1.8rem;
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--mk-muted);
+      }
+
+      .highlights {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .highlight-card {
+        border-radius: 1.6rem;
+        background: var(--mk-surface);
+        border: 1px solid var(--mk-border);
+        padding: 1.6rem;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .highlight-card img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 1.2rem;
+        border: 1px solid var(--mk-border);
+      }
+
+      .highlight-card h3 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+
+      .highlight-card p {
+        margin: 0;
+        color: var(--mk-muted);
+        line-height: 1.7;
+      }
+
+      .rooms-grid {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .room-card {
+        border-radius: 1.8rem;
+        overflow: hidden;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-surface);
+        display: grid;
+        grid-template-rows: 200px 1fr;
+        box-shadow: var(--mk-card-shadow);
+      }
+
+      .room-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .room-body {
+        padding: 1.6rem;
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .room-body h3 {
+        margin: 0;
+        font-size: 1.3rem;
+      }
+
+      .room-meta {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--mk-muted);
+        font-size: 0.95rem;
+      }
+
+      .room-price {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        font-weight: 700;
+        font-size: 1.2rem;
+        color: var(--mk-primary);
+      }
+
+      .amenities-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .amenity-card {
+        border-radius: 1.2rem;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-surface);
+        padding: 1.25rem;
+        display: grid;
+        gap: 0.5rem;
+        align-content: start;
+      }
+
+      .amenity-card span.icon {
+        font-size: 1.7rem;
+      }
+
+      .gallery-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .gallery-grid img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 1.2rem;
+        border: 1px solid var(--mk-border);
+      }
+
+      .testimonials {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .testimonial-card {
+        border-radius: 1.6rem;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-surface);
+        padding: 1.6rem;
+        display: grid;
+        gap: 0.8rem;
+      }
+
+      .testimonial-card p {
+        margin: 0;
+        color: var(--mk-muted);
+        line-height: 1.6;
+      }
+
+      .testimonial-card strong {
+        font-size: 1rem;
+      }
+
+      form.booking-form {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      label.field {
+        display: grid;
+        gap: 0.45rem;
+        font-weight: 600;
+      }
+
+      label.field span {
+        color: var(--mk-muted);
+        font-weight: 500;
+      }
+
+      select,
+      input,
+      textarea {
+        border-radius: 1rem;
+        border: 1px solid var(--mk-border);
+        padding: 0.65rem 0.9rem;
+        font: inherit;
+        color: inherit;
+        background: var(--mk-panel);
+      }
+
+      textarea {
+        min-height: 140px;
+        resize: vertical;
+      }
+
+      .booking-summary {
+        border-radius: 1.4rem;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-primary-soft);
+        color: var(--mk-foreground);
+        padding: 1.4rem;
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .contact-card {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .contact-info {
+        border-radius: 1.4rem;
+        border: 1px solid var(--mk-border);
+        background: var(--mk-surface);
+        padding: 1.5rem;
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .contact-info span {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        color: var(--mk-muted);
+      }
+
+      .map-frame iframe {
+        width: 100%;
+        min-height: 320px;
+        border: 0;
+        border-radius: 1.6rem;
+      }
+
+      footer.site-footer {
+        padding: 0 2.5rem 2.5rem;
+        color: var(--mk-muted);
+        text-align: center;
+      }
+
+      @media (max-width: 720px) {
+        header.hero {
+          padding: 2rem 1.5rem 0;
+        }
+
+        main.content {
+          padding: 0 1.5rem 2.5rem;
+        }
+
+        .app-card {
+          border-radius: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="g-remal-htmlx">
+      <script type="application/json" data-m-env>
+        {
+          "theme": "light",
+          "lang": "ar",
+          "dir": "rtl",
+          "flags": {
+            "hotelExperience": true
+          }
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="head">
+        {
+          "title": "فندق جي-رمال المعمورة — G-Remal Al Maamoura Hotel"
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="i18n.strings">
+        {
+          "hotel.name": { "ar": "فندق جي-رمال المعمورة", "en": "G-Remal Al Maamoura Hotel" },
+          "hotel.tagline": { "ar": "فخامة بحرية على ضفاف المعمورة", "en": "Seaside luxury on Al Maamoura shores" },
+          "hero.lead": {
+            "ar": "وجهة فندقية بخدمات عالمية في قلب الإسكندرية، تجمع بين أصالة المتوسط وروعة التصميم المعاصر.",
+            "en": "A world-class hideaway in Alexandria blending Mediterranean heritage with contemporary elegance."
+          },
+          "hero.primary": { "ar": "احجز إقامتك", "en": "Book your stay" },
+          "hero.secondary": { "ar": "استكشف الإسكندرية", "en": "Discover Alexandria" },
+          "controls.theme.light": { "ar": "نهاري", "en": "Light" },
+          "controls.theme.dark": { "ar": "ليلي", "en": "Dark" },
+          "controls.lang.ar": { "ar": "العربية", "en": "Arabic" },
+          "controls.lang.en": { "ar": "English", "en": "English" },
+          "section.about.title": { "ar": "سحر المدينة المتوسطية", "en": "Mediterranean allure" },
+          "section.about.subtitle": {
+            "ar": "الإسكندرية والمعمورة تمنحانك إيقاعًا لا يُنسى من البحر والحدائق والأنشطة الليلية.",
+            "en": "Alexandria and Al Maamoura offer an unforgettable rhythm of sea breeze, gardens, and night life."
+          },
+          "section.rooms.title": { "ar": "اختيارات الغرف", "en": "Room collections" },
+          "section.rooms.subtitle": {
+            "ar": "غرف مجهزة بتقنيات مشكاة، متاحة للإقامات الفردية والعائلية.",
+            "en": "Mishkah-enabled spaces tailored for solo travellers and families." },
+          "section.rooms.capacity": { "ar": "السعة", "en": "Capacity" },
+          "section.rooms.beds": { "ar": "الأسرة", "en": "Beds" },
+          "section.rooms.view": { "ar": "الإطلالة", "en": "View" },
+          "section.amenities.title": { "ar": "لمسات مشكاة", "en": "Mishkah touches" },
+          "section.amenities.subtitle": {
+            "ar": "خدمات ذكية تضمن رفاهية المقيم وراحة الطاقم.",
+            "en": "Intelligent services elevating every guest experience." },
+          "section.gallery.title": { "ar": "جولة بصرية", "en": "Visual tour" },
+          "section.gallery.subtitle": {
+            "ar": "لقطات حقيقية من غرف الفندق وأجنحته المطلة على البحر.",
+            "en": "Authentic captures from guest rooms and sea-view suites." },
+          "section.testimonials.title": { "ar": "قصص الزوار", "en": "Guest stories" },
+          "section.testimonials.subtitle": {
+            "ar": "مراجعات عالمية تثني على الضيافة والإطلالة.",
+            "en": "Global reviews praising hospitality and views." },
+          "section.booking.title": { "ar": "نموذج الحجز الفوري", "en": "Instant booking form" },
+          "section.booking.subtitle": {
+            "ar": "حدد نوع الغرفة، عدد الليالي، والضيوف لتأكيد طلبك.",
+            "en": "Select your room, nights, and guests to confirm your request." },
+          "booking.roomType": { "ar": "نوع الغرفة", "en": "Room type" },
+          "booking.nights": { "ar": "عدد الليالي", "en": "Nights" },
+          "booking.guests": { "ar": "عدد النزلاء", "en": "Guests" },
+          "booking.checkIn": { "ar": "تاريخ الوصول", "en": "Check-in date" },
+          "booking.checkOut": { "ar": "تاريخ المغادرة", "en": "Check-out" },
+          "booking.notes": { "ar": "ملاحظات إضافية", "en": "Additional notes" },
+          "booking.submit": { "ar": "تأكيد الحجز", "en": "Confirm booking" },
+          "booking.summary": { "ar": "ملخص الحجز", "en": "Booking summary" },
+          "booking.summary.room": { "ar": "الغرفة", "en": "Room" },
+          "booking.summary.guests": { "ar": "الضيوف", "en": "Guests" },
+          "booking.summary.nights": { "ar": "الليالي", "en": "Nights" },
+          "booking.summary.total": { "ar": "الإجمالي", "en": "Total" },
+          "booking.success": {
+            "ar": "تم استلام طلبك وسيقوم فريق الحجوزات بالتواصل خلال ساعات قليلة.",
+            "en": "Your request has been received. Our concierge will reach you within hours." },
+          "section.contact.title": { "ar": "تواصل معنا", "en": "Get in touch" },
+          "section.contact.subtitle": {
+            "ar": "قنوات مباشرة مع فريق الاستقبال العالمي لفندق جي-رمال.",
+            "en": "Direct lines to the global concierge team of G-Remal." },
+          "contact.phone": { "ar": "هاتف", "en": "Phone" },
+          "contact.email": { "ar": "البريد الإلكتروني", "en": "Email" },
+          "contact.address": { "ar": "العنوان", "en": "Address" },
+          "section.map.title": { "ar": "الموقع على الخريطة", "en": "Location on the map" },
+          "section.map.subtitle": {
+            "ar": "وسط حدائق المعمورة وعلى بعد خطوات من البحر الأبيض المتوسط.",
+            "en": "In the heart of Al Maamoura gardens, steps from the Mediterranean Sea." },
+          "footer.rights": {
+            "ar": "© {year} فندق جي-رمال المعمورة — جميع الحقوق محفوظة.",
+            "en": "© {year} G-Remal Al Maamoura Hotel — All rights reserved." }
+        }
+      </script>
+
+      <script type="application/json" data-m-data data-m-path="data">
+        {
+          "booking": {
+            "roomType": "double",
+            "nights": 2,
+            "guests": 2,
+            "checkIn": "",
+            "checkOut": "",
+            "notes": ""
+          },
+          "bookingSummary": null,
+          "gallery": [
+            {
+              "src": "https://images.unsplash.com/photo-1505693314120-0d443867891c?auto=format&fit=crop&w=1200&q=80",
+              "alt": {
+                "ar": "غرفة مطلة على البحر بفندق جي-رمال",
+                "en": "Sea-view guest room at G-Remal"
+              }
+            },
+            {
+              "src": "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?auto=format&fit=crop&w=1200&q=80",
+              "alt": {
+                "ar": "جناح فندقي واسع بإضاءة طبيعية",
+                "en": "Spacious suite with natural light"
+              }
+            },
+            {
+              "src": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80",
+              "alt": {
+                "ar": "منطقة جلوس معاصرة",
+                "en": "Contemporary lounge area"
+              }
+            },
+            {
+              "src": "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
+              "alt": {
+                "ar": "حوض سباحة خارجي",
+                "en": "Outdoor infinity pool"
+              }
+            }
+          ],
+          "rooms": [
+            {
+              "id": "single",
+              "type": "single",
+              "pricePerNight": 155,
+              "currency": "USD",
+              "name": { "ar": "غرفة نخبة فردية", "en": "Premier Single" },
+              "description": {
+                "ar": "مساحة أنيقة مزودة بمكتب ذكي ومكالمات فيديو عالية الخصوصية.",
+                "en": "Elegant space featuring a smart workstation and high-privacy video cabin."
+              },
+              "capacity": { "ar": "نزيل واحد", "en": "1 guest" },
+              "beds": { "ar": "سرير ملكي", "en": "King bed" },
+              "view": { "ar": "إطلالة على حدائق المعمورة", "en": "Al Maamoura gardens" },
+              "image": "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80"
+            },
+            {
+              "id": "double",
+              "type": "double",
+              "pricePerNight": 220,
+              "currency": "USD",
+              "name": { "ar": "غرفة ثنائية مطلة على البحر", "en": "Sea-view Double" },
+              "description": {
+                "ar": "شرفة بانورامية، نظام صوتي غامر، وسريران فندقيان فاخران.",
+                "en": "Panoramic balcony, immersive audio, and twin signature beds."
+              },
+              "capacity": { "ar": "حتى نزيلين", "en": "Up to 2 guests" },
+              "beds": { "ar": "سريران فندقيان", "en": "Twin premium beds" },
+              "view": { "ar": "إطلالة على البحر الأبيض المتوسط", "en": "Mediterranean Sea" },
+              "image": "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80"
+            },
+            {
+              "id": "triple",
+              "type": "triple",
+              "pricePerNight": 310,
+              "currency": "USD",
+              "name": { "ar": "جناح عائلي ثلاثي", "en": "Family Triple Suite" },
+              "description": {
+                "ar": "غرفة معيشة منفصلة، ركن أطفال تفاعلي، وخدمة مضيف شخصي.",
+                "en": "Separate living room, interactive kids corner, and personal host service."
+              },
+              "capacity": { "ar": "ثلاثة إلى أربعة نزلاء", "en": "3 to 4 guests" },
+              "beds": { "ar": "سرير ملكي + أريكة سرير", "en": "King bed + sofa bed" },
+              "view": { "ar": "واجهة بحرية كاملة", "en": "Full sea frontage" },
+              "image": "https://images.unsplash.com/photo-1600585154340-0ef3c08dc63c?auto=format&fit=crop&w=1200&q=80"
+            }
+          ],
+          "amenities": [
+            {
+              "icon": "🌊",
+              "title": { "ar": "شرفة مطلة على البحر", "en": "Sea-facing balcony" },
+              "description": {
+                "ar": "إطلالة مباشرة على أمواج المتوسط من كل غرفة رئيسية.",
+                "en": "Direct Mediterranean views from every signature room." }
+            },
+            {
+              "icon": "🤖",
+              "title": { "ar": "مساعد شخصي ذكي", "en": "Smart concierge" },
+              "description": {
+                "ar": "مساعد متعدد اللغات لحجوزات المطاعم والجولات الخاصة.",
+                "en": "Multilingual assistant for dining and private tours." }
+            },
+            {
+              "icon": "🥗",
+              "title": { "ar": "مطبخ متوسطي", "en": "Mediterranean dining" },
+              "description": {
+                "ar": "تجربة تذوق ممزوجة بوصفات الإسكندرية التراثية.",
+                "en": "Culinary journeys infused with Alexandrian recipes." }
+            },
+            {
+              "icon": "🧘",
+              "title": { "ar": "منتجع وعافية", "en": "Spa & wellness" },
+              "description": {
+                "ar": "جلسات علاج بالملح البحري ومساجات متخصصة.",
+                "en": "Sea-salt rituals and bespoke massage sessions." }
+            }
+          ],
+          "highlights": [
+            {
+              "image": "https://images.unsplash.com/photo-1493558103817-58b2924bce98?auto=format&fit=crop&w=1200&q=80",
+              "title": { "ar": "الإسكندرية — عروس البحر", "en": "Alexandria — Bride of the Mediterranean" },
+              "body": {
+                "ar": "من مكتبة الإسكندرية إلى كورنيش البحر، المدينة تنبض بتاريخ بطلمي ورونق حداثي لا يتوقف.",
+                "en": "From the Bibliotheca Alexandrina to the seaside corniche, the city vibrates with Ptolemaic history and modern charm." }
+            },
+            {
+              "image": "https://images.unsplash.com/photo-1526481280695-3c46962212c5?auto=format&fit=crop&w=1200&q=80",
+              "title": { "ar": "المعمورة — منتجع النخبة", "en": "Al Maamoura — Elite resort" },
+              "body": {
+                "ar": "حدائق غنّاء، ممشى ساحلي نقي، ونوادٍ خاصة تجعلها الاختيار الأول للعائلات.",
+                "en": "Lush gardens, pristine promenades, and private clubs make it the top choice for families." }
+            },
+            {
+              "image": "https://images.unsplash.com/photo-1522708323590-9ffcc7dfc53c?auto=format&fit=crop&w=1200&q=80",
+              "title": { "ar": "أنشطة بحرية", "en": "Marine adventures" },
+              "body": {
+                "ar": "جولات يخوت عند الغروب، غوص، وتجديف بين الشعاب الرملية الذهبية.",
+                "en": "Sunset yacht tours, diving, and kayaking along golden sand reefs." }
+            }
+          ],
+          "testimonials": [
+            {
+              "quote": {
+                "ar": "أروع إقامة لنا في الإسكندرية؛ الخدمة تفوقت على الفنادق الأوروبية التي زرناها.",
+                "en": "Our finest stay in Alexandria; service surpassed European landmarks we've visited." },
+              "author": { "ar": "عائلة من دبي", "en": "Family from Dubai" }
+            },
+            {
+              "quote": {
+                "ar": "إطلالة خرافية وفريق متعاون؛ حجز الجولات البحرية كان في دقائق.",
+                "en": "Magnificent views and proactive team; yacht tours booked within minutes." },
+              "author": { "ar": "ضيفة من لندن", "en": "Guest from London" }
+            },
+            {
+              "quote": {
+                "ar": "التقنيات الذكية في الغرف جعلت الاجتماعات عن بعد سلسة للغاية.",
+                "en": "Smart in-room tech made hybrid meetings incredibly smooth." },
+              "author": { "ar": "رائد أعمال من الرياض", "en": "Entrepreneur from Riyadh" }
+            }
+          ]
+        }
+      </script>
+
+      <div class="page-shell">
+        <div class="app-card">
+          <header class="hero">
+            <div class="hero-top">
+              <div class="hero-badge">Alexandria · Al Maamoura</div>
+              <div class="hero-actions" style="margin-inline-start:auto">
+                <div class="segmented">
+                  <button class="{state.env.theme === 'light' ? 'active' : ''}" onclick="setTheme('light', ctx)">{trans('controls.theme.light')}</button>
+                  <button class="{state.env.theme === 'dark' ? 'active' : ''}" onclick="setTheme('dark', ctx)">{trans('controls.theme.dark')}</button>
+                </div>
+                <div class="segmented">
+                  <button class="{state.env.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar', ctx)">{trans('controls.lang.ar')}</button>
+                  <button class="{state.env.lang === 'en' ? 'active' : ''}" onclick="setLanguage('en', ctx)">{trans('controls.lang.en')}</button>
+                </div>
+              </div>
+            </div>
+            <div class="hero-grid">
+              <div class="hero-text">
+                <h1>{trans('hotel.name')}</h1>
+                <p>{trans('hero.lead')}</p>
+                <div class="hero-actions">
+                  <button class="button primary" onclick="scrollToSection('booking', ctx)">{trans('hero.primary')}</button>
+                  <button class="button ghost" onclick="scrollToSection('alexandria', ctx)">{trans('hero.secondary')}</button>
+                </div>
+              </div>
+              <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1505761671935-60b3a7427bad?auto=format&fit=crop&w=1400&q=80" alt="G-Remal Seaside" />
+              </div>
+            </div>
+          </header>
+
+          <main class="content">
+            <section class="section" id="alexandria">
+              <div class="section-header">
+                <h2>{trans('section.about.title')}</h2>
+                <p>{trans('section.about.subtitle')}</p>
+              </div>
+              <div class="highlights">
+                <div class="highlight-card" x-for="spot in state.data.highlights" key="spot.title.ar">
+                  <img src="{spot.image}" alt="{spot.title[state.env.lang]}" />
+                  <h3>{spot.title[state.env.lang]}</h3>
+                  <p>{spot.body[state.env.lang]}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="section" id="rooms">
+              <div class="section-header">
+                <h2>{trans('section.rooms.title')}</h2>
+                <p>{trans('section.rooms.subtitle')}</p>
+              </div>
+              <div class="rooms-grid">
+                <div class="room-card" x-for="room in state.data.rooms" key="room.id">
+                  <img src="{room.image}" alt="{room.name[state.env.lang]}" />
+                  <div class="room-body">
+                    <h3>{room.name[state.env.lang]}</h3>
+                    <p class="room-description">{room.description[state.env.lang]}</p>
+                    <div class="room-meta">
+                      <span>{trans('section.rooms.capacity')}: {room.capacity[state.env.lang]}</span>
+                      <span>{trans('section.rooms.beds')}: {room.beds[state.env.lang]}</span>
+                      <span>{trans('section.rooms.view')}: {room.view[state.env.lang]}</span>
+                    </div>
+                    <div class="room-price">{formatPrice(room.pricePerNight, state.env.lang, room.currency)}<span>/ {room.currency} {room.pricePerNight}</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="section" id="amenities">
+              <div class="section-header">
+                <h2>{trans('section.amenities.title')}</h2>
+                <p>{trans('section.amenities.subtitle')}</p>
+              </div>
+              <div class="amenities-grid">
+                <div class="amenity-card" x-for="amenity in state.data.amenities" key="amenity.title.ar">
+                  <span class="icon">{amenity.icon}</span>
+                  <strong>{amenity.title[state.env.lang]}</strong>
+                  <p>{amenity.description[state.env.lang]}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="section" id="gallery">
+              <div class="section-header">
+                <h2>{trans('section.gallery.title')}</h2>
+                <p>{trans('section.gallery.subtitle')}</p>
+              </div>
+              <div class="gallery-grid">
+                <img x-for="shot in state.data.gallery" key="shot.src" src="{shot.src}" alt="{shot.alt[state.env.lang]}" />
+              </div>
+            </section>
+
+            <section class="section" id="testimonials">
+              <div class="section-header">
+                <h2>{trans('section.testimonials.title')}</h2>
+                <p>{trans('section.testimonials.subtitle')}</p>
+              </div>
+              <div class="testimonials">
+                <div class="testimonial-card" x-for="review in state.data.testimonials" key="review.author.ar">
+                  <p>“{review.quote[state.env.lang]}”</p>
+                  <strong>{review.author[state.env.lang]}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="section" id="booking">
+              <div class="section-header">
+                <h2>{trans('section.booking.title')}</h2>
+                <p>{trans('section.booking.subtitle')}</p>
+              </div>
+              <form class="booking-form" onsubmit="submitBooking(event, ctx)">
+                <div class="form-grid">
+                  <label class="field">
+                    <span>{trans('booking.roomType')}</span>
+                    <select onchange="updateBookingField('roomType', event, ctx)" value="{state.data.booking.roomType}">
+                      <option x-for="room in state.data.rooms" key="room.id" value="{room.type}" selected="{room.type === state.data.booking.roomType ? 'selected' : null}">{room.name[state.env.lang]}</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>{trans('booking.nights')}</span>
+                    <input type="number" min="1" max="21" value="{state.data.booking.nights}" onchange="updateBookingField('nights', event, ctx)" />
+                  </label>
+                  <label class="field">
+                    <span>{trans('booking.guests')}</span>
+                    <input type="number" min="1" max="6" value="{state.data.booking.guests}" onchange="updateBookingField('guests', event, ctx)" />
+                  </label>
+                  <label class="field">
+                    <span>{trans('booking.checkIn')}</span>
+                    <input type="date" value="{state.data.booking.checkIn}" onchange="updateBookingField('checkIn', event, ctx)" />
+                  </label>
+                  <label class="field">
+                    <span>{trans('booking.checkOut')}</span>
+                    <input type="text" readonly value="{state.data.booking.checkOut || ''}" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>{trans('booking.notes')}</span>
+                  <textarea placeholder="{state.env.lang === 'ar' ? 'أخبرنا عن تفضيلاتك' : 'Share your preferences'}" onchange="updateBookingField('notes', event, ctx)">{state.data.booking.notes}</textarea>
+                </label>
+                <button type="submit" class="button primary" style="justify-self:start">{trans('booking.submit')}</button>
+              </form>
+              <div class="booking-summary" x-if="state.data.bookingSummary">
+                <strong>{trans('booking.summary')}</strong>
+                <span>{trans('booking.summary.room')}: {state.data.bookingSummary.roomName}</span>
+                <span>{trans('booking.summary.guests')}: {state.data.bookingSummary.guests}</span>
+                <span>{trans('booking.summary.nights')}: {state.data.bookingSummary.nights}</span>
+                <span>{trans('booking.summary.total')}: {state.data.bookingSummary.totalLabel}</span>
+                <p>{trans('booking.success')}</p>
+              </div>
+            </section>
+
+            <section class="section" id="contact">
+              <div class="section-header">
+                <h2>{trans('section.contact.title')}</h2>
+                <p>{trans('section.contact.subtitle')}</p>
+              </div>
+              <div class="contact-card">
+                <div class="contact-info">
+                  <span>📞 {trans('contact.phone')}: <a href="tel:+201116645656">+20 111 664 5656</a></span>
+                  <span>✉️ {trans('contact.email')}: <a href="mailto:info@g-remal.com">info@g-remal.com</a></span>
+                  <span>📍 {trans('contact.address')}: Alexandria, Egypt — Al Maamoura</span>
+                </div>
+                <div class="map-frame">
+                  <h3>{trans('section.map.title')}</h3>
+                  <p>{trans('section.map.subtitle')}</p>
+                  <iframe
+                    src="https://www.google.com/maps/embed?origin=mfe&pb=!1m4!2m1!1z2KfZhNmF2YbYr9ix2Kkg2KjYrdix2YrYjCDZgtiz2YUg2KvYp9mGINin2YTZhdmG2KrYstip2Iwg2YXYrdin2YHYuNipINin2YTYpdiz2YPZhtiv2LHZitipIDU1MjcxMDE!5e0!6i14"
+                    allowfullscreen=""
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <footer class="site-footer">
+            <p>{formatFooter(trans('footer.rights'), state.env.lang)}</p>
+          </footer>
+        </div>
+      </div>
+
+      <script>
+        function setTheme(theme, ctx) {
+          commit(ctx, function (next) {
+            next.env.theme = theme;
+          }, function (state) {
+            var env = runtime();
+            if (env.applyEnvironment) env.applyEnvironment(state);
+            if (env.persistPrefs) env.persistPrefs(state);
+          });
+        }
+
+        function setLanguage(lang, ctx) {
+          commit(ctx, function (next) {
+            next.env.lang = lang;
+            next.env.dir = lang === 'ar' ? 'rtl' : 'ltr';
+          }, function (state) {
+            var env = runtime();
+            if (env.applyEnvironment) env.applyEnvironment(state);
+            if (env.persistPrefs) env.persistPrefs(state);
+          });
+        }
+
+        function scrollToSection(id, ctx) {
+          var env = runtime();
+          if (env && typeof env.selectRoot === 'function') {
+            var root = env.selectRoot(ctx);
+            if (root) {
+              var el = root.querySelector('#' + id);
+              if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }
+          }
+        }
+
+        function updateBookingField(field, event, ctx) {
+          var value = event && event.target ? event.target.value : null;
+          commit(ctx, function (next) {
+            if (field === 'nights' || field === 'guests') {
+              var parsed = parseInt(value, 10);
+              next.data.booking[field] = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+            } else {
+              next.data.booking[field] = value || '';
+            }
+            if (field === 'checkIn' || field === 'nights') {
+              next.data.booking.checkOut = computeCheckout(next.data.booking.checkIn, next.data.booking.nights);
+            }
+            next.data.bookingSummary = null;
+          });
+        }
+
+        function computeCheckout(checkIn, nights) {
+          if (!checkIn) return '';
+          var base = new Date(checkIn + 'T00:00:00Z');
+          if (!Number.isFinite(base.getTime())) return '';
+          var duration = Number.isFinite(nights) ? nights : parseInt(nights, 10);
+          if (!Number.isFinite(duration) || duration <= 0) duration = 1;
+          var checkout = new Date(base.getTime());
+          checkout.setUTCDate(checkout.getUTCDate() + duration);
+          return checkout.toISOString().slice(0, 10);
+        }
+
+        function submitBooking(event, ctx) {
+          if (event && typeof event.preventDefault === 'function') event.preventDefault();
+          var state = ctx.getState();
+          var booking = state && state.data ? state.data.booking : null;
+          if (!booking) return;
+          var rooms = state.data.rooms || [];
+          var selected = rooms.find(function (room) { return room.type === booking.roomType; });
+          commit(ctx, function (next) {
+            var lang = next.env.lang || 'ar';
+            var total = calculateTotal(booking, selected);
+            next.data.bookingSummary = {
+              roomName: selected ? selected.name[lang] : '',
+              guests: booking.guests,
+              nights: booking.nights,
+              totalLabel: formatPrice(total, lang, selected ? selected.currency : 'USD')
+            };
+          });
+        }
+
+        function calculateTotal(booking, room) {
+          if (!room) return 0;
+          var nights = Number.isFinite(booking.nights) ? booking.nights : parseInt(booking.nights, 10) || 1;
+          var guests = Number.isFinite(booking.guests) ? booking.guests : parseInt(booking.guests, 10) || 1;
+          var base = room.pricePerNight * nights;
+          var extra = guests > 2 ? (guests - 2) * 45 : 0;
+          return Math.round((base + extra) * 100) / 100;
+        }
+
+        function formatPrice(amount, lang, currency) {
+          try {
+            var formatter = new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-EG', {
+              style: 'currency',
+              currency: currency || 'USD',
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            });
+            return formatter.format(amount || 0);
+          } catch (err) {
+            return (currency || 'USD') + ' ' + (amount || 0);
+          }
+        }
+
+        function formatFooter(template, lang) {
+          var year = new Date().getFullYear();
+          return template.replace('{year}', year);
+        }
+      </script>
+    </template>
+
+    <script src="./mishkah-htmlx.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', function () {
+        if (window.mishkah && window.mishkah.boot) {
+          window.mishkah.boot({
+            template: '#g-remal-htmlx'
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
