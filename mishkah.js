@@ -88,6 +88,11 @@
   var autoEnabled = (typeof autoFlag === 'boolean') ? autoFlag
     : (typeof userConfig.auto === 'boolean' ? userConfig.auto : true);
 
+  var htmlxAttrPresent = false;
+  if (currentScript && typeof currentScript.hasAttribute === 'function') {
+    htmlxAttrPresent = currentScript.hasAttribute('data-htmlx');
+  }
+
   var htmlxRawOption = parseDatasetValue('htmlx', null);
   var htmlxTemplateOption = parseDatasetValue('htmlxTemplate', null);
   var htmlxMountOption = parseDatasetValue('htmlxMount', null) || parseDatasetValue('mount', null);
@@ -96,7 +101,7 @@
   var htmlxAutoFlag = parseDatasetFlag(parseDatasetValue('htmlxAuto', null), undefined);
   var htmlxParsedOption = parseHtmlxRaw(htmlxRawOption);
   var htmlxAutoEnabled = (typeof htmlxAutoFlag === 'boolean') ? htmlxAutoFlag
-    : !!(htmlxParsedOption || htmlxTemplateOption || htmlxMountOption || htmlxRootOption || htmlxInitOption);
+    : (htmlxAttrPresent || !!(htmlxParsedOption || htmlxTemplateOption || htmlxMountOption || htmlxRootOption || htmlxInitOption));
 
   var cssOption = parseDatasetValue('css', null);
   if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
@@ -995,6 +1000,12 @@
       config.init = htmlxInitOption;
     }
     if (!config) config = {};
+    if (!config.templateId && doc && doc.documentElement) {
+      var htmlTemplateAttr = doc.documentElement.getAttribute('data-htmlx');
+      if (htmlTemplateAttr && htmlTemplateAttr.trim()) {
+        config.templateId = htmlTemplateAttr.trim();
+      }
+    }
     if (!config.templateId && doc) {
       var templates = doc.querySelectorAll ? doc.querySelectorAll('template[id]') : [];
       if (templates && templates.length === 1) {
