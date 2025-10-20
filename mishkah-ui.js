@@ -128,6 +128,7 @@ const UI = {};
 /* ===================== Chart.js Bridge & Components ===================== */
 const ChartBridge = (() => {
   const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : {});
+  const doc = typeof document !== 'undefined' ? document : null;
   const parseSafe = U.JSON && typeof U.JSON.parseSafe === 'function' ? U.JSON.parseSafe : (value => {
     try { return JSON.parse(value); } catch (_err) { return null; }
   });
@@ -155,6 +156,7 @@ const ChartBridge = (() => {
         return base;
       });
   const registry = new WeakMap();
+  const activeCharts = new Set();
   const scheduled = new Set();
   const scriptPromises = new Map();
   let cdnUrl = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js';
@@ -606,6 +608,120 @@ const ChartBridge = (() => {
     return { type, data: safeData, options: merged };
   }
 
+  function forgetChart(chart) {
+    if (!chart) return;
+    if (activeCharts.has(chart)) {
+      activeCharts.delete(chart);
+    }
+  }
+
+  function rememberChart(chart) {
+    if (!chart) return;
+    activeCharts.add(chart);
+    if (!chart.__mishkahAutoDestroyPatch && typeof chart.destroy === 'function') {
+      const originalDestroy = chart.destroy;
+      chart.destroy = function patchedDestroy() {
+        forgetChart(chart);
+        return originalDestroy.apply(this, arguments);
+      };
+      chart.__mishkahAutoDestroyPatch = true;
+    }
+  }
+
+  function resolveCanvas(chart) {
+    if (!chart) return null;
+    if (chart.canvas) return chart.canvas;
+    if (chart.ctx && chart.ctx.canvas) return chart.ctx.canvas;
+    return null;
+  }
+
+  function freezeInstance(chart) {
+    if (!chart) return;
+    try {
+      const canvas = resolveCanvas(chart);
+      if (!canvas) return;
+      const rect = typeof canvas.getBoundingClientRect === 'function' ? canvas.getBoundingClientRect() : null;
+      const width = Math.round(rect && rect.width ? rect.width : (canvas.clientWidth || canvas.width || 0));
+      const height = Math.round(rect && rect.height ? rect.height : (canvas.clientHeight || canvas.height || 0));
+      if (chart.options && typeof chart.options === 'object') {
+        chart.options.responsive = false;
+        if (chart.options.maintainAspectRatio == null) {
+          chart.options.maintainAspectRatio = false;
+        }
+        if (chart.options.animation) {
+          chart.options.animation = false;
+        }
+        if (chart.options.transitions && typeof chart.options.transitions === 'object') {
+          Object.keys(chart.options.transitions).forEach((key) => {
+            const transition = chart.options.transitions[key];
+            if (transition && typeof transition === 'object') {
+              transition.duration = 0;
+            }
+          });
+        }
+      }
+      if (typeof chart.stop === 'function') {
+        try { chart.stop(); } catch (_err) { /* ignore */ }
+      }
+      if (width > 0 && height > 0 && typeof chart.resize === 'function') {
+        try { chart.resize(width, height); } catch (_err) { /* ignore */ }
+      } else {
+        if (width > 0) canvas.width = width;
+        if (height > 0) canvas.height = height;
+      }
+      if (canvas.style) {
+        if (width > 0 && !canvas.style.width) {
+          canvas.style.width = `${width}px`;
+        }
+        if (height > 0 && !canvas.style.height) {
+          canvas.style.height = `${height}px`;
+        }
+      }
+      if (typeof chart.update === 'function') {
+        try { chart.update('none'); } catch (_err) { /* ignore */ }
+      }
+      chart.__mishkahFrozen = true;
+    } catch (_err) {
+      /* ignore freeze failures */
+    }
+  }
+
+  function resolveScope(root) {
+    if (!root) return doc || null;
+    if (root === doc) return doc;
+    if (doc && typeof root === 'string') {
+      try {
+        const node = doc.querySelector(root);
+        return node || doc;
+      } catch (_err) {
+        return doc;
+      }
+    }
+    if (root && typeof root.querySelectorAll === 'function') {
+      return root;
+    }
+    return doc || null;
+  }
+
+  function freezeCharts(root) {
+    const scope = resolveScope(root);
+    activeCharts.forEach((chart) => {
+      const canvas = resolveCanvas(chart);
+      if (!canvas) {
+        forgetChart(chart);
+        return;
+      }
+      if (scope && scope !== doc && typeof scope.contains === 'function' && !scope.contains(canvas)) {
+        return;
+      }
+      if (!canvas.isConnected) {
+        forgetChart(chart);
+        return;
+      }
+      freezeInstance(chart);
+    });
+  }
+
   function instantiate(node, signature, payload, ChartLib) {
     if (!node || !ChartLib) return null;
     const ctx = node.getContext ? node.getContext('2d') : null;
@@ -614,8 +730,11 @@ const ChartBridge = (() => {
     if (current && current.signature === signature) {
       return current.instance;
     }
-    if (current && current.instance && typeof current.instance.destroy === 'function') {
-      try { current.instance.destroy(); } catch (_err) { /* ignore */ }
+    if (current && current.instance) {
+      forgetChart(current.instance);
+      if (typeof current.instance.destroy === 'function') {
+        try { current.instance.destroy(); } catch (_err) { /* ignore */ }
+      }
     }
     try {
       const config = {
@@ -627,6 +746,8 @@ const ChartBridge = (() => {
       reviveScriptables(config.options);
       const chart = new ChartLib(ctx, config);
       registry.set(node, { instance: chart, signature });
+      rememberChart(chart);
+      freezeInstance(chart);
       return chart;
     } catch (err) {
       if (M.Auditor && typeof M.Auditor.error === 'function') {
@@ -747,7 +868,7 @@ const ChartBridge = (() => {
     compact: (digits = 1, options = {}) => ({ __chartFormatter: 'compact', digits, locale: options.locale })
   };
 
-  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN, setFallback, formatters };
+  return { buildPayload, encodePayload, hydrate: scheduleHydrate, bindApp, ensureLibrary, setCDN, setFallback, freeze: freezeCharts, formatters };
 })();
 
 function ChartCanvas({ type='line', data, options, attrs={}, height=320, description, id }) {
