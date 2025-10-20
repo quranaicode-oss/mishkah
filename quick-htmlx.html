@@ -7,7 +7,7 @@
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
     <script src="./mishkah-ui.js"></script>
   </head>
-  <body class="bg-[var(--background)] text-[var(--foreground)]">
+  <body class="mk-app-shell u-text-fg">
     <template id="quick-dashboard">
       <script type="application/json" data-path="env">
         {
@@ -21,6 +21,7 @@
       <script type="application/json" data-path="i18n.strings">
         {
           "quick.title": { "ar": "لوحة سريعة", "en": "Quick Dashboard" },
+          "quick.tagline": { "ar": "رصد مباشر لمبيعاتك اليومية", "en": "Live snapshot of your daily sales" },
           "quick.metrics.revenue": { "ar": "الإيراد", "en": "Revenue" },
           "quick.metrics.orders": { "ar": "الطلبات", "en": "Orders" },
           "quick.trend": { "ar": "أداء الأسبوع", "en": "Weekly trend" },
@@ -72,33 +73,37 @@
         }
       </script>
 
-      <section
-        data-m-scope="quick-dashboard"
-        class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-[var(--background)] px-5 py-8 text-[var(--foreground)] sm:px-10"
-      >
-        <header class="flex flex-wrap items-center justify-between gap-3">
-          <h1 class="text-3xl font-semibold tracking-tight">{trans('quick.title')}</h1>
-          <div class="flex flex-wrap items-center gap-3">
+      <section data-m-scope="quick-dashboard" class="mk-app-shell__container">
+        <header class="mk-navbar">
+          <div class="mk-navbar__brand">
+            <h1 class="mk-navbar__title">{trans('quick.title')}</h1>
+            <p class="mk-navbar__tagline">{trans('quick.tagline')}</p>
+          </div>
+          <div class="mk-navbar__actions">
             <comp name="ui.language-switch" lang="{state.env.lang}" dir="{state.env.dir}"></comp>
-            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="quick:theme-toggle"></comp>
+            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="ui:theme-toggle"></comp>
           </div>
         </header>
 
         <div class="grid gap-4 md:grid-cols-2">
-          <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.revenue')}</p>
-            <strong class="text-3xl font-semibold">{formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}</strong>
+          <section class="mk-card" data-tone="soft">
+            <p class="u-text-muted text-sm">{trans('quick.metrics.revenue')}</p>
+            <strong class="text-3xl font-semibold text-[color-mix(in oklab, var(--mk-primary) 90%, var(--mk-fg) 10%)]">
+              {formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}
+            </strong>
           </section>
-          <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.orders')}</p>
-            <strong class="text-3xl font-semibold">{state.data.metrics.orders}</strong>
+          <section class="mk-card" data-tone="soft">
+            <p class="u-text-muted text-sm">{trans('quick.metrics.orders')}</p>
+            <strong class="text-3xl font-semibold text-[color-mix(in oklab, var(--mk-accent) 85%, var(--mk-fg) 15%)]">
+              {state.data.metrics.orders}
+            </strong>
           </section>
         </div>
 
-        <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-          <figcaption class="mb-4 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
+        <figure class="mk-card" data-tone="elevated">
+          <figcaption class="u-text-muted text-sm">{trans('quick.trend')}</figcaption>
           <canvas
-            data-chart-auto
+            data-chart-auto="line"
             data-chart-type="line"
             data-chart-values="{toCsv(state.data.trend.values)}"
             data-chart-labels="{toCsv(state.data.trend.labels)}"
@@ -106,21 +111,24 @@
           ></canvas>
         </figure>
 
-        <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-          <span class="text-sm text-[var(--muted-foreground)]">{trans('quick.timer')}</span>
-          <strong
-            class="inline-flex items-center gap-2 text-2xl font-semibold"
-            data-countdown="{state.data.timer.seconds}"
-            data-countdown-template="{state.data.ui.countdownTemplate}"
-          ></strong>
+        <div class="mk-card" data-tone="elevated">
+          <div class="flex items-center justify-between gap-3">
+            <span class="u-text-muted text-sm">{trans('quick.timer')}</span>
+            <strong
+              class="inline-flex items-center gap-2 text-2xl font-semibold"
+              data-countdown="{state.data.timer.seconds}"
+              data-countdown-template="{state.data.ui.countdownTemplate}"
+            ></strong>
+          </div>
         </div>
 
-        <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-          <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <section class="mk-card" data-tone="soft">
+          <header class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-xl font-semibold">{trans('quick.cart.title')}</h2>
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-5 py-2 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg"
+              class="mk-btn"
+              data-variant="primary"
               onclick="randomizeCart(event, ctx)"
             >
               {trans('quick.cart.randomize')}
@@ -130,11 +138,11 @@
             <li
               x-for="item in state.data.cart.items"
               key="item.id"
-              class="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3"
+              class="flex items-center justify-between rounded-2xl border border-[color-mix(in oklab, var(--mk-border) 55%, transparent)] bg-[color-mix(in oklab, var(--mk-surface-1) 85%, transparent)] px-4 py-3"
             >
               <div class="flex flex-col">
                 <strong class="text-base font-semibold">{trans(item.nameKey)}</strong>
-                <span class="text-sm text-[var(--muted-foreground)]">× {item.qty}</span>
+                <span class="text-sm u-text-muted">× {item.qty}</span>
               </div>
               <span class="text-base font-semibold">
                 {formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
@@ -142,13 +150,13 @@
             </li>
           </ul>
           <p
-            class="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-1)] px-6 py-8 text-center text-sm text-[var(--muted-foreground)]"
+            class="rounded-2xl border border-dashed border-[color-mix(in oklab, var(--mk-border) 45%, transparent)] bg-[color-mix(in oklab, var(--mk-surface-1) 80%, transparent)] px-6 py-8 text-center text-sm u-text-muted"
             x-if="!state.data.cart.items || !state.data.cart.items.length"
           >
             {trans('quick.cart.empty')}
           </p>
-          <footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[var(--border)] pt-4">
-            <span class="text-sm text-[var(--muted-foreground)]">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
+          <footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[color-mix(in oklab, var(--mk-border) 45%, transparent)] pt-4">
+            <span class="text-sm u-text-muted">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
             <strong class="text-xl font-semibold">
               {formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
             </strong>
