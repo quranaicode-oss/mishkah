@@ -5,6 +5,7 @@
     <title>Mishkah Quick Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
+    <script src="./mishkah-ui.js"></script>
   </head>
   <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
@@ -105,7 +106,7 @@
         <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
           <figcaption class="mb-3 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
           <canvas
-            data-chart-auto
+            data-chart-auto="line"
             data-chart-type="line"
             data-chart-values="{toCsv(state.data.trend.values)}"
             data-chart-labels="{toCsv(state.data.trend.labels)}"
