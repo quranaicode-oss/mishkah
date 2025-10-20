@@ -2,9 +2,80 @@
   if (!global) return;
   const watchers = new Set();
   const config = global.POS_WS2_CONFIG || {};
-  const endpoint = config.endpoint || global.POS_WS2_ENDPOINT || 'ws://ws.mas.com.eg';
-  const branchId = config.branchId || (global.database && global.database.settings && global.database.settings.sync && global.database.settings.sync.branch_id) || 'branch-main';
-  const role = config.role || 'pos-app';
+  const syncSettings = ((((global.database || {}).settings) || {}).sync) || {};
+  const loc = typeof global.location === 'object' ? global.location : null;
+  const identifiers = global.POS_WS2_IDENTIFIERS || {};
+
+  const defaultScheme = ()=>{
+    if(!loc || !loc.protocol) return 'wss:';
+    if(loc.protocol === 'https:') return 'wss:';
+    if(loc.protocol === 'http:') return 'ws:';
+    return loc.protocol.endsWith(':') ? loc.protocol : `${loc.protocol}:`;
+  };
+
+  const hostWithPort = ()=>{
+    if(!loc) return null;
+    if(loc.host) return loc.host;
+    if(!loc.hostname) return null;
+    return loc.port ? `${loc.hostname}:${loc.port}` : loc.hostname;
+  };
+
+  const normalizeEndpoint = (raw)=>{
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
+    if(!trimmed) return null;
+    if(/^wss?:\/\//i.test(trimmed)) return trimmed;
+    if(trimmed.startsWith('//')) return `${defaultScheme()}${trimmed}`;
+    if(trimmed.startsWith('/')){
+      const host = hostWithPort();
+      return host ? `${defaultScheme()}//${host}${trimmed}` : null;
+    }
+    if(!trimmed.includes('://')){
+      return `${defaultScheme()}//${trimmed}`;
+    }
+    return trimmed;
+  };
+
+  const resolveEndpoint = ()=>{
+    const candidates = [
+      config.endpoint,
+      global.POS_WS2_ENDPOINT,
+      syncSettings.ws_endpoint,
+      syncSettings.wsEndpoint,
+      syncSettings.pos_ws_endpoint,
+      syncSettings.posWsEndpoint
+    ];
+    for(const candidate of candidates){
+      const normalized = normalizeEndpoint(candidate);
+      if(normalized) return normalized;
+    }
+    const host = hostWithPort();
+    if(host) return `${defaultScheme()}//${host}`;
+    return 'wss://ws.mas.com.eg';
+  };
+
+  const resolveBranchId = ()=>{
+    const candidates = [
+      config.branchId,
+      identifiers.branchId,
+      syncSettings.branch_id,
+      syncSettings.branchId,
+      syncSettings.channel,
+      'branch-main'
+    ];
+    for(const candidate of candidates){
+      if(typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+    return 'branch-main';
+  };
+
+  const endpoint = resolveEndpoint();
+  const branchId = resolveBranchId();
+  const userId = (typeof config.userId === 'string' && config.userId.trim())
+    ? config.userId.trim()
+    : (typeof identifiers.userId === 'string' && identifiers.userId.trim())
+      ? identifiers.userId.trim()
+      : null;
+  const role = (typeof config.role === 'string' && config.role.trim()) ? config.role.trim() : 'pos-app';
   const reconnectDelay = typeof config.reconnectDelay === 'number' ? Math.max(config.reconnectDelay, 500) : 3000;
   const historyLimit = typeof config.historyLimit === 'number' ? config.historyLimit : 25;
 
@@ -24,6 +95,7 @@
   const connectionState = {
     endpoint,
     branchId,
+    userId,
     connected: false,
     attempts: 0,
     lastError: null,
@@ -88,6 +160,7 @@
     const fn = typeof console[level] === 'function' ? level : 'log';
     console[fn](`${logPrefix} ${message}`, data || '');
   }
+  log('info', 'Resolved WS2 connection target', { endpoint, branchId, role, historyLimit, userId });
 
   function getConnectionState(){
     return {
@@ -154,7 +227,8 @@
           ...(parsed.meta || {}),
           branchId: parsed.branchId,
           version: parsed.version,
-          historySize: parsed.historySize
+          historySize: parsed.historySize,
+          userId: parsed.meta?.userId || userId
         };
         applySnapshot(parsed.snapshot || {}, meta);
         break;
@@ -203,6 +277,8 @@
         type:'client:hello',
         branchId,
         role,
+        userId,
+        userMeta:{ userId, branchId },
         requestSnapshot: true,
         requestHistory: historyLimit ? { limit: historyLimit } : undefined
       };
@@ -238,6 +314,7 @@
       type:'client:publish',
       branchId,
       action: options.action || 'event',
+      userId,
       payload,
       snapshot: options.snapshot,
       patch: options.patch,
@@ -250,6 +327,7 @@
     const frame = {
       type:'client:request:history',
       branchId,
+      userId,
       limit,
       requestId: createRequestId()
     };
@@ -283,6 +361,7 @@
 
   Object.defineProperty(api, 'endpoint', { value: endpoint });
   Object.defineProperty(api, 'branchId', { value: branchId });
+  if (userId) Object.defineProperty(api, 'userId', { value: userId });
 
   global.__MISHKAH_POS_DATA_SOURCE__ = api;
   connect();

@@ -34,8 +34,148 @@
   <script src="./mishkah-ui.js"></script>
   <script src="./mishkah-schema.js"></script>
   <script src="./schema-pos.js"></script>
-  <script src="./pos-ws2-bootstrap.js"></script>
   <script src="./pos-sync-auth.js"></script>
+  <script>
+    (function configurePosWs(global){
+      if(!global) return;
+      const loc = global.location || null;
+      const doc = global.document || null;
+      const readCookie = (name)=>{
+        if(!doc || !doc.cookie) return null;
+        const match = doc.cookie.split(';').map(entry=> entry.trim()).find(entry=> entry.startsWith(`${name}=`));
+        if(!match) return null;
+        return decodeURIComponent(match.split('=').slice(1).join('='));
+      };
+      const writeCookie = (name, value, days)=>{
+        if(!doc) return;
+        const maxAge = Number.isFinite(days) ? Math.round(days * 24 * 60 * 60) : 31536000;
+        const sanitized = encodeURIComponent(value);
+        const parts = [
+          `${name}=${sanitized}`,
+          'path=/',
+          `max-age=${maxAge}`,
+          'SameSite=Lax'
+        ];
+        doc.cookie = parts.join('; ');
+      };
+      const randomChunk = (size=8)=>{
+        const pool = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let out = '';
+        for(let i = 0; i < size; i += 1){
+          out += pool[Math.floor(Math.random() * pool.length)];
+        }
+        return out;
+      };
+      const createUuid = ()=>{
+        if(global.crypto && typeof global.crypto.randomUUID === 'function'){
+          return global.crypto.randomUUID();
+        }
+        return `uuid-${Date.now().toString(36)}-${randomChunk(10)}`;
+      };
+      const normalizeId = (raw, fallback)=>{
+        const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+        if(!value) return fallback;
+        const normalized = value.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+        return normalized || fallback;
+      };
+
+      let userUniid = normalizeId(readCookie('UserUniid'), '');
+      if(!userUniid){
+        userUniid = normalizeId(createUuid(), `usr-${randomChunk(6)}`);
+        writeCookie('UserUniid', userUniid, 365);
+      }
+
+      const rawBranchCookie = readCookie('UserBranshID');
+      let userBranchId = normalizeId(rawBranchCookie, '');
+      if(!userBranchId){
+        const host = loc?.hostname || loc?.host || '';
+        userBranchId = normalizeId(host, '');
+      }
+      if(!userBranchId){
+        userBranchId = normalizeId(`branch-${randomChunk(10)}`, 'branch-main');
+      }
+
+      global.UserUniid = userUniid;
+      global.UserBranshID = userBranchId;
+      global.POS_WS2_IDENTIFIERS = {
+        userId: userUniid,
+        branchId: userBranchId,
+        hasBranchCookie: !!rawBranchCookie
+      };
+
+      const defaultScheme = ()=>{
+        if(!loc || !loc.protocol) return 'wss:';
+        return loc.protocol === 'https:' ? 'wss:' : loc.protocol === 'http:' ? 'ws:' : 'wss:';
+      };
+      const hostWithPort = ()=>{
+        if(!loc) return null;
+        if(loc.host) return loc.host;
+        if(!loc.hostname) return null;
+        return loc.port ? `${loc.hostname}:${loc.port}` : loc.hostname;
+      };
+      const normalizeEndpoint = (raw)=>{
+        const trimmed = typeof raw === 'string' ? raw.trim() : '';
+        if(!trimmed) return null;
+        if(/^wss?:\/\//i.test(trimmed)) return trimmed;
+        if(trimmed.startsWith('//')) return `${defaultScheme()}${trimmed}`;
+        if(trimmed.startsWith('/')){
+          const host = hostWithPort();
+          return host ? `${defaultScheme()}//${host}${trimmed}` : null;
+        }
+        if(!trimmed.includes('://')){
+          return `${defaultScheme()}//${trimmed}`;
+        }
+        return trimmed;
+      };
+      const sync = ((((global.database || {}).settings) || {}).sync) || {};
+      const endpointCandidates = [
+        global.POS_WS2_CONFIG && global.POS_WS2_CONFIG.endpoint,
+        global.POS_WS2_ENDPOINT,
+        sync.ws_endpoint,
+        sync.wsEndpoint,
+        sync.pos_ws_endpoint,
+        sync.posWsEndpoint
+      ];
+      let endpoint = null;
+      for(const candidate of endpointCandidates){
+        endpoint = normalizeEndpoint(candidate);
+        if(endpoint) break;
+      }
+      if(!endpoint){
+        const host = hostWithPort();
+        endpoint = host ? `${defaultScheme()}//${host}` : 'wss://ws.mas.com.eg';
+      }
+      const branchCandidates = [
+        global.POS_WS2_CONFIG && global.POS_WS2_CONFIG.branchId,
+        userBranchId,
+        sync.branch_id,
+        sync.branchId,
+        sync.channel,
+        'branch-main'
+      ];
+      let branchId = userBranchId || 'branch-main';
+      for(const candidate of branchCandidates){
+        if(typeof candidate === 'string' && candidate.trim()){
+          branchId = normalizeId(candidate, branchId);
+          break;
+        }
+      }
+      const role = (global.POS_WS2_CONFIG && typeof global.POS_WS2_CONFIG.role === 'string' && global.POS_WS2_CONFIG.role.trim())
+        ? global.POS_WS2_CONFIG.role.trim()
+        : 'pos-app';
+      const historyLimit = (global.POS_WS2_CONFIG && Number.isFinite(global.POS_WS2_CONFIG.historyLimit))
+        ? Number(global.POS_WS2_CONFIG.historyLimit)
+        : 50;
+      global.POS_WS2_CONFIG = {
+        endpoint,
+        branchId,
+        role,
+        historyLimit,
+        userId: userUniid
+      };
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
+  <script src="./pos-ws2-bootstrap.js"></script>
   <script src="./kds-mock-data.js"></script>
 </head>
 <body>
