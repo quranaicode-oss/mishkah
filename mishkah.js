@@ -280,14 +280,14 @@
   }, userConfig.langLabels || {});
 
   var THEME_LABELS = Object.assign({
-    light: '\u0646\u0647\u0627\u0631\u064a',
-    dark: '\u0644\u064a\u0644\u064a',
-    dawn: '\u0641\u062c\u0631',
-    oasis: '\u0648\u0627\u062d\u0629',
-    sunny: 'Sunny',
-    dusk: 'Dusk',
-    midnight: 'Midnight',
-    ping: 'Ping'
+    light: '\uD83C\uDF1E \u0646\u0647\u0627\u0631\u064a',
+    dark: '\uD83C\uDF19 \u0644\u064a\u0644\u064a',
+    dawn: '\uD83C\uDF05 \u0641\u062c\u0631',
+    oasis: '\uD83C\uDFDD\uFE0F \u0648\u0627\u062D\u0629',
+    sunny: '\u2600\uFE0F Sunny',
+    dusk: '\uD83C\uDF06 Dusk',
+    midnight: '\uD83C\uDF03 Midnight',
+    ping: '\uD83C\uDF20 Ping'
   }, userConfig.themeLabels || {});
 
   function formatLabel(dictionary, key) {
@@ -1027,16 +1027,32 @@
 
   function startHtmlxAuto(config) {
     if (!config || htmlxBootstrapTriggered) return;
+    var launchConfig = Object.assign({}, config);
+    if (!launchConfig.root && doc) {
+      launchConfig.root = doc;
+    }
     function attempt() {
       if (htmlxBootstrapTriggered) return;
-      var host = global.Mishkah;
-      if (!host || !host.HTMLxAgent || typeof host.HTMLxAgent.make !== 'function') {
+      var host = global.Mishkah || global.Mishka || {};
+      var autoApi = host.auto || global.MishkahAuto || null;
+      var launcher = null;
+      if (autoApi && typeof autoApi.make === 'function') {
+        launcher = function () {
+          return autoApi.make(Object.assign({}, launchConfig));
+        };
+      } else if (host.HTMLxAgent && typeof host.HTMLxAgent.make === 'function') {
+        launcher = function () {
+          var options = Object.assign({}, launchConfig);
+          return host.HTMLxAgent.make({}, options);
+        };
+      }
+      if (!launcher) {
         setTimeout(attempt, 30);
         return;
       }
       htmlxBootstrapTriggered = true;
       try {
-        var result = host.HTMLxAgent.make(config);
+        var result = launcher();
         if (result && typeof result.then === 'function') {
           result.catch(function (error) {
             if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', error);
@@ -1044,6 +1060,8 @@
         }
       } catch (err) {
         if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', err);
+        htmlxBootstrapTriggered = false;
+        setTimeout(attempt, 120);
       }
     }
     attempt();
