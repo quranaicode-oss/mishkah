@@ -59,80 +59,346 @@
                 "price": 16
               }
             ]
-          }
+          },
+          "catalog": [
+            { "id": "espresso", "nameKey": "quick.cart.items.espresso", "price": 18.5 },
+            { "id": "cortado", "nameKey": "quick.cart.items.cortado", "price": 16 },
+            { "id": "flatwhite", "nameKey": "quick.cart.items.flatwhite", "price": 19 },
+            { "id": "cheesecake", "nameKey": "quick.cart.items.cheesecake", "price": 26.5 },
+            { "id": "cinnamon", "nameKey": "quick.cart.items.cinnamon", "price": 21 }
+          ]
         }
       </script>
 
-      <section data-m-scope="quick-dashboard" class="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-[var(--background)] p-6">
-        <header class="flex flex-wrap items-center justify-between gap-3">
-          <h1 class="text-2xl font-semibold">{trans('quick.title')}</h1>
-          <div class="flex items-center gap-2">
-            <comp name="ui.language-switch" lang="{state.env.lang}"></comp>
-            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="ui:theme-toggle"></comp>
+      <section data-m-scope="quick-dashboard" class="quick-shell">
+        <style data-m-scope>
+          :host {
+            min-height: 100vh;
+            margin: 0;
+            padding: var(--mk-space-6);
+            box-sizing: border-box;
+            background: linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--mk-bg) 94%, var(--mk-surface-3) 6%),
+              color-mix(in srgb, var(--mk-bg) 86%, var(--mk-surface-1) 14%)
+            );
+            color: var(--mk-fg);
+            font-family: var(--mk-font-sans-ar);
+          }
+
+          .quick-shell {
+            inline-size: min(960px, 100%);
+            margin-inline: auto;
+            display: grid;
+            gap: var(--mk-space-5);
+            padding: clamp(var(--mk-space-5), 4vw, var(--mk-space-7));
+            border-radius: var(--mk-radius-3xl);
+            background: color-mix(in srgb, var(--mk-surface-1) 92%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 55%, transparent);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          .quick-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-3);
+          }
+
+          .quick-title {
+            margin: 0;
+            font-family: var(--mk-font-display);
+            font-size: clamp(var(--mk-fs-2xl), 2.6vw, var(--mk-fs-3xl));
+            font-weight: 600;
+            letter-spacing: -0.015em;
+          }
+
+          .quick-switchers {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-3);
+            align-items: center;
+          }
+
+          lang-switcher,
+          theme-switcher {
+            display: block;
+          }
+
+          .quick-metrics {
+            display: grid;
+            gap: var(--mk-space-4);
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
+
+          .quick-card {
+            position: relative;
+            display: grid;
+            gap: var(--mk-space-2);
+            padding: var(--mk-space-5);
+            border-radius: var(--mk-radius-2xl);
+            background: color-mix(in srgb, var(--mk-surface-0) 88%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 48%, transparent);
+            box-shadow: var(--mk-shadow-soft);
+          }
+
+          .quick-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: linear-gradient(140deg, transparent 55%, color-mix(in srgb, var(--mk-primary) 12%, transparent));
+            opacity: 0.4;
+          }
+
+          .quick-card > * {
+            position: relative;
+            z-index: 1;
+          }
+
+          .quick-muted {
+            color: var(--mk-muted);
+            font-size: var(--mk-fs-sm);
+          }
+
+          .quick-metric-value {
+            font-size: clamp(var(--mk-fs-2xl), 2.4vw, var(--mk-fs-3xl));
+            font-weight: 700;
+          }
+
+          .quick-chart {
+            gap: var(--mk-space-4);
+          }
+
+          .quick-chart canvas {
+            inline-size: 100%;
+            block-size: 260px;
+          }
+
+          .quick-timer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .quick-timer-display {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+          }
+
+          .quick-timer-icon {
+            font-size: var(--mk-fs-lg);
+          }
+
+          .quick-timer-value {
+            font-size: clamp(var(--mk-fs-xl), 3vw, var(--mk-fs-2xl));
+            font-weight: 600;
+          }
+
+          .quick-cart {
+            gap: var(--mk-space-4);
+          }
+
+          .quick-cart-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-3);
+          }
+
+          .quick-randomize {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+            padding-inline: var(--mk-space-4);
+            padding-block: calc(var(--mk-space-2) * 1.1);
+            border-radius: 999px;
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 50%, transparent);
+            background: color-mix(in srgb, var(--mk-surface-2) 82%, transparent);
+            color: var(--mk-fg);
+            font-size: var(--mk-fs-sm);
+            font-weight: 600;
+            box-shadow: var(--mk-shadow-soft);
+            transition: transform var(--mk-duration-fast) ease, box-shadow var(--mk-duration-fast) ease;
+          }
+
+          .quick-randomize:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--mk-shadow);
+          }
+
+          .quick-cart-list {
+            display: grid;
+            gap: var(--mk-space-3);
+          }
+
+          .quick-cart-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-4);
+            padding: var(--mk-space-4);
+            border-radius: var(--mk-radius-xl);
+            background: color-mix(in srgb, var(--mk-surface-0) 92%, transparent);
+            border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 42%, transparent);
+          }
+
+          .quick-cart-name {
+            font-size: var(--mk-fs-base);
+            font-weight: 600;
+          }
+
+          .quick-cart-qty {
+            font-size: var(--mk-fs-sm);
+            color: var(--mk-muted);
+          }
+
+          .quick-cart-total {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--mk-space-3);
+            padding-top: var(--mk-space-4);
+            border-top: var(--mk-border-width) dashed color-mix(in srgb, var(--mk-border) 40%, transparent);
+          }
+
+          .quick-empty {
+            text-align: center;
+            padding: clamp(var(--mk-space-5), 5vw, var(--mk-space-6));
+            border-radius: var(--mk-radius-2xl);
+            border: var(--mk-border-width) dashed color-mix(in srgb, var(--mk-border) 45%, transparent);
+            background: color-mix(in srgb, var(--mk-surface-0) 80%, transparent);
+            color: var(--mk-muted);
+          }
+
+          @media (max-width: 640px) {
+            :host {
+              padding: var(--mk-space-4);
+            }
+
+            .quick-shell {
+              padding: var(--mk-space-5);
+            }
+
+            .quick-card::before {
+              opacity: 0.25;
+            }
+          }
+        </style>
+
+        <header class="quick-header">
+          <h1 class="quick-title">{trans('quick.title')}</h1>
+          <div class="quick-switchers">
+            <lang-switcher langs="ar,en"></lang-switcher>
+            <theme-switcher themes="light,dark,auto"></theme-switcher>
           </div>
         </header>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.revenue')}</p>
-            <strong class="text-3xl font-bold">{formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}</strong>
+        <div class="quick-metrics">
+          <section class="quick-card">
+            <p class="quick-muted">{trans('quick.metrics.revenue')}</p>
+            <strong class="quick-metric-value">{formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}</strong>
           </section>
-          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.orders')}</p>
-            <strong class="text-3xl font-bold">{state.data.metrics.orders}</strong>
+          <section class="quick-card">
+            <p class="quick-muted">{trans('quick.metrics.orders')}</p>
+            <strong class="quick-metric-value">{state.data.metrics.orders}</strong>
           </section>
         </div>
 
-        <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-          <figcaption class="mb-3 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
+        <figure class="quick-card quick-chart">
+          <figcaption class="quick-muted">{trans('quick.trend')}</figcaption>
           <canvas
             data-chart-auto
             data-chart-type="line"
-            data-chart-values="18,22,25,28,35,31,29"
-            data-chart-labels="Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+            data-chart-values="{state.data.trend.values.join(',')}"
+            data-chart-labels="{state.data.trend.labels.join(',')}"
             data-chart-height="260"
           ></canvas>
         </figure>
 
-        <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-          <span class="text-sm text-[var(--muted-foreground)]">{trans('quick.timer')}</span>
-          <strong class="text-2xl font-semibold" data-countdown="{state.data.timer.seconds}" data-countdown-template="⏱️ {{time}}"></strong>
+        <div class="quick-card quick-timer">
+          <span class="quick-muted">{trans('quick.timer')}</span>
+          <div class="quick-timer-display">
+            <span class="quick-timer-icon" aria-hidden="true">⏱️</span>
+            <strong class="quick-timer-value" data-countdown="{state.data.timer.seconds}"></strong>
+          </div>
         </div>
 
-        <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-          <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-lg font-semibold">{trans('quick.cart.title')}</h2>
-            <button type="button" class="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg" onclick="randomizeCart(event, ctx)">
+        <section class="quick-card quick-cart">
+          <header class="quick-cart-header">
+            <h2 class="quick-title" style="font-size: var(--mk-fs-xl);">{trans('quick.cart.title')}</h2>
+            <button type="button" class="quick-randomize" onclick="randomizeCart(event, ctx)">
               {trans('quick.cart.randomize')}
             </button>
           </header>
-          <ul class="grid gap-3" x-if="state.data.cart.items && state.data.cart.items.length">
-            <li x-for="item in state.data.cart.items" key="item.id" class="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-              <div class="flex flex-col">
-                <strong class="text-base">{trans(item.nameKey)}</strong>
-                <span class="text-sm text-[var(--muted-foreground)]">× {item.qty}</span>
+          <ul class="quick-cart-list" x-if="state.data.cart.items && state.data.cart.items.length">
+            <li x-for="item in state.data.cart.items" key="item.id" class="quick-cart-item">
+              <div>
+                <strong class="quick-cart-name">{trans(item.nameKey)}</strong>
+                <span class="quick-cart-qty">× {item.qty}</span>
               </div>
-              <span class="text-base font-semibold">{formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}</span>
+              <span class="quick-metric-value" style="font-size: var(--mk-fs-lg);">
+                {formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
+              </span>
             </li>
           </ul>
-          <p class="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-center text-sm text-[var(--muted-foreground)]" x-if="!state.data.cart.items || !state.data.cart.items.length">
+          <p class="quick-empty" x-if="!state.data.cart.items || !state.data.cart.items.length">
             {trans('quick.cart.empty')}
           </p>
-          <footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[var(--border)] pt-4">
-            <span class="text-sm text-[var(--muted-foreground)]">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
-            <strong class="text-xl font-semibold">{formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}</strong>
+          <footer class="quick-cart-total">
+            <span class="quick-muted">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
+            <strong class="quick-metric-value" style="font-size: var(--mk-fs-xl);">
+              {formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
+            </strong>
           </footer>
         </section>
       </section>
 
       <script>
-        var CART_CATALOG = [
-          { id: 'espresso', nameKey: 'quick.cart.items.espresso', price: 18.5 },
-          { id: 'cortado', nameKey: 'quick.cart.items.cortado', price: 16 },
-          { id: 'flatwhite', nameKey: 'quick.cart.items.flatwhite', price: 19 },
-          { id: 'cheesecake', nameKey: 'quick.cart.items.cheesecake', price: 26.5 },
-          { id: 'cinnamon', nameKey: 'quick.cart.items.cinnamon', price: 21 }
-        ];
+        var QUICK_CATALOG_CACHE = null;
+
+        function readCatalogFromDom() {
+          if (Array.isArray(QUICK_CATALOG_CACHE) && QUICK_CATALOG_CACHE.length) {
+            return QUICK_CATALOG_CACHE.slice();
+          }
+          try {
+            var dataScript = document.querySelector('script[data-path="data"]');
+            if (dataScript && dataScript.textContent) {
+              var payload = JSON.parse(dataScript.textContent.trim() || '{}');
+              if (payload && Array.isArray(payload.catalog)) {
+                QUICK_CATALOG_CACHE = payload.catalog.slice();
+                return QUICK_CATALOG_CACHE.slice();
+              }
+            }
+          } catch (err) {
+            console.warn('[Mishkah] failed to read catalog from data-path', err);
+          }
+          return [];
+        }
+
+        function getCatalog(ctx) {
+          var snapshot = null;
+          if (ctx && typeof ctx.getState === 'function') {
+            try {
+              snapshot = ctx.getState();
+            } catch (err) {
+              snapshot = null;
+            }
+          }
+          if (!snapshot && ctx && ctx.state) {
+            snapshot = ctx.state;
+          }
+          var catalog = snapshot && snapshot.data && Array.isArray(snapshot.data.catalog) ? snapshot.data.catalog : null;
+          if (catalog && catalog.length) {
+            return catalog.slice();
+          }
+          return readCatalogFromDom();
+        }
 
         function ensureLanguage(lang) {
           if (typeof lang === 'string' && lang) {
@@ -218,8 +484,8 @@
           }
         }
 
-        function pickRandomItems() {
-          var pool = CART_CATALOG.slice();
+        function pickRandomItems(ctx) {
+          var pool = getCatalog(ctx);
           var count = 1 + Math.floor(Math.random() * Math.min(pool.length, 4));
           var picks = [];
           for (var i = 0; i < count && pool.length; i += 1) {
@@ -242,7 +508,7 @@
             event.preventDefault();
           }
           if (!ctx) return;
-          var items = pickRandomItems();
+          var items = pickRandomItems(ctx);
           var totalQty = 0;
           for (var i = 0; i < items.length; i += 1) {
             totalQty += Number.isFinite(items[i].qty) ? items[i].qty : 0;
