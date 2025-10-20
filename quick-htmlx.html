@@ -323,5 +323,26 @@
         }
       </script>
     </template>
+    <script>
+      (function () {
+        function hydrateCharts() {
+          if (!window.Mishkah || !window.Mishkah.UI || !window.Mishkah.UI.Chart) return;
+          var ChartAPI = window.Mishkah.UI.Chart;
+          if (typeof ChartAPI.ensureLibrary !== 'function' || typeof ChartAPI.hydrate !== 'function') return;
+          ChartAPI.ensureLibrary().then(function () {
+            ChartAPI.hydrate();
+          });
+        }
+
+        if (window.Mishkah && window.Mishkah.UI && window.Mishkah.UI.Chart) {
+          hydrateCharts();
+        } else {
+          window.addEventListener('mishkah:auto-ready', function handleAutoReady() {
+            window.removeEventListener('mishkah:auto-ready', handleAutoReady);
+            hydrateCharts();
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
