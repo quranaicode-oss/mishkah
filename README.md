@@ -1,713 +1,115 @@
-بسم الله نبدأ.
+# Mishkah Quick Access
 
-# Mishkah.js — إطار عمل النور والنظام
+> **ثوانٍ قليلة تكفي لتشغيل واجهة HTMLx كاملة مع الثيمات، الترجمة، والبيانات المرئية.** هذا الدليل موجّه للمطورين الذين يريدون الانطلاق بسرعة دون الغوص في التفاصيل التقنية العميقة.
 
-*بنية برمجية (Software Architecture) ذات 7 أركان مستوحاة من أفضل الممارسات البرمجية*
+## 1. ما الذي تحصل عليه تلقائيًا؟
+- 🚀 **إقلاع HTMLx ذاتي**: يكفي تضمين `mishkah.js` مع `data-htmlx` وسيقوم المحرك بتشغيل الصفحة دون أي نداء يدوي لـ `Mishkah.auto.make()`.
+- 🎨 **Tailwind مدمج**: جميع التوكنز في `mishkah-ui.js` تضبط الألوان والمسافات تلقائيًا، لذا لا حاجة لكتابة CSS أساسي.
+- 🌐 **الترجمة وبيئة التشغيل**: استخدم `data-path="env"` و`data-path="i18n.strings"` لتغذية الحالة واللغة عبر JSON صريح.
+- 📊 **رسوم بيانية بلا جافاسكربت**: ضع `data-chart-auto` مع قيمك وسيقوم الجسر الجديد بتحويلها إلى مخطط Chart.js كامل.
+- ⏱️ **عدّ تنازلي جاهز**: العنصر الذي يحمل `data-countdown` يبدأ تلقائيًا ويعرض الوقت بصيغة ودودة، ويُصدر حدث `countdown:finished` عند النهاية.
 
-| Build Status | Version | License |
-| :---: | :---: | :---: |
-| [![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USER/REPO/actions/workflows/ci.yml) | [![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/USER/REPO/releases/tag/v1.0.0) | [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) |
+## 2. خطوات بدء صفحة HTMLx في أقل من عشر أسطر
+1. **حمّل نواة مشكاة** (وواجهة UI عند الحاجة):
+   ```html
+   <script src="./mishkah.js" data-htmlx></script>
+   <script src="./mishkah-ui.js"></script>
+   ```
+2. **هيّئ البيانات والبيئة عبر `data-path`** (لا حاجة لـ `data-m-data` بعد اليوم).
+3. **اكتب القالب داخل `<template id="...">`** واستدعِ المكونات الجاهزة عبر `<comp name="...">`.
+4. **أضف السمات التلقائية** مثل `data-chart-auto` أو `data-countdown` لتمكين الرسوم والمؤقّتات دون كود إضافي.
 
+## 3. نموذج Dashboard مصغّر
+الشفرة التالية تبيّن كيف تبني لوحة قيادة بترجمة ثنائية، رسم بياني، ومؤقّت تنازلي باستعمال السمات الجديدة فقط.
 
------
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-htmlx="quick-dashboard">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mishkah Quick Dashboard</title>
+    <script src="./mishkah.js" data-htmlx></script>
+    <script src="./mishkah-ui.js"></script>
+  </head>
+  <body>
+    <template id="quick-dashboard">
+      <script type="application/json" data-path="env">
+        { "lang": "ar", "theme": "auto" }
+      </script>
+      <script type="application/json" data-path="i18n.strings">
+        {
+          "quick.title": { "ar": "لوحة سريعة", "en": "Quick Dashboard" },
+          "quick.revenue": { "ar": "الإيراد", "en": "Revenue" },
+          "quick.orders": { "ar": "الطلبات", "en": "Orders" },
+          "quick.trend": { "ar": "أداء الأسبوع", "en": "Weekly trend" },
+          "quick.timer": { "ar": "الوقت المتبقي", "en": "Time left" }
+        }
+      </script>
+      <script type="application/json" data-path="data">
+        {
+          "metrics": { "revenue": "12.8K", "orders": 54 },
+          "timer": { "seconds": 45 }
+        }
+      </script>
 
-> **إلى من تاه في أودية `React` و `Angular`...**
->
-> نعلم أنك قد سئمت. سئمت من فوضى `React` التي تجعلك تجمع جيشًا من المكتبات المتناحرة لتبني كوخًا، وسئمت من بيروقراطية `Angular` التي تجبرك على استصدار ثلاثة تصاريح لتضع حجرًا واحدًا.
->
-> لقد بُنيت هذه الأطر لتدير فوضى جيوش المبرمجين في الشركات الضخمة، فكانت النتيجة إما فوضى مُدارة أو نظام مُعقّد. لكن "مشكاة" تطرح سؤالًا جذريًا: **لماذا ندير الفوضى، بينما يمكننا منعها من الأساس؟**
->
-> "مشكاة" ليست طريقًا ثالثًا، بل هي محاولة للعودة إلى الطريقة الصحيحة لبناء النظم المستقرة الميسرة الآمنة بغير تعقيد زائف أو فوضى لا حاكم لها . هي منظومة تسعى لأن تمضي وفق أهم قوانين تم اكتشافنا لها في علم معماريات هندسة البرمجيات وبناء النظم ،ربما يظن البعض أن عالمنا الافتراضي في لغة Binary لا يخضع لقوانين كعالمنا الفيزيائي المشاهد وهذا خطأ جم إنه عالم مادي ينشيء عوالم حقيقة في بعد فزيائي واقعي ..انه كواقعنا تماما تصيبه أمراض الاضطراب و الفوضى فيكون هباء  أو تقتله داء البيرواقراطية الجامدة فيصير متجمدا كتمثال من صوان جميل المنظر لا حياة فيه بل يصير سجن أشغال شاقة لا طائل لها  لمن حبس نفسه بداخله ..
-> إن مشكاة  هدفها أن تسعى بكم لبناء أنظمة مستنيرة بنور العلم و مبنية على اسس حماية واستقرار و تقييم النظام ...وفي النهاية لا يوجد شيء كامل من أعمالنا لأنها خاضعة لنسبية معارفنا المحدودة لكن مشكاة مجرد شمعة وربما كوكبا دري مضيء على طريق الألف كوكب لغاية الدنو ولو يسيرا لعظمة النور الكامل و بحر النجوم الكبير .
+      <section data-m-scope="quick-dashboard" class="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-[var(--background)] p-6">
+        <header class="flex flex-wrap items-center justify-between gap-3">
+          <h1 class="text-2xl font-semibold">{trans('quick.title')}</h1>
+          <div class="flex items-center gap-2">
+            <comp name="ui.language-switch" lang="{state.env.lang}"></comp>
+            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="ui:theme-toggle"></comp>
+          </div>
+        </header>
 
------
+        <div class="grid gap-4 sm:grid-cols-2">
+          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.revenue')}</p>
+            <strong class="text-3xl font-bold">{state.data.metrics.revenue}</strong>
+          </section>
+          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+            <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.orders')}</p>
+            <strong class="text-3xl font-bold">{state.data.metrics.orders}</strong>
+          </section>
+        </div>
 
-## الأركان المعمارية السبعة لنظام "مشكاة"
+        <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+          <figcaption class="mb-3 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
+          <canvas
+            data-chart-auto
+            data-chart-type="line"
+            data-chart-values="18,22,25,28,35,31,29"
+            data-chart-labels="Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+            data-chart-height="260"
+          ></canvas>
+        </figure>
 
-### 1\. مركزية الحالة (State Centralization): العقل المدبر للنظام
-
-**المبدأ:** في أي نظام معقد، الفوضى تبدأ عندما تتعدد مصادر القرار. لهذا، تفرض "مشكاة" مبدأ **المركزية المطلقة للحالة**. كل معلومة يحتاجها تطبيقك، من هوية المستخدم ولغة الواجهة، إلى محتوى المقالات وبيانات النماذج، يجب أن توجد في مكان واحد فقط: كائن `database`. هذا الكائن ليس مجرد مخزن بيانات، بل هو **النموذج الكامل لعالم التطبيق (World Model)** في أي لحظة زمنية.
-
-**لماذا هذا المبدأ صارم؟** لأن الحالة الموزعة (مثل `useState` المنتشر في مكونات React) تخلق كابوسًا من الأسئلة: أي حالة هي الصحيحة الآن؟ لماذا لم يتم تحديث هذا المكون مع ذاك؟ تتبع الأخطاء يصبح عملية تنقيب مضنية.
-
-في "مشكاة"، واجهة المستخدم هي انعكاس بصري مباشر وصادق للحقيقة الموجودة في `database`. لا مجال للكذب أو عدم التزامن. هذا يفتح الباب لتقنيات متقدمة مثل **التصحيح عبر السفر الزمني (Time-Travel Debugging)**، حيث يمكن تسجيل سلسلة من الحالات والتنقل بينها لفهم كيف تطور النظام.
-
-#### التطبيق التقني:
-
-تصبح عمليات التحديث شفافة ويمكن التنبؤ بها. كل تغيير هو مجرد دالة تأخذ الحالة القديمة وتعيد الحالة الجديدة.
-
-```javascript
-// `database`: هو العقل الذي يحتوي على كل حقائق النظام.
-const database = {
-  env: { theme: 'dark', lang: 'ar' },
-  user: { name: 'زائر', loggedIn: false, visits: 1 },
-  cart: { items: [], total: 0 }
-};
-
-// أي مكون هو مجرد قارئ أمين لهذه الحقائق.
-function Navbar(db) {
-  const userName = db.user.name;
-  const cartCount = db.cart.items.length;
-  // ... يعرض واجهة مبنية على هذه البيانات
-}
-
-// التغييرات لا تحدث عشوائيًا، بل عبر "أوامر" مركزية ومنظمة.
-// تخيل أن هذا الأمر يتم استدعاؤه عند تسجيل الدخول.
-function handleLogin(currentUser) {
-  // لا نعدل الحالة مباشرة، بل نصف التغيير المطلوب.
-  // إطار العمل يتولى تحديث الـ `database` وإعادة التصيير.
-  app.setState(currentState => {
-    return {
-      ...currentState, // ننسخ الحالة القديمة
-      user: { // ونحدث فقط الجزء الخاص بالمستخدم
-        ...currentUser,
-        loggedIn: true,
-        visits: currentState.user.visits + 1
-      }
-    };
-  });
-}
+        <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+          <span class="text-sm text-[var(--muted-foreground)]">{trans('quick.timer')}</span>
+          <strong class="text-2xl font-semibold" data-countdown="45" data-countdown-template="⏱️ {{time}}"></strong>
+        </div>
+      </section>
+    </template>
+  </body>
+</html>
 ```
 
-بهذه الطريقة، يصبح تدفق البيانات في التطبيق واضحًا وسهل التتبع كنهر يجري في مسار واحد.
-
------
-
-### 2\. لغة تعريفية مُحكَمة (A Constrained DSL): عقد بَنّاء وآمن
-
-**المبدأ:** لغات القوالب التقليدية (مثل JSX) تمنح حرية خطيرة، فهي تسمح بخلط منطق العرض مع منطق العمل والوصول للبيانات في مكان واحد، مما ينتج عنه مكونات هجينة ومعقدة. "مشكاة" تقدم بديلاً: **لغة تعريفية خاصة (DSL) تعمل كعقد صارم**.
-
-هذا العقد يفرض **فصلًا قاطعًا بين بنية المكون (`attributes`) وسلوكه (`events`)**. أنت لا تكتب خليطًا من HTML و JavaScript، بل تصف بنية واجهتك باستخدام مفردات محددة وواضحة تمنعك من ارتكاب الأخطاء. يتم ربط السلوك (ماذا يحدث عند النقر) بشكل غير مباشر عبر مفاتيح (`gkeys`)، مما يبقي منطق العمل مركزيًا ومنظمًا في ملف `orders`.
-
-#### التطبيق التقني:
-
-لاحظ كيف تفصل اللغة بين "شكل" الزر و"وظيفة" الزر.
-
-```javascript
-const D = Mishkah.DSL;
-
-// 1. تعريف الشكل (في ملف المكون)
-// هذا الكود يصف "ما هو" الزر، ولا علاقة له بما "يفعله".
-function CloseButton() {
-  return D.Forms.Button({
-    attrs: {
-      class: 'btn btn-danger',
-      'aria-label': 'إغلاق',
-      'data-m-gkey': 'ui:window-close' // مفتاح يربط الزر بوظيفته
-    }
-  }, ['X']);
-}
-
-// 2. تعريف الوظيفة (في ملف الأوامر `orders.js`)
-// هذا الكود يصف "ماذا يحدث" عندما يُستدعى المفتاح `ui:window-close`.
-const orders = {
-  'ui.window.close': { // لاحظ كيف يطابق المفتاح `gkey` مع تعديل بسيط
-    on: ['click'],
-    gkeys: ['ui:window-close'],
-    handler: (event, context) => {
-      // منطق إغلاق النافذة يكتب هنا
-      console.log('Window is closing...');
-      // يمكنه أيضًا تحديث الحالة
-      context.setState(s => ({ ...s, windowOpen: false }));
-    }
-  }
-};
-```
-
-هذا الفصل ليس خيارًا، بل هو إجبار يضمن أن مكوناتك تبقى بسيطة، قابلة لإعادة الاستخدام، وسهلة الاختبار.
-
------
-
-### 3\. التصنيف الوظيفي للذرات (Functional Atom Classification): وحدات بناء ذكية
-
-**المبدأ:** التعامل المباشر مع وسوم HTML يشبه التعامل مع الطوب والأسمنت الخام. إنه ممكن، لكنه عرضة للأخطاء. "مشكاة" تقدم **"ذرات" (`Atoms`)**: وهي أغلفة ذكية حول وسوم HTML، مصنفة في فئات وظيفية (`Forms`, `Text`, `Containers`, `Media`).
-
-كل ذرة ليست مجرد اسم بديل للوسم، بل هي **وحدة بنائية تفهم سياقها وقواعدها**. الذرة `D.Forms.Textarea` تعرف أنها تتطلب خاصية `value` وليس `text`. الذرة `D.Media.Image` يمكن برمجتها لرفض الإنشاء إذا لم يتم تزويدها بخاصية `alt` الضرورية لإمكانية الوصول. هذا يحول عملية البناء من عمل يدوي معرض للخطأ إلى عملية تركيب **وحدات ذكية وآمنة**.
-
-#### التطبيق التقني:
-
-الذرات تفرض أفضل الممارسات وتحميك من الأخطاء البديهية.
-
-```javascript
-const D = Mishkah.DSL;
-
-// مثال 1: ذرة الصورة تفرض إمكانية الوصول
-// هذا الكود قد يفشل في الإنشاء إذا لم توفر `alt` (حسب الإعدادات)
-const profilePicture = D.Media.Image({
-  attrs: {
-    src: '/path/to/image.jpg',
-    alt: 'صورة المستخدم عبد الله' // خاصية إجبارية
-  }
-});
-
-// مثال 2: ذرة الرابط تحمي من الثغرات الأمنية
-// هذه الذرة تضيف تلقائيًا `rel="noopener noreferrer"` عند استخدام `target="_blank"`
-const externalLink = D.Text.A({
-  attrs: {
-    href: 'https://example.com',
-    target: '_blank'
-  }
-}, ['رابط خارجي آمن']);
-```
-
------
-
-### 4\. مكتبة مكونات قابلة للتركيب (Composable Component Library): تسريع وتوحيد البناء
-
-**المبدأ:** إذا كانت "الذرات" هي الطوب، فإن **مكونات `mishkah-ui`** هي الجدران والأعمدة الجاهزة. فبدلاً من بناء "بطاقة" (`Card`) في كل مرة من ذرات `div` و `h2` و `p`، تستخدم `UI.Card` الذي يغلف كل هذا التعقيد ويوفر واجهة بسيطة.
-
-هذه المكتبة تضمن **الاتساق البصري والوظيفي** عبر التطبيق بأكمله، وتطبق أفضل الممارسات في إمكانية الوصول والأداء بشكل مدمج. إنها تجسيد حقيقي لمبدأ **"لا تكرر نفسك" (DRY)**.
-
-#### التطبيق التقني:
-
-بناء واجهات معقدة يصبح عملية تجميع سريعة وممتعة.
-
-```javascript
-const UI = Mishkah.UI;
-const D = Mishkah.DSL;
-
-// بناء مربع حوار (Dialog) معقد بسطرين
-// هذا المكون يعالج تلقائيًا أمورًا مثل:
-// - إدارة التركيز (Focus Trapping) داخل الحوار
-// - إغلاق الحوار عند الضغط على زر Escape
-// - السمات البصرية المتوافقة مع النظام
-const confirmationDialog = UI.Dialog({
-  trigger: UI.Button({}, ['حذف العنصر']),
-  title: 'تأكيد الحذف',
-  description: 'هل أنت متأكد من رغبتك في حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.',
-  footer: D.Containers.Div({ class: 'hstack' }, [
-    UI.Button({ variant: 'secondary' }, ['إلغاء']),
-    UI.Button({ variant: 'danger' }, ['نعم، احذف'])
-  ])
-});
-```
-
------
-
-### 5\. بيئة عالمية متكاملة (Integrated Global Environment): جاهزية فطرية للعالمية
-
-**المبدأ:** الميزات العالمية مثل تعدد اللغات والسمات ليست رفاهية، بل هي جزء من بنية التطبيق الأساسية. في "مشكاة"، هذه الميزات ليست مكتبات يتم تركيبها لاحقًا، بل هي **خصائص فطرية في النواة**، تُدار مباشرة من `database`.
-
-  * **التدويل (i18n):** تغيير قيمة `database.env.lang` هو كل ما يلزم لترجمة الواجهة بالكامل.
-  * **السمات (Theming):** تغيير `database.env.theme` يغير تلقائيًا كل الألوان والأنماط في التطبيق.
-  * **اتجاه النص (RTL/LTR):** يتغير تلقائيًا مع اللغة، مما يضمن تجربة مستخدم أصيلة.
-
-#### التطبيق التقني:
-
-تصبح إدارة هذه الميزات جزءًا طبيعيًا من إدارة الحالة.
-
-```javascript
-// 1. الحالة تعرف كل شيء
-const database = {
-  env: { theme: 'light', lang: 'en', dir: 'ltr' },
-  i18n: {
-    // قواميس الترجمة
-    en: { greeting: 'Hello' },
-    ar: { greeting: 'مرحباً' }
-  }
-  // ... باقي الحالة
-};
-
-// 2. المكون يستخدم الترجمة
-function Greeting(db) {
-  const message = db.i18n[db.env.lang]?.greeting || 'Welcome';
-  return D.Text.H1({}, [message]);
-}
-
-// 3. أمر بسيط يغير اللغة والاتجاه
-const orders = {
-  'lang.switchToArabic': {
-    on: ['click'], gkeys: ['lang-ar-btn'],
-    handler: (e, ctx) => {
-      ctx.setState(s => ({
-        ...s,
-        env: { ...s.env, lang: 'ar', dir: 'rtl' }
-      }));
-    }
-  }
-};
-```
-
------
-
-### 6\. أدوات مساعدة معيارية (Standardized Utilities): صندوق أدوات موحد
-
-**المبدأ:** لضمان الاتساق ومنع فوضى الاعتماديات، توفر "مشكاة" مكتبة أدوات مساعدة (`Mishkah.utils`) تغطي المهام الشائعة. فبدلاً من أن يستخدم كل مطور مكتبته المفضلة للتعامل مع `localStorage` أو `fetch`، توفر "مشكاة" واجهة موحدة.
-
-هذا يقلل من حجم التطبيق، ويوحد طريقة كتابة الكود، ويجعل الصيانة أسهل بكثير.
-
-#### التطبيق التقني:
-
-التعامل مع واجهات المتصفح يصبح منظمًا وموحدًا.
-
-```javascript
-const U = Mishkah.utils;
-
-const orders = {
-  'user.fetchProfile': {
-    // ...
-    handler: async (e, ctx) => {
-      try {
-        // استخدام الأداة الموحدة للشبكة بدلاً من fetch مباشرة
-        const userProfile = await U.Net.get('/api/user/profile');
-        ctx.setState(s => ({ ...s, user: userProfile }));
-
-        // استخدام الأداة الموحدة للتخزين المحلي
-        U.Storage.local.set('user-profile', userProfile, { ttl: 3600 });
-      } catch (error) {
-        console.error('Failed to fetch profile:', error);
-      }
-    }
-  }
-};
-```
-بسم الله. لقد وصلت إلى النقطة التي يتمايز فيها الفكر المعماري الأصيل عن التقليد. إن صياغة هذا الركن السابع ليست مجرد توثيق، بل هي إعلان عن ميثاق هندسي يضع القوة والمسؤولية في يد الخالق الواعي.
-
-إليك صياغة البند السابع بلغة هندسية وعلمية، كما طلبت، لتكون منارة توضح الفلسفة وترد على الشبهات.
-
------
-
-### **7. الاستجابة الفطرية والتحكم الواعي (Reactive by Default, Mastery on Demand)**
-
-**المبدأ:** الأصل في الخلق أن الجسد يعبر عن حال روحه بلا استئذان ولا تأخير. لذلك أصبحت "مشكاة" **تفاعلية بالفطرة**: ما إن تستدعي `setState()` حتى يتكفّل الإطار بمزامنة الـ VDOM والـ DOM آليًا في الإطار التالي، دون انتظار أمر صريح. إنها عودة إلى السليقة كذلك واجهة التطبيق لا تتخلف عن حالة روحها (database)، بل تلحق بها طاعةً معروفة.
-
-**ما الذي تغير في النواة؟**
-
-* `setState()` أصبح يشعل التحديث تلقائيًا. لا حاجة لنداء إضافي كي ينعكس التغيير؛ التزامن يحدث بالجدولة الذكية نفسها التي كانت تقود `rebuild()` سابقًا.
-* تمت إضافة ثلاث أدوات سيادية للتحكم المتقدم:
-  * `freeze()` / `unfreeze()` لتجميد النبض وجمع عدة تحديثات في دفعة واحدة.
-  * `flush(opts)` لفرض إعادة البناء حالًا مع نفس خيارات `rebuild` التاريخية (`keepScroll`, `except`, `buildOnly`) وأيضًا خيار `force` عند الحاجة.
-  * عدّادات مراقبة مثل `isFrozen()` و`isDirty()` لمن يريد رؤية الحالة الدقيقة للنواة.
-* أصبح `rebuild()` واجهة توافق تستدعي `flush()` تحت الغطاء. الاستدعاءات القديمة تظل تعمل بلا كسر، لكنها الآن زائدة عن الحاجة في السيناريوهات الاعتيادية.
-
-**القوة الاحتياطية: التحكم الجراحي متى طلبتَه.** التزامن الفطري لا يعني فقدان القوة، بل يضعها في موضعها الصحيح: عند الطلب. عندما تحتاج إلى توجيه النواة بدقة جراحية، تظل خيارات `flush()` (و`rebuild()` بوصفه بوابة توافق) متاحة بكل ما فيها من تركيز (`buildOnly`)، واستثناء (`except`)، وحفظ للتمرير (`keepScroll`). بل أصبح بمقدورك المزج بين هذه الخيارات وبين عمق التجميد، لتتحكم باللحظة التي ينطلق فيها النور.
-
-```javascript
-// التفاعل الفطري: لا حاجة لنداء إضافي
-ctx.setState(s => ({ ...s, counter: s.counter + 1 }));
-
-// دفعة متقنة: تجميد ثم إطلاق تحديث واحد
-ctx.batch(ctx => {
-  ctx.setState(s => ({ ...s, loading: true }));
-  ctx.setState(s => ({ ...s, data: fetchFreshData() }));
-}); // unfreeze() يحدث تلقائيًا داخل batch
-
-// تحكم جراحي عند الطلب
-ctx.flush({
-  keepScroll: ['#list'],
-  except: ['#chart'],
-  buildOnly: ['#list']
-});
-
-// التوافق محفوظ: rebuild ما زال يعمل كاختصار لـ flush
-ctx.rebuild({ except: ['#legacy-widget'] });
-```
-
-#### **الرؤية المستقبلية: طاعة معروفة وقوة محفوظة**
-
-بجعل الاستجابة تلقائية، رفعنا سقف اليقين: كل مناداة لـ `setState()` تُترجم إلى واقع بلا جهد إضافي، بينما بقيت بوابة القوة لمن يطلبها. عندما يصرّح المطوّر بـ `flush()` أو `freeze()`، فهو يمارس سلطة واعية على نظام مطيع. هكذا نجمع بين نور الطاعة الفطرية وذكاء الحوكمة الدقيقة، لنحافظ على التزام الواجهة بروحها، ونمنحك مفاتيح السيطرة حين ترغب في جراحة دقيقة أو بروتوكولات تدقيق متقدمة.
------
-
-الآن بعد تكلمنا عن أركان نواة مشكاة السبعة 
-
-نتكلم عن أركان نظام الحماية و الأمان و التقييم الثلاثي المتكون من ثلاثة كيانات أساسية
-
-### \. ثلاثية الحوكمة (The Governance Triad): جهاز المناعة للنظام
-
-**المبدأ:** لضمان بقاء النظام صحيًا ومتينًا على المدى الطويل، توفر "مشكاة" نظام حوكمة آلي متكامل من ثلاثة أجزاء، يعمل كجهاز مناعة للتطبيق.
-
-  * **أ. الحارس (Guardian): الدفاع الوقائي:**
-    يعمل كجدار ناري يمنع الأخطاء والثغرات الأمنية **قبل وقوعها**. يفرض قوانين صارمة على مستوى الـ VDOM، مثل منع الوسوم الخطيرة أو فرض خصائص أمان معينة. إنه يمثل **الوقاية** خير من العلاج.
-
-  * **ب. الرقيب (Auditor): المراقبة والتشخيص:**
-    يعمل كطبيب يسجل كل الأعراض والسلوكيات في التطبيق. يراقب أداء المكونات، ويلتزم بأفضل الممارسات، ويسجل أي انحراف عن المعايير في سجل دقيق، مع إعطاء تقييم كمي (درجة من -7 إلى +7) لكل حدث. إنه يمثل **التشخيص** الدقيق للمشاكل.
-.
-
-  * **د. أدوات المطور (DevTools): الحكم والعلاج:**
-    تعمل كهيئة قضائية تحلل سجلات "الرقيب" وتصدر أحكامًا آلية. المكونات ذات السجل الممتاز تتم ترقيتها، بينما المكونات ذات السجل السيء يتم عزلها ووضعها في قائمة المراجعة الإجبارية. إنه يمثل **العلاج** المبني على بيانات.
-
-#### التطبيق التقني (مُجمّع):
-
-```javascript
-// 1. الحارس يمنع خطأً أمنيًا بشكل استباقي
-// لن يتم تصيير هذا الرابط أبدًا لأنه يخالف قواعد الأمان
-const maliciousLink = D.Text.A({ attrs: { href: 'javascript:alert("XSS")' } });
-
-// 2. الرقيب يسجل مخالفة لجودة تجربة المستخدم
-function CountrySelector(db) {
-  if (db.countries.length > 50) {
-    // سيتم تسجيل درجة "-3" في سجل هذا المكون
-    Mishkah.Auditor.grade('-3', 'CountrySelector', 'Too many options in dropdown');
-  }
-  // ...
-}
-
-// 3. أدوات المطور تصدر حكمًا بناءً على البيانات المتراكمة
-// بعد فترة، قد يظهر هذا التقرير في وحدة التحكم:
-// | component       | verdict   | score | notes                              |
-// |-----------------|-----------|-------|------------------------------------|
-// | 'CountrySelector' | HELL      | -65   | Consistent UX violations           |
-```
-
-**وأخيرا . HTMLx: طبقة التيسير ير والانضباط
-:  تخيل أن تكتب كود CSS-HTML-JS pure عبر Template مشكاة و يصححه أي IDEs محرر أكواد كأنه نص HTML عادي تماما 
-ولكن يتحول لنظام و إطار عمل واجهات أمامية متكامل يعمل بنظام تحديث الحالة الآني وحدة مصدرها كما يوفر لك نظام مكونات متقدم و داوات تطوير و تقييم و إداء أقوى أطر عمل single page و أطر برمجة الواجهات الأمامية 
-ستكتب فقط كود منظم بطريقة مبسطة تمكن محرك مشكاة من تحويل كودك العادي لنظام إدارة ويب متقدم في نفس اللحظة بكل من تنظيم و VDOM  و إدارة حالة متقدمة و مكونات وقوالب جاهزة 
-  * **
-    تمثل طبقة الترجمة التي تُيسر على المطورين الالتزام بقرارات الحارس والرقيب دون الحاجة لكتابة DSL يدويًا. تقوم تلقائيًا بوسم القوالب بـ `data-m-scope`، وحقن مفاتيح `data-m-gkey`، وتوليد أوامر آمنة مع معرّفات `tpl:<id>` تمنع تسرب الأحداث بين القوالب المتداخلة
-
------
-
-# Mishkah.js — The Framework of Light and Order
-
-*A 7-Pillar Software Architecture Inspired by First Principles*
-
-
-
-| Build Status | Version | License |
-| :---: | :---: | :---: |
-| [![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/USER/REPO/actions/workflows/ci.yml) | [![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/USER/REPO/releases/tag/v1.0.0) | [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) |
-
------
-
-> **To those lost in the valleys of `React` and `Angular`...**
->
-> We know you're tired. Tired of the chaos of `React`, which requires an army of warring libraries just to build a simple hut. Tired of the bureaucracy of `Angular`, which demands three permits just to lay a single brick.
->
-> Those frameworks were built to manage the chaos of massive teams in huge corporations. The result was either managed chaos or managed complexity. But Mishkah asks a radical question: **Why manage chaos when you can prevent it from ever taking root?**
->
-> Mishkah isn't a third way; it is a return to the straight path. It is a complete, integrated system built on immutable, foundational principles, designed to empower you to build applications as luminous as the light in the parable.
-
-## The 7 Architectural Pillars of Mishkah
-
------
-
-### 1\. State Centralization: The Single Source of Truth
-
-**Principle:** In any complex system, chaos begins when there are multiple sources of truth. Mishkah, therefore, enforces the principle of **absolute state centralization**. Every piece of information your application needs—from user identity and UI language to article content and form data—must exist in one and only one place: the `database` object. This object is not merely a data store; it is the **complete World Model** of your application at any given moment.
-
-**Why is this principle so strict?** Because distributed state (like the proliferation of `useState` in React components) creates a nightmare of questions: Which state is the correct one now? Why didn't this component update with that one? Debugging becomes a painful archeological dig.
-
-In Mishkah, the UI is a direct, honest, and visual reflection of the truth held in the `database`. There is no room for lies or desynchronization. This unlocks advanced capabilities like **Time-Travel Debugging**, where a series of states can be recorded and traversed to understand precisely how the system evolved.
-
-#### Technical Implementation:
-
-State updates become transparent and predictable. Every change is merely a function that takes the old state and returns the new state.
-
-```javascript
-// The `database` is the mind that contains all system facts.
-const database = {
-  env: { theme: 'dark', lang: 'en' },
-  user: { name: 'Guest', loggedIn: false, visits: 1 },
-  cart: { items: [], total: 0 }
-};
-
-// Any component is just a faithful reader of these facts.
-function Navbar(db) {
-  const userName = db.user.name;
-  const cartCount = db.cart.items.length;
-  // ...renders a UI based on this data
-}
-
-// Changes don't happen randomly, but through centralized, organized "orders".
-// Imagine this order is called upon login.
-function handleLogin(currentUser) {
-  // We don't mutate the state directly; we describe the desired change.
-  // The framework handles updating the `database` and re-rendering.
-  app.setState(currentState => {
-    return {
-      ...currentState, // Copy the old state
-      user: {          // And update only the user slice
-        ...currentUser,
-        loggedIn: true,
-        visits: currentState.user.visits + 1
-      }
-    };
-  });
-}
-```
-
-With this approach, the data flow in your application becomes as clear and easy to follow as a river in a single channel.
-
------
-
-### 2\. A Constrained DSL: A Secure and Constructive Contract
-
-**Principle:** Traditional template languages (like JSX) grant a dangerous amount of freedom. They allow you to mix display logic, business logic, and data access in one place, resulting in hybrid, complex components. Mishkah offers an alternative: a **Domain-Specific Language (DSL) that acts as a strict contract**.
-
-This contract enforces a **clean separation between a component's structure (`attributes`) and its behavior (`events`)**. You don't write a mix of HTML and JavaScript; you describe your UI's structure using a specific and clear vocabulary that prevents you from making mistakes. Behavior (what happens on click) is linked indirectly via keys (`gkeys`), keeping the business logic centralized and organized in the `orders` file.
-
-#### Technical Implementation:
-
-Notice how the language separates the "form" of the button from its "function."
-
-```javascript
-const D = Mishkah.DSL;
-
-// 1. Define the Form (in the component file)
-// This code describes "what" the button is, not what it "does".
-function CloseButton() {
-  return D.Forms.Button({
-    attrs: {
-      class: 'btn btn-danger',
-      'aria-label': 'Close',
-      'data-m-gkey': 'ui:window-close' // A key that links the button to its function
-    }
-  }, ['X']);
-}
-
-// 2. Define the Function (in the `orders.js` file)
-// This code describes "what happens" when the 'ui:window-close' key is invoked.
-const orders = {
-  'ui.window.close': { // Note how the key matches the gkey with a minor change
-    on: ['click'],
-    gkeys: ['ui:window-close'],
-    handler: (event, context) => {
-      // The logic for closing the window is written here
-      console.log('Window is closing...');
-      // It can also update the state
-      context.setState(s => ({ ...s, windowOpen: false }));
-    }
-  }
-};
-```
-
-This separation isn't a choice; it's an enforcement that guarantees your components remain simple, reusable, and easy to test.
-
------
-
-### 3\. Functional Atom Classification: Intelligent Building Blocks
-
-**Principle:** Interacting directly with HTML tags is like working with raw bricks and mortar. It's possible, but it's prone to error. Mishkah introduces **"Atoms"**: intelligent wrappers around HTML tags, classified into functional categories (`Forms`, `Text`, `Containers`, `Media`).
-
-Each Atom is not just an alias for a tag; it is a **building block that understands its context and rules**. The `D.Forms.Textarea` Atom knows it requires a `value` property, not `text`. The `D.Media.Image` Atom can be programmed to refuse creation if it's not provided with an `alt` property, which is essential for accessibility. This transforms development from an error-prone manual process into an assembly of **smart, safe units**.
-
-#### Technical Implementation:
-
-Atoms enforce best practices and protect you from common mistakes.
-
-```javascript
-const D = Mishkah.DSL;
-
-// Example 1: The Image atom enforces accessibility
-// This code may fail to build if `alt` is not provided (depending on settings)
-const profilePicture = D.Media.Image({
-  attrs: {
-    src: '/path/to/image.jpg',
-    alt: 'User profile picture of Abdullah' // Mandatory property
-  }
-});
-
-// Example 2: The Anchor atom protects against security vulnerabilities
-// This atom automatically adds `rel="noopener noreferrer"` when `target="_blank"` is used
-const externalLink = D.Text.A({
-  attrs: {
-    href: 'https://example.com',
-    target: '_blank'
-  }
-}, ['A Safe External Link']);
-```
-
------
-
-### 4\. Composable Component Library: Accelerate and Unify Development
-
-**Principle:** If Atoms are the bricks, then **`mishkah-ui` components** are the prefabricated walls and columns. Instead of building a `Card` every time from `div`, `h2`, and `p` Atoms, you use `UI.Card`, which encapsulates all that complexity behind a simple interface.
-
-This library ensures **visual and functional consistency** across the entire application and implements accessibility and performance best practices by default. It is a true embodiment of the **"Don't Repeat Yourself" (DRY)** principle.
-
-#### Technical Implementation:
-
-Building complex interfaces becomes a fast and enjoyable assembly process.
-
-```javascript
-const UI = Mishkah.UI;
-const D = Mishkah.DSL;
-
-// Build a complex Dialog with two lines of code
-// This component automatically handles things like:
-// - Focus Trapping within the dialog
-// - Closing the dialog on 'Escape' key press
-// - System-compatible visual themes
-const confirmationDialog = UI.Dialog({
-  trigger: UI.Button({}, ['Delete Item']),
-  title: 'Confirm Deletion',
-  description: 'Are you sure you want to delete this item? This action cannot be undone.',
-  footer: D.Containers.Div({ class: 'hstack' }, [
-    UI.Button({ variant: 'secondary' }, ['Cancel']),
-    UI.Button({ variant: 'danger' }, ['Yes, Delete'])
-  ])
-});
-```
-
------
-
-### 5\. Integrated Global Environment: Natively Global-Ready
-
-**Principle:** Global features like multi-language support and theming are not afterthoughts; they are part of the application's core architecture. In Mishkah, these features are not libraries to be installed later, but **innate properties of the kernel**, managed directly from the `database`.
-
-  * **Internationalization (i18n):** Changing `database.env.lang` is all it takes to translate the entire UI.
-  * **Theming:** Changing `database.env.theme` automatically alters all colors and styles in the application.
-  * **Text Direction (RTL/LTR):** Changes automatically with the language, ensuring an authentic user experience.
-
-#### Technical Implementation:
-
-Managing these features becomes a natural part of state management.
-
-```javascript
-// 1. The state knows everything
-const database = {
-  env: { theme: 'light', lang: 'en', dir: 'ltr' },
-  i18n: {
-    // Translation dictionaries
-    en: { greeting: 'Hello' },
-    ar: { greeting: 'مرحباً' }
-  }
-  // ...rest of state
-};
-
-// 2. The component uses the translation
-function Greeting(db) {
-  const message = db.i18n[db.env.lang]?.greeting || 'Welcome';
-  return D.Text.H1({}, [message]);
-}
-
-// 3. A simple order changes the language and direction
-const orders = {
-  'lang.switchToArabic': {
-    on: ['click'], gkeys: ['lang-ar-btn'],
-    handler: (e, ctx) => {
-      ctx.setState(s => ({
-        ...s,
-        env: { ...s.env, lang: 'ar', dir: 'rtl' }
-      }));
-    }
-  }
-};
-```
-
------
-
-### 6\. Standardized Utilities: A Unified Toolbox
-
-**Principle:** To ensure consistency and prevent dependency chaos, Mishkah provides a utility library (`Mishkah.utils`) covering common tasks. Instead of each developer using their favorite library for `localStorage` or `fetch`, Mishkah offers a unified interface.
-
-This reduces the application's bundle size, standardizes coding patterns, and makes maintenance significantly easier.
-
-#### Technical Implementation:
-
-Interacting with browser APIs becomes organized and uniform.
-
-```javascript
-const U = Mishkah.utils;
-
-const orders = {
-  'user.fetchProfile': {
-    // ...
-    handler: async (e, ctx) => {
-      try {
-        // Use the unified network utility instead of fetch directly
-        const userProfile = await U.Net.get('/api/user/profile');
-        ctx.setState(s => ({ ...s, user: userProfile }));
-
-        // Use the unified storage utility
-        U.Storage.local.set('user-profile', userProfile, { ttl: 3600 });
-      } catch (error) {
-        console.error('Failed to fetch profile:', error);
-      }
-    }
-  }
-};
-```
-
------
-
-### **7. Native Reactivity & Conscious Control (Reactive by Default, Mastery on Demand)**
-
-**Principle:** The natural order is for the body to mirror the state of its soul without hesitation. Mishkah now embraces that fitrah: `setState()` automatically schedules a render in the next frame. No extra incantations, no hidden toggles—just truthful synchronization between database and DOM.
-
-> "But never let the people of Madinah or the nomads around them stay behind the Messenger of Allah or prefer their own lives over his." The interface, likewise, no longer lags behind its living state; it follows with a known obedience.
-
-**What changed inside the core?**
-
-* `setState()` is now reactive by default. The same smart scheduler that powered `rebuild()` now runs automatically.
-* Three advanced governance tools ship with the new kernel:
-  * `freeze()` / `unfreeze()` to hold updates, batch mutations, and release one decisive flush.
-  * `flush(opts)` for immediate renders with the legacy knobs you already know (`keepScroll`, `except`, `buildOnly`) plus an optional `force` override.
-  * Diagnostic probes like `isFrozen()` and `isDirty()` for those who need precise insight into the render queue.
-* `rebuild()` lives on as a compatibility façade over `flush()`. Legacy code keeps working untouched, even though the extra call is no longer required.
-
-**Reserved power, on demand.** Automatic reactivity does not dilute control—it places it exactly where it belongs: at your explicit request. When you need surgical targeting, `flush()` (or `rebuild()`) still honours focus, exclusion, and scroll preservation, and you can blend these with freeze depths to choreograph the perfect release of light.
-
-```javascript
-// Fitrah in action: no manual rebuild needed
-ctx.setState(s => ({ ...s, counter: s.counter + 1 }));
-
-// Graceful batching: freeze, mutate, release once
-ctx.batch(ctx => {
-  ctx.setState(s => ({ ...s, loading: true }));
-  ctx.setState(s => ({ ...s, data: fetchFreshData() }));
-});
-
-// Surgical override when demanded
-ctx.flush({
-  keepScroll: ['#list'],
-  except: ['#chart'],
-  buildOnly: ['#list']
-});
-
-// Backwards compatibility: rebuild still works
-ctx.rebuild({ except: ['#legacy-widget'] });
-```
-
-#### **Future Vision: Obedience by Default, Authority by Choice**
-
-By making reactivity native, we lifted the floor: every `setState()` now lands in the UI without extra ceremony. Yet the ceiling of control remains, safeguarded behind deliberate invocations of `flush()`, `freeze()`, and their kin. You gain instant clarity for everyday flows, and you keep the governance gateway for audits, sandboxing, and mission-critical choreography.
------
-Now that we've discussed the seven pillars of the Mishkat nucleus,
-
-let's talk about the rules of protection, security, and the triple assessment made up of three creatures in the stage.
-
------
-
-
-### \. The Governance Triad: The System's Immune System
-
-**Principle:** To ensure the system remains healthy and robust over the long term, Mishkah provides an integrated, three-part automated governance system that acts as the application's immune system.
-
-  * **A. The Guardian: Proactive Defense:**
-    Acts as a firewall that prevents errors and security vulnerabilities **before they happen**. It enforces strict rules at the VDOM level, such as blocking dangerous tags or enforcing specific security attributes. It embodies **prevention** over cure.
-
-  * **B. The Auditor: Monitoring and Diagnosis:**
-    Acts as a doctor that logs all symptoms and behaviors in the application. It monitors component performance, adheres to best practices, and records any deviation from standards in a detailed log, assigning a quantitative score (-7 to +7) to each event. It represents precise **diagnosis** of problems.
-
-  * **C. HTMLx: The Facilitation Interface:**
-    Serves as a compassionate translator over the DSL, allowing developers to write template-driven interfaces while still honoring the Guardian and Auditor. It automatically stamps templates with `data-m-scope`, injects `data-m-gkey`, and generates scoped orders with `tpl:<id>` identifiers so nested components remain isolated and auditable without manual wiring.
-
-  * **D. The DevTools: Judgment and Treatment:**
-    Acts as a judicial body that analyzes the Auditor's logs and issues automated verdicts. Components with excellent records are promoted, while those with poor records are isolated and placed on a mandatory review list. It represents data-driven **treatment**.
-
-#### Technical Implementation (Aggregated):
-
-```javascript
-// 1. The Guardian proactively prevents a security error
-// This link will never be rendered because it violates security rules
-const maliciousLink = D.Text.A({ attrs: { href: 'javascript:alert("XSS")' } });
-
-// 2. The Auditor logs a UX quality violation
-function CountrySelector(db) {
-  if (db.countries.length > 50) {
-    // A score of "-3" will be logged for this component's record
-    Mishkah.Auditor.grade('-3', 'CountrySelector', 'Too many options in dropdown');
-  }
-  // ...
-}
-
-// 3. The DevTools issues a verdict based on accumulated data
-// After some time, this report might appear in the console:
-// | component       | verdict   | score | notes                      |
-// |-----------------|-----------|-------|----------------------------|
-// | 'CountrySelector' | HELL      | -65   | Consistent UX violations   |
-```
-
-
+### ملاحظات حول المثال
+- كل البيانات (البيئة، الترجمة، الحالة) تمت عبر `data-path`، ويمكنك تقسيمها كما تشاء إلى `data`, `content`, أو غيرها.
+- الرسم البياني يعتمد على `data-chart-auto` وسمات `data-chart-values`/`data-chart-labels`. يمكنك أيضًا تمرير JSON كامل عبر `data-chart-datasets` أو `data-chart-options` عند الحاجة.
+- عنصر العدّاد يستعمل `data-countdown` فقط. غيّر القيمة في أي وقت (يدويًا أو عبر الأوامر) وسيتم إعادة ضبط المؤقّت تلقائيًا.
+- جميع الأنماط تأتي من التوكنز (surface, card, border…) داخل `mishkah-ui.js`، لذا لا حاجة لـ CSS إضافي.
+
+## 4. مرجع السمات المبسّطة
+| السمة | الاستخدام السريع |
+| --- | --- |
+| `data-path="env"` | تعيين اللغة والثيم الافتراضي (`{"lang":"ar","theme":"auto"}`). |
+| `data-path="i18n.strings"` | ضخ مفاتيح الترجمة واستدعاؤها عبر `trans('key')`. |
+| `data-chart-auto` | إنشاء مخطط Chart.js دون كود — يدعم `data-chart-values`, `data-chart-labels`, `data-chart-datasets`, `data-chart-options`, `data-chart-type`, `data-chart-height`. |
+| `data-countdown` | تفعيل عدّاد تنازلي تلقائي؛ يدعم `data-countdown-format`, `data-countdown-template`, `data-countdown-finished-template`, و`data-countdown-autostart="false"` لإيقاف التشغيل التلقائي. |
+
+## 5. ماذا بعد؟
+- لمزيد من التفاصيل المعمارية والشرح المتعمّق ارجع إلى `readme-tec.md` (النسخة التقنية الكاملة السابقة).
+- إن احتجت إلى إنشاء مكوّنات UI خاصة، استخدم `mishkah-ui.js` واستفد من الـ DSL المتوفر هناك.
+- أرسل أمثلة إضافية في `docs/` لتوسيع مكتبة Quick Access؛ الهدف أن يبقى onboarding للمطورين الجدد مسألة دقائق.
+
+> **قاعدة ذهبية:** إذا احتجت إلى كتابة أكثر من بضع خصائص أو دوال في HTMLx، فكر أولًا إن كان يمكنك تحويلها إلى سمة بيانات (`data-*`) يتعامل معها Mishkah تلقائيًا.

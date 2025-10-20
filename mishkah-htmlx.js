@@ -562,16 +562,26 @@
 
   function parseDataScriptElement(scriptEl, templateEl) {
     var contextLabel = describeTemplate(templateEl);
-    var pathAttr = (scriptEl && scriptEl.getAttribute && scriptEl.getAttribute('data-m-path')) || '';
+    var attrName = 'data-m-data';
+    if (scriptEl && scriptEl.hasAttribute && scriptEl.hasAttribute('data-path')) {
+      attrName = 'data-path';
+    }
+    var pathAttr = '';
+    if (scriptEl && typeof scriptEl.getAttribute === 'function') {
+      var directPath = scriptEl.getAttribute('data-path');
+      var legacyPath = scriptEl.getAttribute('data-m-path');
+      var legacyData = scriptEl.getAttribute('data-m-data');
+      pathAttr = directPath || legacyPath || legacyData || '';
+    }
     var rawPath = String(pathAttr || '').trim();
     if (!rawPath) {
-      var missingPathMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يتطلب تحديد data-m-path.';
+      var missingPathMessage = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' يتطلب تحديد data-path أو data-m-path.';
       console.warn(missingPathMessage);
       return { error: missingPathMessage };
     }
     var segments = rawPath.split('.').map(function (part) { return part.trim(); }).filter(function (part) { return part.length; });
     if (!segments.length) {
-      var invalidPathMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يحتوي مسارًا غير صالح: ' + rawPath;
+      var invalidPathMessage = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' يحتوي مسارًا غير صالح: ' + rawPath;
       console.warn(invalidPathMessage);
       return { error: invalidPathMessage };
     }
@@ -588,18 +598,18 @@
     try {
       data = JSON.parse(text);
     } catch (error) {
-      var message = 'HTMLx: data-m-data داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
+      var message = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' ليس JSON صالحًا: ' + error.message;
       console.warn(message);
       return { error: message };
     }
     if (!isPlainObject(data)) {
-      var typeMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
+      var typeMessage = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' يجب أن يكون كائن JSON.';
       console.warn(typeMessage);
       return { error: typeMessage };
     }
     var issues = ensureSerializableEnv(data, rawPath, []);
     if (issues.length) {
-      var issuesMessage = 'HTMLx: data-m-data داخل ' + contextLabel + ' يحتوي على قيم غير مدعومة: ' + issues.join(', ');
+      var issuesMessage = 'HTMLx: ' + attrName + ' داخل ' + contextLabel + ' يحتوي على قيم غير مدعومة: ' + issues.join(', ');
       console.warn(issuesMessage);
       return { error: issuesMessage };
     }
@@ -657,7 +667,7 @@
         next = {};
         cursor[part] = next;
       } else if (!isPlainObject(next)) {
-        console.warn('HTMLx: data-m-data داخل ' + contextLabel + ' تعذّر دمجه لأن ' + segments.slice(0, i + 1).join('.') + ' ليس كائنًا قابلاً للدمج.');
+        console.warn('HTMLx: data feed داخل ' + contextLabel + ' تعذّر دمجه لأن ' + segments.slice(0, i + 1).join('.') + ' ليس كائنًا قابلاً للدمج.');
         return;
       }
       cursor = next;
@@ -2375,7 +2385,7 @@
           }
           continue;
         }
-        if (scriptEl.hasAttribute('data-m-data')) {
+        if (scriptEl.hasAttribute('data-m-data') || scriptEl.hasAttribute('data-path')) {
           var dataResult = parseDataScriptElement(scriptEl, templateEl);
           if (dataResult && dataResult.data != null) {
             bundle.data.push(dataResult);
