@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Playfair+Display:wght@500;700&display=swap"
       rel="stylesheet"
     />
+    <script src="./mishkah.js" data-css="mishkah" data-htmlx="g-remal-htmlx"></script>
     <style>
       :root {
         color-scheme: light dark;
@@ -1045,20 +1046,5 @@
       </script>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
-    <script>
-      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
-    </script>
-    <script src="./mishkah-htmlx.js"></script>
-    <script>
-      window.addEventListener('DOMContentLoaded', function () {
-        if (window.mishkah && window.mishkah.boot) {
-          window.mishkah.boot({
-            template: '#g-remal-htmlx'
-          });
-        }
-      });
-    </script>
   </body>
 </html>
