@@ -950,6 +950,8 @@
         function updateBookingField(field, event, ctx) {
           var value = event && event.target ? event.target.value : null;
           commit(ctx, function (next) {
+            next.data = next.data && typeof next.data === 'object' ? next.data : {};
+            next.data.booking = next.data.booking && typeof next.data.booking === 'object' ? next.data.booking : {};
             if (field === 'nights' || field === 'guests') {
               var parsed = parseInt(value, 10);
               next.data.booking[field] = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
@@ -976,12 +978,15 @@
 
         function submitBooking(event, ctx) {
           if (event && typeof event.preventDefault === 'function') event.preventDefault();
+          if (!ctx || typeof ctx.getState !== 'function') return;
           var state = ctx.getState();
           var booking = state && state.data ? state.data.booking : null;
           if (!booking) return;
           var rooms = state.data.rooms || [];
           var selected = rooms.find(function (room) { return room.type === booking.roomType; });
           commit(ctx, function (next) {
+            next.env = next.env && typeof next.env === 'object' ? next.env : {};
+            next.data = next.data && typeof next.data === 'object' ? next.data : {};
             var lang = next.env.lang || 'ar';
             var total = calculateTotal(booking, selected);
             next.data.bookingSummary = {
