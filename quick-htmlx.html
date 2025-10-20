@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
   </head>
-  <body>
+  <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
       <script type="application/json" data-path="env">
         {
@@ -59,80 +59,128 @@
                 "price": 16
               }
             ]
-          }
+          },
+          "catalog": [
+            { "id": "espresso", "nameKey": "quick.cart.items.espresso", "price": 18.5 },
+            { "id": "cortado", "nameKey": "quick.cart.items.cortado", "price": 16 },
+            { "id": "flatwhite", "nameKey": "quick.cart.items.flatwhite", "price": 19 },
+            { "id": "cheesecake", "nameKey": "quick.cart.items.cheesecake", "price": 26.5 },
+            { "id": "cinnamon", "nameKey": "quick.cart.items.cinnamon", "price": 21 }
+          ]
         }
       </script>
 
-      <section data-m-scope="quick-dashboard" class="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-[var(--background)] p-6">
+      <section
+        data-m-scope="quick-dashboard"
+        class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 bg-[var(--background)] px-5 py-8 text-[var(--foreground)] sm:px-10"
+      >
         <header class="flex flex-wrap items-center justify-between gap-3">
-          <h1 class="text-2xl font-semibold">{trans('quick.title')}</h1>
-          <div class="flex items-center gap-2">
-            <comp name="ui.language-switch" lang="{state.env.lang}"></comp>
-            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="ui:theme-toggle"></comp>
+          <h1 class="text-3xl font-semibold tracking-tight">{trans('quick.title')}</h1>
+          <div class="flex flex-wrap items-center gap-3">
+            <comp name="ui.language-switch" lang="{state.env.lang}" dir="{state.env.dir}"></comp>
+            <comp name="ui.theme-toggle-icon" theme="{state.env.theme}" gkey="quick:theme-toggle"></comp>
           </div>
         </header>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+        <div class="grid gap-4 md:grid-cols-2">
+          <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
             <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.revenue')}</p>
-            <strong class="text-3xl font-bold">{formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}</strong>
+            <strong class="text-3xl font-semibold">{formatCurrency(state.data.metrics.revenue, state.env.currency || 'SAR', state.env.lang)}</strong>
           </section>
-          <section class="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+          <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
             <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.metrics.orders')}</p>
-            <strong class="text-3xl font-bold">{state.data.metrics.orders}</strong>
+            <strong class="text-3xl font-semibold">{state.data.metrics.orders}</strong>
           </section>
         </div>
 
-        <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
-          <figcaption class="mb-3 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
+        <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
+          <figcaption class="mb-4 text-sm text-[var(--muted-foreground)]">{trans('quick.trend')}</figcaption>
           <canvas
             data-chart-auto
             data-chart-type="line"
-            data-chart-values="18,22,25,28,35,31,29"
-            data-chart-labels="Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+            data-chart-values="{toCsv(state.data.trend.values)}"
+            data-chart-labels="{toCsv(state.data.trend.labels)}"
             data-chart-height="260"
           ></canvas>
         </figure>
 
-        <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+        <div class="flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
           <span class="text-sm text-[var(--muted-foreground)]">{trans('quick.timer')}</span>
-          <strong class="text-2xl font-semibold" data-countdown="{state.data.timer.seconds}" data-countdown-template="⏱️ {{time}}"></strong>
+          <strong class="inline-flex items-center gap-2 text-2xl font-semibold" data-countdown="{state.data.timer.seconds}" data-countdown-template="⏱️ {{time}}"></strong>
         </div>
 
-        <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
+        <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
           <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-lg font-semibold">{trans('quick.cart.title')}</h2>
-            <button type="button" class="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg" onclick="randomizeCart(event, ctx)">
+            <h2 class="text-xl font-semibold">{trans('quick.cart.title')}</h2>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-1)] px-5 py-2 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg"
+              onclick="randomizeCart(event, ctx)"
+            >
               {trans('quick.cart.randomize')}
             </button>
           </header>
           <ul class="grid gap-3" x-if="state.data.cart.items && state.data.cart.items.length">
-            <li x-for="item in state.data.cart.items" key="item.id" class="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <li
+              x-for="item in state.data.cart.items"
+              key="item.id"
+              class="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] px-4 py-3"
+            >
               <div class="flex flex-col">
-                <strong class="text-base">{trans(item.nameKey)}</strong>
+                <strong class="text-base font-semibold">{trans(item.nameKey)}</strong>
                 <span class="text-sm text-[var(--muted-foreground)]">× {item.qty}</span>
               </div>
-              <span class="text-base font-semibold">{formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}</span>
+              <span class="text-base font-semibold">
+                {formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
+              </span>
             </li>
           </ul>
-          <p class="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-center text-sm text-[var(--muted-foreground)]" x-if="!state.data.cart.items || !state.data.cart.items.length">
+          <p
+            class="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-1)] px-6 py-8 text-center text-sm text-[var(--muted-foreground)]"
+            x-if="!state.data.cart.items || !state.data.cart.items.length"
+          >
             {trans('quick.cart.empty')}
           </p>
           <footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[var(--border)] pt-4">
             <span class="text-sm text-[var(--muted-foreground)]">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
-            <strong class="text-xl font-semibold">{formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}</strong>
+            <strong class="text-xl font-semibold">
+              {formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
+            </strong>
           </footer>
         </section>
       </section>
 
       <script>
-        var CART_CATALOG = [
-          { id: 'espresso', nameKey: 'quick.cart.items.espresso', price: 18.5 },
-          { id: 'cortado', nameKey: 'quick.cart.items.cortado', price: 16 },
-          { id: 'flatwhite', nameKey: 'quick.cart.items.flatwhite', price: 19 },
-          { id: 'cheesecake', nameKey: 'quick.cart.items.cheesecake', price: 26.5 },
-          { id: 'cinnamon', nameKey: 'quick.cart.items.cinnamon', price: 21 }
-        ];
+        function toCsv(list) {
+          if (!Array.isArray(list)) return '';
+          return list
+            .map(function (value) {
+              return value == null ? '' : String(value).trim();
+            })
+            .filter(function (value) {
+              return value.length > 0;
+            })
+            .join(',');
+        }
+
+        function getCatalog(ctx) {
+          var snapshot = null;
+          if (ctx && typeof ctx.getState === 'function') {
+            try {
+              snapshot = ctx.getState();
+            } catch (err) {
+              snapshot = null;
+            }
+          }
+          if (!snapshot && ctx && ctx.state) {
+            snapshot = ctx.state;
+          }
+          var catalog = snapshot && snapshot.data && Array.isArray(snapshot.data.catalog) ? snapshot.data.catalog : null;
+          if (catalog && catalog.length) {
+            return catalog.slice();
+          }
+          return [];
+        }
 
         function ensureLanguage(lang) {
           if (typeof lang === 'string' && lang) {
@@ -218,8 +266,8 @@
           }
         }
 
-        function pickRandomItems() {
-          var pool = CART_CATALOG.slice();
+        function pickRandomItems(ctx) {
+          var pool = getCatalog(ctx);
           var count = 1 + Math.floor(Math.random() * Math.min(pool.length, 4));
           var picks = [];
           for (var i = 0; i < count && pool.length; i += 1) {
@@ -242,7 +290,7 @@
             event.preventDefault();
           }
           if (!ctx) return;
-          var items = pickRandomItems();
+          var items = pickRandomItems(ctx);
           var totalQty = 0;
           for (var i = 0; i < items.length; i += 1) {
             totalQty += Number.isFinite(items[i].qty) ? items[i].qty : 0;
