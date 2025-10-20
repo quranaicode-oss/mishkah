@@ -5,16 +5,15 @@
     <title>Mishkah Quick Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./mishkah.js" data-htmlx data-css="mishkah"></script>
-    <script src="./mishkah-ui.js"></script>
   </head>
   <body class="bg-[var(--background)] text-[var(--foreground)]">
     <template id="quick-dashboard">
-       <script type="application/json" data-m-env>
+      <script type="application/json" data-path="env">
         {
           "theme": "dark",
           "lang": "ar",
-          "dir": "rtl"
-         
+          "dir": "rtl",
+          "currency": "SAR"
         }
       </script>
 
@@ -83,9 +82,9 @@
             <p class="text-sm text-[var(--muted-foreground)]">{trans('quick.tagline')}</p>
           </div>
           <div class="flex items-center gap-2">
-		   <theme-switcher class="hero-switcher" themes="dark,light"></theme-switcher>
-                <lang-switcher class="hero-switcher" langs="ar,en"></lang-switcher>
-           </div>
+            <theme-switcher class="hero-switcher" themes="dark,light"></theme-switcher>
+            <lang-switcher class="hero-switcher" langs="ar,en"></lang-switcher>
+          </div>
         </header>
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -110,7 +109,9 @@
             data-chart-type="line"
             data-chart-values="{toCsv(state.data.trend.values)}"
             data-chart-labels="{toCsv(state.data.trend.labels)}"
+            data-chart-title="{trans('quick.trend')}"
             data-chart-height="260"
+            id="quick-trend-chart"
           ></canvas>
         </figure>
 
@@ -280,6 +281,208 @@
           }
         }
 
+        var DEFAULT_TREND_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        function ensureTrendLabels(primary, fallback) {
+          var list = Array.isArray(primary) ? primary.slice() : [];
+          if (!list.length && Array.isArray(fallback)) {
+            list = fallback.slice();
+          }
+          if (!list.length) {
+            list = DEFAULT_TREND_LABELS.slice();
+          }
+          return list
+            .map(function (label) {
+              return label == null ? '' : String(label).trim();
+            })
+            .filter(function (label) {
+              return label.length > 0;
+            });
+        }
+
+        function numericList(values) {
+          var list = [];
+          if (!Array.isArray(values)) return list;
+          for (var i = 0; i < values.length; i += 1) {
+            var value = Number(values[i]);
+            if (Number.isFinite(value)) {
+              list.push(value);
+            }
+          }
+          return list;
+        }
+
+        function averageOf(list) {
+          if (!list.length) return NaN;
+          var total = 0;
+          for (var i = 0; i < list.length; i += 1) {
+            total += list[i];
+          }
+          return total / list.length;
+        }
+
+        function generateTrendValues(prevTrend, count, metrics) {
+          var prevValues = numericList(prevTrend && prevTrend.values);
+          var baseline = Number.isFinite(prevValues[prevValues.length - 1])
+            ? prevValues[prevValues.length - 1]
+            : averageOf(prevValues);
+          if (!Number.isFinite(baseline) || baseline <= 0) {
+            baseline = 24 + Math.random() * 8;
+          }
+          var metricsRevenue = metrics && Number(metrics.revenue);
+          if (Number.isFinite(metricsRevenue) && metricsRevenue > 0) {
+            var perSegment = metricsRevenue / Math.max(count || 1, 1);
+            if (perSegment > baseline) {
+              baseline = (baseline * 0.6) + (perSegment * 0.4);
+            }
+          }
+          var values = [];
+          var current = baseline * (0.85 + Math.random() * 0.3);
+          for (var i = 0; i < count; i += 1) {
+            var drift = (Math.random() - 0.5) * baseline * 0.35;
+            current = Math.max(4, current + drift);
+            var rounded = Math.round(current * 10) / 10;
+            values.push(rounded);
+          }
+          return values;
+        }
+
+        function trendDatasetLabel(state) {
+          var lang = state && state.env && state.env.lang ? String(state.env.lang).toLowerCase() : 'en';
+          if (lang === 'ar') return 'أداء الأسبوع';
+          if (lang === 'en') return 'Weekly trend';
+          return 'Trend';
+        }
+
+        function readChartColors(canvas) {
+          var fallbackBorder = 'rgba(79,70,229,0.85)';
+          var fallbackFill = 'rgba(79,70,229,0.18)';
+          if (!canvas || typeof canvas.getAttribute !== 'function') {
+            return { border: fallbackBorder, background: fallbackFill };
+          }
+          var color = canvas.getAttribute('data-chart-color');
+          if (!color) {
+            return { border: fallbackBorder, background: fallbackFill };
+          }
+          if (color.indexOf('#') === 0) {
+            return { border: color, background: color + '33' };
+          }
+          if (color.indexOf('rgba') === 0 || color.indexOf('rgb') === 0) {
+            return { border: color, background: color };
+          }
+          return { border: fallbackBorder, background: fallbackFill };
+        }
+
+        function refreshTrendChart(state, ctx) {
+          if (!state) {
+            if (ctx && typeof ctx.getState === 'function') {
+              try {
+                state = ctx.getState();
+              } catch (err) {
+                state = null;
+              }
+            }
+          }
+          var trend = state && state.data ? state.data.trend : null;
+          if (!trend) return;
+          var canvas = document.getElementById('quick-trend-chart');
+          if (!canvas) return;
+          var host = window.Mishkah || window.Mishka || null;
+          var chartApi = host && host.UI ? host.UI.Chart : null;
+          if (!chartApi) return;
+
+          function applyUpdate() {
+            var labels = ensureTrendLabels(trend.labels, DEFAULT_TREND_LABELS);
+            var values = numericList(trend.values);
+            if (!values.length) {
+              values = generateTrendValues(trend, labels.length, state && state.data && state.data.metrics);
+            }
+            var colors = readChartColors(canvas);
+            if (typeof toCsv === 'function') {
+              canvas.setAttribute('data-chart-labels', toCsv(labels));
+              canvas.setAttribute('data-chart-values', toCsv(values));
+            }
+            var rawPayload = canvas.getAttribute('data-m-chart');
+            var payload = null;
+            if (rawPayload) {
+              try {
+                payload = JSON.parse(rawPayload);
+              } catch (_err) {
+                payload = null;
+              }
+            }
+            var type = canvas.getAttribute('data-chart-type') || canvas.getAttribute('data-chart-auto') || 'line';
+            var datasetLabel = trendDatasetLabel(state);
+            if (!payload || typeof payload !== 'object') {
+              var data = {
+                labels: labels.slice(),
+                datasets: [
+                  {
+                    label: datasetLabel,
+                    data: values.slice(),
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    fill: true
+                  }
+                ]
+              };
+              payload = chartApi && typeof chartApi.buildPayload === 'function'
+                ? chartApi.buildPayload(type, data, {})
+                : { type: type, data: data, options: {} };
+            } else {
+              if (!payload.data || typeof payload.data !== 'object') {
+                payload.data = {};
+              }
+              payload.data.labels = labels.slice();
+              if (!Array.isArray(payload.data.datasets) || !payload.data.datasets.length) {
+                payload.data.datasets = [];
+              }
+              if (!payload.data.datasets.length) {
+                payload.data.datasets.push({});
+              }
+              for (var i = 0; i < payload.data.datasets.length; i += 1) {
+                var dataset = payload.data.datasets[i] && typeof payload.data.datasets[i] === 'object'
+                  ? Object.assign({}, payload.data.datasets[i])
+                  : {};
+                dataset.label = dataset.label || datasetLabel;
+                dataset.data = values.slice();
+                if (!dataset.borderColor) dataset.borderColor = colors.border;
+                if (!dataset.backgroundColor) dataset.backgroundColor = colors.background;
+                if (dataset.fill == null) dataset.fill = true;
+                payload.data.datasets[i] = dataset;
+              }
+            }
+            var encoded = typeof chartApi.encodePayload === 'function'
+              ? chartApi.encodePayload(payload)
+              : JSON.stringify(payload);
+            canvas.setAttribute('data-m-chart', encoded);
+            if (typeof chartApi.hydrate === 'function') {
+              chartApi.hydrate(canvas.parentNode || document);
+            }
+            if (typeof chartApi.freeze === 'function') {
+              chartApi.freeze(canvas.parentNode || canvas);
+            }
+          }
+
+          var ensured = null;
+          if (typeof chartApi.ensureLibrary === 'function') {
+            try {
+              ensured = chartApi.ensureLibrary();
+            } catch (_err) {
+              ensured = null;
+            }
+          }
+          if (ensured && typeof ensured.then === 'function') {
+            ensured.then(function () {
+              applyUpdate();
+            }).catch(function () {
+              applyUpdate();
+            });
+            return;
+          }
+          applyUpdate();
+        }
+
         function pickRandomItems(ctx) {
           var pool = getCatalog(ctx);
           var count = 1 + Math.floor(Math.random() * Math.min(pool.length, 4));
@@ -310,7 +513,7 @@
             totalQty += Number.isFinite(items[i].qty) ? items[i].qty : 0;
           }
           var now = new Date();
-          commit(ctx, function (next) {
+          commit(ctx, function (next, prev) {
             next.data = next.data || {};
             var cart = next.data.cart || {};
             cart.items = items;
@@ -320,6 +523,25 @@
             next.data.metrics = next.data.metrics || {};
             next.data.metrics.revenue = totalCart(cart);
             next.data.metrics.orders = totalQty || items.length;
+            var baseTrend = next.data.trend && typeof next.data.trend === 'object' ? next.data.trend : {};
+            var prevTrend = prev && prev.data && typeof prev.data.trend === 'object' ? prev.data.trend : baseTrend;
+            var labels = ensureTrendLabels(baseTrend.labels, prevTrend && prevTrend.labels);
+            var metricsSnapshot = {
+              revenue: next.data.metrics.revenue,
+              orders: next.data.metrics.orders
+            };
+            var values = generateTrendValues(prevTrend, labels.length, metricsSnapshot);
+            var nextTrend = {};
+            for (var key in baseTrend) {
+              if (!Object.prototype.hasOwnProperty.call(baseTrend, key)) continue;
+              if (key === 'labels' || key === 'values') continue;
+              nextTrend[key] = cloneState(baseTrend[key]);
+            }
+            nextTrend.labels = labels;
+            nextTrend.values = values;
+            next.data.trend = nextTrend;
+          }, function (latest) {
+            refreshTrendChart(latest, ctx);
           });
         }
       </script>
