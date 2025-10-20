@@ -4,7 +4,161 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>مشكاة — نقطة بيع للتابلت</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./mishkah-css.css" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+    </style>
     <script src="./mishkah.js" data-css="mishkah"></script>
+    <script>
+      (function configureTabletWs(global) {
+        if (!global) return;
+        const loc = global.location || null;
+        const doc = global.document || null;
+        const readCookie = (name) => {
+          if (!doc || !doc.cookie) return null;
+          const match = doc.cookie
+            .split(';')
+            .map((entry) => entry.trim())
+            .find((entry) => entry.startsWith(name + '='));
+          if (!match) return null;
+          return decodeURIComponent(match.split('=').slice(1).join('='));
+        };
+        const writeCookie = (name, value, days) => {
+          if (!doc) return;
+          const maxAge = Number.isFinite(days) ? Math.round(days * 24 * 60 * 60) : 31536000;
+          const sanitized = encodeURIComponent(value);
+          doc.cookie = [
+            name + '=' + sanitized,
+            'path=/',
+            'SameSite=Lax',
+            'max-age=' + maxAge
+          ].join('; ');
+        };
+        const randomChunk = (size = 8) => {
+          const pool = 'abcdefghijklmnopqrstuvwxyz0123456789';
+          let out = '';
+          for (let i = 0; i < size; i += 1) {
+            out += pool[Math.floor(Math.random() * pool.length)];
+          }
+          return out;
+        };
+        const createUuid = () => {
+          if (global.crypto && typeof global.crypto.randomUUID === 'function') {
+            return global.crypto.randomUUID();
+          }
+          return 'uuid-' + Date.now().toString(36) + '-' + randomChunk(10);
+        };
+        const normalizeId = (raw, fallback) => {
+          const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+          if (!value) return fallback;
+          const normalized = value.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+          return normalized || fallback;
+        };
+        let userUniid = normalizeId(readCookie('UserUniid'), '');
+        if (!userUniid) {
+          userUniid = normalizeId(createUuid(), 'usr-' + randomChunk(6));
+          writeCookie('UserUniid', userUniid, 365);
+        }
+        const rawBranchCookie = readCookie('UserBranshID');
+        let userBranchId = normalizeId(rawBranchCookie, '');
+        if (!userBranchId) {
+          const host = loc && loc.hostname ? loc.hostname : loc && loc.host ? loc.host : '';
+          userBranchId = normalizeId(host, '');
+        }
+        if (!userBranchId) {
+          userBranchId = normalizeId('branch-' + randomChunk(6), 'branch-main');
+        }
+        global.UserUniid = userUniid;
+        global.UserBranshID = userBranchId;
+        global.POS_WS2_IDENTIFIERS = {
+          userId: userUniid,
+          branchId: userBranchId,
+          hasBranchCookie: !!rawBranchCookie
+        };
+        const defaultScheme = () => {
+          if (!loc || !loc.protocol) return 'wss:';
+          if (loc.protocol === 'https:') return 'wss:';
+          if (loc.protocol === 'http:') return 'ws:';
+          return loc.protocol.endsWith(':') ? loc.protocol : loc.protocol + ':';
+        };
+        const hostWithPort = () => {
+          if (!loc) return null;
+          if (loc.host) return loc.host;
+          if (!loc.hostname) return null;
+          return loc.port ? loc.hostname + ':' + loc.port : loc.hostname;
+        };
+        const normalizeEndpoint = (raw) => {
+          const trimmed = typeof raw === 'string' ? raw.trim() : '';
+          if (!trimmed) return null;
+          if (/^wss?:\/\//i.test(trimmed)) return trimmed;
+          if (trimmed.startsWith('//')) return defaultScheme() + trimmed;
+          if (trimmed.startsWith('/')) {
+            const host = hostWithPort();
+            return host ? defaultScheme() + '//' + host + trimmed : null;
+          }
+          if (!trimmed.includes('://')) {
+            return defaultScheme() + '//' + trimmed;
+          }
+          return trimmed;
+        };
+        const sync = (((global.database || {}).settings || {}).sync) || {};
+        const endpointCandidates = [
+          global.POS_WS2_CONFIG && global.POS_WS2_CONFIG.endpoint,
+          global.POS_WS2_ENDPOINT,
+          sync.ws_endpoint,
+          sync.wsEndpoint,
+          sync.pos_ws_endpoint,
+          sync.posWsEndpoint
+        ];
+        let endpoint = null;
+        for (let i = 0; i < endpointCandidates.length; i += 1) {
+          endpoint = normalizeEndpoint(endpointCandidates[i]);
+          if (endpoint) break;
+        }
+        if (!endpoint) {
+          const host = hostWithPort();
+          endpoint = host ? defaultScheme() + '//' + host : 'wss://ws.mas.com.eg';
+        }
+        const branchCandidates = [
+          global.POS_WS2_CONFIG && global.POS_WS2_CONFIG.branchId,
+          userBranchId,
+          sync.branch_id,
+          sync.branchId,
+          sync.channel,
+          'branch-main'
+        ];
+        let branchId = userBranchId || 'branch-main';
+        for (let j = 0; j < branchCandidates.length; j += 1) {
+          const candidate = branchCandidates[j];
+          if (typeof candidate === 'string' && candidate.trim()) {
+            branchId = normalizeId(candidate, branchId);
+            break;
+          }
+        }
+        const role = (global.POS_WS2_CONFIG && typeof global.POS_WS2_CONFIG.role === 'string'
+          ? global.POS_WS2_CONFIG.role.trim()
+          : '') || 'pos-tablet';
+        const historyLimit = (global.POS_WS2_CONFIG && Number.isFinite(global.POS_WS2_CONFIG.historyLimit))
+          ? Number(global.POS_WS2_CONFIG.historyLimit)
+          : 50;
+        global.POS_WS2_CONFIG = {
+          endpoint,
+          branchId,
+          role,
+          historyLimit,
+          userId: userUniid
+        };
+      })(typeof window !== 'undefined' ? window : null);
+    </script>
+    <script src="./pos-ws2-bootstrap.js"></script>
   </head>
   <body>
     <div id="app"></div>
@@ -17,7 +171,7 @@
             min-height: 100vh;
             background: linear-gradient(165deg, color-mix(in srgb, var(--mk-bg) 94%, var(--mk-surface-2) 6%), color-mix(in srgb, var(--mk-bg) 86%, var(--mk-surface-3) 14%));
             color: var(--mk-fg);
-            font-family: var(--mk-font-sans-ar);
+            font-family: var(--mk-font-sans-ar), 'Tajawal', 'Cairo', system-ui, sans-serif;
             padding: clamp(var(--mk-space-4), 2vw, var(--mk-space-7));
             box-sizing: border-box;
           }
@@ -37,6 +191,49 @@
             background: color-mix(in srgb, var(--mk-surface-1) 86%, transparent);
             border: var(--mk-border-width) solid color-mix(in srgb, var(--mk-border) 60%, transparent);
             box-shadow: var(--mk-shadow-soft);
+          }
+
+          .header-top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: var(--mk-space-4);
+          }
+
+          .header-title {
+            flex: 1 1 240px;
+            display: grid;
+            gap: var(--mk-space-2);
+          }
+
+          .header-actions {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: var(--mk-space-2);
+            align-items: center;
+            justify-content: flex-end;
+          }
+
+          .control-button {
+            border: none;
+            border-radius: 999px;
+            padding-inline: var(--mk-space-4);
+            padding-block: calc(var(--mk-space-1) * 1.6);
+            background: color-mix(in srgb, var(--mk-surface-2) 75%, transparent);
+            color: var(--mk-muted-strong);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--mk-space-2);
+          }
+
+          .control-button:hover {
+            background: color-mix(in srgb, var(--mk-primary) 20%, transparent);
+            color: color-mix(in srgb, var(--mk-primary-contrast) 85%, var(--mk-fg));
+            box-shadow: var(--mk-shadow-sm);
+            transform: translateY(-1px);
           }
 
           .pos-header h1 {
@@ -191,6 +388,14 @@
 
           .table-status[data-status="reserved"] {
             color: var(--mk-accent);
+          }
+
+          .table-status[data-status="maintenance"] {
+            color: color-mix(in srgb, var(--mk-warning) 70%, var(--mk-fg));
+          }
+
+          .table-status[data-status="offline"] {
+            color: var(--mk-muted);
           }
 
           .table-orders {
@@ -401,6 +606,26 @@
             box-shadow: none;
           }
 
+          .cart-feedback {
+            margin: 0;
+            margin-block-start: var(--mk-space-2);
+            font-size: var(--mk-fs-sm);
+            padding: calc(var(--mk-space-2) * 1.1) var(--mk-space-3);
+            border-radius: var(--mk-radius-lg);
+            background: color-mix(in srgb, var(--mk-surface-2) 85%, transparent);
+            color: color-mix(in srgb, var(--mk-fg) 90%, transparent);
+          }
+
+          .cart-feedback[data-variant="error"] {
+            background: color-mix(in srgb, var(--mk-danger) 18%, transparent);
+            color: color-mix(in srgb, var(--mk-danger-contrast, var(--mk-fg)) 92%, var(--mk-fg));
+          }
+
+          .cart-feedback[data-variant="success"] {
+            background: color-mix(in srgb, var(--mk-success) 18%, transparent);
+            color: color-mix(in srgb, var(--mk-success-contrast, var(--mk-fg)) 92%, var(--mk-fg));
+          }
+
           .orders-list {
             list-style: none;
             display: grid;
@@ -475,6 +700,23 @@
             color: var(--mk-success-strong, #166534);
           }
 
+          .order-status.status-ready {
+            background: color-mix(in srgb, var(--mk-accent) 18%, transparent);
+            color: color-mix(in srgb, var(--mk-accent-contrast, var(--mk-fg)) 90%, var(--mk-fg));
+          }
+
+          .order-status.status-open,
+          .order-status.status-held {
+            background: color-mix(in srgb, var(--mk-warning) 15%, transparent);
+            color: var(--mk-warning-strong, #b45309);
+          }
+
+          .order-status.status-finalized,
+          .order-status.status-closed {
+            background: color-mix(in srgb, var(--mk-success) 15%, transparent);
+            color: var(--mk-success-strong, #166534);
+          }
+
           .order-actions {
             display: flex;
             justify-content: flex-end;
@@ -539,6 +781,24 @@
                   "en": "Location"
                 }
               },
+              "controls": {
+                "switchToArabic": {
+                  "ar": "التبديل للعربية",
+                  "en": "Switch to Arabic"
+                },
+                "switchToEnglish": {
+                  "ar": "التبديل للإنجليزية",
+                  "en": "Switch to English"
+                },
+                "themeLight": {
+                  "ar": "وضع نهاري",
+                  "en": "Light mode"
+                },
+                "themeDark": {
+                  "ar": "وضع ليلي",
+                  "en": "Dark mode"
+                }
+              },
               "tables": {
                 "title": {
                   "ar": "الطاولات",
@@ -568,6 +828,14 @@
                   "reserved": {
                     "ar": "محجوزة",
                     "en": "Reserved"
+                  },
+                  "maintenance": {
+                    "ar": "صيانة",
+                    "en": "Maintenance"
+                  },
+                  "offline": {
+                    "ar": "غير نشطة",
+                    "en": "Offline"
                   }
                 }
               },
@@ -579,6 +847,10 @@
                 "search": {
                   "ar": "ابحث عن طبق أو مشروب...",
                   "en": "Search dishes or drinks..."
+                },
+                "empty": {
+                  "ar": "لا توجد عناصر متاحة حاليًا.",
+                  "en": "No menu items available right now."
                 },
                 "categories": {
                   "all": {
@@ -627,6 +899,14 @@
                 "submit": {
                   "ar": "إرسال الطلب",
                   "en": "Send order"
+                },
+                "sent": {
+                  "ar": "تم إرسال الطلب إلى النظام المركزي",
+                  "en": "Order sent to the central system"
+                },
+                "failed": {
+                  "ar": "تعذر إرسال الطلب، حاول مرة أخرى",
+                  "en": "Could not send the order, please try again"
                 }
               },
               "orders": {
@@ -646,6 +926,26 @@
                   "served": {
                     "ar": "تم التقديم",
                     "en": "Served"
+                  },
+                  "open": {
+                    "ar": "مفتوح",
+                    "en": "Open"
+                  },
+                  "held": {
+                    "ar": "معلّق",
+                    "en": "On hold"
+                  },
+                  "finalized": {
+                    "ar": "منتهي",
+                    "en": "Finalized"
+                  },
+                  "closed": {
+                    "ar": "مغلق",
+                    "en": "Closed"
+                  },
+                  "ready": {
+                    "ar": "جاهز",
+                    "en": "Ready"
                   }
                 },
                 "markServed": {
@@ -660,37 +960,16 @@
         <script type="application/json" data-m-data data-m-path="data">
           {
             "session": {
-              "location": "الصالة الرئيسية",
-              "shift": "الفترة الصباحية",
-              "server": "أمينة"
+              "location": "",
+              "shift": "",
+              "server": ""
             },
-            "tables": [
-              { "id": "T1", "name": "طاولة 1", "capacity": 4, "status": "available" },
-              { "id": "T2", "name": "طاولة 2", "capacity": 2, "status": "occupied" },
-              { "id": "T3", "name": "طاولة 3", "capacity": 6, "status": "available" },
-              { "id": "T4", "name": "طاولة 4", "capacity": 4, "status": "reserved" },
-              { "id": "T5", "name": "طاولة 5", "capacity": 3, "status": "available" },
-              { "id": "T6", "name": "طاولة 6", "capacity": 2, "status": "available" }
-            ],
+            "tables": [],
+            "reservations": [],
+            "tableLocks": [],
             "menu": {
-              "categories": [
-                { "id": "all", "labelKey": "posTablet.menu.categories.all" },
-                { "id": "hot", "labelKey": "posTablet.menu.categories.hot" },
-                { "id": "cold", "labelKey": "posTablet.menu.categories.cold" },
-                { "id": "main", "labelKey": "posTablet.menu.categories.main" },
-                { "id": "dessert", "labelKey": "posTablet.menu.categories.dessert" }
-              ],
-              "items": [
-                { "id": "espresso", "name": "قهوة إسبريسو", "price": 12, "category": "hot", "tags": ["سنجل", "ساخن"] },
-                { "id": "flat-white", "name": "فلات وايت", "price": 18, "category": "hot", "tags": ["حليب", "مشروب متخصص"] },
-                { "id": "iced-latte", "name": "آيس لاتيه بالفانيلا", "price": 20, "category": "cold", "tags": ["بارد", "موسمي"] },
-                { "id": "lemonade", "name": "ليمون بالنعناع", "price": 16, "category": "cold", "tags": ["بارد", "مفضل"] },
-                { "id": "shawarma", "name": "شاورما دجاج بالمشواة", "price": 32, "category": "main", "tags": ["طبق سريع"] },
-                { "id": "steak", "name": "ستيك مشوي بالأعشاب", "price": 68, "category": "main", "tags": ["مميز"] },
-                { "id": "salmon", "name": "فيليه سلمون بصوص الليمون", "price": 74, "category": "main", "tags": ["موسمي"] },
-                { "id": "kunafa", "name": "كنافة بالقشطة", "price": 22, "category": "dessert", "tags": ["ساخن"] },
-                { "id": "cheesecake", "name": "تشيز كيك بالتوت", "price": 24, "category": "dessert", "tags": ["بارد"] }
-              ]
+              "categories": [],
+              "items": []
             },
             "filters": {
               "query": "",
@@ -700,45 +979,37 @@
               "tableId": "",
               "items": []
             },
-            "orders": [
-              {
-                "id": "ORD-1024",
-                "tableId": "T2",
-                "tableName": "طاولة 2",
-                "startedAt": "10:05",
-                "status": "preparing",
-                "items": [
-                  { "id": "shawarma", "name": "شاورما دجاج بالمشواة", "qty": 2, "price": 32 },
-                  { "id": "lemonade", "name": "ليمون بالنعناع", "qty": 2, "price": 16 }
-                ],
-                "total": 96
-              },
-              {
-                "id": "ORD-1023",
-                "tableId": "T4",
-                "tableName": "طاولة 4",
-                "startedAt": "09:58",
-                "status": "preparing",
-                "items": [
-                  { "id": "steak", "name": "ستيك مشوي بالأعشاب", "qty": 1, "price": 68 },
-                  { "id": "espresso", "name": "قهوة إسبريسو", "qty": 2, "price": 12 }
-                ],
-                "total": 92
+            "orders": [],
+            "currency": {
+              "code": "EGP",
+              "symbols": {
+                "ar": "ج.م",
+                "en": "E£"
               }
-            ]
+            }
           }
         </script>
 
         <div class="pos-tablet-shell">
           <header class="pos-header">
-            <div>
-              <h1>{trans('posTablet.header.title')}</h1>
-              <p>{trans('posTablet.header.subtitle')}</p>
+            <div class="header-top">
+              <div class="header-title">
+                <h1>{trans('posTablet.header.title')}</h1>
+                <p>{trans('posTablet.header.subtitle')}</p>
+              </div>
+              <div class="header-actions">
+                <button class="control-button" onclick="toggleLang(ctx)">
+                  🌐 {langSwitchLabel(ctx)}
+                </button>
+                <button class="control-button" onclick="toggleTheme(ctx)">
+                  {themeSwitchIcon(ctx)} {themeSwitchLabel(ctx)}
+                </button>
+              </div>
             </div>
             <div class="header-meta">
-              <span class="meta-chip">📍 {trans('posTablet.header.location')} • {state.data.session.location}</span>
-              <span class="meta-chip" data-tone="soft">🕒 {trans('posTablet.header.shift')} • {state.data.session.shift}</span>
-              <span class="meta-chip" data-tone="soft">🧑‍🍳 {trans('posTablet.header.server')} • {state.data.session.server}</span>
+              <span class="meta-chip">📍 {trans('posTablet.header.location')} • {state.data.session.location || '—'}</span>
+              <span class="meta-chip" data-tone="soft">🕒 {trans('posTablet.header.shift')} • {state.data.session.shift || '—'}</span>
+              <span class="meta-chip" data-tone="soft">🧑‍🍳 {trans('posTablet.header.server')} • {state.data.session.server || '—'}</span>
             </div>
           </header>
 
@@ -755,7 +1026,7 @@
                   key="table.id"
                   onclick="selectTable(table.id, ctx)"
                 >
-                  <span class="table-name">{table.name}</span>
+                  <span class="table-name">{tableLabel(table, ctx)}</span>
                   <span class="table-meta">{trans('posTablet.tables.capacity')} • {table.capacity}</span>
                   <span class="table-status" data-status="{table.status}">{tableStatusLabel(table, ctx)}</span>
                   <span class="table-orders" x-if="activeOrdersCount(table.id, ctx)">
@@ -778,7 +1049,7 @@
                     class="{state.data.filters.category === category.id ? 'active' : ''}"
                     onclick="setCategory(category.id, ctx)"
                   >
-                    {trans(category.labelKey)}
+                    {categoryLabel(category, ctx)}
                   </button>
                 </div>
                 <label class="menu-search">
@@ -798,14 +1069,14 @@
                   key="item.id"
                   onclick="addToCart(item.id, ctx)"
                 >
-                  <strong>{item.name}</strong>
+                  <strong>{menuItemName(item, ctx)}</strong>
                   <span class="item-price">{formatPrice(item.price, ctx)}</span>
-                  <div class="item-tags" x-if="item.tags && item.tags.length">
-                    <span x-for="tag in item.tags" key="item.id + '-' + tag">#{tag}</span>
+                  <div class="item-tags" x-if="menuItemTags(item, ctx).length">
+                    <span x-for="tag in menuItemTags(item, ctx)" key="item.id + '-' + tag">#{tag}</span>
                   </div>
                 </button>
               </div>
-              <p class="empty" x-if="!state.data.visibleMenu || !state.data.visibleMenu.length">{trans('posTablet.cart.empty')}</p>
+              <p class="empty" x-if="!state.data.visibleMenu || !state.data.visibleMenu.length">{trans('posTablet.menu.empty')}</p>
             </section>
 
             <aside class="column-panels">
@@ -821,7 +1092,7 @@
                   <li class="cart-item" x-for="item in state.data.cart.items" key="item.id">
                     <div class="cart-item-content">
                       <div>
-                        <strong>{item.name}</strong>
+                        <strong>{cartItemName(item, ctx)}</strong>
                         <div class="item-tags">
                           <span>{formatPrice(item.price, ctx)}</span>
                         </div>
@@ -838,6 +1109,13 @@
                   <span>{trans('posTablet.cart.total')}</span>
                   <strong>{formatPrice(cartTotal(ctx), ctx)}</strong>
                 </div>
+                <p
+                  class="cart-feedback"
+                  data-variant="{state.data.cart.feedback ? state.data.cart.feedback.kind : ''}"
+                  x-if="state.data.cart.feedback"
+                >
+                  {cartFeedbackText(ctx)}
+                </p>
                 <div class="cart-actions" x-if="state.data.cart.items.length">
                   <button onclick="clearCart(ctx)">{trans('posTablet.cart.clear')}</button>
                   <button data-variant="primary" onclick="submitOrder(ctx)" disabled="{!canSubmitOrder(ctx)}">
@@ -856,12 +1134,12 @@
                   <li class="order-card" x-for="order in state.data.orders" key="order.id">
                     <header>
                       <span>{order.id}</span>
-                      <span>🪑 {order.tableName}</span>
+                      <span>🪑 {orderTableLabel(order, ctx)}</span>
                     </header>
                     <p class="order-time">🕒 {order.startedAt}</p>
                     <div class="order-items">
                       <div class="order-item-row" x-for="orderItem in order.items" key="orderItem.id + '-' + order.id">
-                        <span>{orderItem.qty}× {orderItem.name}</span>
+                        <span>{orderItem.qty}× {orderItemName(orderItem, ctx)}</span>
                         <span>{formatPrice(orderItem.price * orderItem.qty, ctx)}</span>
                       </div>
                     </div>
@@ -880,6 +1158,16 @@
         </div>
 
         <script>
+          var TABLET_ACTIVE_STATUSES = {
+            open: true,
+            held: true,
+            preparing: true,
+            in_preparation: true,
+            ready: true,
+            queued: true,
+            pending: true
+          };
+
           function cloneState(prev) {
             try {
               return JSON.parse(JSON.stringify(prev || {}));
@@ -914,42 +1202,463 @@
             return target.data;
           }
 
+          function ensureEnv(target) {
+            target.env = target.env || {};
+            return target.env;
+          }
+
+          function getLang(ctx) {
+            var state = getState(ctx);
+            return (state && state.env && state.env.lang) || 'ar';
+          }
+
+          function getTheme(ctx) {
+            var state = getState(ctx);
+            return (state && state.env && state.env.theme) || 'light';
+          }
+
+          function normalizeLocaleObject(value, fallback) {
+            var result = {};
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+              Object.keys(value).forEach(function (key) {
+                var normalized = key.toLowerCase();
+                if (normalized.indexOf('ar') === 0) normalized = 'ar';
+                if (normalized.indexOf('en') === 0) normalized = 'en';
+                if (value[key] != null) result[normalized] = value[key];
+              });
+            } else if (typeof value === 'string' && value.trim()) {
+              result.ar = value;
+              result.en = value;
+            }
+            if (fallback && typeof fallback === 'object') {
+              if (!result.ar && fallback.ar) result.ar = fallback.ar;
+              if (!result.en && fallback.en) result.en = fallback.en;
+            }
+            if (!result.ar && result.en) result.ar = result.en;
+            if (!result.en && result.ar) result.en = result.ar;
+            return result;
+          }
+
+          function localizeValue(value, lang, fallback) {
+            if (value == null) return fallback == null ? '' : String(fallback);
+            if (typeof value === 'string' || typeof value === 'number') return String(value);
+            if (typeof value === 'object') {
+              var direct = value[lang];
+              if (direct == null && lang && lang.length > 2) direct = value[lang.slice(0, 2)];
+              if (direct == null) direct = value[lang === 'ar' ? 'en' : 'ar'];
+              if (direct == null) {
+                var keys = Object.keys(value);
+                if (keys.length) direct = value[keys[0]];
+              }
+              if (direct != null) return String(direct);
+            }
+            return fallback == null ? '' : String(fallback);
+          }
+
+          function localize(value, ctx, fallback) {
+            return localizeValue(value, getLang(ctx), fallback);
+          }
+
+          function ensureCart(data) {
+            data.cart = data.cart || { tableId: '', items: [] };
+            data.cart.items = Array.isArray(data.cart.items) ? data.cart.items : [];
+            return data.cart;
+          }
+
           function computeVisibleMenu(data) {
             data = data || {};
             var items = (data.menu && data.menu.items) || [];
             var filters = data.filters || {};
-            var query = (filters.query || '').toLowerCase();
+            var query = (filters.query || '').trim().toLowerCase();
             var category = filters.category || 'all';
             return items.filter(function (item) {
+              if (!item) return false;
               var matchesCategory = category === 'all' || item.category === category;
               if (!matchesCategory) return false;
               if (!query) return true;
-              var name = (item.name || '').toLowerCase();
-              var tags = Array.isArray(item.tags) ? item.tags.join(' ').toLowerCase() : '';
-              return name.indexOf(query) !== -1 || tags.indexOf(query) !== -1;
+              var haystack = item.search || '';
+              return haystack.indexOf(query) !== -1;
             });
           }
 
+          function isOrderActive(status) {
+            var normalized = (status || '').toLowerCase();
+            return !!TABLET_ACTIVE_STATUSES[normalized];
+          }
+
+          function formatOrderTime(input, lang) {
+            if (!input) return '';
+            var date = new Date(input);
+            if (isNaN(date.getTime())) {
+              date = new Date();
+            }
+            try {
+              return date.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            } catch (_err) {
+              var hours = date.getHours().toString().padStart(2, '0');
+              var minutes = date.getMinutes().toString().padStart(2, '0');
+              return hours + ':' + minutes;
+            }
+          }
+
+          function buildTableIndex(tables) {
+            var index = {};
+            (tables || []).forEach(function (table) {
+              if (!table || !table.id) return;
+              index[table.id] = table;
+            });
+            return index;
+          }
+
+          function resolveCurrency(snapshot, fallback) {
+            var settings = snapshot && snapshot.settings ? snapshot.settings : {};
+            var currency = settings.currency || {};
+            var code = currency.code || currency.default || (fallback && fallback.code) || 'EGP';
+            var symbols = currency.symbols || {};
+            var result = {
+              code: code || 'EGP',
+              symbols: {
+                ar: currency.ar || symbols.ar || (fallback && fallback.symbols && fallback.symbols.ar) || code,
+                en: currency.en || symbols.en || (fallback && fallback.symbols && fallback.symbols.en) || code
+              }
+            };
+            if (!result.symbols.en) result.symbols.en = result.code;
+            if (!result.symbols.ar) result.symbols.ar = result.symbols.en;
+            return result;
+          }
+
+          function mapTables(snapshot, lang) {
+            var tables = [];
+            var raw = (snapshot && snapshot.tables) || [];
+            if (!Array.isArray(raw)) raw = [];
+            raw.forEach(function (entry) {
+              if (!entry) return;
+              var id = entry.id || entry.table_id || entry.code;
+              if (id == null) return;
+              var sortIndex = Number(entry.displayOrder || entry.sortOrder || entry.position || entry.order || 0);
+              if (!Number.isFinite(sortIndex)) sortIndex = tables.length;
+              var label = normalizeLocaleObject(entry.name || entry.table_name || entry.label, {
+                ar: String(id),
+                en: String(id)
+              });
+              tables.push({
+                id: String(id),
+                label: label,
+                capacity: Number(entry.capacity || entry.seats || entry.chairs || entry.size || 0) || 0,
+                zone: entry.zone || entry.area || '',
+                state: entry.state || entry.status || 'active',
+                status: 'available',
+                activeOrders: 0,
+                sortIndex: sortIndex
+              });
+            });
+            tables.sort(function (a, b) {
+              if (a.sortIndex !== b.sortIndex) return a.sortIndex - b.sortIndex;
+              return a.id.localeCompare(b.id);
+            });
+            return tables;
+          }
+
+          function mapReservations(snapshot) {
+            var list = snapshot && snapshot.reservations;
+            if (!Array.isArray(list)) return [];
+            return list
+              .map(function (entry) {
+                if (!entry) return null;
+                var ids = [];
+                if (Array.isArray(entry.tableIds)) ids = entry.tableIds.slice();
+                else if (Array.isArray(entry.table_ids)) ids = entry.table_ids.slice();
+                return {
+                  id: entry.id || entry.reservation_id || null,
+                  status: entry.status || '',
+                  tableIds: ids
+                };
+              })
+              .filter(Boolean);
+          }
+
+          function mapTableLocks(snapshot) {
+            var locks = snapshot && (snapshot.tableLocks || snapshot.table_locks);
+            if (!Array.isArray(locks)) return [];
+            return locks
+              .map(function (entry) {
+                if (!entry) return null;
+                var id = entry.tableId || entry.table_id || entry.id;
+                if (!id) return null;
+                return { tableId: String(id) };
+              })
+              .filter(Boolean);
+          }
+
+          function mapMenu(snapshot) {
+            var dataset = snapshot || {};
+            var rawCategories = Array.isArray(dataset.categories) ? dataset.categories.slice() : [];
+            var hasAll = rawCategories.some(function (cat) {
+              var id = cat && (cat.id || cat.category_id || cat.code);
+              return id === 'all';
+            });
+            if (!hasAll) {
+              rawCategories.unshift({ id: 'all', category_name: { ar: 'الكل', en: 'All' } });
+            }
+            var categories = rawCategories
+              .map(function (cat) {
+                if (!cat) return null;
+                var id = cat.id || cat.category_id || cat.code;
+                if (!id) return null;
+                var label = normalizeLocaleObject(cat.category_name || cat.name || cat.label, {
+                  ar: String(id),
+                  en: String(id)
+                });
+                return {
+                  id: String(id),
+                  label: label,
+                  sectionId: cat.section_id || cat.sectionId || null
+                };
+              })
+              .filter(Boolean);
+            var items = [];
+            var index = {};
+            var rawItems = Array.isArray(dataset.items) ? dataset.items : [];
+            rawItems.forEach(function (item) {
+              if (!item) return;
+              var id = item.id || item.item_id || item.code;
+              if (id == null) return;
+              var categoryId = item.category || item.category_id || 'all';
+              var label = normalizeLocaleObject(item.item_name || item.name || item.label, {
+                ar: String(id),
+                en: String(id)
+              });
+              var priceSource =
+                item.price != null
+                  ? item.price
+                  : item.pricing && (item.pricing.base || item.pricing.price || item.pricing.amount || item.pricing.value);
+              var price = Number(priceSource);
+              if (!Number.isFinite(price)) price = 0;
+              var tagsRaw = Array.isArray(item.tags) ? item.tags : [];
+              var tags = tagsRaw.map(function (tag) {
+                if (tag && typeof tag === 'object') return normalizeLocaleObject(tag, {});
+                return normalizeLocaleObject(String(tag || ''), { ar: String(tag || ''), en: String(tag || '') });
+              });
+              var searchTokens = [];
+              searchTokens.push(label.ar || '', label.en || '');
+              tags.forEach(function (tag) {
+                if (!tag) return;
+                if (tag.ar) searchTokens.push(tag.ar);
+                if (tag.en) searchTokens.push(tag.en);
+              });
+              if (item.sku) searchTokens.push(String(item.sku));
+              var entry = {
+                id: String(id),
+                category: String(categoryId || 'all'),
+                price: price,
+                label: label,
+                tags: tags,
+                kitchenSection: item.kitchen_section_id || item.kitchenSection || null,
+                search: searchTokens.join(' ').toLowerCase()
+              };
+              items.push(entry);
+              index[entry.id] = entry;
+            });
+            return { categories: categories, items: items, index: index };
+          }
+
+          function mapOrders(snapshot, tableIndex, lang) {
+            var dataset = snapshot || {};
+            var rawOrders = [];
+            if (Array.isArray(dataset.orders)) rawOrders = rawOrders.concat(dataset.orders);
+            if (dataset.pos && Array.isArray(dataset.pos.orders)) rawOrders = rawOrders.concat(dataset.pos.orders);
+            if (dataset.shift && Array.isArray(dataset.shift.orders)) rawOrders = rawOrders.concat(dataset.shift.orders);
+            var seen = {};
+            var orders = [];
+            rawOrders.forEach(function (order) {
+              if (!order) return;
+              var id = order.id || order.order_id || order.code || order.uid || order.invoice_id;
+              if (!id) return;
+              id = String(id);
+              if (seen[id]) return;
+              seen[id] = true;
+              var tableIds = [];
+              if (Array.isArray(order.table_ids)) tableIds = order.table_ids.slice();
+              else if (Array.isArray(order.tableIds)) tableIds = order.tableIds.slice();
+              else if (order.table_id) tableIds = [order.table_id];
+              else if (order.tableId) tableIds = [order.tableId];
+              else if (Array.isArray(order.tables)) {
+                tableIds = order.tables
+                  .map(function (entry) {
+                    return entry && (entry.id || entry.table_id || entry.code);
+                  })
+                  .filter(Boolean);
+              }
+              var tableId = tableIds.length ? String(tableIds[0]) : '';
+              var tableEntry = tableId && tableIndex ? tableIndex[tableId] : null;
+              var tableName = tableEntry ? tableEntry.label || tableEntry.name : normalizeLocaleObject('', { ar: tableId, en: tableId });
+              var statusRaw = (order.status || order.state || '').toLowerCase();
+              var status = statusRaw || 'preparing';
+              if (status === 'in_preparation') status = 'preparing';
+              if (status === 'ready_for_pickup') status = 'ready';
+              var createdIso = order.created_at || order.createdAt || order.opened_at || order.openedAt || order.timestamp || null;
+              var itemsRaw = Array.isArray(order.lines) ? order.lines : Array.isArray(order.items) ? order.items : [];
+              var items = itemsRaw
+                .map(function (line, index) {
+                  if (!line) return null;
+                  var lineLabel = normalizeLocaleObject(
+                    line.name || line.label || line.item_name || line.itemName,
+                    { ar: 'عنصر ' + (index + 1), en: 'Item ' + (index + 1) }
+                  );
+                  var qty = Number(line.qty || line.quantity || line.count || 0);
+                  if (!Number.isFinite(qty) || qty <= 0) qty = 1;
+                  var priceSource = line.price || line.unit_price || line.amount;
+                  if (priceSource == null && line.total != null) priceSource = Number(line.total) / qty;
+                  var price = Number(priceSource);
+                  if (!Number.isFinite(price)) price = 0;
+                  return {
+                    id: (line.id || line.item_id || line.sku || 'line-' + (index + 1)).toString(),
+                    name: lineLabel,
+                    qty: qty,
+                    price: price
+                  };
+                })
+                .filter(Boolean);
+              var totalValue =
+                order.total ||
+                order.total_amount ||
+                order.grand_total ||
+                (order.totals && (order.totals.grand_total || order.totals.total || order.totals.subtotal));
+              var total = Number(totalValue);
+              if (!Number.isFinite(total)) {
+                total = items.reduce(function (sum, item) {
+                  return sum + item.price * item.qty;
+                }, 0);
+              }
+              orders.push({
+                id: id,
+                tableId: tableId,
+                tableName: tableName,
+                startedAt: formatOrderTime(createdIso, lang || 'ar'),
+                createdAt: createdIso,
+                status: status,
+                items: items,
+                total: total
+              });
+            });
+            orders.sort(function (a, b) {
+              var aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+              var bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+              return bTime - aTime;
+            });
+            return orders;
+          }
+
+          function resolveSession(snapshot, env, prev) {
+            var lang = env.lang || 'ar';
+            var sync = snapshot && snapshot.settings ? snapshot.settings.sync || {} : {};
+            var locationName = localizeValue(sync.branch_name, lang, sync.branch_id || sync.channel || '');
+            var shifts = Array.isArray(snapshot && snapshot.shifts) ? snapshot.shifts : [];
+            var openShift = null;
+            for (var i = 0; i < shifts.length; i += 1) {
+              var entry = shifts[i];
+              if (!entry) continue;
+              var closed = entry.is_closed || entry.isClosed || entry.status === 'closed';
+              if (!closed) {
+                openShift = entry;
+                break;
+              }
+            }
+            var shiftName = openShift ? openShift.label || openShift.name || openShift.id || '' : '';
+            var serverName =
+              openShift && (openShift.cashier_name || openShift.cashierName || openShift.cashier || openShift.employee_name || '');
+            return {
+              location: locationName || (prev && prev.location) || '—',
+              shift: shiftName || (prev && prev.shift) || '—',
+              server: serverName || (prev && prev.server) || '—'
+            };
+          }
+
           function syncTableStatuses(data) {
-            data = data || {};
             var tables = Array.isArray(data.tables) ? data.tables : [];
             var orders = Array.isArray(data.orders) ? data.orders : [];
-            tables.forEach(function (table) {
-              var active = orders.filter(function (order) {
-                return order.tableId === table.id && order.status !== 'served';
-              }).length;
-              if (active > 0) {
-                table.status = table.status === 'reserved' ? 'reserved' : 'occupied';
-              } else if (table.status !== 'reserved') {
-                table.status = 'available';
+            var reservationSet = new Set();
+            (Array.isArray(data.reservations) ? data.reservations : []).forEach(function (reservation) {
+              if (!reservation) return;
+              var status = (reservation.status || '').toLowerCase();
+              if (['booked', 'pending', 'active', 'seated', 'confirmed'].indexOf(status) === -1) return;
+              (Array.isArray(reservation.tableIds) ? reservation.tableIds : []).forEach(function (id) {
+                if (id) reservationSet.add(String(id));
+              });
+            });
+            var lockSet = new Set();
+            (Array.isArray(data.tableLocks) ? data.tableLocks : []).forEach(function (lock) {
+              if (!lock) return;
+              var id = lock.tableId || lock.table_id || lock.id;
+              if (id) lockSet.add(String(id));
+            });
+            var orderCountMap = {};
+            orders.forEach(function (order) {
+              if (!order || !order.tableId) return;
+              var status = (order.status || '').toLowerCase();
+              if (!orderCountMap[order.tableId]) {
+                orderCountMap[order.tableId] = { active: 0, preparing: 0 };
               }
+              if (isOrderActive(status)) {
+                orderCountMap[order.tableId].active += 1;
+                if (status === 'preparing' || status === 'ready' || status === 'in_preparation') {
+                  orderCountMap[order.tableId].preparing += 1;
+                }
+              }
+            });
+            tables.forEach(function (table) {
+              var baseState = String(table.state || '').toLowerCase();
+              var status = 'available';
+              if (baseState === 'maintenance') status = 'maintenance';
+              if (baseState === 'disactive' || baseState === 'inactive' || baseState === 'offline') status = 'offline';
+              if (lockSet.has(table.id) || reservationSet.has(table.id)) status = 'reserved';
+              var counts = orderCountMap[table.id] || { active: 0, preparing: 0 };
+              if (counts.active > 0) {
+                status = counts.preparing > 0 ? 'preparing' : 'occupied';
+              }
+              table.status = status;
+              table.activeOrders = counts.active;
+            });
+          }
+
+          function mapDatasetToState(draft, snapshot, ctx) {
+            var data = ensureData(draft);
+            var env = ensureEnv(draft);
+            data.currency = resolveCurrency(snapshot, data.currency);
+            data.reservations = mapReservations(snapshot);
+            data.tableLocks = mapTableLocks(snapshot);
+            data.tables = mapTables(snapshot, env.lang || 'ar');
+            data.tableIndex = buildTableIndex(data.tables);
+            data.menu = mapMenu(snapshot);
+            data.menuIndex = data.menu.index || {};
+            data.orders = mapOrders(snapshot, data.tableIndex, env.lang || 'ar');
+            data.session = resolveSession(snapshot, env, data.session);
+            data.filters = data.filters || { query: '', category: 'all' };
+            var cart = ensureCart(data);
+            if (!cart.tableId && data.tables.length) {
+              cart.tableId = data.tables[0].id;
+            }
+            if (cart.tableId && !data.tableIndex[cart.tableId] && data.tables.length) {
+              cart.tableId = data.tables[0].id;
+            }
+            data.visibleMenu = computeVisibleMenu(data);
+            syncTableStatuses(data);
+          }
+
+          function applyDatasetSnapshot(ctx, snapshot) {
+            if (!snapshot || typeof snapshot !== 'object') return;
+            commit(ctx, function (draft) {
+              mapDatasetToState(draft, snapshot, ctx);
             });
           }
 
           function selectTable(tableId, ctx) {
             commit(ctx, function (draft) {
               var data = ensureData(draft);
-              data.cart = data.cart || { tableId: '', items: [] };
+              ensureCart(data);
               data.cart.tableId = tableId;
             });
           }
@@ -974,40 +1683,38 @@
           }
 
           function addToCart(itemId, ctx) {
+            if (!itemId) return;
             commit(ctx, function (draft) {
               var data = ensureData(draft);
-              var menuItems = (data.menu && data.menu.items) || [];
-              var item = menuItems.find(function (menuItem) {
-                return menuItem.id === itemId;
-              });
+              var cart = ensureCart(data);
+              var menuIndex = data.menuIndex || {};
+              var item = menuIndex[itemId];
               if (!item) return;
-              data.cart = data.cart || { tableId: '', items: [] };
-              if (!data.cart.tableId) {
-                var tables = Array.isArray(data.tables) ? data.tables : [];
-                data.cart.tableId = tables.length ? tables[0].id : '';
+              if (!cart.tableId && data.tables && data.tables.length) {
+                cart.tableId = data.tables[0].id;
               }
-              data.cart.items = Array.isArray(data.cart.items) ? data.cart.items : [];
-              var existing = data.cart.items.find(function (entry) {
+              var existing = cart.items.find(function (entry) {
                 return entry.id === itemId;
               });
               if (existing) {
                 existing.qty += 1;
               } else {
-                data.cart.items.push({
-                  id: item.id,
-                  name: item.name,
-                  price: item.price,
-                  qty: 1
+                cart.items.push({
+                  id: itemId,
+                  name: item.label,
+                  qty: 1,
+                  price: item.price
                 });
               }
+              cart.feedback = null;
             });
           }
 
           function adjustCart(itemId, delta, ctx) {
             commit(ctx, function (draft) {
               var data = ensureData(draft);
-              if (!data.cart || !Array.isArray(data.cart.items)) return;
-              data.cart.items = data.cart.items.reduce(function (acc, item) {
+              var cart = ensureCart(data);
+              cart.items = cart.items.reduce(function (acc, item) {
                 if (item.id !== itemId) {
                   acc.push(item);
                   return acc;
@@ -1025,8 +1732,9 @@
           function clearCart(ctx) {
             commit(ctx, function (draft) {
               var data = ensureData(draft);
-              if (!data.cart) return;
-              data.cart.items = [];
+              var cart = ensureCart(data);
+              cart.items = [];
+              cart.feedback = null;
             });
           }
 
@@ -1039,7 +1747,22 @@
             var table = tables.find(function (entry) {
               return entry.id === cart.tableId;
             });
-            return table ? table.name : cart.tableId;
+            return table ? localize(table.label || table.name, ctx, table.id) : cart.tableId;
+          }
+
+          function cartItemName(item, ctx) {
+            if (!item) return '';
+            return localize(item.name, ctx, item.id || '');
+          }
+
+          function cartFeedbackText(ctx) {
+            var state = getState(ctx);
+            var feedback = state && state.data && state.data.cart ? state.data.cart.feedback : null;
+            if (!feedback) return '';
+            if (feedback.messageKey && typeof trans === 'function') {
+              return trans(feedback.messageKey);
+            }
+            return feedback.message || '';
           }
 
           function cartTotal(ctx) {
@@ -1058,90 +1781,81 @@
             return Boolean(cart.tableId && cart.items && cart.items.length);
           }
 
+          function localizeCurrencySymbol(currency, lang) {
+            if (!currency) return '';
+            if (currency.symbols && currency.symbols[lang]) return currency.symbols[lang];
+            if (currency.symbols && currency.symbols[lang === 'ar' ? 'en' : 'ar']) return currency.symbols[lang === 'ar' ? 'en' : 'ar'];
+            return currency.code || '';
+          }
+
           function formatPrice(value, ctx) {
             var amount = Number(value || 0);
             var state = getState(ctx);
-            var lang = (state && state.env && state.env.lang) || 'ar';
+            var lang = getLang(ctx);
+            var currency = state && state.data ? state.data.currency : null;
+            var code = currency ? currency.code || 'EGP' : 'EGP';
             try {
               return new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-US', {
                 style: 'currency',
-                currency: 'SAR',
+                currency: code,
                 minimumFractionDigits: amount % 1 === 0 ? 0 : 2
               }).format(amount);
             } catch (_error) {
-              return amount.toFixed(amount % 1 === 0 ? 0 : 2) + ' ر.س';
+              var symbol = localizeCurrencySymbol(currency, lang);
+              var fixed = amount.toFixed(amount % 1 === 0 ? 0 : 2);
+              return symbol ? fixed + ' ' + symbol : fixed;
             }
+          }
+
+          function categoryLabel(category, ctx) {
+            if (!category) return '';
+            return localize(category.label, ctx, category.id);
+          }
+
+          function tableLabel(table, ctx) {
+            if (!table) return '';
+            return localize(table.label || table.name, ctx, table.id || '');
+          }
+
+          function menuItemName(item, ctx) {
+            if (!item) return '';
+            return localize(item.label || item.name, ctx, item.id || '');
+          }
+
+          function menuItemTags(item, ctx) {
+            if (!item || !Array.isArray(item.tags)) return [];
+            return item.tags
+              .map(function (tag) {
+                return localize(tag, ctx, '');
+              })
+              .filter(function (value) {
+                return !!value;
+              });
+          }
+
+          function orderTableLabel(order, ctx) {
+            if (!order) return '';
+            if (order.tableName) return localize(order.tableName, ctx, order.tableId || '');
+            return order.tableId || '';
+          }
+
+          function orderItemName(item, ctx) {
+            if (!item) return '';
+            return localize(item.name, ctx, item.id || '');
           }
 
           function activeOrdersCount(tableId, ctx) {
             var state = getState(ctx);
             if (!state || !state.data) return 0;
+            var tables = Array.isArray(state.data.tables) ? state.data.tables : [];
+            var table = tables.find(function (entry) {
+              return entry.id === tableId;
+            });
+            if (table && Number.isFinite(table.activeOrders)) return table.activeOrders;
             var orders = Array.isArray(state.data.orders) ? state.data.orders : [];
             return orders.filter(function (order) {
-              return order.tableId === tableId && order.status !== 'served';
+              return order.tableId === tableId && isOrderActive(order.status);
             }).length;
-          }
-
-          function orderStatusLabel(order, ctx) {
-            if (!order) return '';
-            var key = 'posTablet.orders.status.' + (order.status || 'preparing');
-            return typeof trans === 'function' ? trans(key) : order.status;
-          }
-
-          function completeOrder(orderId, ctx) {
-            commit(ctx, function (draft) {
-              var data = ensureData(draft);
-              var orders = Array.isArray(data.orders) ? data.orders : [];
-              var order = orders.find(function (entry) {
-                return entry.id === orderId;
-              });
-              if (!order) return;
-              order.status = 'served';
-              syncTableStatuses(data);
-            });
-          }
-
-          function submitOrder(ctx) {
-            commit(ctx, function (draft) {
-              var data = ensureData(draft);
-              var cart = data.cart || {};
-              if (!cart.tableId || !Array.isArray(cart.items) || !cart.items.length) return;
-              var tables = Array.isArray(data.tables) ? data.tables : [];
-              var table = tables.find(function (entry) {
-                return entry.id === cart.tableId;
-              });
-              var now = new Date();
-              var stamp;
-              try {
-                stamp = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-              } catch (_error) {
-                stamp = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-              }
-              var orderId = 'ORD-' + now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0') + now.getSeconds().toString().padStart(2, '0');
-              var items = cart.items.map(function (item) {
-                return {
-                  id: item.id,
-                  name: item.name,
-                  qty: item.qty,
-                  price: item.price
-                };
-              });
-              var total = items.reduce(function (sum, item) {
-                return sum + item.price * item.qty;
-              }, 0);
-              data.orders = Array.isArray(data.orders) ? data.orders : [];
-              data.orders.unshift({
-                id: orderId,
-                tableId: cart.tableId,
-                tableName: table ? table.name : cart.tableId,
-                startedAt: stamp,
-                status: 'preparing',
-                items: items,
-                total: total
-              });
-              data.cart.items = [];
-              syncTableStatuses(data);
-            });
           }
 
           function tableStatusLabel(table, ctx) {
@@ -1150,21 +1864,299 @@
             return typeof trans === 'function' ? trans(key) : table.status;
           }
 
-          function __init__(ctx) {
+          function orderStatusLabel(order, ctx) {
+            if (!order) return '';
+            var status = (order.status || '').toLowerCase();
+            var key = 'posTablet.orders.status.preparing';
+            if (status === 'served' || status === 'completed') key = 'posTablet.orders.status.served';
+            else if (status === 'ready') key = 'posTablet.orders.status.ready';
+            else if (status === 'open') key = 'posTablet.orders.status.open';
+            else if (status === 'held') key = 'posTablet.orders.status.held';
+            else if (status === 'finalized' || status === 'paid') key = 'posTablet.orders.status.finalized';
+            else if (status === 'closed') key = 'posTablet.orders.status.closed';
+            return typeof trans === 'function' ? trans(key) : status;
+          }
+
+          function publishCentralOrder(payload) {
+            var source = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
+            if (!source || typeof source.publish !== 'function') return false;
+            try {
+              source.publish(
+                {
+                  type: 'pos:order:create',
+                  source: 'pos-tablet',
+                  payload: payload
+                },
+                { action: 'pos:order:create' }
+              );
+              return true;
+            } catch (error) {
+              console.warn('POS tablet failed to publish order', error);
+              return false;
+            }
+          }
+
+          function publishOrderUpdate(orderId, patch) {
+            var source = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
+            if (!source || typeof source.publish !== 'function' || !orderId) return false;
+            try {
+              source.publish(
+                {
+                  type: 'pos:order:update',
+                  source: 'pos-tablet',
+                  orderId: orderId,
+                  patch: patch
+                },
+                { action: 'pos:order:update' }
+              );
+              return true;
+            } catch (error) {
+              console.warn('POS tablet failed to publish order update', error);
+              return false;
+            }
+          }
+
+          function broadcastOrderEnvelope(payload) {
+            if (typeof BroadcastChannel === 'undefined' || !payload) return;
+            try {
+              var channel = new BroadcastChannel('mishkah-pos-kds-sync');
+              channel.postMessage({ origin: 'pos-tablet', type: 'orders:payload', payload: payload });
+              channel.close();
+            } catch (error) {
+              console.warn('POS tablet failed to broadcast order payload', error);
+            }
+          }
+
+          function buildOrderPayload(state) {
+            var data = (state && state.data) || {};
+            var cart = data.cart || {};
+            var lang = (state && state.env && state.env.lang) || 'ar';
+            var now = new Date();
+            var orderId = 'TAB-' + now.getTime().toString(36);
+            var menuIndex = data.menuIndex || {};
+            var tableIndex = data.tableIndex || {};
+            var lines = (cart.items || []).map(function (item, index) {
+              var menuItem = menuIndex[item.id];
+              var labelSource = item.name || (menuItem && menuItem.label) || { ar: item.id || '', en: item.id || '' };
+              var label = normalizeLocaleObject(labelSource, { ar: item.id || '', en: item.id || '' });
+              return {
+                id: item.id || 'line-' + (index + 1),
+                item_id: item.id,
+                name: localizeValue(label, lang, item.id || ''),
+                translations: label,
+                kitchen_section: menuItem && menuItem.kitchenSection ? menuItem.kitchenSection : null,
+                qty: item.qty,
+                price: item.price,
+                total: item.price * item.qty
+              };
+            });
+            var total = lines.reduce(function (sum, line) {
+              return sum + (line.total || 0);
+            }, 0);
+            var tableId = cart.tableId ? String(cart.tableId) : '';
+            var tableEntry = tableId ? tableIndex[tableId] : null;
+            var tableLabel = tableEntry ? localizeValue(tableEntry.label || tableEntry.name, lang, tableId) : tableId;
+            return {
+              id: orderId,
+              type: 'dine_in',
+              source: 'pos-tablet',
+              table_ids: tableId ? [tableId] : [],
+              table_label: tableLabel,
+              createdAt: now.toISOString(),
+              status: 'preparing',
+              lines: lines,
+              totals: {
+                subtotal: total,
+                grand_total: total
+              },
+              currency: data.currency ? data.currency.code : 'EGP',
+              meta: {
+                channel: (typeof window !== 'undefined' && window.POS_WS2_CONFIG && window.POS_WS2_CONFIG.branchId) || null,
+                employeeId: typeof window !== 'undefined' ? window.UserUniid || null : null,
+                origin: 'tablet',
+                lang: lang
+              }
+            };
+          }
+
+          function buildUiOrderFromPayload(payload, ctx) {
+            if (!payload) return null;
+            var lang = getLang(ctx);
+            var tableId = payload.table_ids && payload.table_ids.length ? payload.table_ids[0] : '';
+            var state = getState(ctx);
+            var tables = (state && state.data && state.data.tables) || [];
+            var tableEntry = tables.find(function (entry) {
+              return entry.id === tableId;
+            });
+            var tableNameSource = tableEntry ? tableEntry.label || tableEntry.name : payload.table_label || '';
+            var tableName = normalizeLocaleObject(tableNameSource, { ar: tableId, en: tableId });
+            var items = (payload.lines || []).map(function (line, index) {
+              var labelSource = line.translations || line.name || { ar: 'عنصر ' + (index + 1), en: 'Item ' + (index + 1) };
+              var label = normalizeLocaleObject(labelSource, { ar: 'عنصر ' + (index + 1), en: 'Item ' + (index + 1) });
+              return {
+                id: line.id || line.item_id || 'line-' + (index + 1),
+                name: label,
+                qty: Number(line.qty || line.quantity || 1),
+                price: Number(line.price || line.unit_price || 0)
+              };
+            });
+            var total =
+              (payload.totals && (payload.totals.grand_total || payload.totals.total || payload.totals.subtotal)) ||
+              items.reduce(function (sum, item) {
+                return sum + item.price * item.qty;
+              }, 0);
+            return {
+              id: payload.id,
+              tableId: tableId,
+              tableName: tableName,
+              startedAt: formatOrderTime(payload.createdAt, lang),
+              createdAt: payload.createdAt,
+              status: payload.status || 'preparing',
+              items: items,
+              total: total
+            };
+          }
+
+          function submitOrder(ctx) {
+            var state = getState(ctx);
+            if (!state || !state.data) return;
+            var cart = state.data.cart || {};
+            if (!cart.tableId || !cart.items || !cart.items.length) return;
+            var payload = buildOrderPayload(state);
+            var published = publishCentralOrder(payload);
+            broadcastOrderEnvelope(payload);
             commit(ctx, function (draft) {
               var data = ensureData(draft);
-              data.visibleMenu = computeVisibleMenu(data);
-              if (!data.cart) {
-                data.cart = { tableId: '', items: [] };
+              var uiOrder = buildUiOrderFromPayload(payload, ctx);
+              if (uiOrder) {
+                data.orders = [uiOrder].concat(Array.isArray(data.orders) ? data.orders : []);
               }
-              if (!data.cart.tableId) {
-                var tables = Array.isArray(data.tables) ? data.tables : [];
-                data.cart.tableId = tables.length ? tables[0].id : '';
-              }
+              var cartDraft = ensureCart(data);
+              cartDraft.items = [];
+              cartDraft.feedback = {
+                kind: published ? 'success' : 'error',
+                messageKey: published ? 'posTablet.cart.sent' : 'posTablet.cart.failed'
+              };
               syncTableStatuses(data);
             });
           }
+
+          function completeOrder(orderId, ctx) {
+            if (!orderId) return;
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              data.orders = (Array.isArray(data.orders) ? data.orders : []).map(function (order) {
+                if (!order || order.id !== orderId) return order;
+                var next = Object.assign({}, order);
+                next.status = 'served';
+                return next;
+              });
+              syncTableStatuses(data);
+            });
+            publishOrderUpdate(orderId, { status: 'served' });
+          }
+
+          function langSwitchLabel(ctx) {
+            var lang = getLang(ctx);
+            var key = lang === 'ar' ? 'posTablet.controls.switchToEnglish' : 'posTablet.controls.switchToArabic';
+            return typeof trans === 'function' ? trans(key) : key;
+          }
+
+          function themeSwitchLabel(ctx) {
+            var theme = getTheme(ctx);
+            var key = theme === 'dark' ? 'posTablet.controls.themeLight' : 'posTablet.controls.themeDark';
+            return typeof trans === 'function' ? trans(key) : key;
+          }
+
+          function themeSwitchIcon(ctx) {
+            return getTheme(ctx) === 'dark' ? '☀️' : '🌙';
+          }
+
+          function toggleLang(ctx) {
+            commit(ctx, function (draft) {
+              var env = ensureEnv(draft);
+              var next = env.lang === 'ar' ? 'en' : 'ar';
+              env.lang = next;
+              env.dir = next === 'ar' ? 'rtl' : 'ltr';
+              draft.env = env;
+            }, function () {
+              if (
+                typeof window !== 'undefined' &&
+                window.Mishkah &&
+                window.Mishkah.auto &&
+                typeof window.Mishkah.auto.setLang === 'function'
+              ) {
+                window.Mishkah.auto.setLang(getLang(ctx));
+              }
+            });
+          }
+
+          function toggleTheme(ctx) {
+            var next = getTheme(ctx) === 'dark' ? 'light' : 'dark';
+            commit(
+              ctx,
+              function (draft) {
+                var env = ensureEnv(draft);
+                env.theme = next;
+                draft.env = env;
+              },
+              function () {
+                if (
+                  typeof window !== 'undefined' &&
+                  window.Mishkah &&
+                  window.Mishkah.auto &&
+                  typeof window.Mishkah.auto.setTheme === 'function'
+                ) {
+                  window.Mishkah.auto.setTheme(next);
+                } else if (typeof document !== 'undefined' && document.documentElement) {
+                  document.documentElement.setAttribute('data-theme', next);
+                }
+              }
+            );
+          }
+
+          function __init__(ctx) {
+            commit(ctx, function (draft) {
+              var data = ensureData(draft);
+              ensureCart(data);
+              data.visibleMenu = computeVisibleMenu(data);
+            });
+            var source = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
+            if (source && typeof source.subscribe === 'function') {
+              var unsubscribe = source.subscribe(function (event) {
+                if (!event) return;
+                var snapshot = event.snapshot || event.data || event.dataset;
+                if (snapshot && typeof snapshot === 'object') {
+                  applyDatasetSnapshot(ctx, snapshot);
+                }
+              });
+              if (ctx && typeof ctx.onCleanup === 'function') {
+                ctx.onCleanup(unsubscribe);
+              } else {
+                ctx.__tabletUnsubscribe = unsubscribe;
+              }
+            }
+            var initial = null;
+            if (source && typeof source.getSnapshot === 'function') {
+              initial = source.getSnapshot();
+            }
+            if (!initial && typeof window !== 'undefined' && window.database) {
+              initial = window.database;
+            }
+            if (initial) {
+              applyDatasetSnapshot(ctx, initial);
+            } else if (source && source.whenReady && typeof source.whenReady.then === 'function') {
+              source.whenReady
+                .then(function (snapshot) {
+                  applyDatasetSnapshot(ctx, snapshot);
+                })
+                .catch(function (error) {
+                  console.warn('POS tablet failed to resolve WS2 snapshot', error);
+                });
+            }
+          }
         </script>
+
       </section>
     </template>
 
