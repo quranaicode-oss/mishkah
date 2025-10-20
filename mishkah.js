@@ -57,10 +57,46 @@
     return trimmed;
   }
 
+  function parseHtmlxRaw(raw) {
+    if (!raw) return null;
+    var trimmed = String(raw).trim();
+    if (!trimmed) return {};
+    var lowered = trimmed.toLowerCase();
+    if (lowered === 'false' || lowered === '0' || lowered === 'off' || lowered === 'no') return null;
+    if (lowered === 'true' || lowered === '1' || lowered === 'on' || lowered === 'auto') return {};
+    var first = trimmed.charAt(0);
+    if (first === '{' || first === '[') {
+      try {
+        var parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed)) {
+            return parsed[0] && typeof parsed[0] === 'object' ? parsed[0] : {};
+          }
+          return parsed;
+        }
+        return {};
+      } catch (err) {
+        if (global.console && console.warn) console.warn('[MishkahAuto] failed to parse data-htmlx config', err);
+        return null;
+      }
+    }
+    return { templateId: trimmed };
+  }
+
   var userConfig = global.MishkahAutoConfig || {};
   var autoFlag = parseDatasetFlag(parseDatasetValue('auto', null), undefined);
   var autoEnabled = (typeof autoFlag === 'boolean') ? autoFlag
     : (typeof userConfig.auto === 'boolean' ? userConfig.auto : true);
+
+  var htmlxRawOption = parseDatasetValue('htmlx', null);
+  var htmlxTemplateOption = parseDatasetValue('htmlxTemplate', null);
+  var htmlxMountOption = parseDatasetValue('htmlxMount', null) || parseDatasetValue('mount', null);
+  var htmlxRootOption = parseDatasetValue('htmlxRoot', null);
+  var htmlxInitOption = parseDatasetValue('htmlxInit', null);
+  var htmlxAutoFlag = parseDatasetFlag(parseDatasetValue('htmlxAuto', null), undefined);
+  var htmlxParsedOption = parseHtmlxRaw(htmlxRawOption);
+  var htmlxAutoEnabled = (typeof htmlxAutoFlag === 'boolean') ? htmlxAutoFlag
+    : !!(htmlxParsedOption || htmlxTemplateOption || htmlxMountOption || htmlxRootOption || htmlxInitOption);
 
   var cssOption = parseDatasetValue('css', null);
   if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
@@ -281,6 +317,39 @@
     }
   }
 
+  function resolveRuntimeContext() {
+    var runtimeFn = null;
+    if (global.runtime && typeof global.runtime === 'function') {
+      runtimeFn = global.runtime;
+    } else if (global.Mishkah && typeof global.Mishkah.runtime === 'function') {
+      runtimeFn = global.Mishkah.runtime;
+    } else if (global.MishkahRuntime && typeof global.MishkahRuntime === 'function') {
+      runtimeFn = global.MishkahRuntime;
+    }
+    if (!runtimeFn) return null;
+    try {
+      var runtime = runtimeFn();
+      return runtime && typeof runtime === 'object' ? runtime : null;
+    } catch (err) {
+      if (global.console && console.warn) console.warn('[MishkahAuto] runtime() invocation failed', err);
+      return null;
+    }
+  }
+
+  function applyRuntimeEffects(state) {
+    if (!state) return;
+    var runtime = resolveRuntimeContext();
+    if (!runtime) return;
+    if (typeof runtime.applyEnvironment === 'function') {
+      try { runtime.applyEnvironment(state); }
+      catch (err) { if (global.console && console.warn) console.warn('[MishkahAuto] applyEnvironment failed', err); }
+    }
+    if (typeof runtime.persistPrefs === 'function') {
+      try { runtime.persistPrefs(state); }
+      catch (err) { if (global.console && console.warn) console.warn('[MishkahAuto] persistPrefs failed', err); }
+    }
+  }
+
   function normalizeLang(code) {
     if (!code) return null;
     return String(code).split(/[^a-zA-Z\u0621-\u064a0-9]+/)[0].toLowerCase();
@@ -317,7 +386,6 @@
         }
         return next;
       });
-      broadcast(app.getState());
     });
   }
 
@@ -344,7 +412,6 @@
         next.env = env;
         return next;
       });
-      broadcast(app.getState());
     });
   }
 
@@ -355,7 +422,11 @@
       var originalSetState = app.setState;
       app.setState = function (updater) {
         var result = originalSetState.call(app, updater);
-        try { broadcast(app.getState()); }
+        try {
+          var snapshot = app.getState ? app.getState() : null;
+          applyRuntimeEffects(snapshot);
+          broadcast(snapshot);
+        }
         catch (err) {
           if (global.console && console.warn) console.warn('[MishkahAuto] broadcast failed', err);
         }
@@ -371,7 +442,10 @@
     }
     try {
       var initial = app.getState ? app.getState() : null;
-      if (initial) broadcast(initial);
+      if (initial) {
+        applyRuntimeEffects(initial);
+        broadcast(initial);
+      }
     } catch (err) {
       if (global.console && console.warn) console.warn('[MishkahAuto] unable to read initial state', err);
     }
@@ -898,6 +972,83 @@
     target[key] = value;
   }
 
+  function buildHtmlxBootstrapConfig() {
+    if (!htmlxAutoEnabled) return null;
+    var config = null;
+    if (htmlxParsedOption && typeof htmlxParsedOption === 'object' && !Array.isArray(htmlxParsedOption)) {
+      config = Object.assign({}, htmlxParsedOption);
+    }
+    if (htmlxTemplateOption) {
+      config = config || {};
+      config.templateId = htmlxTemplateOption;
+    }
+    if (htmlxMountOption) {
+      config = config || {};
+      config.mount = htmlxMountOption;
+    }
+    if (htmlxRootOption) {
+      config = config || {};
+      config.root = htmlxRootOption;
+    }
+    if (htmlxInitOption) {
+      config = config || {};
+      config.init = htmlxInitOption;
+    }
+    if (!config) config = {};
+    if (!config.templateId && doc) {
+      var templates = doc.querySelectorAll ? doc.querySelectorAll('template[id]') : [];
+      if (templates && templates.length === 1) {
+        config.templateId = templates[0].id;
+      }
+    }
+    if (!config.mount && doc && doc.getElementById && doc.getElementById('app')) {
+      config.mount = '#app';
+    }
+    if (!config.templateId) return null;
+    return config;
+  }
+
+  function onDomReady(callback) {
+    if (!doc) {
+      callback();
+      return;
+    }
+    if (doc.readyState === 'interactive' || doc.readyState === 'complete') {
+      callback();
+      return;
+    }
+    doc.addEventListener('DOMContentLoaded', function handleReady() {
+      doc.removeEventListener('DOMContentLoaded', handleReady);
+      callback();
+    });
+  }
+
+  var htmlxBootstrapTriggered = false;
+
+  function startHtmlxAuto(config) {
+    if (!config || htmlxBootstrapTriggered) return;
+    function attempt() {
+      if (htmlxBootstrapTriggered) return;
+      var host = global.Mishkah;
+      if (!host || !host.HTMLxAgent || typeof host.HTMLxAgent.make !== 'function') {
+        setTimeout(attempt, 30);
+        return;
+      }
+      htmlxBootstrapTriggered = true;
+      try {
+        var result = host.HTMLxAgent.make(config);
+        if (result && typeof result.then === 'function') {
+          result.catch(function (error) {
+            if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', error);
+          });
+        }
+      } catch (err) {
+        if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', err);
+      }
+    }
+    attempt();
+  }
+
   var api = global.MishkahAuto || {};
   api.__version = autoState.__version;
   api.config = autoState.config;
@@ -974,6 +1125,16 @@
     });
     return promise;
   };
+
+  if (htmlxAutoEnabled) {
+    autoState.readyDeferred.promise.then(function () {
+      onDomReady(function () {
+        var config = buildHtmlxBootstrapConfig();
+        if (!config) return;
+        startHtmlxAuto(config);
+      });
+    });
+  }
 
   if (doc && typeof doc.dispatchEvent === 'function') {
     api.whenReady.then(function (M) {
