@@ -57,10 +57,46 @@
     return trimmed;
   }
 
+  function parseHtmlxRaw(raw) {
+    if (!raw) return null;
+    var trimmed = String(raw).trim();
+    if (!trimmed) return {};
+    var lowered = trimmed.toLowerCase();
+    if (lowered === 'false' || lowered === '0' || lowered === 'off' || lowered === 'no') return null;
+    if (lowered === 'true' || lowered === '1' || lowered === 'on' || lowered === 'auto') return {};
+    var first = trimmed.charAt(0);
+    if (first === '{' || first === '[') {
+      try {
+        var parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed)) {
+            return parsed[0] && typeof parsed[0] === 'object' ? parsed[0] : {};
+          }
+          return parsed;
+        }
+        return {};
+      } catch (err) {
+        if (global.console && console.warn) console.warn('[MishkahAuto] failed to parse data-htmlx config', err);
+        return null;
+      }
+    }
+    return { templateId: trimmed };
+  }
+
   var userConfig = global.MishkahAutoConfig || {};
   var autoFlag = parseDatasetFlag(parseDatasetValue('auto', null), undefined);
   var autoEnabled = (typeof autoFlag === 'boolean') ? autoFlag
     : (typeof userConfig.auto === 'boolean' ? userConfig.auto : true);
+
+  var htmlxRawOption = parseDatasetValue('htmlx', null);
+  var htmlxTemplateOption = parseDatasetValue('htmlxTemplate', null);
+  var htmlxMountOption = parseDatasetValue('htmlxMount', null) || parseDatasetValue('mount', null);
+  var htmlxRootOption = parseDatasetValue('htmlxRoot', null);
+  var htmlxInitOption = parseDatasetValue('htmlxInit', null);
+  var htmlxAutoFlag = parseDatasetFlag(parseDatasetValue('htmlxAuto', null), undefined);
+  var htmlxParsedOption = parseHtmlxRaw(htmlxRawOption);
+  var htmlxAutoEnabled = (typeof htmlxAutoFlag === 'boolean') ? htmlxAutoFlag
+    : !!(htmlxParsedOption || htmlxTemplateOption || htmlxMountOption || htmlxRootOption || htmlxInitOption);
 
   var cssOption = parseDatasetValue('css', null);
   if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
@@ -898,6 +934,83 @@
     target[key] = value;
   }
 
+  function buildHtmlxBootstrapConfig() {
+    if (!htmlxAutoEnabled) return null;
+    var config = null;
+    if (htmlxParsedOption && typeof htmlxParsedOption === 'object' && !Array.isArray(htmlxParsedOption)) {
+      config = Object.assign({}, htmlxParsedOption);
+    }
+    if (htmlxTemplateOption) {
+      config = config || {};
+      config.templateId = htmlxTemplateOption;
+    }
+    if (htmlxMountOption) {
+      config = config || {};
+      config.mount = htmlxMountOption;
+    }
+    if (htmlxRootOption) {
+      config = config || {};
+      config.root = htmlxRootOption;
+    }
+    if (htmlxInitOption) {
+      config = config || {};
+      config.init = htmlxInitOption;
+    }
+    if (!config) config = {};
+    if (!config.templateId && doc) {
+      var templates = doc.querySelectorAll ? doc.querySelectorAll('template[id]') : [];
+      if (templates && templates.length === 1) {
+        config.templateId = templates[0].id;
+      }
+    }
+    if (!config.mount && doc && doc.getElementById && doc.getElementById('app')) {
+      config.mount = '#app';
+    }
+    if (!config.templateId) return null;
+    return config;
+  }
+
+  function onDomReady(callback) {
+    if (!doc) {
+      callback();
+      return;
+    }
+    if (doc.readyState === 'interactive' || doc.readyState === 'complete') {
+      callback();
+      return;
+    }
+    doc.addEventListener('DOMContentLoaded', function handleReady() {
+      doc.removeEventListener('DOMContentLoaded', handleReady);
+      callback();
+    });
+  }
+
+  var htmlxBootstrapTriggered = false;
+
+  function startHtmlxAuto(config) {
+    if (!config || htmlxBootstrapTriggered) return;
+    function attempt() {
+      if (htmlxBootstrapTriggered) return;
+      var host = global.Mishkah;
+      if (!host || !host.HTMLxAgent || typeof host.HTMLxAgent.make !== 'function') {
+        setTimeout(attempt, 30);
+        return;
+      }
+      htmlxBootstrapTriggered = true;
+      try {
+        var result = host.HTMLxAgent.make(config);
+        if (result && typeof result.then === 'function') {
+          result.catch(function (error) {
+            if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', error);
+          });
+        }
+      } catch (err) {
+        if (global.console && console.error) console.error('[MishkahAuto] HTMLx auto bootstrap failed', err);
+      }
+    }
+    attempt();
+  }
+
   var api = global.MishkahAuto || {};
   api.__version = autoState.__version;
   api.config = autoState.config;
@@ -974,6 +1087,16 @@
     });
     return promise;
   };
+
+  if (htmlxAutoEnabled) {
+    autoState.readyDeferred.promise.then(function () {
+      onDomReady(function () {
+        var config = buildHtmlxBootstrapConfig();
+        if (!config) return;
+        startHtmlxAuto(config);
+      });
+    });
+  }
 
   if (doc && typeof doc.dispatchEvent === 'function') {
     api.whenReady.then(function (M) {

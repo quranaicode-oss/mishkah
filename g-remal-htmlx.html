@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Playfair+Display:wght@500;700&display=swap"
       rel="stylesheet"
     />
+    <script src="./mishkah.js" data-css="mishkah" data-htmlx="g-remal-htmlx"></script>
     <style>
       :root {
         color-scheme: light dark;
@@ -1201,29 +1202,5 @@
       </script>
     </template>
 
-    <script src="./mishkah-utils.js"></script>
-    <script src="./mishkah.core.js"></script>
-    <script src="./mishkah-ui.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/acorn@8.15.0/dist/acorn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/acorn-walk@8.3.4/dist/walk.min.js"></script>
-    <script>
-      window.acornWalk = window.acornWalk || (window.acorn && window.acorn.walk);
-    </script>
-    <script src="./mishkah-htmlx.js"></script>
-    <script>
-      (function (window) {
-        'use strict';
-        var M = window.Mishkah;
-        if (!M || !M.HTMLxAgent || typeof M.HTMLxAgent.make !== 'function') {
-          console.error('Mishkah HTMLx agent is required.');
-          return;
-        }
-
-        var start = M.HTMLxAgent.make();
-        Promise.resolve(start).catch(function (error) {
-          console.error('Failed to start Mishkah HTMLx G-Remal experience:', error);
-        });
-      })(window);
-    </script>
   </body>
 </html>
