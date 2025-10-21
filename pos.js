@@ -1,5 +1,9 @@
+console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
 
-  (async function(){
+
+(async function(){
+  
+
     const M = Mishkah;
     const UI = M.UI;
     const U = M.utils;
@@ -430,6 +434,28 @@
       return { status, promise };
     }
     const dataSource = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
+    async function fetchServerSnapshot(branch = 'pos:sync:branch-main'){
+      if(typeof window === 'undefined') return null;
+      try{
+        const response = await fetch(`/api/state?branch=${encodeURIComponent(branch)}`, { cache:'no-store' });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch(error){
+        console.warn('[Mishkah][POS] Failed to fetch server snapshot.', { branch, error });
+        return null;
+      }
+    }
+    async function fetchServerOrders(){
+      if(typeof window === 'undefined') return null;
+      try{
+        const response = await fetch('/api/orders', { cache:'no-store' });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch(error){
+        console.warn('[Mishkah][POS] Failed to fetch server orders.', error);
+        return null;
+      }
+    }
     async function loadInitialDataset(){
       if(typeof window === 'undefined') return {};
       if(dataSource){
@@ -444,10 +470,23 @@
           console.warn('[Mishkah][POS] Failed to resolve WS2 dataset promise.', error);
         }
       }
+      const serverState = await fetchServerSnapshot();
+      const ordersState = await fetchServerOrders();
+      if(serverState && typeof serverState.snapshot === 'object'){
+        if(ordersState && Array.isArray(ordersState.orders)){
+          console.log('[Mishkah][POS] Bootstrap orders from server', ordersState.orders.length);
+          serverState.snapshot.orders = ordersState.orders;
+          serverState.snapshot.ordersHistory = ordersState.orders;
+        }
+        window.__WS2_SERVER_BOOTSTRAP__ = serverState;
+        window.database = serverState.snapshot;
+        return serverState.snapshot;
+      }
       const fallback = window.database && typeof window.database === 'object' ? window.database : {};
       return fallback || {};
     }
     const initialDataset = await loadInitialDataset();
+    console.log('[Mishkah][POS] bootstrap dataset', { hasOrders: Array.isArray(initialDataset?.orders) ? initialDataset.orders.length : 0 });
     let MOCK_BASE = cloneDeep(initialDataset);
     let MOCK = cloneDeep(MOCK_BASE);
     let PAYMENT_METHODS = derivePaymentMethods(MOCK);
@@ -607,7 +646,7 @@
           menu_loading:'جاري تحميل القائمة الحية…', menu_loading_hint:'نقوم بجلب الأصناف من النظام المركزي. يمكنك الاستمرار بالبيانات الحالية مؤقتًا.',
           menu_load_error:'تعذر تحديث القائمة الحية، يتم استخدام البيانات المخزنة.', menu_load_error_short:'تعذر التحديث',
           menu_live_badge:'القائمة الحية', menu_last_updated:'آخر تحديث', menu_load_success:'تم تحديث القائمة بنجاح.',
-          indexeddb:'قاعدة البيانات المحلية', central_sync:'المزامنة المركزية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
+          indexeddb:'مخزن البيانات', central_sync:'المزامنة المركزية', last_sync:'آخر مزامنة', never_synced:'لم تتم', sync_now:'مزامنة الآن',
           central_diag_title:'تشخيص الاتصال المركزي',
           central_diag_description:'راقب دورة حياة الاتصال بالمخدم المركزي وتحقق من رسائل الأخطاء مباشرة.',
           central_diag_empty:'لم يتم تسجيل أي أحداث بعد.',
@@ -735,8 +774,8 @@
         toast:{
           item_added:'تمت إضافة الصنف', quantity_updated:'تم تحديث الكمية', cart_cleared:'تم مسح الطلب',
           order_saved:'تم حفظ الطلب محليًا', order_finalized:'تم إنهاء الطلب', sync_complete:'تم تحديث المزامنة', payment_recorded:'تم تسجيل الدفعة',
-          amount_required:'من فضلك أدخل قيمة صحيحة', indexeddb_missing:'IndexedDB غير متاحة في هذا المتصفح',
-          indexeddb_error:'تعذر حفظ البيانات محليًا', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
+          amount_required:'من فضلك أدخل قيمة صحيحة', indexeddb_missing:'مخزن البيانات غير متاح في هذا المتصفح',
+          indexeddb_error:'تعذر حفظ البيانات في المخزن', print_stub:'سيتم التكامل مع الطابعة لاحقًا',
           discount_stub:'سيتم تفعيل الخصومات لاحقًا', notes_updated:'تم تحديث الملاحظات', add_note:'أدخل ملاحظة ترسل للمطبخ',
           set_qty:'أدخل الكمية الجديدة', line_actions:'سيتم فتح إجراءات السطر لاحقًا', line_modifiers_applied:'تم تحديث الإضافات والمنزوعات', confirm_clear:'هل تريد مسح الطلب الحالي؟',
           order_locked:'لا يمكن تعديل هذا الطلب بعد حفظه', line_locked:'لا يمكن تعديل هذا السطر بعد حفظه',
@@ -747,7 +786,7 @@
           customer_saved:'تم حفظ بيانات العميل', customer_attach_success:'تم ربط العميل بالطلب',
           customer_missing_selection:'اختر عميلًا أولًا', customer_missing_address:'اختر عنوانًا لهذا العميل', customer_form_invalid:'أكمل الاسم ورقم الهاتف',
           new_order:'تم إنشاء طلب جديد', order_type_changed:'تم تغيير نوع الطلب', table_assigned:'تم اختيار الطاولة',
-          merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري المزامنة مع IndexedDB',
+          merge_stub:'قريبًا دمج الطاولات', load_more_stub:'سيتم تحميل المزيد من الأصناف لاحقًا', indexeddb_syncing:'جاري تحديث مخزن البيانات',
           theme_switched:'تم تغيير الثيم', lang_switched:'تم تغيير اللغة', logout_stub:'تم إنهاء الوردية افتراضيًا',
           kdsConnected:'تم الاتصال بالمطبخ', kdsClosed:'تم إغلاق الاتصال بالمطبخ', kdsFailed:'فشل الاتصال بالمطبخ',
           kdsUnavailable:'متصفحك لا يدعم WebSocket', kdsPong:'تم استقبال إشارة من المطبخ',
@@ -781,7 +820,7 @@
           menu_loading:'Loading live menu…', menu_loading_hint:'Fetching the latest catalog from the central system. You can continue working with local data.',
           menu_load_error:'Live menu refresh failed, using cached data instead.', menu_load_error_short:'Update failed',
           menu_live_badge:'Live menu', menu_last_updated:'Last updated', menu_load_success:'Live menu updated.',
-          indexeddb:'Local database', central_sync:'Central sync', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
+          indexeddb:'POS storage', central_sync:'Central sync', last_sync:'Last sync', never_synced:'Never', sync_now:'Sync now', subtotal:'Subtotal',
           central_diag_title:'Central sync diagnostics',
           central_diag_description:'Inspect the live connection lifecycle with the central server and surface any transport errors.',
           central_diag_empty:'No events captured yet.',
@@ -908,8 +947,8 @@
         toast:{
           item_added:'Item added to cart', quantity_updated:'Quantity updated', cart_cleared:'Cart cleared',
           order_saved:'Order stored locally', order_finalized:'Order finalized', sync_complete:'Sync completed', payment_recorded:'Payment recorded',
-          amount_required:'Enter a valid amount', indexeddb_missing:'IndexedDB is not available in this browser',
-          indexeddb_error:'Failed to persist locally', print_stub:'Printer integration coming soon',
+          amount_required:'Enter a valid amount', indexeddb_missing:'Data store is not available in this browser',
+          indexeddb_error:'Failed to persist to the data store', print_stub:'Printer integration coming soon',
           discount_stub:'Discount workflow coming soon', notes_updated:'Notes updated', add_note:'Add a note for the kitchen',
           set_qty:'Enter the new quantity', line_actions:'Line actions coming soon', line_modifiers_applied:'Line modifiers updated', confirm_clear:'Clear the current order?',
           order_locked:'This order is locked after saving', line_locked:'This line can no longer be modified',
@@ -919,7 +958,7 @@
           customer_saved:'Customer saved successfully', customer_attach_success:'Customer linked to order',
           customer_missing_selection:'Select a customer first', customer_missing_address:'Select an address for this customer', customer_form_invalid:'Please enter name and phone number',
           new_order:'New order created', order_type_changed:'Order type changed', table_assigned:'Table assigned',
-          merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Syncing with IndexedDB…',
+          merge_stub:'Table merge coming soon', load_more_stub:'Menu pagination coming soon', indexeddb_syncing:'Updating data store…',
           theme_switched:'Theme updated', lang_switched:'Language updated', logout_stub:'Session ended (stub)',
           kdsConnected:'Connected to kitchen', kdsClosed:'Kitchen connection closed', kdsFailed:'Kitchen connection failed',
           kdsUnavailable:'WebSocket not supported', kdsPong:'KDS heartbeat received',
@@ -1548,43 +1587,24 @@
       return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
-    const hasIndexedDB = !!((U && (U.IndexedDBX || U.IndexedDB)) && typeof window !== 'undefined' && window.indexedDB);
 
     function createIndexedDBAdapter(name, version){
-      const IndexedDBX = U && (U.IndexedDBX || U.IndexedDB);
-      if(!hasIndexedDB || !IndexedDBX){
-        return {
-          available:false,
-          async saveOrder(){ return false; },
-          async saveTempOrder(){ return false; },
-          async listOrders(){ return []; },
-          async getOrder(){ return null; },
-          async getTempOrder(){ return null; },
-          async listTempOrders(){ return []; },
-          async deleteTempOrder(){ return false; },
-          async markSync(){ return false; },
-          async bootstrap(){ return false; },
-          async getActiveShift(){ return null; },
-          async listShifts(){ return []; },
-          async openShiftRecord(record){ return record || null; },
-          async closeShiftRecord(){ return null; },
-          async nextInvoiceNumber(posId, prefix){
-            const base = `${prefix || posId || 'POS'}-${Date.now()}`;
-            return { value: Date.now(), id: base };
-          },
-          async peekInvoiceCounter(){ return 0; },
-          async resetAll(){ return false; }
-        };
-      }
-
       const SHIFT_STORE = 'shifts';
       const META_STORE = 'posMeta';
       const TEMP_STORE = 'order_temp';
 
-      const db = new IndexedDBX({
-        name,
-        version: Math.max(1, version|0) || 1,
-        autoBumpVersion:true,
+      const storeMaps = {
+        orders: new Map(),
+        orderLines: new Map(),
+        orderNotes: new Map(),
+        orderEvents: new Map(),
+        [SHIFT_STORE]: new Map(),
+        [META_STORE]: new Map(),
+        [TEMP_STORE]: new Map(),
+        syncLog: new Map()
+      };
+
+      const db = {
         schema:{
           stores:{
             orders:{
@@ -1598,7 +1618,6 @@
             orderLines:{ keyPath:'uid', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderNotes:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderEvents:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
-            syncLog:{ keyPath:'ts' },
             [SHIFT_STORE]:{
               keyPath:'id',
               indices:[
@@ -1609,24 +1628,33 @@
             [META_STORE]:{ keyPath:'id' },
             [TEMP_STORE]:{
               keyPath:'id',
-              indices:[
-                { name:'by_updated', keyPath:'updatedAt' }
-              ]
-            }
+              indices:[{ name:'by_updated', keyPath:'updatedAt' }]
+            },
+            syncLog:{ keyPath:'ts' }
+          }
+        },
+        version: Math.max(1, version|0) || 1,
+        name: name || 'mishkah-pos'
+      };
+
+      const ensureArray = (value)=> Array.isArray(value) ? value : [];
+      const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
+
+      const removeByOrderId = (storeName, orderId)=>{
+        const store = storeMaps[storeName];
+        for(const [key, record] of store.entries()){
+          if(record.orderId === orderId){
+            store.delete(key);
           }
         }
-      });
+      };
 
-      let readyPromise = null;
-      const ensureReady = ()=>{
-        if(!readyPromise){
-          readyPromise = (async()=>{
-            await db.open();
-            await db.ensureSchema();
-            return db;
-          })();
+      const markSyncLog = (ts)=>{
+        storeMaps.syncLog.set(ts, { ts });
+        if(storeMaps.syncLog.size > 500){
+          const oldestKey = storeMaps.syncLog.keys().next().value;
+          if(oldestKey !== undefined) storeMaps.syncLog.delete(oldestKey);
         }
-        return readyPromise;
       };
 
       function toTimestamp(value){
@@ -1639,6 +1667,7 @@
       function normalizeShiftRecord(record){
         if(!record) return null;
         const base = { ...record };
+        base.id = base.id || `shift-${Math.random().toString(16).slice(2,10)}`;
         base.isClosed = base.isClosed === 1 || base.isClosed === true;
         base.openedAt = base.openedAt || Date.now();
         base.closedAt = base.closedAt || null;
@@ -1652,36 +1681,32 @@
 
       async function getActiveShift(posId){
         if(!posId) return null;
-        await ensureReady();
-        const list = await db.byIndex(SHIFT_STORE, 'by_pos_status', { only:[posId, 0] });
-        return normalizeShiftRecord(list && list[0] ? list[0] : null);
+        const matches = [];
+        for(const shift of storeMaps[SHIFT_STORE].values()){
+          if(shift.posId === posId && !shift.isClosed){
+            matches.push(shift);
+          }
+        }
+        if(!matches.length) return null;
+        matches.sort((a,b)=> (b.openedAt || 0) - (a.openedAt || 0));
+        return cloneRecord(normalizeShiftRecord(matches[0]));
       }
 
       async function listShifts({ posId, limit=50 }={}){
-        await ensureReady();
-        if(!posId){
-          const all = await db.getAll(SHIFT_STORE);
-          return all.map(normalizeShiftRecord).sort((a,b)=> (b.openedAt||0)-(a.openedAt||0)).slice(0, limit);
+        const all = [];
+        for(const shift of storeMaps[SHIFT_STORE].values()){
+          if(posId && shift.posId !== posId) continue;
+          all.push(cloneRecord(normalizeShiftRecord(shift)));
         }
-        const rows = await db.byIndex(SHIFT_STORE, 'by_pos', {
-          lower:[posId, 0],
-          upper:[posId, Number.MAX_SAFE_INTEGER]
-        }, 'prev');
-        return rows.map(normalizeShiftRecord).slice(0, limit);
+        all.sort((a,b)=> (b.openedAt || 0) - (a.openedAt || 0));
+        return all.slice(0, limit);
       }
 
       async function writeShift(record){
-        if(!record || !record.id) throw new Error('Shift payload requires id');
-        if(!record.posId) throw new Error('Shift payload requires posId');
-        const payload = {
-          ...record,
-          isClosed: record.isClosed ? 1 : 0,
-          openedAt: record.openedAt || Date.now(),
-          closedAt: record.closedAt || null
-        };
-        await ensureReady();
-        await db.put(SHIFT_STORE, payload);
-        return normalizeShiftRecord(payload);
+        const normalized = normalizeShiftRecord(record);
+        if(!normalized.posId) throw new Error('Shift payload requires posId');
+        storeMaps[SHIFT_STORE].set(normalized.id, normalized);
+        return cloneRecord(normalized);
       }
 
       async function openShiftRecord(record){
@@ -1693,163 +1718,97 @@
 
       async function closeShiftRecord(id, patch={}){
         if(!id) throw new Error('Shift id is required');
-        await ensureReady();
-        const current = await db.get(SHIFT_STORE, id);
+        const current = storeMaps[SHIFT_STORE].get(id);
         if(!current) return null;
-        const payload = {
+        const payload = normalizeShiftRecord({
           ...current,
           ...patch,
-          closedAt: patch.closedAt || Date.now(),
-          isClosed:true
-        };
-        await db.put(SHIFT_STORE, payload);
-        return normalizeShiftRecord(payload);
+          isClosed:true,
+          closedAt: patch.closedAt || Date.now()
+        });
+        storeMaps[SHIFT_STORE].set(payload.id, payload);
+        return cloneRecord(payload);
       }
 
-      async function ensureInvoiceCounter(posId){
-        if(!posId) return { id:'default', invoiceCounter:0 };
-        await ensureReady();
-        const existing = await db.get(META_STORE, posId);
-        if(existing && Number.isFinite(existing.invoiceCounter)) return existing;
-        const base = { id: posId, invoiceCounter:0 };
-        await db.put(META_STORE, base);
-        return base;
+      function ensureInvoiceCounter(posId){
+        const key = posId || 'default';
+        if(!storeMaps[META_STORE].has(key)){
+          storeMaps[META_STORE].set(key, { id:key, invoiceCounter:0 });
+        }
+        return storeMaps[META_STORE].get(key);
       }
 
       async function nextInvoiceNumber(posId, prefix){
         if(!posId) throw new Error('posId required for invoice sequence');
-        await ensureReady();
-        const meta = await ensureInvoiceCounter(posId);
+        const meta = { ...ensureInvoiceCounter(posId) };
         const nextValue = Number(meta.invoiceCounter || 0) + 1;
-        const updated = { ...meta, invoiceCounter: nextValue };
-        await db.put(META_STORE, updated);
+        meta.invoiceCounter = nextValue;
+        storeMaps[META_STORE].set(posId, meta);
         const safePrefix = prefix || posId;
         return { value: nextValue, id: `${safePrefix}-${nextValue}` };
       }
 
       async function peekInvoiceCounter(posId){
-        const meta = await ensureInvoiceCounter(posId);
+        const meta = ensureInvoiceCounter(posId);
         return Number(meta.invoiceCounter || 0);
       }
 
       async function resetAll(){
-        try{
-          await ensureReady();
-        } catch(_){ }
-        await db.destroy();
-        readyPromise = null;
+        Object.values(storeMaps).forEach(map=> map.clear());
         return true;
       }
 
-      const STORE_IMPORT_ORDER = [
-        'orders',
-        'orderLines',
-        'orderNotes',
-        'orderEvents',
-        TEMP_STORE,
-        SHIFT_STORE,
-        META_STORE,
-        'syncLog'
-      ];
-
-      async function exportSnapshot(){
-        await ensureReady();
-        const stores = {};
-        const schemaStores = Object.keys(db?.schema?.stores || {});
-        const order = Array.from(new Set([...STORE_IMPORT_ORDER, ...schemaStores]));
-        for(const storeName of order){
-          if(!db?.schema?.stores?.[storeName]) continue;
-          try {
-            stores[storeName] = await db.getAll(storeName);
-          } catch(err){
-            console.warn('[Mishkah][POS][IndexedDB] Failed to export store', storeName, err);
-            stores[storeName] = [];
-          }
-        }
+      function normalizeLineRecord(orderId, line, defaults){
+        const uid = line.uid || line.storageId || `${orderId}::${line.id || line.itemId || Math.random().toString(16).slice(2,8)}`;
+        const id = line.id || `${orderId}::${line.itemId || Math.random().toString(16).slice(2,8)}`;
+        const qty = Number(line.qty) || 0;
+        const price = Number(line.price) || 0;
         return {
-          stores,
-          meta:{
-            exportedAt: Date.now(),
-            dbVersion: db?.version || 0
-          }
+          uid,
+          id,
+          orderId,
+          itemId: line.itemId,
+          name: line.name || null,
+          description: line.description || null,
+          qty,
+          price,
+          total: Number(line.total) || qty * price,
+          status: line.status || 'draft',
+          stage: line.stage || defaults.stage,
+          kitchenSection: line.kitchenSection || null,
+          locked: line.locked !== undefined ? !!line.locked : defaults.lockLineEdits,
+          notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
+          discount: normalizeDiscount(line.discount),
+          createdAt: toTimestamp(line.createdAt || defaults.createdAt),
+          updatedAt: toTimestamp(line.updatedAt || defaults.updatedAt)
         };
       }
 
-      async function importSnapshot(snapshot){
-        if(!snapshot || typeof snapshot !== 'object') return false;
-        const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
-        await ensureReady();
-        const schemaStores = Object.keys(db?.schema?.stores || {});
-        for(const storeName of schemaStores){
-          try { await db.clear(storeName); } catch(_err){ }
-        }
-        const ordered = Array.from(new Set([...STORE_IMPORT_ORDER, ...Object.keys(stores || {})]));
-        for(const storeName of ordered){
-          if(!db?.schema?.stores?.[storeName]) continue;
-          const rows = Array.isArray(stores[storeName]) ? stores[storeName] : [];
-          if(!rows.length) continue;
-          try {
-            await db.bulkPut(storeName, rows);
-          } catch(err){
-            console.warn('[Mishkah][POS][IndexedDB] Failed to import store rows', storeName, err);
-          }
-        }
-        return true;
-      }
-
-      function hydrateLine(record){
-      return {
-        id: record.id,
-        itemId: record.itemId,
-        name: record.name,
-        description: record.description,
-        qty: record.qty,
-        price: record.price,
-        total: record.total,
-        status: record.status,
-        stage: record.stage,
-        kitchenSection: record.kitchenSection,
-        locked: !!record.locked,
-        notes: Array.isArray(record.notes) ? record.notes : [],
-        discount: normalizeDiscount(record.discount),
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt
-      };
-      }
-
-      async function hydrateOrder(header){
-        await ensureReady();
-        const [linesRaw, notesRaw, eventsRaw] = await Promise.all([
-          db.byIndex('orderLines', 'by_order', { only: header.id }),
-          db.byIndex('orderNotes', 'by_order', { only: header.id }),
-          db.byIndex('orderEvents', 'by_order', { only: header.id })
-        ]);
+      function normalizeNoteRecord(order, note){
+        const id = note.id || `${order.id}::note::${toTimestamp(note.createdAt)}`;
         return {
-          ...header,
-          lines: linesRaw.map(hydrateLine),
-          notes: notesRaw.map(note=>({
-            id: note.id,
-            message: note.message,
-            authorId: note.authorId,
-            authorName: note.authorName,
-            createdAt: note.createdAt
-          })),
-          discount: normalizeDiscount(header.discount),
-          dirty:false,
-          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+          id,
+          orderId: order.id,
+          message: note.message || '',
+          authorId: note.authorId || 'system',
+          authorName: note.authorName || '',
+          createdAt: toTimestamp(note.createdAt)
         };
       }
 
-      async function saveOrder(order){
+      function normalizeOrder(order){
         if(!order || !order.id) throw new Error('Order payload requires an id');
         if(!order.shiftId) throw new Error('Order payload requires an active shift');
-        await ensureReady();
         const now = Date.now();
         const normalizedPosId = order.posId || order.metadata?.posId || null;
         const normalizedPosLabel = order.posLabel || order.metadata?.posLabel || null;
         const normalizedPosNumber = Number.isFinite(order.posNumber)
           ? Number(order.posNumber)
           : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null);
+        const normalizedDiscount = normalizeDiscount(order.discount);
+        const normalizedPayments = Array.isArray(order.payments)
+          ? order.payments.map(pay=> ({ ...pay, amount: Number(pay.amount) || 0 }))
+          : [];
         const header = {
           id: order.id,
           type: order.type || 'dine_in',
@@ -1857,9 +1816,9 @@
           fulfillmentStage: order.fulfillmentStage || order.stage || 'new',
           paymentState: order.paymentState || 'unpaid',
           tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
-          guests: order.guests || 0,
-          totals: order.totals || {},
-          discount: normalizeDiscount(order.discount),
+          guests: Number.isFinite(order.guests) ? Number(order.guests) : 0,
+          totals: order.totals && typeof order.totals === 'object' ? { ...order.totals } : {},
+          discount: normalizedDiscount,
           createdAt: order.createdAt || now,
           updatedAt: order.updatedAt || now,
           savedAt: order.savedAt || now,
@@ -1878,67 +1837,119 @@
             posId: normalizedPosId,
             posLabel: normalizedPosLabel,
             posNumber: normalizedPosNumber,
-            discount: normalizeDiscount(order.discount)
-          }
+            discount: normalizedDiscount
+          },
+          payments: normalizedPayments,
+          customerId: order.customerId || null,
+          customerAddressId: order.customerAddressId || null,
+          customerName: order.customerName || '',
+          customerPhone: order.customerPhone || '',
+          customerAddress: order.customerAddress || '',
+          customerAreaId: order.customerAreaId || null
         };
-
-        await db.put('orders', header);
-
-        const existingLines = await db.byIndex('orderLines', 'by_order', { only: order.id });
-        if(existingLines.length){
-          await db.bulkDelete('orderLines', existingLines.map(line=> line.uid));
-        }
-        const lines = Array.isArray(order.lines) ? order.lines : [];
-        const lineRecords = lines.map(line=>({
-          uid: line.uid || line.storageId || `${order.id}::${line.id || line.itemId || Math.random().toString(16).slice(2,8)}`,
-          id: line.id || `${order.id}::${line.itemId || Math.random().toString(16).slice(2,8)}`,
-          orderId: order.id,
-          itemId: line.itemId,
-          name: line.name || null,
-          description: line.description || null,
-          qty: Number(line.qty) || 0,
-          price: Number(line.price) || 0,
-          total: Number(line.total) || 0,
-          status: line.status || 'draft',
-          stage: line.stage || header.fulfillmentStage,
-          kitchenSection: line.kitchenSection || null,
-          locked: line.locked !== undefined ? !!line.locked : header.lockLineEdits,
-          notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
-          discount: normalizeDiscount(line.discount),
-          createdAt: line.createdAt || header.createdAt,
-          updatedAt: line.updatedAt || header.updatedAt
-        }));
-        if(lineRecords.length){
-          await db.bulkPut('orderLines', lineRecords);
-        }
-
-        const existingNotes = await db.byIndex('orderNotes', 'by_order', { only: order.id });
-        if(existingNotes.length){
-          await db.bulkDelete('orderNotes', existingNotes.map(note=> note.id));
-        }
-        const notes = Array.isArray(order.notes) ? order.notes : [];
-        const noteRecords = notes.map(note=>({
-          id: note.id || `${order.id}::note::${toTimestamp(note.createdAt)}`,
-          orderId: order.id,
-          message: note.message || '',
-          authorId: note.authorId || 'system',
-          authorName: note.authorName || '',
-          createdAt: toTimestamp(note.createdAt)
-        }));
-        if(noteRecords.length){
-          await db.bulkPut('orderNotes', noteRecords);
-        }
-
-        const eventRecord = {
-          id: `${order.id}::event::${header.updatedAt}`,
-          orderId: order.id,
+        const defaults = {
           stage: header.fulfillmentStage,
-          status: header.status,
-          at: header.updatedAt,
-          actorId: order.updatedBy || order.authorId || 'pos'
+          lockLineEdits: header.lockLineEdits,
+          createdAt: header.createdAt,
+          updatedAt: header.updatedAt
         };
-        await db.put('orderEvents', eventRecord);
+        const lines = ensureArray(order.lines).map(line=> normalizeLineRecord(order.id, line, defaults));
+        const notes = ensureArray(order.notes).map(note=> normalizeNoteRecord(order, note));
+        const events = ensureArray(order.events).map(evt=>{
+          const id = evt.id || `${order.id}::event::${toTimestamp(evt.at || evt.createdAt || header.updatedAt)}`;
+          return {
+            id,
+            orderId: order.id,
+            stage: evt.stage || header.fulfillmentStage,
+            status: evt.status || header.status,
+            at: toTimestamp(evt.at || evt.createdAt || header.updatedAt),
+            actorId: evt.actorId || evt.authorId || order.updatedBy || order.authorId || 'pos'
+          };
+        });
+        if(!events.length){
+          events.push({
+            id: `${order.id}::event::${header.updatedAt}`,
+            orderId: order.id,
+            stage: header.fulfillmentStage,
+            status: header.status,
+            at: header.updatedAt,
+            actorId: order.updatedBy || order.authorId || 'pos'
+          });
+        }
+        return { header, lines, notes, events };
+      }
 
+      function hydrateLine(record){
+        return {
+          id: record.id,
+          itemId: record.itemId,
+          name: record.name,
+          description: record.description,
+          qty: record.qty,
+          price: record.price,
+          total: record.total,
+          status: record.status,
+          stage: record.stage,
+          kitchenSection: record.kitchenSection,
+          locked: !!record.locked,
+          notes: Array.isArray(record.notes) ? record.notes : [],
+          discount: normalizeDiscount(record.discount),
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt
+        };
+      }
+
+      function hydrateOrder(header){
+        const base = cloneRecord(header);
+        const linesRaw = [];
+        for(const line of storeMaps.orderLines.values()){
+          if(line.orderId === base.id){
+            linesRaw.push(line);
+          }
+        }
+        linesRaw.sort((a,b)=> (a.createdAt || 0) - (b.createdAt || 0));
+        const notesRaw = [];
+        for(const note of storeMaps.orderNotes.values()){
+          if(note.orderId === base.id){
+            notesRaw.push(note);
+          }
+        }
+        notesRaw.sort((a,b)=> (a.createdAt || 0) - (b.createdAt || 0));
+        const eventsRaw = [];
+        for(const evt of storeMaps.orderEvents.values()){
+          if(evt.orderId === base.id){
+            eventsRaw.push(evt);
+          }
+        }
+        eventsRaw.sort((a,b)=> (a.at || 0) - (b.at || 0));
+        return {
+          ...base,
+          lines: linesRaw.map(hydrateLine),
+          notes: notesRaw.map(note=>({
+            id: note.id,
+            message: note.message,
+            authorId: note.authorId,
+            authorName: note.authorName,
+            createdAt: note.createdAt
+          })),
+          payments: Array.isArray(base.payments) ? base.payments.map(pay=> ({ ...pay })) : [],
+          discount: normalizeDiscount(base.discount),
+          dirty:false,
+          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+        };
+      }
+
+      async function saveOrder(order){
+        const normalized = normalizeOrder(order);
+        const orderId = normalized.header.id;
+        storeMaps.orders.set(orderId, normalized.header);
+        removeByOrderId('orderLines', orderId);
+        removeByOrderId('orderNotes', orderId);
+        removeByOrderId('orderEvents', orderId);
+        normalized.lines.forEach(line=> storeMaps.orderLines.set(line.uid, line));
+        normalized.notes.forEach(note=> storeMaps.orderNotes.set(note.id, note));
+        normalized.events.forEach(evt=> storeMaps.orderEvents.set(evt.id, evt));
+        markSyncLog(Date.now());
         return true;
       }
 
@@ -1988,7 +1999,8 @@
           lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : false,
           posId: order.posId || order.metadata?.posId || null,
           posLabel: order.posLabel || order.metadata?.posLabel || null,
-          posNumber: Number.isFinite(order.posNumber) ? Number(order.posNumber)
+          posNumber: Number.isFinite(order.posNumber)
+            ? Number(order.posNumber)
             : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null)
         };
         return {
@@ -1997,15 +2009,6 @@
           createdAt: payload.createdAt,
           updatedAt: payload.updatedAt
         };
-      }
-
-      async function saveTempOrder(order){
-        if(!order || !order.id) throw new Error('Order payload requires an id');
-        await ensureReady();
-        const record = sanitizeTempOrder(order);
-        if(!record) return false;
-        await db.put(TEMP_STORE, record);
-        return true;
       }
 
       function hydrateTempRecord(record){
@@ -2023,94 +2026,153 @@
         };
       }
 
+      async function saveTempOrder(order){
+        const record = sanitizeTempOrder(order);
+        if(!record) return false;
+        storeMaps[TEMP_STORE].set(record.id, record);
+        return true;
+      }
+
       async function getTempOrder(orderId){
         if(!orderId) return null;
-        await ensureReady();
-        const record = await db.get(TEMP_STORE, orderId);
-        return hydrateTempRecord(record);
+        const record = storeMaps[TEMP_STORE].get(orderId);
+        if(!record) return null;
+        return hydrateTempRecord(cloneRecord(record));
       }
 
       async function listTempOrders(){
-        await ensureReady();
-        const records = await db.getAll(TEMP_STORE);
-        return records.map(hydrateTempRecord).filter(Boolean);
+        return Array.from(storeMaps[TEMP_STORE].values()).map(rec=> hydrateTempRecord(cloneRecord(rec))).filter(Boolean);
       }
 
       async function deleteTempOrder(orderId){
         if(!orderId) return false;
-        await ensureReady();
-        try {
-          await db.delete(TEMP_STORE, orderId);
-        } catch(_err){ return false; }
-        return true;
+        return storeMaps[TEMP_STORE].delete(orderId);
       }
 
       async function listOrders(options={}){
-        await ensureReady();
-        const headers = await db.getAll('orders');
         const onlyActive = options.onlyActive !== false;
         const typeFilter = options.type;
         const stageFilter = options.stage;
         const idFilter = options.ids;
         const orders = [];
-        for(const header of headers){
-          const status = header.status || header.payload?.status || 'open';
-          if(onlyActive && (status === 'closed')) continue;
+        for(const header of storeMaps.orders.values()){
+          const status = header.status || 'open';
+          if(onlyActive && status === 'closed') continue;
+          const typeId = header.type || 'dine_in';
           if(typeFilter){
-            const typeId = header.type || header.payload?.type || 'dine_in';
-            if(Array.isArray(typeFilter)){ if(!typeFilter.includes(typeId)) continue; }
-            else if(typeId !== typeFilter) continue;
+            if(Array.isArray(typeFilter)){
+              if(!typeFilter.includes(typeId)) continue;
+            } else if(typeId !== typeFilter) continue;
           }
+          const stageId = header.fulfillmentStage || 'new';
           if(stageFilter){
-            const stageId = header.fulfillmentStage || header.payload?.fulfillmentStage || 'new';
-            if(Array.isArray(stageFilter)){ if(!stageFilter.includes(stageId)) continue; }
-            else if(stageId !== stageFilter) continue;
+            if(Array.isArray(stageFilter)){
+              if(!stageFilter.includes(stageId)) continue;
+            } else if(stageId !== stageFilter) continue;
           }
           if(idFilter && !idFilter.includes(header.id)) continue;
-          if(header.payload){
-            const legacy = header.payload;
-            orders.push({
-              ...legacy,
-              id: header.id,
-              updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt)
-            });
-            continue;
-          }
-          const order = await hydrateOrder(header);
-          orders.push(order);
+          orders.push(hydrateOrder(header));
         }
+        orders.sort((a,b)=> (b.updatedAt || 0) - (a.updatedAt || 0));
         return orders;
       }
 
       async function getOrder(orderId){
         if(!orderId) return null;
-        await ensureReady();
-        const header = await db.get('orders', orderId);
+        const header = storeMaps.orders.get(orderId);
         if(!header) return null;
-        if(header.payload){
-          const legacy = header.payload;
-          return {
-            ...legacy,
-            id: header.id,
-            updatedAt: header.updatedAt || legacy.updatedAt || toTimestamp(legacy.updatedAt),
-            dirty:false
-          };
-        }
         return hydrateOrder(header);
       }
 
       async function markSync(){
-        await ensureReady();
-        await db.put('syncLog', { ts: Date.now() });
+        markSyncLog(Date.now());
         return true;
       }
 
       async function bootstrap(initialOrders){
         if(!Array.isArray(initialOrders) || !initialOrders.length) return false;
-        const existing = await listOrders({ onlyActive:false });
-        if(existing.length) return false;
+        if(storeMaps.orders.size) return false;
         for(const order of initialOrders){
-          try { await saveOrder(order); } catch(_){ }
+          try { await saveOrder(order); } catch(_err){ }
+        }
+        return true;
+      }
+
+      async function exportSnapshot(){
+        return {
+          stores:{
+            orders: Array.from(storeMaps.orders.values()).map(cloneRecord),
+            orderLines: Array.from(storeMaps.orderLines.values()).map(cloneRecord),
+            orderNotes: Array.from(storeMaps.orderNotes.values()).map(cloneRecord),
+            orderEvents: Array.from(storeMaps.orderEvents.values()).map(cloneRecord),
+            [TEMP_STORE]: Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord),
+            [SHIFT_STORE]: Array.from(storeMaps[SHIFT_STORE].values()).map(cloneRecord),
+            [META_STORE]: Array.from(storeMaps[META_STORE].values()).map(cloneRecord),
+            syncLog: Array.from(storeMaps.syncLog.values()).map(cloneRecord)
+          },
+          meta:{
+            exportedAt: Date.now(),
+            dbVersion: db.version,
+            adapter:'memory'
+          }
+        };
+      }
+
+      async function importSnapshot(snapshot){
+        if(!snapshot || typeof snapshot !== 'object') return false;
+        const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
+        Object.values(storeMaps).forEach(map=> map.clear());
+        const ordersList = Array.isArray(stores.orders) ? stores.orders : [];
+        ordersList.forEach(header=>{
+          if(!header || !header.id) return;
+          const normalized = {
+            ...header,
+            metadata: header.metadata && typeof header.metadata === 'object'
+              ? { ...header.metadata }
+              : { version:2, linesCount:0, notesCount:0 }
+          };
+          storeMaps.orders.set(normalized.id, normalized);
+        });
+        const lineList = Array.isArray(stores.orderLines) ? stores.orderLines : [];
+        lineList.forEach(line=>{
+          if(!line || !line.orderId) return;
+          const uid = line.uid || `${line.orderId}::${line.id || Math.random().toString(16).slice(2,8)}`;
+          storeMaps.orderLines.set(uid, { ...line, uid });
+        });
+        const noteList = Array.isArray(stores.orderNotes) ? stores.orderNotes : [];
+        noteList.forEach(note=>{
+          if(!note || !note.id) return;
+          storeMaps.orderNotes.set(note.id, { ...note });
+        });
+        const eventList = Array.isArray(stores.orderEvents) ? stores.orderEvents : [];
+        eventList.forEach(evt=>{
+          if(!evt || !evt.id) return;
+          storeMaps.orderEvents.set(evt.id, { ...evt });
+        });
+        const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
+        tempList.forEach(record=>{
+          if(!record || !record.id) return;
+          storeMaps[TEMP_STORE].set(record.id, { ...record });
+        });
+        const shiftList = Array.isArray(stores[SHIFT_STORE]) ? stores[SHIFT_STORE] : [];
+        shiftList.forEach(shift=>{
+          const normalized = normalizeShiftRecord(shift);
+          storeMaps[SHIFT_STORE].set(normalized.id, normalized);
+        });
+        const metaList = Array.isArray(stores[META_STORE]) ? stores[META_STORE] : [];
+        metaList.forEach(meta=>{
+          const id = meta.id || meta.posId || 'default';
+          storeMaps[META_STORE].set(id, { id, invoiceCounter: Number(meta.invoiceCounter || 0) });
+        });
+        const syncList = Array.isArray(stores.syncLog) ? stores.syncLog : [];
+        syncList.forEach(entry=>{
+          const ts = toTimestamp(entry.ts);
+          storeMaps.syncLog.set(ts, { ts });
+        });
+        if(!ordersList.length && Array.isArray(snapshot.orders) && snapshot.orders.length){
+          for(const order of snapshot.orders){
+            try { await saveOrder(order); } catch(_err){ }
+          }
         }
         return true;
       }
@@ -2137,7 +2199,6 @@
         importSnapshot
       };
     }
-
     function createKDSBridge(url){
       let socket = null;
       return {
@@ -2889,7 +2950,7 @@
         reject(createSyncError('POS_SYNC_TIMEOUT', 'Timed out waiting for central sync confirmation.'));
       }, timeoutMs);
       pendingMutations.set(mutationId, {
-        resolve:(ver)=>{ clearTimeout(timer); resolve(ver); },
+        resolve:(info)=>{ clearTimeout(timer); resolve(info); },
         reject:(err)=>{ clearTimeout(timer); reject(err); }
       });
     });
@@ -3091,14 +3152,51 @@
         message:`Publish ${payload.action || 'snapshot'} received.`,
         data:{ action: payload.action || 'snapshot', mutationId: payload.mutationId || null, cleared: !!payload.cleared, version }
       });
+      if(payload.order && posDB && typeof posDB.saveOrder === 'function'){
+        const normalizedOrder = {
+          ...cloneDeep(payload.order),
+          isPersisted:true,
+          dirty:false,
+          updatedAt: payload.order.updatedAt || syncTs,
+          savedAt: payload.order.savedAt || syncTs
+        };
+        try{
+          await posDB.saveOrder(normalizedOrder);
+          if(typeof posDB.markSync === 'function') await posDB.markSync();
+          await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true }).catch((err)=>{
+            console.warn('[Mishkah][POS] Failed to refresh snapshot after central order', err);
+          });
+          emitDiagnostic('sync:order:merge', {
+            level:'info',
+            message:'Central order applied from server.',
+            data:{ orderId: normalizedOrder.id, existing: !!payload.existing }
+          });
+        } catch(orderErr){
+          console.warn('[Mishkah][POS] Failed to persist central order', orderErr);
+          emitDiagnostic('sync:order:error', {
+            level:'error',
+            message: orderErr?.message || 'Failed to persist central order.',
+            error: orderErr,
+            data:{ orderId: payload.order?.id || null }
+          });
+        }
+      }
       if(payload.mutationId && pendingMutations.has(payload.mutationId)){
         const entry = pendingMutations.get(payload.mutationId);
         pendingMutations.delete(payload.mutationId);
-        try { entry.resolve(version); } catch(_resolveErr){}
+        const ackInfo = {
+          version,
+          mutationId: payload.mutationId,
+          action: payload.action || null,
+          order: payload.order || null,
+          existing: !!payload.existing,
+          meta: payload.meta || {}
+        };
+        try { entry.resolve(ackInfo); } catch(_resolveErr){}
         emitDiagnostic('mutation:ack', {
           level:'info',
           message:`Mutation ${payload.mutationId} acknowledged.`,
-          data:{ mutationId: payload.mutationId, version }
+          data:{ mutationId: payload.mutationId, version, orderId: payload.order?.id || null, existing: !!payload.existing }
         });
       }
     };
@@ -3133,6 +3231,56 @@
         data:{ reason: reason || meta.reason || 'update', mutationId, snapshotKeys: summary }
       });
       return waitForAck(mutationId, options.timeout || 15000);
+    };
+
+    const publishCreateOrder = async (order, extras={})=>{
+      if(!order || !order.id){
+        throw createSyncError('POS_SYNC_INVALID', 'Order payload requires an id.');
+      }
+      const synced = await ensureInitialSync();
+      if(disabled || synced === false){
+        if(allowLocalFallback){
+          emitDiagnostic('sync:fallback', {
+            level:'warn',
+            message:'Central sync disabled during order publish — continuing locally.',
+            data:{ reason:'order-create-disabled', orderId: order.id }
+          });
+          return null;
+        }
+        throw createSyncError('POS_SYNC_DISABLED', disableReason || 'Central sync disabled.');
+      }
+      if(!socket || !ready || awaitingAuth){
+        if(allowLocalFallback){
+          emitDiagnostic('sync:fallback', {
+            level:'warn',
+            message:'Central sync offline during order publish — continuing locally.',
+            data:{ reason:'order-create-offline', orderId: order.id }
+          });
+          return null;
+        }
+        throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
+      }
+      const mutationId = extras.mutationId || `${clientId}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2,8)}`;
+      const frame = {
+        type:'publish',
+        topic,
+        data:{
+          action:'create-order',
+          order: cloneDeep(order),
+          kdsPayload: extras.kdsPayload ? cloneDeep(extras.kdsPayload) : undefined,
+          meta: extras.meta ? cloneDeep(extras.meta) : undefined,
+          mutationId,
+          requestId: extras.requestId || createRequestId()
+        }
+      };
+      sendFrame(frame);
+      emitDiagnostic('mutation:publish', {
+        level:'info',
+        message:'Create-order publish queued.',
+        data:{ mutationId, orderId: order.id }
+      });
+      const ack = await waitForAck(mutationId, extras.timeout || options.timeout || 15000);
+      return ack;
     };
 
     const pushDestroy = async (reason)=>{
@@ -3401,6 +3549,7 @@
       connect,
       ensureInitialSync,
       run,
+      publishCreateOrder,
       destroy,
       isOnline(){ return online; },
       getStatus(){ return { ...status, version }; },
@@ -3512,7 +3661,7 @@
       syncSettings.ws_endpoint,
       syncSettings.wsEndpoint
     ));
-    const posSyncWsEndpoint = disableRealtimeInStaticDemo
+    let posSyncWsEndpoint = disableRealtimeInStaticDemo
       ? (mockSyncWsEndpoint && !isSameOriginEndpoint(mockSyncWsEndpoint) ? mockSyncWsEndpoint : null)
       : (mockSyncWsEndpoint || configuredSyncWsEndpoint || kdsEndpoint);
     const posSyncToken = (MOCK_BASE?.sync?.token)
@@ -3543,6 +3692,16 @@
         source: posAuthRuntime.authOffSource || (posSyncAuthOffSource != null ? 'settings.sync.*' : 'default')
       });
     }
+    const centralSyncMeta = ensurePlainObject(MOCK_BASE?.meta?.centralSync);
+    const centralSyncDisabled = ensureBoolean(centralSyncMeta.disabled, false);
+    if(centralSyncDisabled){
+      console.info('[Mishkah][POS] Central sync disabled via dataset meta.', {
+        reason: centralSyncMeta.reason || null,
+        mode: centralSyncMeta.mode || 'ws2-only'
+      });
+      posSyncHttpBase = null;
+      posSyncWsEndpoint = null;
+    }
     const centralOnlyOverrideSource = firstDefined(
       MOCK_BASE?.sync?.central_only,
       MOCK_BASE?.sync?.centralOnly,
@@ -3563,18 +3722,23 @@
       syncSettings.allowIndexeddbFallback,
       syncSettings.allowIndexedDbFallback
     );
-    const enforceCentralOnly = ensureBoolean(centralOnlyOverrideSource, !isStaticDemoEnvironment);
-    const allowIndexedDbFallback = ensureBoolean(allowFallbackOverrideSource, isStaticDemoEnvironment);
+    let enforceCentralOnly = ensureBoolean(centralOnlyOverrideSource, !isStaticDemoEnvironment);
+    let allowIndexedDbFallback = ensureBoolean(allowFallbackOverrideSource, isStaticDemoEnvironment);
+    if(centralSyncDisabled){
+      enforceCentralOnly = false;
+      allowIndexedDbFallback = true;
+    }
     if(isStaticDemoEnvironment && !posSyncHttpBase && !posSyncWsEndpoint){
       console.info('[Mishkah][POS] Central sync disabled for static demo environment (no HTTP or WS endpoints available).');
     }
 
+    const initialCentralMode = centralSyncMeta.mode || (enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive');
     let centralSyncStatus = {
       state: posSyncWsEndpoint ? 'offline' : 'disabled',
       version: 0,
       lastSync: null,
       endpoint: posSyncWsEndpoint || null,
-      mode: enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive',
+      mode: initialCentralMode,
       requireOnline: enforceCentralOnly,
       allowLocalFallback: allowIndexedDbFallback
     };
@@ -3592,23 +3756,74 @@
       posDB.allowLocalFallback = allowIndexedDbFallback;
     }
 
-    const centralSync = createCentralPosSync({
-      adapter: posDB,
-      branch: BRANCH_CHANNEL,
-      wsEndpoint: posSyncWsEndpoint,
-      httpEndpoint: posSyncHttpBase,
-      token: posSyncToken,
-      authOff: posSyncAuthOff,
-      requireOnline: enforceCentralOnly,
-      allowLocalFallback: allowIndexedDbFallback,
-      posId: POS_INFO.id,
-      onStatus: handleCentralStatus,
-      onDiagnostic: pushCentralDiagnostic
-    });
-    centralSync.connect();
-    centralSync.ensureInitialSync().catch(err=>{
-      console.warn('[Mishkah][POS] Central sync bootstrap failed.', err);
-    });
+    if(posDB && typeof posDB.saveOrder === 'function'){
+      try{
+        const existingOrders = await posDB.listOrders({ onlyActive:false });
+        const bootstrap = typeof window !== 'undefined' ? window.__WS2_SERVER_BOOTSTRAP__ : null;
+        const bootstrapOrders = bootstrap && Array.isArray(bootstrap.snapshot?.orders) ? bootstrap.snapshot.orders : [];
+        if(!existingOrders.length && bootstrapOrders.length){
+          for(const order of bootstrapOrders){
+            const normalized = {
+              ...cloneDeep(order),
+              isPersisted:true,
+              dirty:false,
+              updatedAt: order.updatedAt || Date.now(),
+              savedAt: order.savedAt || Date.now()
+            };
+            await posDB.saveOrder(normalized);
+          }
+          if(typeof posDB.markSync === 'function') await posDB.markSync();
+          await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true }).catch((err)=>{
+            console.warn('[Mishkah][POS] Failed to refresh snapshot after bootstrap orders', err);
+          });
+        }
+      } catch(seedError){
+        console.warn('[Mishkah][POS] Failed to seed orders from server snapshot.', seedError);
+      }
+    }
+
+    const runtimeIdentifiers = (typeof window !== 'undefined' && window.POS_WS2_IDENTIFIERS)
+      ? window.POS_WS2_IDENTIFIERS
+      : {};
+    const centralSyncStub = {
+      async ensureInitialSync(){ return false; },
+      connect(){},
+      async run(_label, _meta, executor){ return typeof executor === 'function' ? executor() : null; },
+      async destroy(){ return undefined; },
+      isOnline(){ return false; },
+      getStatus(){ return { state:'disabled', mode:'ws2-only' }; }
+    };
+
+    const centralSync = centralSyncDisabled
+      ? centralSyncStub
+      : createCentralPosSync({
+          adapter: posDB,
+          branch: BRANCH_CHANNEL,
+          wsEndpoint: posSyncWsEndpoint,
+          httpEndpoint: posSyncHttpBase,
+          token: posSyncToken,
+          authOff: posSyncAuthOff,
+          requireOnline: enforceCentralOnly,
+          allowLocalFallback: allowIndexedDbFallback,
+          posId: POS_INFO.id,
+          userId: runtimeIdentifiers.userId || (typeof window !== 'undefined' && window.UserUniid) || null,
+          onStatus: handleCentralStatus,
+          onDiagnostic: pushCentralDiagnostic
+        });
+
+    if(!centralSyncDisabled){
+      centralSync.connect();
+      centralSync.ensureInitialSync().catch(err=>{
+        console.warn('[Mishkah][POS] Central sync bootstrap failed.', err);
+      });
+    } else {
+      handleCentralStatus({
+        state:'disabled',
+        endpoint:null,
+        mode:'ws2-only',
+        lastError: centralSyncMeta.reason || 'Central sync disabled via dataset meta.'
+      });
+    }
 
     const wrapDbMutation = (methodName, metaResolver)=>{
       const original = posDB && typeof posDB[methodName] === 'function' ? posDB[methodName].bind(posDB) : null;
@@ -3624,9 +3839,6 @@
       };
     };
 
-    wrapDbMutation('saveOrder', (order)=>({ reason:'order:save', meta:{ orderId: order?.id || null } }));
-    wrapDbMutation('saveTempOrder', (order)=>({ reason:'order:temp:save', meta:{ orderId: order?.id || null } }));
-    wrapDbMutation('deleteTempOrder', (orderId)=>({ reason:'order:temp:delete', meta:{ orderId: orderId || null } }));
     wrapDbMutation('openShiftRecord', (record)=>({ reason:'shift:open', meta:{ shiftId: record?.id || null } }));
     wrapDbMutation('closeShiftRecord', (id)=>({ reason:'shift:close', meta:{ shiftId: id || null } }));
     wrapDbMutation('nextInvoiceNumber', (posId)=>({ reason:'invoice:next', meta:{ posId: posId || POS_INFO.id } }));
@@ -4179,7 +4391,10 @@
           return next.id;
         } catch(error){
           console.warn('[Mishkah][POS] invoice allocation failed', error);
-          if(error && typeof error.code === 'string' && error.code.startsWith('POS_SYNC')){
+          const requiresCentral = error && typeof error.code === 'string' && error.code.startsWith('POS_SYNC');
+          if(requiresCentral && centralSyncDisabled){
+            console.info('[Mishkah][POS] Falling back to local invoice allocation (central sync disabled).');
+          } else if(requiresCentral && !allowIndexedDbFallback){
             throw error;
           }
         }
@@ -5503,20 +5718,74 @@
         orderPayload.finalizedAt = now;
         orderPayload.finishedAt = now;
       }
+      const isDraftMode = mode === 'draft';
+      const centralAvailable = !!(centralSync && typeof centralSync.publishCreateOrder === 'function');
+      if(!isDraftMode && !centralAvailable){
+        UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
+        return { status:'error', reason:'central-sync-unavailable' };
+      }
+      let orderSavingFlag = false;
+      const setOrderSaving = (value)=>{
+        ctx.setState(s=>({
+          ...s,
+          ui:{ ...(s.ui || {}), orderSaving: value }
+        }));
+      };
+      const beginOrderSaving = ()=>{
+        if(!orderSavingFlag){
+          setOrderSaving(true);
+          orderSavingFlag = true;
+        }
+      };
+      const endOrderSaving = ()=>{
+        if(orderSavingFlag){
+          setOrderSaving(false);
+          orderSavingFlag = false;
+        }
+      };
+      beginOrderSaving();
       try{
-        const persistableOrder = { ...orderPayload };
+      if(isDraftMode){
+        if(posDB.available && typeof posDB.saveTempOrder === 'function'){
+          await posDB.saveTempOrder({ ...orderPayload, isPersisted:false, dirty:true });
+        }
+        endOrderSaving();
+        UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
+        return { status:'saved', mode };
+      }
+
+        let confirmedOrder = { ...orderPayload };
+        if(centralAvailable){
+          try{
+            const ack = await centralSync.publishCreateOrder(orderPayload, {
+              meta:{ mode, posId: POS_INFO.id, posLabel: POS_INFO.label }
+            });
+            if(ack && ack.order){
+              confirmedOrder = { ...confirmedOrder, ...ack.order };
+            }
+            if(ack && ack.existing){
+              UI.pushToast(ctx, { title:t.toast.order_saved, icon:'ℹ️' });
+            }
+          } catch(syncErr){
+            console.warn('[Mishkah][POS] Failed to publish order to central sync.', syncErr);
+            pushCentralDiagnostic({
+              event:'sync:order:error',
+              level:'error',
+              message: syncErr?.message || 'Central sync publish failed.',
+              error: syncErr,
+              data:{ orderId: orderPayload.id, mode }
+            });
+            throw syncErr;
+          }
+        }
+
+        const persistableOrder = { ...confirmedOrder };
         delete persistableOrder.dirty;
         await posDB.saveOrder(persistableOrder);
         if(posDB.available && typeof posDB.deleteTempOrder === 'function'){
-          try { await posDB.deleteTempOrder(orderPayload.id); } catch(_tempErr){ }
+          try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
           if(idChanged && previousOrderId){
             try { await posDB.deleteTempOrder(previousOrderId); } catch(_tempErr){}
-          }
-        }
-        if(kdsSync && typeof kdsSync.publishOrder === 'function'){
-          const publishedPayload = kdsSync.publishOrder(orderPayload, state);
-          if(publishedPayload){
-            applyKdsOrderSnapshotNow(publishedPayload, { source:'pos', local:true });
           }
         }
         await posDB.markSync();
@@ -5532,11 +5801,11 @@
               history.splice(draftIndex, 1);
             }
           }
-          const historyIndex = history.findIndex(entry=> entry.id === orderPayload.id);
+          const historyIndex = history.findIndex(entry=> entry.id === confirmedOrder.id);
           const seq = historyIndex >= 0
             ? (history[historyIndex].seq || historyIndex + 1)
             : (seqFromDraft || history.length + 1);
-          const historyEntry = { ...orderPayload, seq, payments: orderPayload.payments.map(pay=> ({ ...pay })) };
+          const historyEntry = { ...confirmedOrder, seq, payments: confirmedOrder.payments.map(pay=> ({ ...pay })) };
           if(historyIndex >= 0){
             history[historyIndex] = historyEntry;
           } else {
@@ -5575,12 +5844,12 @@
             data:{
               ...data,
               order:{
-                ...orderPayload,
+                ...confirmedOrder,
                 allowAdditions,
                 lockLineEdits:true
               },
               tableLocks: idChanged
-                ? (data.tableLocks || []).map(lock=> lock.orderId === previousOrderId ? { ...lock, orderId: orderPayload.id } : lock)
+                ? (data.tableLocks || []).map(lock=> lock.orderId === previousOrderId ? { ...lock, orderId: confirmedOrder.id } : lock)
                 : data.tableLocks,
               ordersQueue: latestOrders,
               ordersHistory: history,
@@ -5597,7 +5866,7 @@
         await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
         const toastKey = finalize ? 'order_finalized' : 'order_saved';
         UI.pushToast(ctx, { title:t.toast[toastKey], icon: finalize ? '✅' : '💾' });
-        return { status:'saved', mode };
+        return { status:'saved', mode, order: confirmedOrder };
       } catch(error){
         const errorCode = error && typeof error.code === 'string' ? error.code : '';
         if(errorCode && errorCode.startsWith('POS_SYNC')){
@@ -5630,6 +5899,8 @@
           }
         }));
         return { status:'error', reason:'persist', error };
+      } finally {
+        endOrderSaving();
       }
     }
 
@@ -6280,6 +6551,7 @@
       const finishLabel = isTakeaway ? t.ui.finish_and_print : t.ui.finish_order;
       const showPrintButton = !isTakeaway || isFinalized;
       const saveLabel = t.ui.save_order;
+      const isSavingOrder = !!db.ui?.orderSaving;
       const reportsSummary = D.Containers.Div({ attrs:{ class: tw`flex flex-col items-end gap-1 text-xs text-[var(--muted-foreground)]` }}, [
         D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-[var(--foreground)]` }}, [`${t.ui.sales_today}: ${salesToday} ${currencyLabel}`]),
         D.Containers.Div({ attrs:{ class: tw`flex items-center gap-2` }}, [
@@ -6294,18 +6566,36 @@
       ]));
       if(canShowSave){
         const saveButton = UI.Button({
-          attrs:{ gkey:'pos:order:save', 'data-save-mode':'draft', class: tw`min-w-[160px] flex items-center justify-center gap-2` },
+          attrs:{
+            gkey:'pos:order:save',
+            'data-save-mode':'draft',
+            class: tw`min-w-[160px] flex items-center justify-center gap-2`,
+            disabled: isSavingOrder || undefined,
+            'data-loading': isSavingOrder ? 'true' : undefined
+          },
           variant:'solid',
           size:'md'
-        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [saveLabel])]);
+        }, [
+          isSavingOrder ? LoadingSpinner({ title: t.ui.saving }) : null,
+          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [isSavingOrder ? t.ui.saving : saveLabel])
+        ].filter(Boolean));
         primaryActions.push(saveButton);
       }
       if(canShowFinish){
         primaryActions.push(UI.Button({
-          attrs:{ gkey:'pos:order:save', 'data-save-mode':finishMode, class: tw`min-w-[180px] flex items-center justify-center gap-2` },
+          attrs:{
+            gkey:'pos:order:save',
+            'data-save-mode':finishMode,
+            class: tw`min-w-[180px] flex items-center justify-center gap-2`,
+            disabled: isSavingOrder || undefined,
+            'data-loading': isSavingOrder ? 'true' : undefined
+          },
           variant:'solid',
           size:'md'
-        }, [D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [finishLabel])]));
+        }, [
+          isSavingOrder ? LoadingSpinner({ title: t.ui.saving }) : null,
+          D.Text.Span({ attrs:{ class: tw`text-sm font-semibold` }}, [isSavingOrder ? t.ui.saving : finishLabel])
+        ].filter(Boolean)));
       }
       if(showPrintButton){
         primaryActions.push(UI.Button({ attrs:{ gkey:'pos:order:print', class: tw`min-w-[150px] flex items-center justify-center gap-2` }, variant:'soft', size:'md' }, [
@@ -8118,13 +8408,13 @@
     const POS_DEV_TOOLS = {
       async resetIndexedDB(){
         if(!posDB.available || typeof posDB.resetAll !== 'function'){
-          console.info('[Mishkah][POS] IndexedDB is not available in this environment.');
+          console.info('[Mishkah][POS] Data store reset is not available in this environment.');
           return false;
         }
         await posDB.resetAll();
         invoiceSequence = 0;
         await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
-        console.info('[Mishkah][POS] Local IndexedDB cleared.');
+        console.info('[Mishkah][POS] In-memory data store cleared.');
         return true;
       },
       async refresh(){

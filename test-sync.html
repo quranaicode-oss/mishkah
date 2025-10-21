@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>WS2 Minimal Test Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body{font-family:system-ui,sans-serif;background:#0f172a;color:#f8fafc;margin:0;padding:24px;}
+      h1{margin-top:0;}
+      button,input{font-size:16px;padding:8px 12px;border-radius:8px;border:1px solid rgba(148,163,184,.4);background:rgba(15,23,42,.6);color:#f8fafc;}
+      button{cursor:pointer;background:#38bdf8;color:#0f172a;border:none;font-weight:600;}
+      button:disabled{opacity:.5;cursor:not-allowed;}
+      ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;}
+      li{border:1px solid rgba(148,163,184,.25);padding:12px;border-radius:10px;background:rgba(15,23,42,.7);}
+      code{font-family:monospace;font-size:.8rem;background:rgba(15,23,42,.8);padding:6px 8px;border-radius:6px;display:block;margin-top:8px;word-break:break-all;}
+      #log{white-space:pre-wrap;background:#020817;border-radius:10px;padding:12px;margin-top:16px;height:200px;overflow:auto;border:1px solid rgba(56,189,248,.3);}
+      .status{margin:16px 0;font-size:.9rem;}
+    </style>
+  </head>
+  <body>
+    <h1>WS2 اختبار بسيط بالـPure JS</h1>
+    <p>هذا الاختبار يرسل ملاحظات للسيرفر ويحصل على لائحة لحظية من جميع الصفحات المفتوحة.</p>
+
+    <div class="status">
+      حالة الإتصال: <span id="status">initializing…</span><br>
+      الفرع الحالي: <strong>lab:test-pad</strong><br>
+      <span id="metaInfo" style="font-size:0.85rem;color:#94a3b8;"></span>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <input id="note" type="text" placeholder="أكتب ملاحظة..." />
+      <button id="sendBtn">إرسال</button>
+    </div>
+
+    <h2>Entries</h2>
+    <ul id="entries"></ul>
+
+    <h2>Console Log</h2>
+    <div id="log"></div>
+
+    <script>
+      (function(){
+        const BRANCH_ID = 'lab:test-pad';
+        const ROLE = 'pure-js-client';
+        const MODULE_ID = 'scratchpad';
+        const TABLE_NAME = 'scratchpad_entry';
+        const WS_ENDPOINT = (() => {
+          const { protocol, host } = window.location;
+          const wsProto = protocol === 'https:' ? 'wss:' : 'ws:';
+          return `${wsProto}//${host}`;
+        })();
+
+        const noteInput = document.getElementById('note');
+        const sendBtn = document.getElementById('sendBtn');
+        const entriesList = document.getElementById('entries');
+        const statusLabel = document.getElementById('status');
+        const logBox = document.getElementById('log');
+
+        let socket = null;
+        let reconnectTimer = null;
+        let attempts = 0;
+        let latestSnapshot = { labEntries: [], meta: {} };
+
+        function log(step, payload){
+          const time = new Date().toISOString();
+          const text = `[${time}] ${step} ${payload ? JSON.stringify(payload) : ''}`;
+          console.log(text);
+          if(logBox){
+            logBox.textContent += text + '\\n';
+            logBox.scrollTop = logBox.scrollHeight;
+          }
+        }
+
+        function setStatus(value){
+          statusLabel.textContent = value;
+          log('STATUS_UPDATE', { value });
+        }
+
+        function renderEntries(){
+          const entries = Array.isArray(latestSnapshot.labEntries) ? latestSnapshot.labEntries : [];
+          if(!entries.length){
+            entriesList.innerHTML = '<li style="color:#94a3b8;">لا توجد عناصر بعد.</li>';
+          } else {
+            entriesList.innerHTML = '';
+            entries
+              .slice()
+              .sort((a,b)=> (b.seq||0) - (a.seq||0))
+              .forEach((entry)=>{
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>#${entry.seq || '?'} — ${entry.note || 'بدون عنوان'}</strong><br>` +
+                  `client: ${entry.clientUuid}<br>` +
+                  `server at: ${entry.serverAt}`;
+                const code = document.createElement('code');
+                code.textContent = JSON.stringify(entry.payload || {}, null, 2);
+                li.appendChild(code);
+                entriesList.appendChild(li);
+              });
+          }
+          const metaInfo = document.getElementById('metaInfo');
+          if(metaInfo){
+            const meta = latestSnapshot.meta || {};
+            const counter = meta.labCounter ?? meta.counter ?? entries.length;
+            const updated = meta.lastUpdatedAt || new Date().toISOString();
+            metaInfo.textContent = `entries: ${entries.length} | counter: ${counter} | updated: ${updated}`;
+          }
+        }
+
+        function extractLabSnapshot(envelope){
+          if(!envelope || typeof envelope !== 'object') return null;
+          const modules = envelope.modules || {};
+          const moduleSnapshot = modules[MODULE_ID];
+          if(!moduleSnapshot) return null;
+          const tables = moduleSnapshot.tables || {};
+          const labEntries = Array.isArray(tables[TABLE_NAME]) ? tables[TABLE_NAME] : [];
+          return {
+            labEntries,
+            meta: moduleSnapshot.meta || {}
+          };
+        }
+
+        function handleSnapshot(envelope){
+          log('SNAPSHOT_RECEIVED', envelope);
+          const extracted = extractLabSnapshot(envelope);
+          if(!extracted){
+            log('SNAPSHOT_IGNORED', { reason: 'module not found' });
+            return;
+          }
+          latestSnapshot = extracted;
+          renderEntries();
+        }
+
+        function handleEvent(data){
+          log('EVENT_RECEIVED', data);
+          if(data && data.moduleId === MODULE_ID && data.table === TABLE_NAME && data.record){
+            if(!Array.isArray(latestSnapshot.labEntries)){
+              latestSnapshot.labEntries = [];
+            }
+            latestSnapshot.labEntries = latestSnapshot.labEntries.concat(data.record);
+            latestSnapshot.meta = latestSnapshot.meta || {};
+            latestSnapshot.meta.labCounter = data.record.seq;
+            latestSnapshot.meta.lastUpdatedAt = data.meta?.timestamp || new Date().toISOString();
+            renderEntries();
+            return;
+          }
+          if(data && data.action === 'module:reset' && data.snapshot){
+            handleSnapshot(data.snapshot);
+          }
+        }
+
+        function handleAck(data){
+          log('ACK_RECEIVED', data);
+          if(data && data.moduleId === MODULE_ID && data.table === TABLE_NAME && data.record){
+            log('ACK_LAB_ENTRY', data.record);
+            if(!Array.isArray(latestSnapshot.labEntries)){
+              latestSnapshot.labEntries = [];
+            }
+            latestSnapshot.labEntries = latestSnapshot.labEntries.concat(data.record);
+            latestSnapshot.meta = latestSnapshot.meta || {};
+            latestSnapshot.meta.labCounter = data.record.seq;
+            latestSnapshot.meta.lastUpdatedAt = data.meta?.timestamp || new Date().toISOString();
+            renderEntries();
+          }
+        }
+
+        function connect(){
+          attempts += 1;
+          setStatus(`connecting (attempt ${attempts})`);
+          log('CONNECT_ATTEMPT', { endpoint: WS_ENDPOINT, attempts });
+
+          socket = new WebSocket(WS_ENDPOINT);
+
+          socket.addEventListener('open', ()=>{
+            setStatus('open');
+            log('SOCKET_OPEN');
+          const hello = {
+            type: 'client:hello',
+            branchId: BRANCH_ID,
+            role: ROLE,
+            userId: `tester-${Math.random().toString(36).slice(2,8)}`,
+            requestSnapshot: true
+            };
+            log('SEND_HELLO', hello);
+            socket.send(JSON.stringify(hello));
+          });
+
+          socket.addEventListener('message', (event)=>{
+            log('RAW_MESSAGE', event.data);
+            let parsed = null;
+            try {
+              parsed = JSON.parse(event.data);
+            } catch (err){
+              log('PARSE_ERROR', { error: err.message });
+              return;
+            }
+            if(!parsed || typeof parsed !== 'object'){
+              log('MESSAGE_IGNORED', { reason: 'non-object' });
+              return;
+            }
+            if(parsed.type === 'server:snapshot'){
+              handleSnapshot(parsed);
+            } else if(parsed.type === 'server:event'){
+              handleEvent(parsed);
+            } else if(parsed.type === 'server:ack'){
+              handleAck(parsed);
+            } else if(parsed.type === 'server:log'){
+              log('SERVER_LOG', parsed);
+            } else {
+              log('MESSAGE_UNKNOWN', parsed);
+            }
+          });
+
+          socket.addEventListener('close', (event)=>{
+            setStatus(`closed (code ${event.code})`);
+            log('SOCKET_CLOSE', { code: event.code, reason: event.reason });
+            scheduleReconnect();
+          });
+
+          socket.addEventListener('error', (error)=>{
+            setStatus('error');
+            log('SOCKET_ERROR', { message: error.message });
+          });
+        }
+
+        function scheduleReconnect(){
+          if(reconnectTimer) return;
+          reconnectTimer = setTimeout(()=>{
+            reconnectTimer = null;
+            connect();
+          }, 3000);
+          log('RECONNECT_SCHEDULED');
+        }
+
+        function sendTestEntry(){
+          if(!socket || socket.readyState !== WebSocket.OPEN){
+            log('SEND_ABORTED', { reason: 'socket not open' });
+            alert('الاتصال غير جاهز بعد.');
+            return;
+          }
+          const note = noteInput.value.trim() || 'بدون عنوان';
+          const payload = {
+            type: 'client:publish',
+            branchId: BRANCH_ID,
+            action: 'module:insert',
+            moduleId: MODULE_ID,
+            table: TABLE_NAME,
+            record: {
+              note,
+              clientUuid: (crypto.randomUUID ? crypto.randomUUID() : `uuid-${Date.now().toString(36)}`),
+              createdAt: new Date().toISOString(),
+              payload: {
+                note,
+                random: Math.random().toString(16).slice(2,10)
+              }
+            }
+          };
+          log('SEND_PUBLISH', payload);
+          socket.send(JSON.stringify(payload));
+          noteInput.value = '';
+        }
+
+        sendBtn.addEventListener('click', sendTestEntry);
+        noteInput.addEventListener('keydown', (evt)=>{
+          if(evt.key === 'Enter' && !evt.shiftKey){
+            evt.preventDefault();
+            sendTestEntry();
+          }
+        });
+
+        log('INIT', { endpoint: WS_ENDPOINT, branchId: BRANCH_ID });
+        connect();
+      })();
+    </script>
+  </body>
+</html>

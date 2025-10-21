@@ -1,5 +1,7 @@
 (function bootstrapWs2(global){
   if (!global) return;
+  
+  console.log("pos-ws2-bootstrap.js v1")
   const watchers = new Set();
   const config = global.POS_WS2_CONFIG || {};
   const syncSettings = ((((global.database || {}).settings) || {}).sync) || {};
@@ -230,14 +232,24 @@
           historySize: parsed.historySize,
           userId: parsed.meta?.userId || userId
         };
-        applySnapshot(parsed.snapshot || {}, meta);
+        const snapshotPayload = parsed.snapshot || parsed.modules || {};
+        applySnapshot(snapshotPayload, meta);
         break;
       }
       case 'server:event':{
         const meta = { ...(parsed.meta || {}), branchId: parsed.branchId, version: parsed.version };
-        emit({ type:'event', entry: parsed.entry, action: parsed.action, meta, snapshot: parsed.snapshot });
-        if (parsed.snapshot){
-          applySnapshot(parsed.snapshot, { reason:'event', action: parsed.action, entryId: parsed.entry?.id, ...meta });
+        emit({
+          type:'event',
+          entry: parsed.entry,
+          action: parsed.action,
+          meta,
+          snapshot: parsed.snapshot || parsed.modules,
+          testEntry: parsed.testEntry,
+          labEntry: parsed.labEntry
+        });
+        if (parsed.snapshot || parsed.modules){
+          const payloadSnapshot = parsed.snapshot || parsed.modules;
+          applySnapshot(payloadSnapshot, { reason:'event', action: parsed.action, entryId: parsed.entry?.id, ...meta });
         }
         break;
       }
@@ -245,7 +257,7 @@
         emit({ type:'history', entries: parsed.entries || [], meta: parsed.meta });
         break;
       case 'server:ack':
-        emit({ type:'ack', action: parsed.action, entry: parsed.entry, meta: parsed.meta });
+        emit({ type:'ack', action: parsed.action, entry: parsed.entry, testEntry: parsed.testEntry, labEntry: parsed.labEntry, meta: parsed.meta });
         break;
       case 'server:log':
         log(parsed.level || 'info', parsed.message || 'Server log', parsed.context || {});
