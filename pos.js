@@ -265,7 +265,35 @@
       if(response.snapshot && typeof response.snapshot === 'object'){
         return extractRemotePayload(response.snapshot);
       }
-      const pure = Mishkah.utils.helpers.getPureJson(response);
+      let pure = null;
+      try{
+        const helpers = Mishkah && Mishkah.utils && Mishkah.utils.helpers;
+        if(helpers && typeof helpers.getPureJson === 'function'){
+          pure = helpers.getPureJson(response);
+        }
+      } catch(error){
+        console.warn('[Mishkah][POS] Failed to normalize remote payload into pure JSON.', error);
+        pushCentralDiagnostic({
+          level:'warn',
+          source:'central-sync',
+          event:'remote:payload:normalize-failed',
+          message:'تعذر تحويل الاستجابة إلى JSON نقي بسبب حقول للقراءة فقط.',
+          data:{ message: error?.message || null }
+        });
+        try{
+          pure = JSON.parse(JSON.stringify(response));
+        } catch(innerError){
+          console.warn('[Mishkah][POS] Failed to clone remote payload after JSON normalization error.', innerError);
+          pushCentralDiagnostic({
+            level:'warn',
+            source:'central-sync',
+            event:'remote:payload:clone-failed',
+            message:'فشل استنساخ الاستجابة بعد تعذر التطبيع الأولي.',
+            data:{ message: innerError?.message || null }
+          });
+          pure = null;
+        }
+      }
       if(!pure) return null;
       let payload = pure;
       if(Array.isArray(pure)){
