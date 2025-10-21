@@ -8,6 +8,64 @@
   const loc = typeof global.location === 'object' ? global.location : null;
   const identifiers = global.POS_WS2_IDENTIFIERS || {};
 
+  const randomChunk = (length = 8)=>{
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let out = '';
+    for(let i=0;i<length;i+=1){
+      out += alphabet.charAt(Math.floor(Math.random()*alphabet.length));
+    }
+    return out;
+  };
+
+  const createUuid = ()=>{
+    if (global.crypto && typeof global.crypto.randomUUID === 'function'){
+      try { return global.crypto.randomUUID(); } catch(_err){}
+    }
+    return `uuid-${Date.now().toString(36)}-${randomChunk(10)}`;
+  };
+
+  const readCookie = (name)=>{
+    if(!global.document || typeof global.document.cookie !== 'string') return '';
+    const target = `${name}=`;
+    const parts = global.document.cookie.split(';');
+    for(const rawPart of parts){
+      const part = rawPart.trim();
+      if(part.startsWith(target)){
+        return decodeURIComponent(part.slice(target.length));
+      }
+    }
+    return '';
+  };
+
+  const writeCookie = (name, value, days=365)=>{
+    if(!global.document || typeof global.document.cookie !== 'string') return;
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days*24*60*60*1000));
+    const cookie = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+    global.document.cookie = cookie;
+  };
+
+  const normalizeId = (raw, fallback='')=>{
+    const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+    if(!value) return fallback;
+    const normalized = value.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    return normalized || fallback;
+  };
+
+  const ensureUserUniid = ()=>{
+    const existing = typeof global.UserUniid === 'string' && global.UserUniid.trim() ? global.UserUniid.trim() : '';
+    if(existing) return existing;
+    let cookieValue = normalizeId(readCookie('UserUniid'), '');
+    if(!cookieValue){
+      cookieValue = normalizeId(createUuid(), `usr-${randomChunk(6)}`);
+      writeCookie('UserUniid', cookieValue, 365);
+    }
+    if(cookieValue){
+      global.UserUniid = cookieValue;
+    }
+    return cookieValue;
+  };
+
   const defaultScheme = ()=>{
     if(!loc || !loc.protocol) return 'wss:';
     if(loc.protocol === 'https:') return 'wss:';
@@ -70,13 +128,14 @@
     return 'branch-main';
   };
 
+  const cookieUserId = ensureUserUniid();
   const endpoint = resolveEndpoint();
   const branchId = resolveBranchId();
   const userId = (typeof config.userId === 'string' && config.userId.trim())
     ? config.userId.trim()
     : (typeof identifiers.userId === 'string' && identifiers.userId.trim())
       ? identifiers.userId.trim()
-      : null;
+      : (cookieUserId || null);
   const role = (typeof config.role === 'string' && config.role.trim()) ? config.role.trim() : 'pos-app';
   const reconnectDelay = typeof config.reconnectDelay === 'number' ? Math.max(config.reconnectDelay, 500) : 3000;
   const historyLimit = typeof config.historyLimit === 'number' ? config.historyLimit : 25;
@@ -158,6 +217,16 @@
   }
 
   const logPrefix = '[Mishkah][WS2]';
+
+  if(global && typeof global.POS_WS2_IDENTIFIERS === 'object'){
+    global.POS_WS2_IDENTIFIERS = {
+      ...global.POS_WS2_IDENTIFIERS,
+      userId: userId || global.POS_WS2_IDENTIFIERS.userId || null,
+      branchId: branchId || global.POS_WS2_IDENTIFIERS.branchId || null
+    };
+  } else if(global){
+    global.POS_WS2_IDENTIFIERS = { userId: userId || null, branchId: branchId || null };
+  }
   function log(level, message, data){
     const fn = typeof console[level] === 'function' ? level : 'log';
     console[fn](`${logPrefix} ${message}`, data || '');

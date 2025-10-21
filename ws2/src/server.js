@@ -62,6 +62,23 @@ function safeDecode(value) {
   }
 }
 
+function parseCookies(header) {
+  if (typeof header !== 'string' || !header.trim()) return {};
+  const entries = header.split(';');
+  const cookies = {};
+  for (const rawEntry of entries) {
+    const entry = rawEntry.trim();
+    if (!entry) continue;
+    const idx = entry.indexOf('=');
+    if (idx <= 0) continue;
+    const name = entry.slice(0, idx).trim();
+    if (!name) continue;
+    const rawValue = entry.slice(idx + 1).trim();
+    cookies[name] = safeDecode(rawValue);
+  }
+  return cookies;
+}
+
 function encodeBranchId(branchId) {
   return encodeURIComponent(branchId);
 }
@@ -166,6 +183,8 @@ const LEGACY_POS_TOPIC_PREFIX = 'pos:sync:';
 const SYNC_TOPIC_PREFIX = 'sync::';
 const PUBSUB_TOPICS = new Map(); // topic => { subscribers:Set<string>, lastData:object|null }
 const SYNC_STATES = new Map(); // key => { branchId, moduleId, version, moduleSnapshot, updatedAt }
+const TRANS_HISTORY_LIMIT = Math.max(50, Number(process.env.WS2_TRANS_HISTORY_LIMIT) || 500);
+const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object}> }
 
 function syncStateKey(branchId, moduleId) {
   const safeBranch = branchId || 'default';
@@ -196,6 +215,58 @@ function getSyncTopics(branchId, moduleId) {
     topics.push(`${LEGACY_POS_TOPIC_PREFIX}${safeBranch}`);
   }
   return topics;
+}
+
+function transHistoryKey(branchId, moduleId) {
+  const safeBranch = branchId || 'default';
+  const safeModule = moduleId || 'pos';
+  return `${safeBranch}::${safeModule}`;
+}
+
+function getTransTracker(key) {
+  if (!key) return null;
+  if (!TRANS_HISTORY.has(key)) {
+    TRANS_HISTORY.set(key, { order: [], records: new Map() });
+  }
+  return TRANS_HISTORY.get(key);
+}
+
+function rememberTransRecord(key, transId, payload) {
+  if (!key || !transId || !payload) return null;
+  const tracker = getTransTracker(key);
+  if (!tracker) return null;
+  if (tracker.records.has(transId)) {
+    return tracker.records.get(transId);
+  }
+  const record = { ts: Date.now(), payload: deepClone(payload) };
+  tracker.records.set(transId, record);
+  tracker.order.push(transId);
+  if (tracker.order.length > TRANS_HISTORY_LIMIT) {
+    const overflow = tracker.order.splice(0, tracker.order.length - TRANS_HISTORY_LIMIT);
+    for (const oldId of overflow) {
+      tracker.records.delete(oldId);
+    }
+  }
+  return record;
+}
+
+function recallTransRecord(key, transId) {
+  if (!key || !transId) return null;
+  const tracker = TRANS_HISTORY.get(key);
+  if (!tracker) return null;
+  return tracker.records.get(transId) || null;
+}
+
+function normalizeTransId(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
 }
 
 async function ensureSyncState(branchId, moduleId) {
@@ -546,6 +617,7 @@ async function broadcastSyncUpdate(branchId, moduleId, state, options = {}) {
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
   }
+  return payload;
 }
 
 async function handlePubsubFrame(client, frame) {
@@ -579,13 +651,36 @@ async function handlePubsubFrame(client, frame) {
       if (!topic) return;
       const descriptor = parseSyncTopic(topic);
       const frameData = frame.data && typeof frame.data === 'object' ? frame.data : {};
+      const userFromFrame = typeof frameData.userId === 'string' && frameData.userId.trim()
+        ? frameData.userId.trim()
+        : null;
+      if (userFromFrame) client.userUuid = userFromFrame;
+      const transId = normalizeTransId(frameData.trans_id || frameData.transId || frameData.mutationId || null);
       if (descriptor) {
+        const trackerKey = transHistoryKey(descriptor.branchId, descriptor.moduleId);
+        if (!transId) {
+          sendToClient(client, {
+            type: 'error',
+            code: 'missing-trans-id',
+            message: 'Publish frames must include a trans_id.',
+            topic
+          });
+          return;
+        }
+        const duplicate = recallTransRecord(trackerKey, transId);
+        if (duplicate && duplicate.payload) {
+          logger.info({ clientId: client.id, branchId: descriptor.branchId, moduleId: descriptor.moduleId, transId }, 'Duplicate trans_id ignored; replaying cached payload.');
+          sendToClient(client, { type: 'publish', topic, data: deepClone(duplicate.payload) });
+          return;
+        }
         let state = await ensureSyncState(descriptor.branchId, descriptor.moduleId);
         if (frameData.snapshot && typeof frameData.snapshot === 'object') {
           try {
             state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, {
               origin: 'ws',
-              clientId: client.id
+              clientId: client.id,
+              userUuid: client.userUuid || userFromFrame || null,
+              transId
             });
           } catch (error) {
             if (error?.code === 'INSERT_ONLY_VIOLATION') {
@@ -606,12 +701,13 @@ async function handlePubsubFrame(client, frame) {
             return;
           }
         }
-        await broadcastSyncUpdate(descriptor.branchId, descriptor.moduleId, state, {
+        const published = await broadcastSyncUpdate(descriptor.branchId, descriptor.moduleId, state, {
           action: frameData.action,
           mutationId: frameData.mutationId,
           meta: frameData.meta,
           frameData
         });
+        rememberTransRecord(trackerKey, transId, published);
       } else {
         await broadcastPubsub(topic, frameData);
       }
@@ -1272,6 +1368,9 @@ async function handleHello(client, payload) {
   const branchId = typeof payload.branchId === 'string' && payload.branchId.trim() ? payload.branchId.trim() : 'lab:test-pad';
   client.branchId = branchId;
   client.role = typeof payload.role === 'string' ? payload.role : 'unknown';
+  if (typeof payload.userId === 'string' && payload.userId.trim()) {
+    client.userUuid = payload.userId.trim();
+  }
   client.status = 'ready';
   registerClient(client);
   await ensureBranchModules(branchId);
@@ -1396,6 +1495,8 @@ const wss = new WebSocketServer({ server: httpServer });
 
 wss.on('connection', (ws, req) => {
   const clientId = createId('client');
+  const cookies = parseCookies(req.headers?.cookie || '');
+  const cookieUser = typeof cookies.UserUniid === 'string' && cookies.UserUniid.trim() ? cookies.UserUniid.trim() : null;
   const client = {
     id: clientId,
     ws,
@@ -1406,7 +1507,9 @@ wss.on('connection', (ws, req) => {
     attempts: 0,
     remoteAddress: req.socket?.remoteAddress,
     protocol: 'unknown',
-    pubsubTopics: new Set()
+    pubsubTopics: new Set(),
+    userUuid: cookieUser || null,
+    cookies
   };
   clients.set(client.id, client);
   logger.info({ clientId, address: client.remoteAddress }, 'Client connected');
