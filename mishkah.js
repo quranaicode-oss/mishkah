@@ -103,12 +103,20 @@
   var htmlxAutoEnabled = (typeof htmlxAutoFlag === 'boolean') ? htmlxAutoFlag
     : (htmlxAttrPresent || !!(htmlxParsedOption || htmlxTemplateOption || htmlxMountOption || htmlxRootOption || htmlxInitOption));
 
-  var cssOption = parseDatasetValue('css', null);
-  if (!cssOption && userConfig.css) cssOption = String(userConfig.css);
-  cssOption = cssOption || 'mishkah';
-  global.__MISHKAH_DEFAULT_CSS__ = mapCssLibrary(cssOption) || 'mi';
+  var cssOptionRaw = parseDatasetValue('css', null);
+  if (!cssOptionRaw && userConfig.css != null) cssOptionRaw = String(userConfig.css);
+  var cssMode = 'direct';
+  if (!cssOptionRaw || cssOptionRaw === '') cssOptionRaw = 'mishkah';
+  var cssOptionNormalized = String(cssOptionRaw || '').trim().toLowerCase();
+  if (cssOptionNormalized === 'env' || cssOptionNormalized === 'environment' || cssOptionNormalized === 'auto-env') {
+    cssMode = 'env';
+  }
+  var cssOption = cssMode === 'env' ? null : cssOptionRaw;
+  var defaultCssLibrary = cssOption ? (mapCssLibrary(cssOption) || cssOption) : null;
+  global.__MISHKAH_CSS_MODE__ = cssMode;
+  global.__MISHKAH_DEFAULT_CSS__ = cssMode === 'env' ? (defaultCssLibrary || null) : (defaultCssLibrary || 'mi');
   if (!global.__MISHKAH_ACTIVE_CSS__) {
-    global.__MISHKAH_ACTIVE_CSS__ = global.__MISHKAH_DEFAULT_CSS__;
+    global.__MISHKAH_ACTIVE_CSS__ = global.__MISHKAH_DEFAULT_CSS__ || null;
   }
 
   var tailwindFlag = parseDatasetFlag(parseDatasetValue('tailwind', null), undefined);
@@ -163,6 +171,162 @@
   ];
 
   var cssHref = joinBase(paths.css || 'mishkah-css.css');
+
+  function uniquePush(list, value) {
+    if (!value) return;
+    for (var i = 0; i < list.length; i += 1) {
+      if (list[i] === value) return;
+    }
+    list.push(value);
+  }
+
+  function normalizeCssLibraryTokens(source) {
+    var tokens = [];
+    if (source == null) return tokens;
+    var pushToken = function (token) {
+      if (!token && token !== 0) return;
+      var mapped = mapCssLibrary(token);
+      if (!mapped) return;
+      uniquePush(tokens, mapped);
+    };
+    if (Array.isArray(source)) {
+      for (var i = 0; i < source.length; i += 1) {
+        pushToken(source[i]);
+      }
+      return tokens;
+    }
+    if (typeof source === 'string') {
+      source.split(/[,\s]+/).forEach(function (part) {
+        if (!part) return;
+        pushToken(part);
+      });
+      return tokens;
+    }
+    if (typeof source === 'object') {
+      for (var key in source) {
+        if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+        pushToken(source[key]);
+      }
+    }
+    return tokens;
+  }
+
+  function computeEnvCssConfig(env) {
+    var snapshot = (env && typeof env === 'object') ? env : {};
+    var requested = [];
+    if (snapshot.css != null) {
+      requested = requested.concat(normalizeCssLibraryTokens(snapshot.css));
+    }
+    if (snapshot.cssLibraries != null) {
+      requested = requested.concat(normalizeCssLibraryTokens(snapshot.cssLibraries));
+    }
+    if (snapshot.cssLibrary) {
+      requested = requested.concat(normalizeCssLibraryTokens(snapshot.cssLibrary));
+    }
+    if (snapshot.cssEngine) {
+      requested = requested.concat(normalizeCssLibraryTokens(snapshot.cssEngine));
+    }
+    var filtered = [];
+    for (var i = 0; i < requested.length; i += 1) {
+      uniquePush(filtered, requested[i]);
+    }
+    var tailwindPref = null;
+    if (snapshot.tailwind === true || snapshot.tailwind === false) {
+      tailwindPref = !!snapshot.tailwind;
+    } else if (snapshot.cssTailwind === true || snapshot.cssTailwind === false) {
+      tailwindPref = !!snapshot.cssTailwind;
+    }
+    return { libraries: filtered, tailwind: tailwindPref };
+  }
+
+  function applyCssLibrariesToEnv(env, libraries) {
+    if (!env || !libraries || !libraries.length) return;
+    if (!Array.isArray(env.cssLibraries) || !env.cssLibraries.length) {
+      env.cssLibraries = libraries.slice();
+    }
+    if (!env.cssLibrary) {
+      env.cssLibrary = libraries[0];
+    }
+    if (!env.cssEngine) {
+      env.cssEngine = libraries[0];
+    }
+    if (!env.css) {
+      env.css = libraries.length === 1 ? libraries[0] : libraries.slice();
+    }
+  }
+
+  function quoteFontName(name) {
+    if (!name) return '';
+    var trimmed = String(name).trim();
+    if (!trimmed) return '';
+    if (/[\s,]/.test(trimmed) && trimmed.charAt(0) !== '"' && trimmed.charAt(0) !== '\'') {
+      return '"' + trimmed + '"';
+    }
+    return trimmed;
+  }
+
+  function buildFontStack(primary, fallbacks) {
+    var parts = [];
+    var pushFont = function (font) {
+      if (!font) return;
+      var quoted = quoteFontName(font);
+      if (!quoted) return;
+      uniquePush(parts, quoted);
+    };
+    if (Array.isArray(primary)) {
+      primary.forEach(pushFont);
+    } else {
+      pushFont(primary);
+    }
+    if (Array.isArray(fallbacks)) {
+      fallbacks.forEach(pushFont);
+    } else if (typeof fallbacks === 'string') {
+      fallbacks.split(/[,\s]+/).forEach(pushFont);
+    }
+    pushFont('system-ui');
+    pushFont('sans-serif');
+    return parts.join(', ');
+  }
+
+  function applyEnvFonts(env) {
+    if (!env || typeof env !== 'object') return;
+    var fonts = env.fonts || env.font || env.fontFamily || null;
+    if (!fonts) return;
+    var docElement = doc.documentElement;
+    if (!docElement || !docElement.style) return;
+    var config = {};
+    if (typeof fonts === 'string') {
+      config.sansAr = fonts;
+      config.sansLat = fonts;
+      config.display = fonts;
+    } else if (Array.isArray(fonts)) {
+      if (fonts.length) config.sansAr = fonts[0];
+      if (fonts.length > 1) config.sansLat = fonts[1];
+      if (fonts.length > 2) config.display = fonts[2];
+    } else if (typeof fonts === 'object') {
+      if (fonts.ar || fonts.base || fonts.default) config.sansAr = fonts.ar || fonts.base || fonts.default;
+      if (fonts.en || fonts.latin || fonts.base || fonts.default) config.sansLat = fonts.en || fonts.latin || fonts.base || fonts.default;
+      if (fonts.display || fonts.heading || fonts.title) config.display = fonts.display || fonts.heading || fonts.title;
+      if (!config.sansAr && fonts.primary) config.sansAr = fonts.primary;
+      if (!config.sansLat && fonts.secondary) config.sansLat = fonts.secondary;
+      if (!config.display && fonts.brand) config.display = fonts.brand;
+      if (fonts.sansAr) config.sansAr = fonts.sansAr;
+      if (fonts.sansLat) config.sansLat = fonts.sansLat;
+    }
+    var fallbacks = (fonts && typeof fonts === 'object') ? (fonts.fallbacks || fonts.fallback || fonts.arFallbacks) : null;
+    if (config.sansAr) {
+      var stackAr = buildFontStack(config.sansAr, fallbacks || fonts && fonts.arFallbacks);
+      if (stackAr) docElement.style.setProperty('--mk-font-sans-ar', stackAr);
+    }
+    if (config.sansLat) {
+      var stackLat = buildFontStack(config.sansLat, (fonts && fonts.latinFallbacks) || fallbacks);
+      if (stackLat) docElement.style.setProperty('--mk-font-sans-lat', stackLat);
+    }
+    if (config.display) {
+      var stackDisplay = buildFontStack(config.display, (fonts && fonts.displayFallbacks) || fallbacks);
+      if (stackDisplay) docElement.style.setProperty('--mk-font-display', stackDisplay);
+    }
+  }
 
   function ensureScript(entry) {
     if (!entry || !entry.src) return Promise.resolve(false);
@@ -952,8 +1116,14 @@
       if (!autoEnabled || !appInstance) return;
       try {
         var host = global.Mishkah;
+        var effectiveTailwind = tailwindEnabled;
+        if (appInstance.__mishkahTailwindPref === true || appInstance.__mishkahTailwindPref === false) {
+          effectiveTailwind = !!appInstance.__mishkahTailwindPref;
+        } else if (databaseSnapshot && databaseSnapshot.env && typeof databaseSnapshot.env.tailwind === 'boolean') {
+          effectiveTailwind = !!databaseSnapshot.env.tailwind;
+        }
         if (host && host.utils && host.utils.twcss && typeof host.utils.twcss.auto === 'function') {
-          host.utils.twcss.auto(databaseSnapshot, appInstance, { tailwind: tailwindEnabled });
+          host.utils.twcss.auto(databaseSnapshot, appInstance, { tailwind: effectiveTailwind });
         } else if (!twcssAutoWarned) {
           twcssAutoWarned = true;
           if (global.console && console.warn) {
@@ -966,17 +1136,39 @@
     }
     M.app.make = function (db, options) {
       var database = db || {};
+      var effectiveTailwind = tailwindEnabled;
       if (autoEnabled) {
         database = Object.assign({}, database);
-        var cssLibrary = mapCssLibrary(cssOption) || cssOption;
-        database.env = Object.assign({ css: cssOption, cssLibrary: cssLibrary, cssEngine: cssLibrary }, database.env || {});
+        database.env = Object.assign({}, database.env || {});
+        var envCssConfig = computeEnvCssConfig(database.env);
+        if (cssMode !== 'env') {
+          var cssLibrary = mapCssLibrary(cssOption) || cssOption;
+          applyCssLibrariesToEnv(database.env, cssLibrary ? [cssLibrary] : []);
+          if (cssLibrary === 'mi' || cssOption === 'mishkah') {
+            ensureStyle(cssHref, 'mishkah-css');
+          }
+          if (!global.__MISHKAH_ACTIVE_CSS__) {
+            global.__MISHKAH_ACTIVE_CSS__ = cssLibrary || null;
+          }
+        } else {
+          if (!envCssConfig.libraries.length) {
+            envCssConfig = computeEnvCssConfig(database.env);
+          }
+          applyCssLibrariesToEnv(database.env, envCssConfig.libraries);
+          if (envCssConfig.libraries.indexOf('mi') !== -1) {
+            ensureStyle(cssHref, 'mishkah-css');
+          }
+          if (!global.__MISHKAH_ACTIVE_CSS__ && envCssConfig.libraries.length) {
+            global.__MISHKAH_ACTIVE_CSS__ = envCssConfig.libraries[0];
+          }
+        }
         if (!database.env.theme) database.env.theme = userConfig.defaultTheme || 'light';
         if (!database.env.lang) database.env.lang = (Array.isArray(userConfig.defaultLangs) && userConfig.defaultLangs[0]) || 'ar';
         if (!database.env.dir) database.env.dir = RTL_LANGS.has(database.env.lang) ? 'rtl' : 'ltr';
+        effectiveTailwind = envCssConfig.tailwind == null ? tailwindEnabled : !!envCssConfig.tailwind;
+        database.env.tailwind = effectiveTailwind;
         setDocumentLang(database.env.lang, database.env.dir);
-        if (cssOption === 'mishkah') {
-          ensureStyle(cssHref, 'mishkah-css');
-        }
+        applyEnvFonts(database.env);
       }
       var mergedOptions = options ? Object.assign({}, options) : {};
       if (autoEnabled) {
@@ -984,6 +1176,9 @@
       }
       var result = originalMake.call(M.app, database, mergedOptions);
       var attach = function (app) {
+        if (app && effectiveTailwind !== undefined) {
+          app.__mishkahTailwindPref = effectiveTailwind;
+        }
         applyTwcssAuto(app, database);
         attachApp(app);
         autoWireCharts(app, mergedOptions);
@@ -1059,7 +1254,7 @@
 
   var loadPromise = loadSequential(resources);
 
-  if (autoEnabled && cssOption === 'mishkah') {
+  if (autoEnabled && cssMode !== 'env' && defaultCssLibrary === 'mi') {
     loadPromise = loadPromise.then(function () {
       ensureStyle(cssHref, 'mishkah-css');
       return true;
