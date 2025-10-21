@@ -4856,9 +4856,55 @@
 
     let pendingRemoteResult = null;
 
+    const hasEntries = (list)=> Array.isArray(list) && list.length > 0;
+    const isViablePosDataset = (dataset)=>{
+      if(!dataset || typeof dataset !== 'object') return false;
+      const hasSettings = dataset.settings && typeof dataset.settings === 'object';
+      if(!hasSettings) return false;
+      const hasMenuItems = hasEntries(dataset.items) || hasEntries(dataset.menuItems) || hasEntries(dataset.menu_items);
+      const hasCategories = hasEntries(dataset.categories) || hasEntries(dataset.menu_categories);
+      const hasCategorySections = hasEntries(dataset.category_sections);
+      const hasOrderTypes = hasEntries(dataset.order_types);
+      const hasPaymentMethods = hasEntries(dataset.payment_methods);
+      const hasLegacyTableData = hasEntries(dataset.tables?.pos_database);
+      return hasMenuItems
+        || hasCategories
+        || hasCategorySections
+        || hasOrderTypes
+        || hasPaymentMethods
+        || hasLegacyTableData;
+    };
+
     function applyLiveSnapshotFromWs2(snapshot, meta={}){
       if(!snapshot || typeof snapshot !== 'object') return;
-      MOCK_BASE = cloneDeep(snapshot);
+      const candidate = extractDatasetFromSnapshot(snapshot) || snapshot;
+      const candidateViable = isViablePosDataset(candidate);
+      const previousViable = isViablePosDataset(MOCK_BASE);
+      if(!candidateViable && previousViable){
+        const keys = candidate && typeof candidate === 'object' ? Object.keys(candidate).slice(0, 8) : [];
+        pushCentralDiagnostic({
+          level:'warn',
+          source:'central-sync',
+          event:'ws2:snapshot:skipped',
+          message:'Ignored live dataset without catalog entries; keeping existing menu.',
+          data:{
+            keys,
+            hasItems: hasEntries(candidate?.items),
+            hasCategories: hasEntries(candidate?.categories),
+            hasSections: hasEntries(candidate?.category_sections),
+            hasLegacyTableData: hasEntries(candidate?.tables?.pos_database)
+          }
+        });
+        pendingRemoteResult = {
+          derived: cloneMenuDerived(),
+          remote: snapshotRemoteStatus(remoteStatus)
+        };
+        if(appRef){
+          flushRemoteUpdate();
+        }
+        return;
+      }
+      MOCK_BASE = cloneDeep(candidate);
       MOCK = cloneDeep(MOCK_BASE);
       PAYMENT_METHODS = derivePaymentMethods(MOCK);
       const menuDerived = applyMenuDataset(MOCK);
