@@ -65,12 +65,64 @@ function getBranchDir(branchId) {
   return path.join(BRANCHES_DIR, encodeBranchId(branchId));
 }
 
+function getBranchModuleDir(branchId, moduleId) {
+  return path.join(getBranchDir(branchId), 'modules', moduleId);
+}
+
+function getModuleSchemaPath(branchId, moduleId) {
+  const def = getModuleConfig(moduleId);
+  const relative = def.schemaPath || path.join('schema', 'definition.json');
+  return path.join(getBranchModuleDir(branchId, moduleId), relative);
+}
+
+function getModuleSchemaFallbackPath(moduleId) {
+  const def = getModuleConfig(moduleId);
+  if (!def.schemaFallbackPath) return null;
+  return path.isAbsolute(def.schemaFallbackPath)
+    ? def.schemaFallbackPath
+    : path.join(ROOT_DIR, def.schemaFallbackPath);
+}
+
+function getModuleSeedPath(branchId, moduleId) {
+  const def = getModuleConfig(moduleId);
+  const relative = def.seedPath || path.join('seeds', 'initial.json');
+  return path.join(getBranchModuleDir(branchId, moduleId), relative);
+}
+
+function getModuleSeedFallbackPath(moduleId) {
+  const def = getModuleConfig(moduleId);
+  if (!def.seedFallbackPath) return null;
+  return path.isAbsolute(def.seedFallbackPath)
+    ? def.seedFallbackPath
+    : path.join(ROOT_DIR, def.seedFallbackPath);
+}
+
+function getModuleLivePath(branchId, moduleId) {
+  const def = getModuleConfig(moduleId);
+  const relative = def.livePath || path.join('live', 'data.json');
+  return path.join(getBranchModuleDir(branchId, moduleId), relative);
+}
+
 function getModuleFilePath(branchId, moduleId) {
-  return path.join(getBranchDir(branchId), 'modules', `${moduleId}.json`);
+  return getModuleLivePath(branchId, moduleId);
+}
+
+function getModuleHistoryDir(branchId, moduleId) {
+  const def = getModuleConfig(moduleId);
+  const relative = def.historyPath || 'history';
+  return path.join(getBranchModuleDir(branchId, moduleId), relative);
 }
 
 function getModuleArchivePath(branchId, moduleId, timestamp) {
-  return path.join(getBranchDir(branchId), 'archive', timestamp, 'modules', `${moduleId}.json`);
+  const historyDir = getModuleHistoryDir(branchId, moduleId);
+  return path.join(historyDir, `${timestamp}.json`);
+}
+
+async function ensureBranchModuleLayout(branchId, moduleId) {
+  const moduleDir = getBranchModuleDir(branchId, moduleId);
+  await mkdir(moduleDir, { recursive: true });
+  await mkdir(path.dirname(getModuleLivePath(branchId, moduleId)), { recursive: true });
+  await mkdir(getModuleHistoryDir(branchId, moduleId), { recursive: true });
 }
 
 async function readJsonSafe(filePath, fallback = null) {
@@ -410,30 +462,47 @@ function getModuleConfig(moduleId) {
   return def;
 }
 
-async function ensureModuleSchema(moduleId) {
-  if (loadedModuleSchemas.has(moduleId)) return;
-  const def = getModuleConfig(moduleId);
-  const schemaPath = def.schemaPath ? (path.isAbsolute(def.schemaPath) ? def.schemaPath : path.join(ROOT_DIR, def.schemaPath)) : null;
-  if (schemaPath) {
+async function ensureModuleSchema(branchId, moduleId) {
+  const cacheKey = `${branchId}::${moduleId}`;
+  if (loadedModuleSchemas.has(cacheKey)) return;
+  const schemaPath = getModuleSchemaPath(branchId, moduleId);
+  let loaded = false;
+  try {
     await schemaEngine.loadFromFile(schemaPath);
+    loaded = true;
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
   }
-  loadedModuleSchemas.add(moduleId);
+  if (!loaded) {
+    const fallback = getModuleSchemaFallbackPath(moduleId);
+    if (fallback) {
+      await schemaEngine.loadFromFile(fallback);
+      loaded = true;
+    }
+  }
+  if (!loaded) {
+    throw new Error(`Schema for module "${moduleId}" not found for branch "${branchId}"`);
+  }
+  loadedModuleSchemas.add(cacheKey);
 }
 
-async function ensureModuleSeed(moduleId) {
-  if (moduleSeeds.has(moduleId)) return moduleSeeds.get(moduleId);
-  const def = getModuleConfig(moduleId);
-  const seedPath = def.seedPath ? (path.isAbsolute(def.seedPath) ? def.seedPath : path.join(ROOT_DIR, def.seedPath)) : null;
-  if (!seedPath) {
-    moduleSeeds.set(moduleId, null);
-    return null;
-  }
-  const seed = await readJsonSafe(seedPath, null);
+async function ensureModuleSeed(branchId, moduleId) {
+  const cacheKey = `${branchId}::${moduleId}`;
+  if (moduleSeeds.has(cacheKey)) return moduleSeeds.get(cacheKey);
+  const seedPath = getModuleSeedPath(branchId, moduleId);
+  let seed = await readJsonSafe(seedPath, undefined);
   if (!seed || typeof seed !== 'object') {
-    moduleSeeds.set(moduleId, null);
-    return null;
+    const fallback = getModuleSeedFallbackPath(moduleId);
+    if (fallback) {
+      seed = await readJsonSafe(fallback, null);
+    }
   }
-  moduleSeeds.set(moduleId, seed);
+  if (!seed || typeof seed !== 'object') {
+    seed = null;
+  }
+  moduleSeeds.set(cacheKey, seed);
   return seed;
 }
 
@@ -493,8 +562,9 @@ async function ensureModuleStore(branchId, moduleId) {
   if (moduleStores.has(key)) {
     return moduleStores.get(key);
   }
-  await ensureModuleSchema(moduleId);
-  const moduleSeed = await ensureModuleSeed(moduleId);
+  await ensureBranchModuleLayout(branchId, moduleId);
+  await ensureModuleSchema(branchId, moduleId);
+  const moduleSeed = await ensureModuleSeed(branchId, moduleId);
   const moduleDefinition = getModuleConfig(moduleId);
   const filePath = getModuleFilePath(branchId, moduleId);
   const existing = await readJsonSafe(filePath, null);
@@ -534,38 +604,20 @@ async function hydrateModulesFromDisk() {
     if (!dirEntry.isDirectory()) continue;
     const branchId = safeDecode(dirEntry.name);
     const modulesDir = path.join(getBranchDir(branchId), 'modules');
-    const moduleFiles = await readdir(modulesDir, { withFileTypes: true }).catch(() => []);
-    for (const fileEntry of moduleFiles) {
-      if (!fileEntry.isFile() || !fileEntry.name.toLowerCase().endsWith('.json')) continue;
-      const moduleId = fileEntry.name.replace(/\.json$/i, '');
+    const moduleEntries = await readdir(modulesDir, { withFileTypes: true }).catch(() => []);
+    for (const entry of moduleEntries) {
+      if (!entry.isDirectory()) continue;
+      const moduleId = safeDecode(entry.name);
       if (!modulesConfig.modules?.[moduleId]) {
         logger.warn({ branchId, moduleId }, 'Skipping module not present in modules config');
         continue;
       }
-      await ensureModuleSchema(moduleId);
-      const moduleSeed = await ensureModuleSeed(moduleId);
-      const filePath = path.join(modulesDir, fileEntry.name);
-      const snapshot = await readJsonSafe(filePath, null);
-      if (!snapshot || typeof snapshot !== 'object') continue;
-      let normalizedSnapshot = snapshot;
-      if (moduleId === 'scratchpad' && !snapshot.tables && Array.isArray(snapshot.labEntries)) {
-        normalizedSnapshot = {
-          version: snapshot.version || 1,
-          meta: snapshot.meta || {},
-          tables: {
-            scratchpad_entry: snapshot.labEntries
-          }
-        };
+      try {
+        await ensureModuleStore(branchId, moduleId);
+        logger.info({ branchId, moduleId }, 'Hydrated module from disk');
+      } catch (error) {
+        logger.warn({ err: error, branchId, moduleId }, 'Failed to hydrate module from disk');
       }
-      const seed = {
-        version: normalizedSnapshot.version || 1,
-        meta: normalizedSnapshot.meta || {},
-        tables: normalizedSnapshot.tables || {}
-      };
-      const store = new ModuleStore(schemaEngine, branchId, moduleId, getModuleConfig(moduleId), seed, moduleSeed);
-      const key = moduleKey(branchId, moduleId);
-      moduleStores.set(key, store);
-      logger.info({ branchId, moduleId, version: store.version }, 'Hydrated module from disk');
     }
   }
 }
@@ -809,7 +861,7 @@ async function handleBranchesApi(req, res, url) {
 
 async function resetModule(branchId, moduleId) {
   const store = await ensureModuleStore(branchId, moduleId);
-  const moduleSeed = await ensureModuleSeed(moduleId);
+  const moduleSeed = await ensureModuleSeed(branchId, moduleId);
   await archiveModuleFile(branchId, moduleId);
   store.reset();
   if (moduleSeed) {
@@ -1036,6 +1088,12 @@ const httpServer = createServer(async (req, res) => {
   if (url.pathname.startsWith('/api/pos-sync') || url.pathname.startsWith('/api/sync')) {
     const handled = await handleSyncApi(req, res, url);
     if (handled) return;
+  }
+  if (url.pathname.startsWith('/api/branch/')) {
+    const aliasPath = `/api/branches/${url.pathname.slice('/api/branch/'.length)}`.replace(/\/+/g, '/');
+    const aliasUrl = new URL(`${aliasPath}${url.search}`, url.origin);
+    await handleBranchesApi(req, res, aliasUrl);
+    return;
   }
   if (url.pathname.startsWith('/api/branches')) {
     await handleBranchesApi(req, res, url);
