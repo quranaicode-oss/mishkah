@@ -29,7 +29,7 @@
               "channel": "branch-main",
               "ws_endpoint": "/ws",
               "token": null,
-              "http_endpoint": "/api/pos-sync",
+              "http_endpoint": "/api/branches/dar/modules/pos/events",
               "central_only": false,
               "allow_indexeddb_fallback": true
             }
