@@ -2931,6 +2931,18 @@
     const authOff = ensureBoolean(options.authOff, false);
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = token ? { authorization:`Bearer ${token}` } : {};
+    const userId = (()=>{
+      if(typeof options.userId === 'string' && options.userId.trim()) return options.userId.trim();
+      if(typeof globalThis !== 'undefined'){
+        if(globalThis.POS_WS2_IDENTIFIERS && typeof globalThis.POS_WS2_IDENTIFIERS.userId === 'string' && globalThis.POS_WS2_IDENTIFIERS.userId.trim()){
+          return globalThis.POS_WS2_IDENTIFIERS.userId.trim();
+        }
+        if(typeof globalThis.UserUniid === 'string' && globalThis.UserUniid.trim()){
+          return globalThis.UserUniid.trim();
+        }
+      }
+      return null;
+    })();
     const requireOnline = options.requireOnline !== false;
     const allowLocalFallback = options.allowLocalFallback === true;
     const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
@@ -3430,7 +3442,9 @@
           snapshot,
           reason: reason || meta.reason || 'update',
           clientId,
-          mutationId
+          mutationId,
+          userId: userId || null,
+          trans_id: mutationId
         }
       });
       emitDiagnostic('mutation:publish', {
@@ -3469,6 +3483,10 @@
         throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
       }
       const mutationId = extras.mutationId || `${clientId}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2,8)}`;
+      const transSource = extras.transId || order.trans_id || order.transId || mutationId;
+      const transId = (typeof transSource === 'string' && transSource.trim())
+        ? transSource.trim()
+        : String(transSource || mutationId);
       const frame = {
         type:'publish',
         topic,
@@ -3478,7 +3496,9 @@
           kdsPayload: extras.kdsPayload ? cloneDeep(extras.kdsPayload) : undefined,
           meta: extras.meta ? cloneDeep(extras.meta) : undefined,
           mutationId,
-          requestId: extras.requestId || createRequestId()
+          requestId: extras.requestId || createRequestId(),
+          userId: userId || null,
+          trans_id: transId
         }
       };
       sendFrame(frame);
@@ -3502,7 +3522,7 @@
       sendFrame({
         type:'publish',
         topic,
-        data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId }
+        data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId, userId: userId || null, trans_id: mutationId }
       });
       emitDiagnostic('mutation:publish', {
         level:'warn',
@@ -3552,7 +3572,7 @@
         });
         if(token){
           awaitingAuth = true;
-          socket.send({ type:'auth', data:{ token } });
+          socket.send({ type:'auth', data:{ token, userId: userId || null } });
           emitDiagnostic('ws:auth:sent', {
             level:'debug',
             message:'Auth token sent to central sync.',
