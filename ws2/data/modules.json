@@ -2,15 +2,22 @@
   "modules": {
     "scratchpad": {
       "label": "Scratchpad",
-      "schemaPath": "static/test_schema.json",
-      "seedPath": "static/test-mock-data.json",
+      "schemaPath": "schema/definition.json",
+      "schemaFallbackPath": "data/schemas/test_schema.json",
+      "seedPath": "seeds/initial.json",
+      "livePath": "live/data.json",
+      "historyPath": "history",
       "tables": ["scratchpad_entry"],
       "description": "Lightweight scratchpad module powered by schema engine."
     },
     "pos": {
       "label": "POS",
-      "schemaPath": "static/pos-schema.json",
-      "seedPath": "data/seeds/pos-mock-data.json",
+      "schemaPath": "schema/definition.json",
+      "schemaFallbackPath": "data/schemas/pos_schema.json",
+      "seedPath": "seeds/initial.json",
+      "seedFallbackPath": "data/seeds/pos-mock-data.json",
+      "livePath": "live/data.json",
+      "historyPath": "history",
       "tables": ["pos_database"],
       "description": "Serialized POS dataset for front/back sync."
     }

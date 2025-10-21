@@ -4,6 +4,35 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
   <title>مشكاة — نقطة البيع للمطاعم</title>
+  <script>
+    (function configureBranchParam(global) {
+      if (!global) return;
+      const allowed = ['dar', 'remal'];
+      global.POS_ALLOWED_BRANCHES = allowed.slice();
+      const normalize = (value) => {
+        if (typeof value !== 'string') return '';
+        return value
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      };
+      let branchParam = null;
+      try {
+        const params = new URLSearchParams(global.location ? global.location.search || '' : '');
+        branchParam = normalize(params.get('brname'));
+      } catch (_err) {
+        branchParam = '';
+      }
+      if (branchParam && allowed.includes(branchParam)) {
+        global.POS_BRANCH_PARAM = branchParam;
+        global.POS_BRANCH_ERROR = null;
+      } else {
+        global.POS_BRANCH_PARAM = null;
+        global.POS_BRANCH_ERROR = branchParam ? 'unsupported-branch' : 'missing-branch';
+      }
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
   <style>
     :root { color-scheme: light dark; }
     html, body {
@@ -146,6 +175,7 @@
         endpoint = host ? `${defaultScheme()}//${host}` : 'wss://ws.mas.com.eg';
       }
       const branchCandidates = [
+        global.POS_BRANCH_PARAM,
         global.POS_WS2_CONFIG && global.POS_WS2_CONFIG.branchId,
         userBranchId,
         sync.branch_id,
@@ -180,7 +210,49 @@
 </head>
 <body>
   <div id="app"></div>
-  <script src="./pos.js"></script>
+  <script>
+    (function bootstrapPos(global) {
+      if (!global) return;
+      const branchId = global.POS_BRANCH_PARAM;
+      const allowed = Array.isArray(global.POS_ALLOWED_BRANCHES) ? global.POS_ALLOWED_BRANCHES : [];
+      const container = global.document && global.document.getElementById('app');
+      if (!branchId || (allowed.length && !allowed.includes(branchId))) {
+        if (container) {
+          const reasonKey = global.POS_BRANCH_ERROR || 'missing-branch';
+          const reason = reasonKey === 'unsupported-branch'
+            ? 'اسم الفرع غير مدعوم'
+            : 'لم يتم تحديد الفرع';
+          const hint = allowed.length ? allowed.map((entry) => `?brname=${entry}`).join(' أو ') : '?brname=<branch>';
+          container.innerHTML = `
+            <section style="margin:auto;max-width:560px;padding:3rem 2rem;text-align:center;color:#f8fafc;background:rgba(15,23,42,0.72);border-radius:1.5rem;border:1px solid rgba(148,163,184,0.35);backdrop-filter:blur(8px);">
+              <h1 style="font-size:2rem;margin-bottom:1rem;">يرجى اختيار الفرع</h1>
+              <p style="margin:0 auto 1.5rem;line-height:1.8;">
+                تحتاج شاشة نقطة البيع إلى تحديد الفرع عبر معامل <code>brname</code> في الرابط.<br/>
+                مثال: <code>${hint}</code>
+              </p>
+              <p style="margin:0;font-size:0.95rem;color:rgba(226,232,240,0.75);">
+                السبب: <strong>${reason}</strong>
+              </p>
+            </section>
+          `;
+        }
+        return;
+      }
+      global.MishkahBranchChannel = branchId;
+      global.MishkahKdsChannel = branchId;
+      global.POS_WS2_CONFIG = global.POS_WS2_CONFIG || {};
+      global.POS_WS2_CONFIG.branchId = branchId;
+      global.POS_WS2_DYNAMIC_ENDPOINTS = {
+        branchId,
+        moduleId: 'pos',
+        restBase: `/api/branch/${encodeURIComponent(branchId)}/pos`
+      };
+      const script = global.document.createElement('script');
+      script.src = './pos.js';
+      script.defer = false;
+      global.document.body.appendChild(script);
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
 
 
 </body>
