@@ -402,9 +402,50 @@
           }
         }
 
-        var DEFAULT_MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        var DEFAULT_MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-        var SALES_PALETTE = ['#38bdf8', '#f97316', '#a855f7', '#22c55e', '#facc15', '#ef4444'];
+        var DEFAULT_MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        var DEFAULT_MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+        var SALES_PALETTE = ["#38bdf8", "#f97316", "#a855f7", "#22c55e", "#facc15", "#ef4444"];
+        var pendingChartSync = null;
+        var chartSyncScheduled = false;
+        var CHART_READY_MAX_ATTEMPTS = 24;
+
+        function whenChartApiReady(callback, attempt) {
+          var tries = typeof attempt === 'number' ? attempt : 0;
+          var host = window.Mishkah || window.Mishka || null;
+          var chartApi = host && host.UI ? host.UI.Chart : null;
+          if (chartApi) {
+            if (typeof callback === 'function') callback(chartApi);
+            return;
+          }
+          if (tries >= CHART_READY_MAX_ATTEMPTS) {
+            chartSyncScheduled = false;
+            if (pendingChartSync) {
+              console.warn('[Mishkah] Chart API was not ready in time for auto hydration');
+            }
+            return;
+          }
+          var delay = Math.min(600, 40 * (tries + 1));
+          window.setTimeout(function () {
+            whenChartApiReady(callback, tries + 1);
+          }, delay);
+        }
+
+        function scheduleChartSync(state, ctx) {
+          pendingChartSync = { state: state, ctx: ctx };
+          if (chartSyncScheduled) return;
+          chartSyncScheduled = true;
+          whenChartApiReady(function () {
+            chartSyncScheduled = false;
+            var payload = pendingChartSync;
+            pendingChartSync = null;
+            if (!payload) return;
+            try {
+              syncSalesChart(payload.state, payload.ctx);
+            } catch (err) {
+              console.warn('[Mishkah] failed to hydrate chart after waiting for API', err);
+            }
+          });
+        }
 
         function numericList(values) {
           var list = [];
@@ -679,7 +720,10 @@
           if (!canvas) return;
           var host = window.Mishkah || window.Mishka || null;
           var chartApi = host && host.UI ? host.UI.Chart : null;
-          if (!chartApi) return;
+          if (!chartApi) {
+            scheduleChartSync(state, ctx);
+            return;
+          }
 
           var months = resolveMonths(state, analytics);
           var datasets = buildSalesDatasets(analytics.series || [], months, ctx, state);
