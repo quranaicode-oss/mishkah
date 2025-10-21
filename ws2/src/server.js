@@ -21,7 +21,12 @@ const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 3200);
 const SERVER_ID = process.env.SERVER_ID || createId('ws');
 const BRANCHES_DIR = process.env.BRANCHES_DIR || path.join(ROOT_DIR, 'data', 'branches');
-const SCHEMA_PATH = process.env.WS_SCHEMA_PATH || path.join(STATIC_DIR, 'POS_schema.json');
+const DEFAULT_SCHEMA_PATH = path.join(ROOT_DIR, 'data', 'schemas', 'pos_schema.json');
+const ENV_SCHEMA_PATH = process.env.WS_SCHEMA_PATH
+  ? path.isAbsolute(process.env.WS_SCHEMA_PATH)
+    ? process.env.WS_SCHEMA_PATH
+    : path.join(ROOT_DIR, process.env.WS_SCHEMA_PATH)
+  : null;
 const MODULES_CONFIG_PATH = process.env.MODULES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'modules.json');
 const BRANCHES_CONFIG_PATH = process.env.BRANCHES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'branches.config.json');
 const HISTORY_DIR = process.env.HISTORY_DIR || path.join(ROOT_DIR, 'data', 'history');
@@ -441,7 +446,21 @@ await mkdir(HISTORY_DIR, { recursive: true });
 await mkdir(BRANCHES_DIR, { recursive: true });
 
 const schemaEngine = new SchemaEngine();
-await schemaEngine.loadFromFile(SCHEMA_PATH);
+const schemaPaths = new Set([path.resolve(DEFAULT_SCHEMA_PATH)]);
+if (ENV_SCHEMA_PATH) {
+  schemaPaths.add(path.resolve(ENV_SCHEMA_PATH));
+}
+for (const schemaPath of schemaPaths) {
+  try {
+    await schemaEngine.loadFromFile(schemaPath);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      logger.warn({ schemaPath }, 'Schema file missing, skipping preload');
+      continue;
+    }
+    throw error;
+  }
+}
 const modulesConfig = (await readJsonSafe(MODULES_CONFIG_PATH, { modules: {} })) || { modules: {} };
 const branchConfig = (await readJsonSafe(BRANCHES_CONFIG_PATH, { branches: {}, patterns: [], defaults: [] })) || { branches: {}, patterns: [], defaults: [] };
 
@@ -484,6 +503,19 @@ async function ensureModuleSchema(branchId, moduleId) {
   }
   if (!loaded) {
     throw new Error(`Schema for module "${moduleId}" not found for branch "${branchId}"`);
+  }
+  const moduleDefinition = getModuleConfig(moduleId);
+  for (const tableName of moduleDefinition.tables || []) {
+    try {
+      schemaEngine.getTable(tableName);
+    } catch (error) {
+      if (error?.message?.includes('Unknown table')) {
+        throw new Error(
+          `Schema for module "${moduleId}" is missing required table "${tableName}" for branch "${branchId}"`
+        );
+      }
+      throw error;
+    }
   }
   loadedModuleSchemas.add(cacheKey);
 }
