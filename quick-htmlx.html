@@ -410,6 +410,9 @@
         var pendingChartSync = null;
         var chartSyncScheduled = false;
         var CHART_READY_MAX_ATTEMPTS = 24;
+        var CHART_INITIAL_MAX_ATTEMPTS = 24;
+        var CHART_INITIAL_RETRY_DELAY = 120;
+        var CHART_SYNC_RETRY_DELAY = 140;
 
         function whenChartApiReady(callback, attempt) {
           var tries = typeof attempt === 'number' ? attempt : 0;
@@ -432,8 +435,12 @@
           }, delay);
         }
 
-        function scheduleChartSync(state, ctx) {
-          pendingChartSync = { state: state, ctx: ctx };
+        function scheduleChartSync(state, ctx, attempt) {
+          var tries = typeof attempt === 'number' && attempt >= 0 ? attempt : 0;
+          if (pendingChartSync && typeof pendingChartSync.attempt === 'number' && pendingChartSync.attempt > tries) {
+            tries = pendingChartSync.attempt;
+          }
+          pendingChartSync = { state: state, ctx: ctx, attempt: tries };
           if (chartSyncScheduled) return;
           chartSyncScheduled = true;
           whenChartApiReady(function () {
@@ -457,7 +464,12 @@
                   nextState = autoSnapshot;
                 }
               }
-              syncSalesChart(nextState, nextCtx);
+              var success = syncSalesChart(nextState, nextCtx);
+              if (!success && payload.attempt < CHART_READY_MAX_ATTEMPTS) {
+                window.setTimeout(function () {
+                  scheduleChartSync(nextState, nextCtx, payload.attempt + 1);
+                }, Math.min(420, CHART_SYNC_RETRY_DELAY * (payload.attempt + 1)));
+              }
             } catch (err) {
               console.warn('[Mishkah] failed to hydrate chart after waiting for API', err);
             }
@@ -748,28 +760,32 @@
         }
 
         function syncSalesChart(state, ctx) {
-          if (!state && ctx && typeof ctx.getState === 'function') {
+          var context = ctx || window.MishkahAuto || null;
+          if (!state && context && typeof context.getState === 'function') {
             try {
-              state = ctx.getState();
+              state = context.getState();
             } catch (err) {
               state = null;
             }
           }
+          if (!state && context && context.state) {
+            state = context.state;
+          }
           var analytics = resolveAnalytics(state);
-          if (!analytics) return;
+          if (!analytics) return false;
           var canvas = document.getElementById('quick-sales-chart');
-          if (!canvas) return;
+          if (!canvas) return false;
           var host = window.Mishkah || window.Mishka || null;
           var chartApi = host && host.UI ? host.UI.Chart : null;
           applyLegendSwatches(state);
           if (!chartApi) {
-            scheduleChartSync(state, ctx || window.MishkahAuto || null);
-            return;
+            scheduleChartSync(state, context);
+            return false;
           }
 
           var months = resolveMonths(state, analytics);
-          var datasets = buildSalesDatasets(analytics.series || [], months, ctx, state);
-          if (!datasets.length) return;
+          var datasets = buildSalesDatasets(analytics.series || [], months, context, state);
+          if (!datasets.length) return false;
 
           if (typeof toCsv === 'function') {
             canvas.setAttribute('data-chart-labels', toCsv(months));
@@ -780,14 +796,41 @@
           var options = chartMeta.options && typeof chartMeta.options === 'object' ? cloneState(chartMeta.options) : {};
           if (!options.plugins) options.plugins = {};
           if (!options.plugins.legend) options.plugins.legend = { position: 'top' };
+          if (options.maintainAspectRatio == null) options.maintainAspectRatio = false;
+          if (options.responsive == null) options.responsive = true;
 
           var data = { labels: months.slice(), datasets: datasets };
           if (chartMeta.height) {
             canvas.setAttribute('data-chart-height', chartMeta.height);
           }
           if (chartMeta.titleKey) {
-            canvas.setAttribute('data-chart-title', translateKey(ctx, chartMeta.titleKey, state));
+            canvas.setAttribute('data-chart-title', translateKey(context, chartMeta.titleKey, state));
             canvas.setAttribute('data-chart-title-key', chartMeta.titleKey);
+          }
+
+          var resolvedHeight = Number(chartMeta.height);
+          if (!Number.isFinite(resolvedHeight) || resolvedHeight <= 0) {
+            var attrHeight = Number(canvas.getAttribute('data-chart-height'));
+            if (Number.isFinite(attrHeight) && attrHeight > 0) {
+              resolvedHeight = attrHeight;
+            }
+          }
+          if (!Number.isFinite(resolvedHeight) || resolvedHeight <= 0) {
+            resolvedHeight = 320;
+          }
+          resolvedHeight = Math.max(160, Math.round(resolvedHeight));
+          canvas.setAttribute('height', resolvedHeight);
+          canvas.setAttribute('data-chart-height', resolvedHeight);
+          try {
+            canvas.height = resolvedHeight;
+          } catch (_errHeight) {}
+          if (canvas.style) {
+            canvas.style.height = resolvedHeight + 'px';
+            canvas.style.minHeight = resolvedHeight + 'px';
+            if (!canvas.style.width) canvas.style.width = '100%';
+            if (!canvas.style.display) canvas.style.display = 'block';
+          } else {
+            canvas.setAttribute('style', 'height:' + resolvedHeight + 'px;min-height:' + resolvedHeight + 'px;width:100%;display:block;');
           }
 
           var payload = typeof chartApi.buildPayload === 'function'
@@ -816,9 +859,10 @@
           };
           if (ensured && typeof ensured.then === 'function') {
             ensured.then(hydrate).catch(hydrate);
-            return;
+            return true;
           }
           hydrate();
+          return true;
         }
 
         function ensureCountdownLoop(state) {
@@ -966,22 +1010,46 @@
 
         function initialChartKickoff() {
           var attempts = 0;
-          var MAX_ATTEMPTS = 12;
+          var done = false;
 
           var attemptSync = function () {
+            if (done) return;
             var canvas = document.getElementById('quick-sales-chart');
-            if (!canvas && attempts < MAX_ATTEMPTS) {
-              attempts += 1;
-              window.setTimeout(attemptSync, 50 * (attempts + 1));
+            if (!canvas) {
+              if (attempts < CHART_INITIAL_MAX_ATTEMPTS) {
+                attempts += 1;
+                window.setTimeout(attemptSync, Math.min(360, 40 * (attempts + 1)));
+              }
               return;
             }
+            var context = window.MishkahAuto || null;
             var snapshot = resolveAutoState();
+            var success = false;
             try {
-              syncSalesChart(snapshot);
+              success = syncSalesChart(snapshot, context);
             } catch (err) {
               console.warn('[Mishkah] failed to sync chart during kickoff', err);
             }
-            ensureCountdownLoop(snapshot);
+            var countdownState = snapshot;
+            if (!countdownState) {
+              countdownState = resolveAutoState();
+              if (!countdownState && context) {
+                try {
+                  countdownState = context.getState ? context.getState() : context.state;
+                } catch (_errState) {
+                  countdownState = context && context.state ? context.state : null;
+                }
+              }
+            }
+            ensureCountdownLoop(countdownState || snapshot);
+            if (success) {
+              done = true;
+              return;
+            }
+            if (attempts < CHART_INITIAL_MAX_ATTEMPTS) {
+              attempts += 1;
+              window.setTimeout(attemptSync, Math.min(720, CHART_INITIAL_RETRY_DELAY * (attempts + 1)));
+            }
           };
 
           if (window.MishkahAuto && typeof window.MishkahAuto.ready === 'function') {
@@ -1007,7 +1075,7 @@
         function wireAutoState() {
           window.MishkahAuto.onState(function (snapshot) {
             try {
-              syncSalesChart(snapshot);
+              syncSalesChart(snapshot, window.MishkahAuto || null);
             } catch (err) {
               console.warn('[Mishkah] failed to sync chart from state', err);
             }
