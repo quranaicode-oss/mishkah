@@ -265,7 +265,35 @@
       if(response.snapshot && typeof response.snapshot === 'object'){
         return extractRemotePayload(response.snapshot);
       }
-      const pure = Mishkah.utils.helpers.getPureJson(response);
+      let pure = null;
+      try{
+        const helpers = Mishkah && Mishkah.utils && Mishkah.utils.helpers;
+        if(helpers && typeof helpers.getPureJson === 'function'){
+          pure = helpers.getPureJson(response);
+        }
+      } catch(error){
+        console.warn('[Mishkah][POS] Failed to normalize remote payload into pure JSON.', error);
+        pushCentralDiagnostic({
+          level:'warn',
+          source:'central-sync',
+          event:'remote:payload:normalize-failed',
+          message:'تعذر تحويل الاستجابة إلى JSON نقي بسبب حقول للقراءة فقط.',
+          data:{ message: error?.message || null }
+        });
+        try{
+          pure = JSON.parse(JSON.stringify(response));
+        } catch(innerError){
+          console.warn('[Mishkah][POS] Failed to clone remote payload after JSON normalization error.', innerError);
+          pushCentralDiagnostic({
+            level:'warn',
+            source:'central-sync',
+            event:'remote:payload:clone-failed',
+            message:'فشل استنساخ الاستجابة بعد تعذر التطبيع الأولي.',
+            data:{ message: innerError?.message || null }
+          });
+          pure = null;
+        }
+      }
       if(!pure) return null;
       let payload = pure;
       if(Array.isArray(pure)){
@@ -2140,8 +2168,24 @@
       async function importSnapshot(snapshot){
         if(!snapshot || typeof snapshot !== 'object') return false;
         const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
+        const previousStores = Object.keys(storeMaps).reduce((acc, name)=>{
+          acc[name] = Array.from(storeMaps[name].values()).map(cloneRecord);
+          return acc;
+        }, {});
         Object.values(storeMaps).forEach(map=> map.clear());
-        const ordersList = Array.isArray(stores.orders) ? stores.orders : [];
+        const hasStore = (name)=> Object.prototype.hasOwnProperty.call(stores, name);
+        const resolveStoreList = (name)=>{
+          if(hasStore(name)){
+            const value = stores[name];
+            return Array.isArray(value) ? value : [];
+          }
+          const fallback = previousStores[name] || [];
+          if(fallback.length){
+            console.warn('[Mishkah][POS] Remote snapshot missing store — preserving local data.', { store:name, count:fallback.length });
+          }
+          return fallback;
+        };
+        const ordersList = resolveStoreList('orders');
         ordersList.forEach(header=>{
           if(!header || !header.id) return;
           const normalized = {
@@ -2152,38 +2196,38 @@
           };
           storeMaps.orders.set(normalized.id, normalized);
         });
-        const lineList = Array.isArray(stores.orderLines) ? stores.orderLines : [];
+        const lineList = resolveStoreList('orderLines');
         lineList.forEach(line=>{
           if(!line || !line.orderId) return;
           const uid = line.uid || `${line.orderId}::${line.id || Math.random().toString(16).slice(2,8)}`;
           storeMaps.orderLines.set(uid, { ...line, uid });
         });
-        const noteList = Array.isArray(stores.orderNotes) ? stores.orderNotes : [];
+        const noteList = resolveStoreList('orderNotes');
         noteList.forEach(note=>{
           if(!note || !note.id) return;
           storeMaps.orderNotes.set(note.id, { ...note });
         });
-        const eventList = Array.isArray(stores.orderStatusLogs) ? stores.orderStatusLogs : [];
+        const eventList = resolveStoreList('orderStatusLogs');
         eventList.forEach(evt=>{
           if(!evt || !evt.id) return;
           storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
-        const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
+        const tempList = resolveStoreList(TEMP_STORE);
         tempList.forEach(record=>{
           if(!record || !record.id) return;
           storeMaps[TEMP_STORE].set(record.id, { ...record });
         });
-        const shiftList = Array.isArray(stores[SHIFT_STORE]) ? stores[SHIFT_STORE] : [];
+        const shiftList = resolveStoreList(SHIFT_STORE);
         shiftList.forEach(shift=>{
           const normalized = normalizeShiftRecord(shift);
           storeMaps[SHIFT_STORE].set(normalized.id, normalized);
         });
-        const metaList = Array.isArray(stores[META_STORE]) ? stores[META_STORE] : [];
+        const metaList = resolveStoreList(META_STORE);
         metaList.forEach(meta=>{
           const id = meta.id || meta.posId || 'default';
           storeMaps[META_STORE].set(id, { id, invoiceCounter: Number(meta.invoiceCounter || 0) });
         });
-        const syncList = Array.isArray(stores.syncLog) ? stores.syncLog : [];
+        const syncList = resolveStoreList('syncLog');
         syncList.forEach(entry=>{
           const ts = toTimestamp(entry.ts);
           storeMaps.syncLog.set(ts, { ts });
@@ -2887,6 +2931,18 @@
     const authOff = ensureBoolean(options.authOff, false);
     const clientId = options.clientId || `${options.posId || 'pos'}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = token ? { authorization:`Bearer ${token}` } : {};
+    const userId = (()=>{
+      if(typeof options.userId === 'string' && options.userId.trim()) return options.userId.trim();
+      if(typeof globalThis !== 'undefined'){
+        if(globalThis.POS_WS2_IDENTIFIERS && typeof globalThis.POS_WS2_IDENTIFIERS.userId === 'string' && globalThis.POS_WS2_IDENTIFIERS.userId.trim()){
+          return globalThis.POS_WS2_IDENTIFIERS.userId.trim();
+        }
+        if(typeof globalThis.UserUniid === 'string' && globalThis.UserUniid.trim()){
+          return globalThis.UserUniid.trim();
+        }
+      }
+      return null;
+    })();
     const requireOnline = options.requireOnline !== false;
     const allowLocalFallback = options.allowLocalFallback === true;
     const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
@@ -3386,7 +3442,9 @@
           snapshot,
           reason: reason || meta.reason || 'update',
           clientId,
-          mutationId
+          mutationId,
+          userId: userId || null,
+          trans_id: mutationId
         }
       });
       emitDiagnostic('mutation:publish', {
@@ -3425,6 +3483,10 @@
         throw createSyncError('POS_SYNC_OFFLINE', 'Central sync offline.');
       }
       const mutationId = extras.mutationId || `${clientId}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2,8)}`;
+      const transSource = extras.transId || order.trans_id || order.transId || mutationId;
+      const transId = (typeof transSource === 'string' && transSource.trim())
+        ? transSource.trim()
+        : String(transSource || mutationId);
       const frame = {
         type:'publish',
         topic,
@@ -3434,7 +3496,9 @@
           kdsPayload: extras.kdsPayload ? cloneDeep(extras.kdsPayload) : undefined,
           meta: extras.meta ? cloneDeep(extras.meta) : undefined,
           mutationId,
-          requestId: extras.requestId || createRequestId()
+          requestId: extras.requestId || createRequestId(),
+          userId: userId || null,
+          trans_id: transId
         }
       };
       sendFrame(frame);
@@ -3458,7 +3522,7 @@
       sendFrame({
         type:'publish',
         topic,
-        data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId }
+        data:{ action:'destroy', reason: reason || 'reset', clientId, mutationId, userId: userId || null, trans_id: mutationId }
       });
       emitDiagnostic('mutation:publish', {
         level:'warn',
@@ -3508,7 +3572,7 @@
         });
         if(token){
           awaitingAuth = true;
-          socket.send({ type:'auth', data:{ token } });
+          socket.send({ type:'auth', data:{ token, userId: userId || null } });
           emitDiagnostic('ws:auth:sent', {
             level:'debug',
             message:'Auth token sent to central sync.',
@@ -4840,9 +4904,55 @@
 
     let pendingRemoteResult = null;
 
+    const hasEntries = (list)=> Array.isArray(list) && list.length > 0;
+    const isViablePosDataset = (dataset)=>{
+      if(!dataset || typeof dataset !== 'object') return false;
+      const hasSettings = dataset.settings && typeof dataset.settings === 'object';
+      if(!hasSettings) return false;
+      const hasMenuItems = hasEntries(dataset.items) || hasEntries(dataset.menuItems) || hasEntries(dataset.menu_items);
+      const hasCategories = hasEntries(dataset.categories) || hasEntries(dataset.menu_categories);
+      const hasCategorySections = hasEntries(dataset.category_sections);
+      const hasOrderTypes = hasEntries(dataset.order_types);
+      const hasPaymentMethods = hasEntries(dataset.payment_methods);
+      const hasLegacyTableData = hasEntries(dataset.tables?.pos_database);
+      return hasMenuItems
+        || hasCategories
+        || hasCategorySections
+        || hasOrderTypes
+        || hasPaymentMethods
+        || hasLegacyTableData;
+    };
+
     function applyLiveSnapshotFromWs2(snapshot, meta={}){
       if(!snapshot || typeof snapshot !== 'object') return;
-      MOCK_BASE = cloneDeep(snapshot);
+      const candidate = extractDatasetFromSnapshot(snapshot) || snapshot;
+      const candidateViable = isViablePosDataset(candidate);
+      const previousViable = isViablePosDataset(MOCK_BASE);
+      if(!candidateViable && previousViable){
+        const keys = candidate && typeof candidate === 'object' ? Object.keys(candidate).slice(0, 8) : [];
+        pushCentralDiagnostic({
+          level:'warn',
+          source:'central-sync',
+          event:'ws2:snapshot:skipped',
+          message:'Ignored live dataset without catalog entries; keeping existing menu.',
+          data:{
+            keys,
+            hasItems: hasEntries(candidate?.items),
+            hasCategories: hasEntries(candidate?.categories),
+            hasSections: hasEntries(candidate?.category_sections),
+            hasLegacyTableData: hasEntries(candidate?.tables?.pos_database)
+          }
+        });
+        pendingRemoteResult = {
+          derived: cloneMenuDerived(),
+          remote: snapshotRemoteStatus(remoteStatus)
+        };
+        if(appRef){
+          flushRemoteUpdate();
+        }
+        return;
+      }
+      MOCK_BASE = cloneDeep(candidate);
       MOCK = cloneDeep(MOCK_BASE);
       PAYMENT_METHODS = derivePaymentMethods(MOCK);
       const menuDerived = applyMenuDataset(MOCK);
