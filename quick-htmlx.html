@@ -865,7 +865,47 @@
           });
         }
 
-        if (window.MishkahAuto && typeof window.MishkahAuto.onState === 'function') {
+        function resolveAutoState() {
+          var auto = window.MishkahAuto || null;
+          if (!auto) return null;
+          if (typeof auto.getState === 'function') {
+            try {
+              return auto.getState();
+            } catch (err) {
+              return auto.state || null;
+            }
+          }
+          return auto.state || null;
+        }
+
+        function initialChartKickoff() {
+          var attempts = 0;
+          var MAX_ATTEMPTS = 12;
+          var tick = function () {
+            var canvas = document.getElementById('quick-sales-chart');
+            if (!canvas && attempts < MAX_ATTEMPTS) {
+              attempts += 1;
+              window.setTimeout(tick, 50 * attempts);
+              return;
+            }
+            var snapshot = resolveAutoState();
+            try {
+              syncSalesChart(snapshot);
+            } catch (err) {
+              console.warn('[Mishkah] failed to sync chart during kickoff', err);
+            }
+            ensureCountdownLoop(snapshot);
+          };
+          tick();
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initialChartKickoff, { once: true });
+        } else {
+          initialChartKickoff();
+        }
+
+        function wireAutoState() {
           window.MishkahAuto.onState(function (snapshot) {
             try {
               syncSalesChart(snapshot);
@@ -874,21 +914,17 @@
             }
             ensureCountdownLoop(snapshot);
           });
+        }
+
+        if (window.MishkahAuto && typeof window.MishkahAuto.onState === 'function') {
+          wireAutoState();
         } else {
           window.addEventListener('mishkah:auto-ready', function handleAutoReady() {
             window.removeEventListener('mishkah:auto-ready', handleAutoReady);
             if (window.MishkahAuto && typeof window.MishkahAuto.onState === 'function') {
-              window.MishkahAuto.onState(function (snapshot) {
-                try {
-                  syncSalesChart(snapshot);
-                } catch (err) {
-                  console.warn('[Mishkah] failed to sync chart from state', err);
-                }
-                ensureCountdownLoop(snapshot);
-              });
+              wireAutoState();
             } else {
-              syncSalesChart(null, null);
-              ensureCountdownLoop(null);
+              initialChartKickoff();
             }
           });
         }
