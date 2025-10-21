@@ -1,1 +1,18 @@
-
+{
+  "modules": {
+    "scratchpad": {
+      "label": "Scratchpad",
+      "schemaPath": "static/test_schema.json",
+      "seedPath": "static/test-mock-data.json",
+      "tables": ["scratchpad_entry"],
+      "description": "Lightweight scratchpad module powered by schema engine."
+    },
+    "pos": {
+      "label": "POS",
+      "schemaPath": "static/pos-schema.json",
+      "seedPath": "data/seeds/pos-mock-data.json",
+      "tables": ["pos_database"],
+      "description": "Serialized POS dataset for front/back sync."
+    }
+  }
+}

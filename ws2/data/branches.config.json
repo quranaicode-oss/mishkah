@@ -1,0 +1,14 @@
+{
+  "branches": {},
+  "patterns": [
+    {
+      "match": "^lab:",
+      "modules": ["scratchpad"]
+    },
+    {
+      "match": "^pos:",
+      "modules": ["pos"]
+    }
+  ],
+  "defaults": []
+}
