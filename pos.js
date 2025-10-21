@@ -1489,7 +1489,7 @@
         orders: new Map(),
         orderLines: new Map(),
         orderNotes: new Map(),
-        orderEvents: new Map(),
+        orderStatusLogs: new Map(),
         [SHIFT_STORE]: new Map(),
         [META_STORE]: new Map(),
         [TEMP_STORE]: new Map(),
@@ -1509,7 +1509,7 @@
             },
             orderLines:{ keyPath:'uid', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderNotes:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
-            orderEvents:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
+            orderStatusLogs:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
             [SHIFT_STORE]:{
               keyPath:'id',
               indices:[
@@ -1655,6 +1655,50 @@
         const id = line.id || `${orderId}::${line.itemId || Math.random().toString(16).slice(2,8)}`;
         const qty = Number(line.qty) || 0;
         const price = Number(line.price) || 0;
+        const baseStatus = line.status || defaults.status || 'draft';
+        const baseStage = line.stage || defaults.stage;
+        const kitchenSection = line.kitchenSection || null;
+        const createdAt = toTimestamp(line.createdAt || defaults.createdAt);
+        const updatedAt = toTimestamp(line.updatedAt || defaults.updatedAt);
+        const logContext = {
+          orderId,
+          lineId: id,
+          statusId: baseStatus,
+          kitchenSection,
+          actorId: defaults.actorId || null,
+          updatedAt
+        };
+        const statusLogSources = [
+          line.statusLogs,
+          line.status_logs,
+          line.statusHistory,
+          line.status_history,
+          line.events
+        ];
+        const statusLogs = [];
+        const seen = new Set();
+        statusLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderLineStatusLogEntry(entry, logContext);
+            if(normalized && normalized.id && !seen.has(normalized.id)){
+              seen.add(normalized.id);
+              statusLogs.push(normalized);
+            }
+          });
+        });
+        if(!statusLogs.length){
+          const fallback = normalizeOrderLineStatusLogEntry({
+            status: baseStatus,
+            stationId: kitchenSection,
+            changedAt: updatedAt,
+            actorId: logContext.actorId
+          }, logContext);
+          if(fallback) statusLogs.push(fallback);
+        }
+        statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const latestLog = statusLogs[statusLogs.length - 1] || null;
+        const resolvedStatus = latestLog?.status || baseStatus;
         return {
           uid,
           id,
@@ -1665,14 +1709,15 @@
           qty,
           price,
           total: Number(line.total) || qty * price,
-          status: line.status || 'draft',
-          stage: line.stage || defaults.stage,
-          kitchenSection: line.kitchenSection || null,
+          status: resolvedStatus,
+          stage: baseStage,
+          kitchenSection,
           locked: line.locked !== undefined ? !!line.locked : defaults.lockLineEdits,
           notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
           discount: normalizeDiscount(line.discount),
-          createdAt: toTimestamp(line.createdAt || defaults.createdAt),
-          updatedAt: toTimestamp(line.updatedAt || defaults.updatedAt)
+          createdAt,
+          updatedAt,
+          statusLogs
         };
       }
 
@@ -1701,12 +1746,61 @@
         const normalizedPayments = Array.isArray(order.payments)
           ? order.payments.map(pay=> ({ ...pay, amount: Number(pay.amount) || 0 }))
           : [];
+        const fallbackStatus = order.status || order.statusId || order.header?.status || 'open';
+        const fallbackStage = order.fulfillmentStage || order.stage || order.header?.stage || 'new';
+        const fallbackPaymentState = order.paymentState || order.payment_state || order.header?.paymentState || 'unpaid';
+        const updatedBy = order.updatedBy || order.authorId || order.actorId || null;
+        const logContext = {
+          orderId: order.id,
+          statusId: fallbackStatus,
+          stageId: fallbackStage,
+          paymentStateId: fallbackPaymentState,
+          actorId: updatedBy || 'pos',
+          updatedAt: order.updatedAt || now
+        };
+        const statusLogSources = [
+          order.statusLogs,
+          order.status_logs,
+          order.statusHistory,
+          order.status_history,
+          order.events,
+          order.header?.statusLogs,
+          order.header?.status_history,
+          order.header?.events
+        ];
+        const statusLogs = [];
+        const seenLogIds = new Set();
+        statusLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderStatusLogEntry(entry, logContext);
+            if(normalized && normalized.id && !seenLogIds.has(normalized.id)){
+              seenLogIds.add(normalized.id);
+              statusLogs.push(normalized);
+            }
+          });
+        });
+        if(!statusLogs.length){
+          const fallbackLog = normalizeOrderStatusLogEntry({
+            status: fallbackStatus,
+            stage: fallbackStage,
+            paymentState: fallbackPaymentState,
+            changedAt: logContext.updatedAt,
+            actorId: logContext.actorId
+          }, logContext);
+          if(fallbackLog) statusLogs.push(fallbackLog);
+        }
+        statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const latestStatusLog = statusLogs[statusLogs.length - 1] || {};
+        const resolvedStatus = latestStatusLog.status || fallbackStatus;
+        const resolvedStage = latestStatusLog.stage || fallbackStage;
+        const resolvedPaymentState = latestStatusLog.paymentState || fallbackPaymentState;
         const header = {
           id: order.id,
           type: order.type || 'dine_in',
-          status: order.status || 'open',
-          fulfillmentStage: order.fulfillmentStage || order.stage || 'new',
-          paymentState: order.paymentState || 'unpaid',
+          status: resolvedStatus,
+          fulfillmentStage: resolvedStage,
+          paymentState: resolvedPaymentState,
           tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
           guests: Number.isFinite(order.guests) ? Number(order.guests) : 0,
           totals: order.totals && typeof order.totals === 'object' ? { ...order.totals } : {},
@@ -1743,32 +1837,13 @@
           stage: header.fulfillmentStage,
           lockLineEdits: header.lockLineEdits,
           createdAt: header.createdAt,
-          updatedAt: header.updatedAt
+          updatedAt: header.updatedAt,
+          actorId: logContext.actorId,
+          status: header.status
         };
         const lines = ensureArray(order.lines).map(line=> normalizeLineRecord(order.id, line, defaults));
         const notes = ensureArray(order.notes).map(note=> normalizeNoteRecord(order, note));
-        const events = ensureArray(order.events).map(evt=>{
-          const id = evt.id || `${order.id}::event::${toTimestamp(evt.at || evt.createdAt || header.updatedAt)}`;
-          return {
-            id,
-            orderId: order.id,
-            stage: evt.stage || header.fulfillmentStage,
-            status: evt.status || header.status,
-            at: toTimestamp(evt.at || evt.createdAt || header.updatedAt),
-            actorId: evt.actorId || evt.authorId || order.updatedBy || order.authorId || 'pos'
-          };
-        });
-        if(!events.length){
-          events.push({
-            id: `${order.id}::event::${header.updatedAt}`,
-            orderId: order.id,
-            stage: header.fulfillmentStage,
-            status: header.status,
-            at: header.updatedAt,
-            actorId: order.updatedBy || order.authorId || 'pos'
-          });
-        }
-        return { header, lines, notes, events };
+        return { header, lines, notes, statusLogs };
       }
 
       function hydrateLine(record){
@@ -1787,7 +1862,10 @@
           notes: Array.isArray(record.notes) ? record.notes : [],
           discount: normalizeDiscount(record.discount),
           createdAt: record.createdAt,
-          updatedAt: record.updatedAt
+          updatedAt: record.updatedAt,
+          statusLogs: Array.isArray(record.statusLogs)
+            ? record.statusLogs.map(log=> ({ ...log }))
+            : []
         };
       }
 
@@ -1808,12 +1886,12 @@
         }
         notesRaw.sort((a,b)=> (a.createdAt || 0) - (b.createdAt || 0));
         const eventsRaw = [];
-        for(const evt of storeMaps.orderEvents.values()){
+        for(const evt of storeMaps.orderStatusLogs.values()){
           if(evt.orderId === base.id){
             eventsRaw.push(evt);
           }
         }
-        eventsRaw.sort((a,b)=> (a.at || 0) - (b.at || 0));
+        eventsRaw.sort((a,b)=> (a.changedAt || a.at || 0) - (b.changedAt || b.at || 0));
         return {
           ...base,
           lines: linesRaw.map(hydrateLine),
@@ -1827,7 +1905,17 @@
           payments: Array.isArray(base.payments) ? base.payments.map(pay=> ({ ...pay })) : [],
           discount: normalizeDiscount(base.discount),
           dirty:false,
-          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+          statusLogs: eventsRaw.map(evt=>({
+            id: evt.id,
+            status: evt.status,
+            stage: evt.stage,
+            paymentState: evt.paymentState,
+            actorId: evt.actorId,
+            source: evt.source,
+            reason: evt.reason,
+            metadata: evt.metadata,
+            changedAt: evt.changedAt || evt.at
+          }))
         };
       }
 
@@ -1837,10 +1925,10 @@
         storeMaps.orders.set(orderId, normalized.header);
         removeByOrderId('orderLines', orderId);
         removeByOrderId('orderNotes', orderId);
-        removeByOrderId('orderEvents', orderId);
+        removeByOrderId('orderStatusLogs', orderId);
         normalized.lines.forEach(line=> storeMaps.orderLines.set(line.uid, line));
         normalized.notes.forEach(note=> storeMaps.orderNotes.set(note.id, note));
-        normalized.events.forEach(evt=> storeMaps.orderEvents.set(evt.id, evt));
+        normalized.statusLogs.forEach(evt=> storeMaps.orderStatusLogs.set(evt.id, evt));
         markSyncLog(Date.now());
         return true;
       }
@@ -1895,6 +1983,45 @@
             ? Number(order.posNumber)
             : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null)
         };
+        const tempStatusLogs = [];
+        const tempLogContext = {
+          orderId: payload.id,
+          statusId: payload.status,
+          stageId: payload.fulfillmentStage,
+          paymentStateId: payload.paymentState,
+          actorId: order.updatedBy || order.authorId || null,
+          updatedAt: payload.updatedAt
+        };
+        const tempLogSources = [
+          order.statusLogs,
+          order.status_logs,
+          order.statusHistory,
+          order.status_history,
+          order.events
+        ];
+        const seenLogs = new Set();
+        tempLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderStatusLogEntry(entry, tempLogContext);
+            if(normalized && normalized.id && !seenLogs.has(normalized.id)){
+              seenLogs.add(normalized.id);
+              tempStatusLogs.push(normalized);
+            }
+          });
+        });
+        if(!tempStatusLogs.length){
+          const fallbackLog = normalizeOrderStatusLogEntry({
+            status: payload.status,
+            stage: payload.fulfillmentStage,
+            paymentState: payload.paymentState,
+            changedAt: payload.updatedAt,
+            actorId: tempLogContext.actorId
+          }, tempLogContext);
+          if(fallbackLog) tempStatusLogs.push(fallbackLog);
+        }
+        tempStatusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        payload.statusLogs = tempStatusLogs;
         return {
           id: payload.id,
           payload,
@@ -1996,7 +2123,7 @@
             orders: Array.from(storeMaps.orders.values()).map(cloneRecord),
             orderLines: Array.from(storeMaps.orderLines.values()).map(cloneRecord),
             orderNotes: Array.from(storeMaps.orderNotes.values()).map(cloneRecord),
-            orderEvents: Array.from(storeMaps.orderEvents.values()).map(cloneRecord),
+            orderStatusLogs: Array.from(storeMaps.orderStatusLogs.values()).map(cloneRecord),
             [TEMP_STORE]: Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord),
             [SHIFT_STORE]: Array.from(storeMaps[SHIFT_STORE].values()).map(cloneRecord),
             [META_STORE]: Array.from(storeMaps[META_STORE].values()).map(cloneRecord),
@@ -2036,10 +2163,10 @@
           if(!note || !note.id) return;
           storeMaps.orderNotes.set(note.id, { ...note });
         });
-        const eventList = Array.isArray(stores.orderEvents) ? stores.orderEvents : [];
+        const eventList = Array.isArray(stores.orderStatusLogs) ? stores.orderStatusLogs : [];
         eventList.forEach(evt=>{
           if(!evt || !evt.id) return;
-          storeMaps.orderEvents.set(evt.id, { ...evt });
+          storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
         const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
         tempList.forEach(record=>{
@@ -2287,6 +2414,9 @@
           progressState:'awaiting',
           totalItems:0,
           completedItems:0,
+          readyItems:0,
+          inProgressItems:0,
+          queuedItems:0,
           remainingItems:0,
           hasAlerts:false,
           isExpedite:false,
@@ -2298,6 +2428,9 @@
           readyAt:null,
           completedAt:null,
           expoAt:null,
+          lastStatusChangedAt:null,
+          lastReadyAt:null,
+          lastCompletedAt:null,
           syncChecksum:`${order.id}-${stationId}`,
           notes: notesToText(line.notes, '; '),
           meta:{ orderSource:'pos', kdsTab: stationId },
@@ -2310,7 +2443,6 @@
           quantity = 1;
         }
         existing.totalItems += quantity;
-        existing.remainingItems += quantity;
         jobsMap.set(jobId, existing);
         const baseLineId = toIdentifier(line.id, line.uid, line.storageId, `${order.id}-line-${lineIndex}`) || `${order.id}-line-${lineIndex}`;
         const detailId = `${jobId}-detail-${baseLineId}`;
@@ -2378,16 +2510,86 @@
             priceChange
           });
         });
-        historyEntries.push({
-          id:`HIS-${jobId}-${baseLineId}`,
-          jobOrderId: jobId,
-          status:'queued',
-          actorId:'pos',
-          actorName:'POS',
-          actorRole:'pos',
-          changedAt: createdIso,
-          meta:{ source:'pos', lineId: line.id || baseLineId }
+        const lineLogsRaw = Array.isArray(line.statusLogs) ? line.statusLogs.slice() : [];
+        if(!lineLogsRaw.length){
+          lineLogsRaw.push({
+            id: `${detailId}::log::${detail.createdAt}`,
+            status: line.status || 'queued',
+            changedAt: line.updatedAt || updatedIso,
+            actorId: order.updatedBy || 'pos',
+            source: 'pos'
+          });
+        }
+        lineLogsRaw.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const resolvedLineStatus = lineLogsRaw[lineLogsRaw.length - 1]?.status || line.status || 'queued';
+        detail.status = resolvedLineStatus;
+        detail.updatedAt = normalizeIso(lineLogsRaw[lineLogsRaw.length - 1]?.changedAt || detail.updatedAt);
+        lineLogsRaw.forEach((log, logIndex)=>{
+          const changedIso = normalizeIso(log.changedAt || detail.updatedAt);
+          if(['preparing','in_progress','cooking'].includes(log.status || '')){
+            if(!existing.startedAt) existing.startedAt = changedIso;
+            if(!detail.startAt) detail.startAt = changedIso;
+            existing.progressState = 'cooking';
+          }
+          if(['ready'].includes(log.status || '')){
+            if(!existing.readyAt) existing.readyAt = changedIso;
+            if(!detail.finishAt) detail.finishAt = changedIso;
+            existing.lastReadyAt = changedIso;
+          }
+          if(['served','completed'].includes(log.status || '')){
+            if(!existing.completedAt) existing.completedAt = changedIso;
+            if(!detail.finishAt) detail.finishAt = changedIso;
+            existing.lastCompletedAt = changedIso;
+          }
+          existing.lastStatusChangedAt = changedIso;
+          existing.updatedAt = changedIso;
+          historyEntries.push({
+            id:`HIS-${detailId}-${logIndex}`,
+            jobOrderId: jobId,
+            status: log.status || resolvedLineStatus,
+            actorId: log.actorId || 'pos',
+            actorName: log.actorId || 'POS',
+            actorRole: log.source || 'pos',
+            changedAt: changedIso,
+            meta:{ source: log.source || 'pos', lineId: line.id || baseLineId }
+          });
         });
+        if(['served','completed'].includes(resolvedLineStatus)){
+          existing.completedItems += quantity;
+        } else if(['ready'].includes(resolvedLineStatus)){
+          existing.readyItems += quantity;
+        } else if(['preparing','in_progress','cooking'].includes(resolvedLineStatus)){
+          existing.inProgressItems += quantity;
+        } else {
+          existing.queuedItems += quantity;
+        }
+      });
+      jobsMap.forEach(job=>{
+        const total = job.totalItems || 0;
+        const completed = job.completedItems || 0;
+        const ready = job.readyItems || 0;
+        const inProgress = job.inProgressItems || 0;
+        const queued = job.queuedItems || 0;
+        job.remainingItems = Math.max(0, total - completed);
+        if(job.lastStatusChangedAt){
+          job.updatedAt = normalizeIso(job.lastStatusChangedAt);
+        }
+        if(total <= 0) return;
+        if(completed >= total){
+          job.status = 'completed';
+          job.progressState = 'completed';
+          if(job.lastCompletedAt) job.completedAt = job.completedAt || normalizeIso(job.lastCompletedAt);
+        } else if((ready + completed) >= total){
+          job.status = 'ready';
+          job.progressState = 'ready';
+          if(job.lastReadyAt) job.readyAt = job.readyAt || normalizeIso(job.lastReadyAt);
+        } else if(inProgress > 0){
+          job.status = 'in_progress';
+          job.progressState = 'cooking';
+        } else if(queued > 0){
+          job.status = 'queued';
+          job.progressState = 'awaiting';
+        }
       });
       const headers = Array.from(jobsMap.values());
       if(!headers.length) return null;
@@ -4785,6 +4987,61 @@
       };
     }
 
+    function normalizeOrderStatusLogEntry(entry, context){
+      if(!entry || !context || !context.orderId) return null;
+      const changedAt = toMillis(
+        entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+        context.updatedAt
+      );
+      const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'open';
+      const stageId = entry.stage_id || entry.stageId || entry.stage || context.stageId || null;
+      const paymentStateId = entry.payment_state_id || entry.paymentStateId || entry.paymentState || context.paymentStateId || null;
+      const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+      const source = entry.source || entry.channel || entry.origin || null;
+      const reason = entry.reason || entry.note || null;
+      const metadata = ensurePlainObject(entry.metadata || entry.meta);
+      const id = entry.id || `${context.orderId}::status::${changedAt}`;
+      return {
+        id,
+        orderId: context.orderId,
+        status: statusId,
+        stage: stageId || undefined,
+        paymentState: paymentStateId || undefined,
+        actorId: actorId || undefined,
+        source: source || undefined,
+        reason: reason || undefined,
+        metadata,
+        changedAt
+      };
+    }
+
+    function normalizeOrderLineStatusLogEntry(entry, context){
+      if(!entry || !context || !context.orderId || !context.lineId) return null;
+      const changedAt = toMillis(
+        entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+        context.updatedAt
+      );
+      const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'draft';
+      const stationId = entry.station_id || entry.stationId || entry.section_id || entry.sectionId || entry.kitchen_section_id || entry.kitchenSectionId || context.kitchenSection || null;
+      const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+      const source = entry.source || entry.channel || entry.origin || null;
+      const reason = entry.reason || entry.note || null;
+      const metadata = ensurePlainObject(entry.metadata || entry.meta);
+      const id = entry.id || `${context.lineId}::status::${changedAt}`;
+      return {
+        id,
+        orderId: context.orderId,
+        orderLineId: context.lineId,
+        status: statusId,
+        stationId: stationId || undefined,
+        actorId: actorId || undefined,
+        source: source || undefined,
+        reason: reason || undefined,
+        metadata,
+        changedAt
+      };
+    }
+
     function normalizeOrderLine(raw, context){
       if(!raw) return null;
       const itemId = raw.item_id || raw.itemId;
@@ -4797,22 +5054,63 @@
       const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, context.actorId)).filter(Boolean) : [];
       const discount = normalizeDiscount(raw.discount);
       const kitchenSection = raw.kitchen_section_id || raw.kitchenSectionId || menuItem?.kitchenSection || context.kitchenSection || null;
+      const createdAt = toMillis(raw.created_at || raw.createdAt, context.createdAt);
+      const updatedAt = toMillis(raw.updated_at || raw.updatedAt, context.updatedAt);
+      const lineId = raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`;
+      const logContext = {
+        orderId: context.orderId,
+        lineId,
+        statusId,
+        kitchenSection,
+        actorId: context.actorId,
+        updatedAt
+      };
+      const statusLogSources = [
+        raw.status_logs,
+        raw.statusLogs,
+        raw.status_history,
+        raw.statusHistory,
+        raw.events
+      ];
+      const lineStatusLogs = [];
+      statusLogSources.forEach(source=>{
+        if(!Array.isArray(source)) return;
+        source.forEach(entry=>{
+          const normalized = normalizeOrderLineStatusLogEntry(entry, logContext);
+          if(normalized && normalized.id){
+            lineStatusLogs.push(normalized);
+          }
+        });
+      });
+      if(!lineStatusLogs.length){
+        const fallback = normalizeOrderLineStatusLogEntry({
+          status: statusId,
+          stationId: kitchenSection,
+          changedAt: updatedAt,
+          actorId: logContext.actorId
+        }, logContext);
+        if(fallback) lineStatusLogs.push(fallback);
+      }
+      lineStatusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+      const latestLineLog = lineStatusLogs[lineStatusLogs.length - 1] || null;
+      const resolvedStatusId = latestLineLog?.status || statusId;
       return {
-        id: raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`,
+        id: lineId,
         itemId,
         name: menuItem ? menuItem.name : cloneName(raw.name),
         description: menuItem ? menuItem.description : cloneName(raw.description),
         qty,
         price,
         total: round(total),
-        status: statusId,
+        status: resolvedStatusId,
         stage: stageId,
         kitchenSection,
         locked: raw.locked !== undefined ? !!raw.locked : (orderStageMap.get(stageId)?.lockLineEdits ?? true),
         notes,
         discount,
-        createdAt: toMillis(raw.created_at || raw.createdAt, context.createdAt),
-        updatedAt: toMillis(raw.updated_at || raw.updatedAt, context.updatedAt)
+        createdAt,
+        updatedAt,
+        statusLogs: lineStatusLogs
       };
     }
 
@@ -4830,7 +5128,8 @@
       const guests = header.guests || raw.guests || 0;
       const allowAdditions = header.allow_line_additions !== undefined ? !!header.allow_line_additions : (ORDER_TYPES.find(t=> t.id === typeId)?.allowsLineAdditions ?? (typeId === 'dine_in'));
       const lockLineEdits = header.locked_line_edits !== undefined ? !!header.locked_line_edits : (orderStageMap.get(stageId)?.lockLineEdits ?? true);
-      const lineContext = { orderId:id, stageId, createdAt, updatedAt };
+      const actorId = raw.updated_by || raw.updatedBy || header.updated_by || header.updatedBy || 'seed';
+      const lineContext = { orderId:id, stageId, createdAt, updatedAt, actorId };
       const lines = Array.isArray(raw.lines) ? raw.lines.map(line=> normalizeOrderLine(line, lineContext)).filter(Boolean) : [];
       const discount = normalizeDiscount(raw.discount || header.discount);
       const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId, { orderDiscount: discount });
@@ -4842,13 +5141,44 @@
             amount: round(Number(entry.amount) || 0)
           }))
         : [];
-      const events = Array.isArray(raw.events) ? raw.events.map(evt=>({
-        id: evt.id || `${id}::evt::${toMillis(evt.at)}`,
-        stage: evt.stage_id || evt.stageId || stageId,
-        status: evt.status_id || evt.statusId || statusId,
-        at: toMillis(evt.at, createdAt),
-        actorId: evt.actor_id || evt.actorId || 'system'
-      })) : [];
+      const statusLogs = [];
+      const statusLogSources = [
+        raw.status_logs,
+        raw.statusLogs,
+        raw.status_history,
+        raw.statusHistory,
+        raw.events
+      ];
+      const logContext = {
+        orderId: id,
+        statusId,
+        stageId,
+        paymentStateId,
+        actorId,
+        updatedAt
+      };
+      const seenLogs = new Set();
+      statusLogSources.forEach(source=>{
+        if(!Array.isArray(source)) return;
+        source.forEach(entry=>{
+          const normalized = normalizeOrderStatusLogEntry(entry, logContext);
+          if(normalized && normalized.id && !seenLogs.has(normalized.id)){
+            seenLogs.add(normalized.id);
+            statusLogs.push(normalized);
+          }
+        });
+      });
+      if(!statusLogs.length){
+        const fallbackLog = normalizeOrderStatusLogEntry({
+          status: statusId,
+          stage: stageId,
+          paymentState: paymentStateId,
+          changedAt: updatedAt,
+          actorId
+        }, logContext);
+        if(fallbackLog) statusLogs.push(fallbackLog);
+      }
+      statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
       const normalizedTotals = totals && typeof totals === 'object'
         ? totals
         : calculateTotals(lines, settings, typeId, { orderDiscount: discount });
@@ -4865,7 +5195,7 @@
         notes,
         discount,
         payments,
-        events,
+        statusLogs,
         createdAt,
         updatedAt,
         savedAt: updatedAt,

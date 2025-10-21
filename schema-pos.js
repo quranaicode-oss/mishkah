@@ -542,6 +542,51 @@
         ]
       },
       {
+        name: 'order_status_log',
+        label: 'Order Status Log',
+        sqlName: 'order_status_log',
+        comment: 'Immutable log of order status transitions.',
+        layout: { x: 440, y: 260 },
+        fields: [
+          { name: 'id', columnName: 'status_log_id', type: 'string', primaryKey: true, nullable: false, maxLength: 96 },
+          { name: 'orderId', columnName: 'order_id', type: 'string', nullable: false, references: { table: 'order_header', column: 'order_id', onDelete: 'CASCADE', onUpdate: 'CASCADE' } },
+          { name: 'statusId', columnName: 'status_id', type: 'string', nullable: false, references: { table: 'order_status', column: 'status_id', onDelete: 'RESTRICT', onUpdate: 'CASCADE' } },
+          { name: 'stageId', columnName: 'stage_id', type: 'string', nullable: true, references: { table: 'order_stage', column: 'stage_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' } },
+          { name: 'paymentStateId', columnName: 'payment_state_id', type: 'string', nullable: true, references: { table: 'order_payment_state', column: 'payment_state_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' } },
+          { name: 'actorId', columnName: 'actor_id', type: 'string', nullable: true, references: { table: 'employee', column: 'employee_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' } },
+          { name: 'source', columnName: 'source', type: 'string', nullable: true, maxLength: 64 },
+          { name: 'reason', columnName: 'reason', type: 'text', nullable: true },
+          { name: 'metadata', columnName: 'metadata', type: 'json', nullable: false, defaultValue: {} },
+          { name: 'changedAt', columnName: 'changed_at', type: 'timestamp', nullable: false }
+        ],
+        indexes: [
+          { name: 'idx_order_status_log_order', columns: ['order_id', 'changed_at'] },
+          { name: 'idx_order_status_log_actor', columns: ['actor_id', 'changed_at'] }
+        ]
+      },
+      {
+        name: 'order_line_status_log',
+        label: 'Order Line Status Log',
+        sqlName: 'order_line_status_log',
+        comment: 'Immutable log of order line transitions.',
+        layout: { x: 680, y: 260 },
+        fields: [
+          { name: 'id', columnName: 'line_status_log_id', type: 'string', primaryKey: true, nullable: false, maxLength: 96 },
+          { name: 'orderId', columnName: 'order_id', type: 'string', nullable: false, references: { table: 'order_header', column: 'order_id', onDelete: 'CASCADE', onUpdate: 'CASCADE' } },
+          { name: 'orderLineId', columnName: 'order_line_id', type: 'string', nullable: false, references: { table: 'order_line', column: 'line_id', onDelete: 'CASCADE', onUpdate: 'CASCADE' } },
+          { name: 'statusId', columnName: 'status_id', type: 'string', nullable: false, references: { table: 'order_line_status', column: 'line_status_id', onDelete: 'RESTRICT', onUpdate: 'CASCADE' } },
+          { name: 'stationId', columnName: 'station_id', type: 'string', nullable: true, references: { table: 'kitchen_section', column: 'section_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' } },
+          { name: 'actorId', columnName: 'actor_id', type: 'string', nullable: true, references: { table: 'employee', column: 'employee_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' } },
+          { name: 'source', columnName: 'source', type: 'string', nullable: true, maxLength: 64 },
+          { name: 'metadata', columnName: 'metadata', type: 'json', nullable: false, defaultValue: {} },
+          { name: 'changedAt', columnName: 'changed_at', type: 'timestamp', nullable: false }
+        ],
+        indexes: [
+          { name: 'idx_order_line_status_log_line', columns: ['order_line_id', 'changed_at'] },
+          { name: 'idx_order_line_status_log_order', columns: ['order_id', 'changed_at'] }
+        ]
+      },
+      {
         name: 'order_line_modifier',
         label: 'Order Line Modifier',
         sqlName: 'order_line_modifier',
