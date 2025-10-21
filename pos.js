@@ -2140,8 +2140,24 @@
       async function importSnapshot(snapshot){
         if(!snapshot || typeof snapshot !== 'object') return false;
         const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
+        const previousStores = Object.keys(storeMaps).reduce((acc, name)=>{
+          acc[name] = Array.from(storeMaps[name].values()).map(cloneRecord);
+          return acc;
+        }, {});
         Object.values(storeMaps).forEach(map=> map.clear());
-        const ordersList = Array.isArray(stores.orders) ? stores.orders : [];
+        const hasStore = (name)=> Object.prototype.hasOwnProperty.call(stores, name);
+        const resolveStoreList = (name)=>{
+          if(hasStore(name)){
+            const value = stores[name];
+            return Array.isArray(value) ? value : [];
+          }
+          const fallback = previousStores[name] || [];
+          if(fallback.length){
+            console.warn('[Mishkah][POS] Remote snapshot missing store — preserving local data.', { store:name, count:fallback.length });
+          }
+          return fallback;
+        };
+        const ordersList = resolveStoreList('orders');
         ordersList.forEach(header=>{
           if(!header || !header.id) return;
           const normalized = {
@@ -2152,38 +2168,38 @@
           };
           storeMaps.orders.set(normalized.id, normalized);
         });
-        const lineList = Array.isArray(stores.orderLines) ? stores.orderLines : [];
+        const lineList = resolveStoreList('orderLines');
         lineList.forEach(line=>{
           if(!line || !line.orderId) return;
           const uid = line.uid || `${line.orderId}::${line.id || Math.random().toString(16).slice(2,8)}`;
           storeMaps.orderLines.set(uid, { ...line, uid });
         });
-        const noteList = Array.isArray(stores.orderNotes) ? stores.orderNotes : [];
+        const noteList = resolveStoreList('orderNotes');
         noteList.forEach(note=>{
           if(!note || !note.id) return;
           storeMaps.orderNotes.set(note.id, { ...note });
         });
-        const eventList = Array.isArray(stores.orderStatusLogs) ? stores.orderStatusLogs : [];
+        const eventList = resolveStoreList('orderStatusLogs');
         eventList.forEach(evt=>{
           if(!evt || !evt.id) return;
           storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
-        const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
+        const tempList = resolveStoreList(TEMP_STORE);
         tempList.forEach(record=>{
           if(!record || !record.id) return;
           storeMaps[TEMP_STORE].set(record.id, { ...record });
         });
-        const shiftList = Array.isArray(stores[SHIFT_STORE]) ? stores[SHIFT_STORE] : [];
+        const shiftList = resolveStoreList(SHIFT_STORE);
         shiftList.forEach(shift=>{
           const normalized = normalizeShiftRecord(shift);
           storeMaps[SHIFT_STORE].set(normalized.id, normalized);
         });
-        const metaList = Array.isArray(stores[META_STORE]) ? stores[META_STORE] : [];
+        const metaList = resolveStoreList(META_STORE);
         metaList.forEach(meta=>{
           const id = meta.id || meta.posId || 'default';
           storeMaps[META_STORE].set(id, { id, invoiceCounter: Number(meta.invoiceCounter || 0) });
         });
-        const syncList = Array.isArray(stores.syncLog) ? stores.syncLog : [];
+        const syncList = resolveStoreList('syncLog');
         syncList.forEach(entry=>{
           const ts = toTimestamp(entry.ts);
           storeMaps.syncLog.set(ts, { ts });
