@@ -200,6 +200,7 @@
             data-chart-type="line"
             data-chart-bind="data.analytics"
             data-chart-height="{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}"
+            style="min-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;"
             id="quick-sales-chart"
           ></canvas>
           <p
@@ -441,7 +442,22 @@
             pendingChartSync = null;
             if (!payload) return;
             try {
-              syncSalesChart(payload.state, payload.ctx);
+              var nextCtx = payload.ctx || window.MishkahAuto || null;
+              var nextState = payload.state;
+              if ((!nextState || !resolveAnalytics(nextState)) && nextCtx && typeof nextCtx.getState === 'function') {
+                try {
+                  nextState = nextCtx.getState();
+                } catch (stateErr) {
+                  nextState = nextCtx.state || nextState;
+                }
+              }
+              if (!nextState || !resolveAnalytics(nextState)) {
+                var autoSnapshot = resolveAutoState();
+                if (autoSnapshot && resolveAnalytics(autoSnapshot)) {
+                  nextState = autoSnapshot;
+                }
+              }
+              syncSalesChart(nextState, nextCtx);
             } catch (err) {
               console.warn('[Mishkah] failed to hydrate chart after waiting for API', err);
             }
@@ -747,7 +763,7 @@
           var chartApi = host && host.UI ? host.UI.Chart : null;
           applyLegendSwatches(state);
           if (!chartApi) {
-            scheduleChartSync(state, ctx);
+            scheduleChartSync(state, ctx || window.MishkahAuto || null);
             return;
           }
 
