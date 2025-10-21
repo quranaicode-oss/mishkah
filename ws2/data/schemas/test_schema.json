@@ -1,0 +1,26 @@
+{
+  "name": "scratchpad_schema",
+  "title": "Scratchpad",
+  "schema": {
+    "tables": [
+      {
+        "name": "scratchpad_entry",
+        "label": "Scratchpad Entry",
+        "comment": "Lightweight entries for lab scratchpad module.",
+        "sqlName": "scratchpad_entry",
+        "layout": { "x": 0, "y": 0 },
+        "classCode": "",
+        "fields": [
+          { "name": "id", "columnName": "entry_id", "type": "string", "nullable": false, "maxLength": 64, "primaryKey": true },
+          { "name": "branchId", "columnName": "branch_id", "type": "string", "nullable": false, "maxLength": 128 },
+          { "name": "clientUuid", "columnName": "client_uuid", "type": "string", "nullable": false, "maxLength": 128 },
+          { "name": "note", "columnName": "note", "type": "string", "nullable": true, "maxLength": 512 },
+          { "name": "payload", "columnName": "payload", "type": "json", "nullable": false, "defaultValue": {} },
+          { "name": "createdAt", "columnName": "created_at", "type": "timestamp", "nullable": false },
+          { "name": "serverAt", "columnName": "server_at", "type": "timestamp", "nullable": false }
+        ],
+        "indexes": []
+      }
+    ]
+  }
+}
