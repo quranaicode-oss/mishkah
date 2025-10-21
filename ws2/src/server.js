@@ -239,6 +239,137 @@ function summarizeTableCounts(snapshot = {}) {
   return counts;
 }
 
+function isPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toIsoTimestamp(value, fallback = nowIso()) {
+  if (value == null) return fallback;
+  if (typeof value === 'string' && value.trim()) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const date = new Date(numeric);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  return fallback;
+}
+
+function snapshotsEqual(a, b) {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch (_err) {
+    return false;
+  }
+}
+
+function normalizePosSnapshot(store, incomingSnapshot) {
+  if (!isPlainObject(incomingSnapshot)) return null;
+  if (!store.tables.includes('pos_database')) return null;
+
+  let dataset = null;
+  if (isPlainObject(incomingSnapshot.stores)) {
+    dataset = incomingSnapshot;
+  } else if (isPlainObject(incomingSnapshot.payload)) {
+    dataset = incomingSnapshot.payload;
+  } else if (
+    isPlainObject(incomingSnapshot.settings) ||
+    Array.isArray(incomingSnapshot.orders) ||
+    isPlainObject(incomingSnapshot.meta)
+  ) {
+    dataset = incomingSnapshot;
+  }
+
+  if (!dataset) return null;
+
+  const currentSnapshot = store.getSnapshot();
+  const existingRows = Array.isArray(currentSnapshot.tables?.pos_database)
+    ? currentSnapshot.tables.pos_database.map((row) => deepClone(row))
+    : [];
+  const lastPayload = existingRows.length ? existingRows[existingRows.length - 1]?.payload : null;
+
+  if (lastPayload && snapshotsEqual(lastPayload, dataset)) {
+    return currentSnapshot;
+  }
+
+  const nowTs = nowIso();
+  const meta = isPlainObject(dataset.meta) ? dataset.meta : {};
+  const baseId = meta.snapshotId || meta.id || meta.exportId || incomingSnapshot.id || null;
+  let recordId = baseId ? String(baseId) : createId(`${store.moduleId}-snapshot`);
+  if (existingRows.some((row) => row?.id === recordId && !snapshotsEqual(row.payload, dataset))) {
+    recordId = `${recordId}-${Date.now().toString(36)}`;
+  } else if (existingRows.some((row) => row?.id === recordId && snapshotsEqual(row.payload, dataset))) {
+    return currentSnapshot;
+  }
+
+  const createdAt = toIsoTimestamp(meta.exportedAt, nowTs);
+  const record = {
+    id: recordId,
+    branchId: store.branchId,
+    payload: deepClone(dataset),
+    createdAt,
+    updatedAt: nowTs
+  };
+
+  const nextRows = existingRows.concat([record]);
+  const version = Number.isFinite(Number(dataset.version))
+    ? Number(dataset.version)
+    : Number.isFinite(Number(incomingSnapshot.version))
+    ? Number(incomingSnapshot.version)
+    : (currentSnapshot.version || 0) + 1;
+
+  const nextMeta = currentSnapshot.meta && isPlainObject(currentSnapshot.meta) ? deepClone(currentSnapshot.meta) : {};
+  nextMeta.lastUpdatedAt = nowTs;
+  nextMeta.lastCentralSyncAt = nowTs;
+  nextMeta.centralVersion = version;
+
+  return {
+    moduleId: store.moduleId,
+    branchId: store.branchId,
+    version,
+    tables: { pos_database: nextRows },
+    meta: nextMeta
+  };
+}
+
+function normalizeIncomingSnapshot(store, incomingSnapshot) {
+  if (!incomingSnapshot || typeof incomingSnapshot !== 'object') return incomingSnapshot;
+  if (!incomingSnapshot.tables && isPlainObject(incomingSnapshot.snapshot)) {
+    return normalizeIncomingSnapshot(store, incomingSnapshot.snapshot);
+  }
+  if (isPlainObject(incomingSnapshot.tables)) {
+    const normalized = {
+      moduleId: store.moduleId,
+      branchId: store.branchId,
+      version: Number.isFinite(Number(incomingSnapshot.version))
+        ? Number(incomingSnapshot.version)
+        : store.version,
+      tables: {},
+      meta: isPlainObject(incomingSnapshot.meta) ? deepClone(incomingSnapshot.meta) : {}
+    };
+    for (const tableName of store.tables) {
+      const rows = Array.isArray(incomingSnapshot.tables?.[tableName])
+        ? incomingSnapshot.tables[tableName].map((row) => deepClone(row))
+        : [];
+      normalized.tables[tableName] = rows;
+    }
+    return normalized;
+  }
+
+  const posSnapshot = normalizePosSnapshot(store, incomingSnapshot);
+  if (posSnapshot) {
+    return posSnapshot;
+  }
+
+  return incomingSnapshot;
+}
+
 function ensureInsertOnlySnapshot(store, incomingSnapshot) {
   const currentSnapshot = store.getSnapshot();
   const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
@@ -293,6 +424,7 @@ async function applySyncSnapshot(branchId, moduleId, snapshot = {}, context = {}
   try {
     if (moduleSnapshot) {
       const store = await ensureModuleStore(branchId, moduleId);
+      moduleSnapshot = normalizeIncomingSnapshot(store, moduleSnapshot);
       const validation = ensureInsertOnlySnapshot(store, moduleSnapshot);
       if (!validation.ok) {
         throw createInsertOnlyViolation({ ...validation, branchId, moduleId });
@@ -967,6 +1099,27 @@ async function handleBranchesApi(req, res, url) {
   }
 
   if (tail.length === 1 && tail[0] === 'events') {
+    if (req.method === 'GET') {
+      const events = Array.isArray(snapshot.tables?.pos_database)
+        ? snapshot.tables.pos_database.map((row) => ({
+            id: row.id,
+            branchId: row.branchId,
+            createdAt: row.createdAt || null,
+            updatedAt: row.updatedAt || null,
+            payload: row.payload ? deepClone(row.payload) : null
+          }))
+        : [];
+      jsonResponse(res, 200, {
+        branchId,
+        moduleId,
+        version: snapshot.version,
+        updatedAt: snapshot.meta?.lastUpdatedAt || null,
+        serverId: SERVER_ID,
+        events,
+        snapshot: deepClone(snapshot)
+      });
+      return;
+    }
     if (req.method !== 'POST') {
       jsonResponse(res, 405, { error: 'method-not-allowed' });
       return;
