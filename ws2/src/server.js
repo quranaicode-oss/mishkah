@@ -21,7 +21,8 @@ const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 3200);
 const SERVER_ID = process.env.SERVER_ID || createId('ws');
 const BRANCHES_DIR = process.env.BRANCHES_DIR || path.join(ROOT_DIR, 'data', 'branches');
-const SCHEMA_PATH = process.env.WS_SCHEMA_PATH || path.join(STATIC_DIR, 'POS_schema.json');
+const SCHEMA_PATH =
+  process.env.WS_SCHEMA_PATH || path.join(ROOT_DIR, 'data', 'schemas', 'pos_schema.json');
 const MODULES_CONFIG_PATH = process.env.MODULES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'modules.json');
 const BRANCHES_CONFIG_PATH = process.env.BRANCHES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'branches.config.json');
 const HISTORY_DIR = process.env.HISTORY_DIR || path.join(ROOT_DIR, 'data', 'history');
