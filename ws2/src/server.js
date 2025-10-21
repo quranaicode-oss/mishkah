@@ -230,17 +230,84 @@ async function ensureSyncState(branchId, moduleId) {
   return state;
 }
 
+function summarizeTableCounts(snapshot = {}) {
+  const counts = {};
+  const tables = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
+  for (const [tableName, rows] of Object.entries(tables)) {
+    counts[tableName] = Array.isArray(rows) ? rows.length : 0;
+  }
+  return counts;
+}
+
+function ensureInsertOnlySnapshot(store, incomingSnapshot) {
+  const currentSnapshot = store.getSnapshot();
+  const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
+  const incomingTables = incomingSnapshot.tables && typeof incomingSnapshot.tables === 'object' ? incomingSnapshot.tables : {};
+
+  for (const tableName of requiredTables) {
+    const incomingRows = incomingTables[tableName];
+    if (!Array.isArray(incomingRows)) {
+      return {
+        ok: false,
+        reason: 'missing-table',
+        tableName
+      };
+    }
+    const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
+    if (incomingRows.length < currentRows.length) {
+      return {
+        ok: false,
+        reason: 'row-count-decreased',
+        tableName,
+        currentCount: currentRows.length,
+        incomingCount: incomingRows.length
+      };
+    }
+    for (let idx = 0; idx < currentRows.length; idx += 1) {
+      const currentRow = currentRows[idx];
+      const incomingRow = incomingRows[idx];
+      if (JSON.stringify(currentRow) !== JSON.stringify(incomingRow)) {
+        return {
+          ok: false,
+          reason: 'row-modified',
+          tableName,
+          index: idx
+        };
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+function createInsertOnlyViolation(details) {
+  const error = new Error('Incoming snapshot violates insert-only policy.');
+  error.code = 'INSERT_ONLY_VIOLATION';
+  error.details = details;
+  return error;
+}
+
 async function applySyncSnapshot(branchId, moduleId, snapshot = {}, context = {}) {
   const key = syncStateKey(branchId, moduleId);
   let moduleSnapshot = snapshot && typeof snapshot === 'object' ? deepClone(snapshot) : null;
   try {
     if (moduleSnapshot) {
       const store = await ensureModuleStore(branchId, moduleId);
+      const validation = ensureInsertOnlySnapshot(store, moduleSnapshot);
+      if (!validation.ok) {
+        throw createInsertOnlyViolation({ ...validation, branchId, moduleId });
+      }
       moduleSnapshot = store.replaceTablesFromSnapshot(moduleSnapshot, { ...context, branchId, moduleId });
       await persistModuleStore(store);
     }
   } catch (error) {
+    if (error?.code === 'INSERT_ONLY_VIOLATION') {
+      const counts = { before: summarizeTableCounts(SYNC_STATES.get(key)?.moduleSnapshot || {}), after: summarizeTableCounts(moduleSnapshot || {}) };
+      logger.warn({ branchId, moduleId, violation: error.details, counts }, 'Rejected destructive sync snapshot');
+      throw error;
+    }
     logger.warn({ err: error, branchId, moduleId }, 'Failed to persist sync snapshot');
+    moduleSnapshot = null;
   }
   if (!moduleSnapshot) {
     const fallback = await ensureSyncState(branchId, moduleId);
@@ -383,7 +450,29 @@ async function handlePubsubFrame(client, frame) {
       if (descriptor) {
         let state = await ensureSyncState(descriptor.branchId, descriptor.moduleId);
         if (frameData.snapshot && typeof frameData.snapshot === 'object') {
-          state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, { origin: 'ws', clientId: client.id });
+          try {
+            state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, {
+              origin: 'ws',
+              clientId: client.id
+            });
+          } catch (error) {
+            if (error?.code === 'INSERT_ONLY_VIOLATION') {
+              sendToClient(client, {
+                type: 'error',
+                code: 'insert-only-violation',
+                message: error.message,
+                details: error.details || null
+              });
+              return;
+            }
+            logger.warn({ err: error, branchId: descriptor.branchId, moduleId: descriptor.moduleId }, 'Failed to apply sync snapshot from WS');
+            sendToClient(client, {
+              type: 'error',
+              code: 'sync-snapshot-failed',
+              message: error?.message || 'Failed to apply snapshot.'
+            });
+            return;
+          }
         }
         await broadcastSyncUpdate(descriptor.branchId, descriptor.moduleId, state, {
           action: frameData.action,
@@ -773,7 +862,22 @@ async function handleSyncApi(req, res, url) {
     }
     const frameData = body && typeof body === 'object' ? body : {};
     const snapshot = frameData.snapshot && typeof frameData.snapshot === 'object' ? frameData.snapshot : null;
-    const state = await applySyncSnapshot(branchId, moduleId, snapshot, { origin: 'http', requestId: frameData.requestId || null });
+    let state;
+    try {
+      state = await applySyncSnapshot(branchId, moduleId, snapshot, { origin: 'http', requestId: frameData.requestId || null });
+    } catch (error) {
+      if (error?.code === 'INSERT_ONLY_VIOLATION') {
+        jsonResponse(res, 409, {
+          error: 'insert-only-violation',
+          message: error.message,
+          details: error.details || null
+        });
+        return true;
+      }
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to apply sync snapshot via HTTP');
+      jsonResponse(res, 500, { error: 'sync-snapshot-failed', message: error?.message || 'Failed to apply snapshot.' });
+      return true;
+    }
     await broadcastSyncUpdate(branchId, moduleId, state, {
       action: frameData.action,
       mutationId: frameData.mutationId,
