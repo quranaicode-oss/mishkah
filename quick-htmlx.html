@@ -407,73 +407,76 @@
         var DEFAULT_MONTHS_EN = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
         var DEFAULT_MONTHS_AR = 'يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر'.split('|');
         var SALES_PALETTE = '#38bdf8,#f97316,#a855f7,#22c55e,#facc15,#ef4444'.split(',');
-        var pendingChartSync = null;
-        var chartSyncScheduled = false;
-        var CHART_READY_MAX_ATTEMPTS = 24;
-        var CHART_INITIAL_MAX_ATTEMPTS = 24;
-        var CHART_INITIAL_RETRY_DELAY = 120;
-        var CHART_SYNC_RETRY_DELAY = 140;
+        var chartHydrationTimer = null;
+        var chartHydrationAttempts = 0;
+        var CHART_HYDRATION_MAX_ATTEMPTS = 80;
+        var CHART_HYDRATION_BASE_DELAY = 12;
+        var CHART_HYDRATION_STEP = 36;
 
-        function whenChartApiReady(callback, attempt) {
-          var tries = typeof attempt === 'number' ? attempt : 0;
-          var host = window.Mishkah || window.Mishka || null;
-          var chartApi = host && host.UI ? host.UI.Chart : null;
-          if (chartApi) {
-            if (typeof callback === 'function') callback(chartApi);
-            return;
+        function resetChartHydrationBackoff() {
+          if (chartHydrationTimer) {
+            window.clearTimeout(chartHydrationTimer);
+            chartHydrationTimer = null;
           }
-          if (tries >= CHART_READY_MAX_ATTEMPTS) {
-            chartSyncScheduled = false;
-            if (pendingChartSync) {
-              console.warn('[Mishkah] Chart API was not ready in time for auto hydration');
-            }
-            return;
-          }
-          var delay = Math.min(600, 40 * (tries + 1));
-          window.setTimeout(function () {
-            whenChartApiReady(callback, tries + 1);
+          chartHydrationAttempts = 0;
+        }
+
+        function scheduleChartHydrationRetry() {
+          if (chartHydrationAttempts >= CHART_HYDRATION_MAX_ATTEMPTS) return;
+          var delay = Math.min(900, CHART_HYDRATION_BASE_DELAY + chartHydrationAttempts * CHART_HYDRATION_STEP);
+          chartHydrationTimer = window.setTimeout(function () {
+            chartHydrationTimer = null;
+            attemptChartHydration();
           }, delay);
         }
 
-        function scheduleChartSync(state, ctx, attempt) {
-          var tries = typeof attempt === 'number' && attempt >= 0 ? attempt : 0;
-          if (pendingChartSync && typeof pendingChartSync.attempt === 'number' && pendingChartSync.attempt > tries) {
-            tries = pendingChartSync.attempt;
+        function performChartHydration(providedState, providedCtx) {
+          var context = providedCtx || window.MishkahAuto || null;
+          var snapshot = providedState;
+          if (!snapshot && typeof resolveAutoState === 'function') {
+            snapshot = resolveAutoState();
           }
-          pendingChartSync = { state: state, ctx: ctx, attempt: tries };
-          if (chartSyncScheduled) return;
-          chartSyncScheduled = true;
-          whenChartApiReady(function () {
-            chartSyncScheduled = false;
-            var payload = pendingChartSync;
-            pendingChartSync = null;
-            if (!payload) return;
-            try {
-              var nextCtx = payload.ctx || window.MishkahAuto || null;
-              var nextState = payload.state;
-              if ((!nextState || !resolveAnalytics(nextState)) && nextCtx && typeof nextCtx.getState === 'function') {
-                try {
-                  nextState = nextCtx.getState();
-                } catch (stateErr) {
-                  nextState = nextCtx.state || nextState;
-                }
+          if (!snapshot && context) {
+            if (typeof context.getState === 'function') {
+              try {
+                snapshot = context.getState();
+              } catch (stateErr) {
+                snapshot = context.state || snapshot;
               }
-              if (!nextState || !resolveAnalytics(nextState)) {
-                var autoSnapshot = resolveAutoState();
-                if (autoSnapshot && resolveAnalytics(autoSnapshot)) {
-                  nextState = autoSnapshot;
-                }
-              }
-              var success = syncSalesChart(nextState, nextCtx);
-              if (!success && payload.attempt < CHART_READY_MAX_ATTEMPTS) {
-                window.setTimeout(function () {
-                  scheduleChartSync(nextState, nextCtx, payload.attempt + 1);
-                }, Math.min(420, CHART_SYNC_RETRY_DELAY * (payload.attempt + 1)));
-              }
-            } catch (err) {
-              console.warn('[Mishkah] failed to hydrate chart after waiting for API', err);
+            } else if (context.state) {
+              snapshot = context.state;
             }
-          });
+          }
+          var success = false;
+          try {
+            success = syncSalesChart(snapshot, context);
+          } catch (err) {
+            console.warn('[Mishkah] quick dashboard chart hydration attempt failed', err);
+          }
+          if (snapshot) {
+            ensureCountdownLoop(snapshot);
+          } else {
+            var fallback = typeof resolveAutoState === 'function' ? resolveAutoState() : null;
+            if (fallback) ensureCountdownLoop(fallback);
+          }
+          return !!success;
+        }
+
+        function attemptChartHydration(providedState, providedCtx, resetAttempts) {
+          if (resetAttempts) {
+            resetChartHydrationBackoff();
+          } else if (chartHydrationTimer) {
+            window.clearTimeout(chartHydrationTimer);
+            chartHydrationTimer = null;
+          }
+          var success = performChartHydration(providedState, providedCtx);
+          if (success) {
+            resetChartHydrationBackoff();
+            return true;
+          }
+          chartHydrationAttempts += 1;
+          scheduleChartHydrationRetry();
+          return false;
         }
 
         function numericList(values) {
@@ -779,7 +782,6 @@
           var chartApi = host && host.UI ? host.UI.Chart : null;
           applyLegendSwatches(state);
           if (!chartApi) {
-            scheduleChartSync(state, context);
             return false;
           }
 
@@ -991,7 +993,17 @@
             next.data.metrics.revenue = Math.round(computedRevenue);
             next.data.metrics.orders = Math.max(0, Math.round(computedOrders));
           }, function (latest) {
-            syncSalesChart(latest, ctx);
+            var hydrated = false;
+            try {
+              hydrated = syncSalesChart(latest, ctx);
+            } catch (errHydrate) {
+              console.warn('[Mishkah] failed to sync chart after cart randomization', errHydrate);
+            }
+            if (hydrated) {
+              resetChartHydrationBackoff();
+            } else {
+              attemptChartHydration(null, null, false);
+            }
           });
         }
 
@@ -1009,77 +1021,55 @@
         }
 
         function initialChartKickoff() {
-          var attempts = 0;
-          var done = false;
+          attemptChartHydration(null, null, true);
+        }
 
-          var attemptSync = function () {
-            if (done) return;
-            var canvas = document.getElementById('quick-sales-chart');
-            if (!canvas) {
-              if (attempts < CHART_INITIAL_MAX_ATTEMPTS) {
-                attempts += 1;
-                window.setTimeout(attemptSync, Math.min(360, 40 * (attempts + 1)));
-              }
-              return;
-            }
-            var context = window.MishkahAuto || null;
-            var snapshot = resolveAutoState();
-            var success = false;
-            try {
-              success = syncSalesChart(snapshot, context);
-            } catch (err) {
-              console.warn('[Mishkah] failed to sync chart during kickoff', err);
-            }
-            var countdownState = snapshot;
-            if (!countdownState) {
-              countdownState = resolveAutoState();
-              if (!countdownState && context) {
-                try {
-                  countdownState = context.getState ? context.getState() : context.state;
-                } catch (_errState) {
-                  countdownState = context && context.state ? context.state : null;
-                }
-              }
-            }
-            ensureCountdownLoop(countdownState || snapshot);
-            if (success) {
-              done = true;
-              return;
-            }
-            if (attempts < CHART_INITIAL_MAX_ATTEMPTS) {
-              attempts += 1;
-              window.setTimeout(attemptSync, Math.min(720, CHART_INITIAL_RETRY_DELAY * (attempts + 1)));
-            }
-          };
-
-          if (window.MishkahAuto && typeof window.MishkahAuto.ready === 'function') {
-            var readyResult = window.MishkahAuto.ready(function () {
-              attemptSync();
-            });
-            if (readyResult && typeof readyResult.catch === 'function') {
-              readyResult.catch(function () {
-                attemptSync();
-              });
-            }
-          } else {
-            attemptSync();
-          }
+        function scheduleAutoHydrationKick() {
+          attemptChartHydration(null, window.MishkahAuto || null, false);
         }
 
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', initialChartKickoff, { once: true });
+          document.addEventListener(
+            'DOMContentLoaded',
+            function () {
+              window.setTimeout(initialChartKickoff, 16);
+            },
+            { once: true }
+          );
         } else {
-          initialChartKickoff();
+          window.setTimeout(initialChartKickoff, 16);
+        }
+
+        if (window.MishkahAuto && typeof window.MishkahAuto.ready === 'function') {
+          var readyResult = window.MishkahAuto.ready(function () {
+            window.setTimeout(scheduleAutoHydrationKick, 10);
+          });
+          if (readyResult && typeof readyResult.catch === 'function') {
+            readyResult.catch(function () {
+              window.setTimeout(scheduleAutoHydrationKick, 10);
+            });
+          }
+        } else {
+          window.addEventListener('mishkah:auto-ready', function handleAutoKick() {
+            window.removeEventListener('mishkah:auto-ready', handleAutoKick);
+            window.setTimeout(scheduleAutoHydrationKick, 10);
+          });
         }
 
         function wireAutoState() {
           window.MishkahAuto.onState(function (snapshot) {
+            var hydrated = false;
             try {
-              syncSalesChart(snapshot, window.MishkahAuto || null);
+              hydrated = syncSalesChart(snapshot, window.MishkahAuto || null);
             } catch (err) {
               console.warn('[Mishkah] failed to sync chart from state', err);
             }
             ensureCountdownLoop(snapshot);
+            if (hydrated) {
+              resetChartHydrationBackoff();
+            } else {
+              attemptChartHydration(null, null, false);
+            }
           });
         }
 
@@ -1090,9 +1080,8 @@
             window.removeEventListener('mishkah:auto-ready', handleAutoReady);
             if (window.MishkahAuto && typeof window.MishkahAuto.onState === 'function') {
               wireAutoState();
-            } else {
-              initialChartKickoff();
             }
+            window.setTimeout(scheduleAutoHydrationKick, 10);
           });
         }
       </script>
