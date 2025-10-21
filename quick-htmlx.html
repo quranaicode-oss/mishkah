@@ -404,16 +404,63 @@
           }
         }
 
-        var DEFAULT_MONTHS_EN = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
-        var DEFAULT_MONTHS_AR = 'يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر'.split('|');
-        var SALES_PALETTE = '#38bdf8,#f97316,#a855f7,#22c55e,#facc15,#ef4444'.split(',');
-        var quickHydration = {
-          timer: null,
-          attempts: 0,
-          maxAttempts: 120,
-          ctx: null,
-          snapshot: undefined
-        };
+        function ensureSalesPalette() {
+          var root = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+          var palette = root && root.__mkQuickDashboardPalette;
+          if (!Array.isArray(palette) || !palette.length) {
+            palette = '#38bdf8,#f97316,#a855f7,#22c55e,#facc15,#ef4444'.split(',');
+            if (root) root.__mkQuickDashboardPalette = palette;
+          }
+          return palette;
+        }
+
+        function ensureQuickHydrationState() {
+          var root = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+          var state = root && root.__mkQuickDashboardHydration;
+          if (!state || typeof state !== 'object') {
+            state = {
+              timer: null,
+              attempts: 0,
+              maxAttempts: 120,
+              ctx: null,
+              snapshot: undefined
+            };
+            if (root) root.__mkQuickDashboardHydration = state;
+          } else {
+            if (!Number.isFinite(state.maxAttempts) || state.maxAttempts <= 0) {
+              state.maxAttempts = 120;
+            }
+            if (!Object.prototype.hasOwnProperty.call(state, 'snapshot')) {
+              state.snapshot = undefined;
+            }
+          }
+          return state;
+        }
+
+        function markAutoConnection(auto) {
+          if (!auto) return false;
+          var root = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+          var bucket = root && root.__mkQuickDashboardAutoConnections;
+          if (!bucket) {
+            if (typeof WeakSet === 'function') {
+              bucket = { kind: 'weak', store: new WeakSet() };
+            } else {
+              bucket = { kind: 'list', store: [] };
+            }
+            if (root) root.__mkQuickDashboardAutoConnections = bucket;
+          }
+          if (bucket.kind === 'weak' && bucket.store) {
+            if (bucket.store.has(auto)) return false;
+            bucket.store.add(auto);
+            return true;
+          }
+          if (bucket.store && typeof bucket.store.push === 'function') {
+            if (bucket.store.indexOf(auto) !== -1) return false;
+            bucket.store.push(auto);
+            return true;
+          }
+          return !auto.__mkQuickDashboardConnected;
+        }
 
         function runQuickDashboardHydration(ctx, snapshot) {
           var context = ctx || window.MishkahAuto || null;
@@ -444,6 +491,7 @@
         }
 
         function queueQuickDashboardHydration(options) {
+          var quickHydration = ensureQuickHydrationState();
           var opts = options || {};
           if (opts.ctx) quickHydration.ctx = opts.ctx;
           if (Object.prototype.hasOwnProperty.call(opts, 'snapshot')) {
@@ -545,7 +593,10 @@
             }
           }
           if (!list.length) {
-            list = (lang === 'ar' ? DEFAULT_MONTHS_AR : DEFAULT_MONTHS_EN).slice();
+            list = (lang === 'ar'
+              ? ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+              : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            ).slice();
           }
           return list
             .map(function (label) {
@@ -636,8 +687,9 @@
         }
 
         function pickPaletteColor(index) {
-          if (!SALES_PALETTE.length) return '#38bdf8';
-          return SALES_PALETTE[index % SALES_PALETTE.length];
+          var palette = ensureSalesPalette();
+          if (!palette.length) return '#38bdf8';
+          return palette[index % palette.length];
         }
 
         function ensureSeriesLength(values, count) {
@@ -1004,18 +1056,16 @@
           return auto.state || null;
         }
 
-        var autoConnections = typeof WeakSet === 'function' ? new WeakSet() : null;
-
         function connectAutoState(auto) {
           if (!auto || typeof auto.onState !== 'function') return;
-          if (autoConnections) {
-            if (autoConnections.has(auto)) return;
-            autoConnections.add(auto);
-          } else if (auto.__mkQuickDashboardConnected) {
-            return;
-          } else {
-            auto.__mkQuickDashboardConnected = true;
+          var fresh = true;
+          try {
+            fresh = markAutoConnection(auto);
+          } catch (_errMark) {
+            fresh = !auto.__mkQuickDashboardConnected;
           }
+          if (!fresh) return;
+          auto.__mkQuickDashboardConnected = true;
           auto.onState(function (snapshot) {
             ensureCountdownLoop(snapshot || null);
             queueQuickDashboardHydration({ ctx: auto, snapshot: snapshot, immediate: true });
