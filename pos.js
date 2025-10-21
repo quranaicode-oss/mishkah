@@ -1,4 +1,3 @@
-console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
 
 
 (async function(){
@@ -173,10 +172,14 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
 
     const centralDiagnosticsStore = createDiagnosticsStore(250);
 
-    const pushCentralDiagnostic = (entry)=> centralDiagnosticsStore.push({
-      ...entry,
-      source: entry?.source || 'central-sync'
-    });
+    const pushCentralDiagnostic = (entry)=>{
+      const level = typeof entry?.level === 'string' ? entry.level.toLowerCase() : 'info';
+      if(level !== 'warn' && level !== 'error') return null;
+      return centralDiagnosticsStore.push({
+        ...entry,
+        source: entry?.source || 'central-sync'
+      });
+    };
 
     const clearCentralDiagnostics = ()=> centralDiagnosticsStore.clear();
     const normalizeEndpointString = (value)=>{
@@ -238,12 +241,30 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       if(protocol === 'file:') return true;
       return hostname.endsWith('.github.io');
     })();
-    const REMOTE_CONFIG = { endpoint:'https://quranaicode-oss.github.io/mishkah/r/j', payload:{ tb:'pos_database_view' }, timeout:12000 };
+    const BRANCH_PARAM = (typeof window !== 'undefined' && window.POS_BRANCH_PARAM)
+      ? String(window.POS_BRANCH_PARAM).trim()
+      : '';
+    const CANONICAL_BRANCH_ID = BRANCH_PARAM || 'dar';
+    const BRANCH_ROUTE_SEGMENT = encodeURIComponent(CANONICAL_BRANCH_ID);
+    const BRANCH_MODULE_ROUTE = `/api/branches/${BRANCH_ROUTE_SEGMENT}/modules/pos`;
+    const BRANCH_EVENTS_ROUTE = `${BRANCH_MODULE_ROUTE}/events`;
+    const REMOTE_CONFIG = { endpoint: BRANCH_MODULE_ROUTE, payload:null, timeout:12000 };
     const extractRemotePayload = (response)=>{
       if(!response || typeof response !== 'object') return null;
       if(response.result && typeof response.result === 'object') return response.result;
       if(response.payload && typeof response.payload === 'object') return response.payload;
       if(response.data && typeof response.data === 'object' && !Array.isArray(response.data)) return response.data;
+      if(response.tables && response.tables.pos_database){
+        const entries = Array.isArray(response.tables.pos_database) ? response.tables.pos_database : [];
+        const latest = entries.length ? entries[entries.length - 1] : null;
+        if(latest){
+          if(latest.payload && typeof latest.payload === 'object') return latest.payload;
+          if(latest.data && typeof latest.data === 'object') return latest.data;
+        }
+      }
+      if(response.snapshot && typeof response.snapshot === 'object'){
+        return extractRemotePayload(response.snapshot);
+      }
       const pure = Mishkah.utils.helpers.getPureJson(response);
       if(!pure) return null;
       let payload = pure;
@@ -251,7 +272,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         payload = pure.find(entry=> entry && typeof entry === 'object' && !Array.isArray(entry)) || null;
       }
       if(payload && typeof payload === 'object' && !Array.isArray(payload)){
-        console.log("ajax pos data", payload);
         return payload;
       }
       return null;
@@ -282,140 +302,19 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         status.status = 'loading';
         status.startedAt = Date.now();
         try{
-          const normalizeStatusCode = (error)=>{
-            if(!error || typeof error !== 'object') return undefined;
-            if(typeof error.status === 'number') return error.status;
-            if(error.response && typeof error.response.status === 'number') return error.response.status;
-            const message = typeof error.message === 'string' ? error.message : '';
-            const match = message.match(/HTTP\s+(\d{3})/i);
-            if(match) return Number(match[1]);
-            return undefined;
-          };
-          const shouldFallbackToGet = (error)=>{
-            const code = normalizeStatusCode(error);
-            if(code === 405) return true;
-            if(typeof error?.message === 'string'){
-              const msg = error.message.toLowerCase();
-              if(msg.includes('405') || msg.includes('method not allowed')) return true;
-              if(msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) return true;
-            }
-            if(error && typeof error === 'object'){
-              if(error.name === 'TypeError') return true;
-              if(error.cause && error.cause !== error) return shouldFallbackToGet(error.cause);
-            }
-            return false;
-          };
-          const buildGetEndpoint = ()=>{
-            const endpoint = REMOTE_CONFIG.endpoint || './r/j';
-            const payload = REMOTE_CONFIG.payload || {};
-            const params = new URLSearchParams();
-            Object.keys(payload).forEach(key=>{
-              const value = payload[key];
-              if(value === undefined || value === null) return;
-              if(Array.isArray(value)){
-                value.forEach(entry=>{
-                  if(entry === undefined || entry === null) return;
-                  const normalized = typeof entry === 'object' ? JSON.stringify(entry) : String(entry);
-                  params.append(key, normalized);
-                });
-                return;
-              }
-              const normalized = typeof value === 'object' ? JSON.stringify(value) : String(value);
-              params.append(key, normalized);
-            });
-            const query = params.toString();
-            if(!query) return endpoint;
-            return `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}`;
-          };
-          const requestHeaders = {
-            'Content-Type':'application/json',
-            'Accept':'application/json, text/plain, */*'
-          };
-          const attemptPost = async()=>{
-            if(Net && typeof Net.post === 'function'){
-              return Net.post(REMOTE_CONFIG.endpoint, {
-                body: REMOTE_CONFIG.payload,
-                headers: requestHeaders,
-                timeout: REMOTE_CONFIG.timeout,
-                responseType:'json'
-              });
-            }
-            if(Net && typeof Net.ajax === 'function'){
-              return Net.ajax(REMOTE_CONFIG.endpoint, {
-                method:'POST',
-                headers: requestHeaders,
-                body: REMOTE_CONFIG.payload,
-                responseType:'json',
-                timeout: REMOTE_CONFIG.timeout
-              });
-            }
-            if(typeof fetch === 'function'){
-              const res = await fetch(REMOTE_CONFIG.endpoint, {
-                method:'POST',
-                headers: requestHeaders,
-                body: JSON.stringify(REMOTE_CONFIG.payload)
-              });
-              if(!res.ok){
-                const error = new Error(`HTTP ${res.status}`);
-                error.status = res.status;
-                error.response = res;
-                throw error;
-              }
-              return res.json();
-            }
-            throw new Error('Networking unavailable');
-          };
-          const attemptGet = async()=>{
-            status.method = 'GET';
-            status.usedFallback = true;
-            if(Net && typeof Net.get === 'function'){
-              return Net.get(REMOTE_CONFIG.endpoint, {
-                query: REMOTE_CONFIG.payload,
-                headers:{ Accept: requestHeaders.Accept },
-                timeout: REMOTE_CONFIG.timeout,
-                responseType:'json'
-              });
-            }
-            if(Net && typeof Net.ajax === 'function'){
-              return Net.ajax(REMOTE_CONFIG.endpoint, {
-                method:'GET',
-                headers:{ Accept: requestHeaders.Accept },
-                query: REMOTE_CONFIG.payload,
-                responseType:'json',
-                timeout: REMOTE_CONFIG.timeout
-              });
-            }
-            if(typeof fetch === 'function'){
-              const res = await fetch(buildGetEndpoint(), {
-                method:'GET',
-                headers:{ Accept: requestHeaders.Accept }
-              });
-              if(!res.ok){
-                const error = new Error(`HTTP ${res.status}`);
-                error.status = res.status;
-                error.response = res;
-                throw error;
-              }
-              return res.json();
-            }
-            throw new Error('Networking unavailable');
-          };
-          let response = null;
-          try{
-            response = await attemptPost();
-          } catch(postError){
-            status.method = 'POST';
-            if(!shouldFallbackToGet(postError)) throw postError;
-            console.info('[Mishkah][POS] POST endpoint rejected, retrying with GET fallback.', postError);
-            try{
-              response = await attemptGet();
-            } catch(getError){
-              if(!getError.previous && typeof getError === 'object') getError.previous = postError;
-              throw getError;
-            }
+          if(typeof fetch !== 'function'){
+            throw new Error('Fetch API unavailable');
           }
-          const data = extractRemotePayload(response);
+          const response = await fetch(REMOTE_CONFIG.endpoint, { cache:'no-store' });
+          if(!response.ok){
+            const err = new Error(`HTTP ${response.status}`);
+            err.status = response.status;
+            throw err;
+          }
+          const payload = await response.json();
+          const data = extractRemotePayload(payload);
           status.finishedAt = Date.now();
+          status.method = 'GET';
           if(data && typeof data === 'object'){
             status.status = 'ready';
             status.keys = Object.keys(data);
@@ -427,36 +326,35 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           status.status = 'error';
           status.error = error;
           status.finishedAt = Date.now();
-          if(!status.usedFallback) status.method = 'POST';
+          status.method = 'GET';
           return { data:null, error, status };
         }
       })();
       return { status, promise };
     }
     const dataSource = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
-    async function fetchServerSnapshot(branch = 'pos:sync:branch-main'){
+    async function fetchServerSnapshot(){
       if(typeof window === 'undefined') return null;
+      if(!BRANCH_MODULE_ROUTE) return null;
       try{
-        const response = await fetch(`/api/state?branch=${encodeURIComponent(branch)}`, { cache:'no-store' });
+        const response = await fetch(BRANCH_MODULE_ROUTE, { cache:'no-store' });
         if(!response.ok) throw new Error(`HTTP ${response.status}`);
         return await response.json();
       } catch(error){
-        console.warn('[Mishkah][POS] Failed to fetch server snapshot.', { branch, error });
+        console.error('[Mishkah][POS] Failed to fetch branch snapshot.', { branch: CANONICAL_BRANCH_ID, error });
         return null;
       }
     }
-    async function fetchServerOrders(){
-      if(typeof window === 'undefined') return null;
-      try{
-        const response = await fetch('/api/orders', { cache:'no-store' });
-        if(!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.json();
-      } catch(error){
-        console.warn('[Mishkah][POS] Failed to fetch server orders.', error);
-        return null;
-      }
+
+    function extractDatasetFromSnapshot(snapshot){
+      if(!snapshot || typeof snapshot !== 'object') return null;
+      const payload = extractRemotePayload(snapshot);
+      if(payload && typeof payload === 'object') return payload;
+      return null;
     }
+
     async function loadInitialDataset(){
+
       if(typeof window === 'undefined') return {};
       if(dataSource){
         try {
@@ -471,22 +369,17 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         }
       }
       const serverState = await fetchServerSnapshot();
-      const ordersState = await fetchServerOrders();
-      if(serverState && typeof serverState.snapshot === 'object'){
-        if(ordersState && Array.isArray(ordersState.orders)){
-          console.log('[Mishkah][POS] Bootstrap orders from server', ordersState.orders.length);
-          serverState.snapshot.orders = ordersState.orders;
-          serverState.snapshot.ordersHistory = ordersState.orders;
-        }
-        window.__WS2_SERVER_BOOTSTRAP__ = serverState;
-        window.database = serverState.snapshot;
-        return serverState.snapshot;
+      const dataset = extractDatasetFromSnapshot(serverState);
+      if(dataset){
+        const bootstrap = { branch: CANONICAL_BRANCH_ID, module:'pos', snapshot: dataset, source:'branch-api' };
+        window.__WS2_SERVER_BOOTSTRAP__ = bootstrap;
+        window.database = dataset;
+        return dataset;
       }
       const fallback = window.database && typeof window.database === 'object' ? window.database : {};
       return fallback || {};
     }
     const initialDataset = await loadInitialDataset();
-    console.log('[Mishkah][POS] bootstrap dataset', { hasOrders: Array.isArray(initialDataset?.orders) ? initialDataset.orders.length : 0 });
     let MOCK_BASE = cloneDeep(initialDataset);
     let MOCK = cloneDeep(MOCK_BASE);
     let PAYMENT_METHODS = derivePaymentMethods(MOCK);
@@ -575,13 +468,12 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
     const disableRealtimeInStaticDemo = isStaticDemoEnvironment && !allowStaticRealtime;
     if(disableRealtimeInStaticDemo){
       const hostname = typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location.hostname : null;
-      console.info('[Mishkah][POS] Static demo host detected, disabling realtime endpoints.', { hostname });
     }
-    const remoteHydrator = createRemoteHydrator({ skip: disableRealtimeInStaticDemo });
+    const remoteHydrator = createRemoteHydrator({ skip: disableRealtimeInStaticDemo || !BRANCH_MODULE_ROUTE });
     const remoteStatus = remoteHydrator.status;
     const initialRemoteSnapshot = snapshotRemoteStatus(remoteStatus);
     const branchSettings = ensurePlainObject(settings.branch);
-    const DEFAULT_BRANCH_CHANNEL = 'branch-main'; // غيّر هذه القيمة لتبديل قناة POS وKDS معًا.
+    const DEFAULT_BRANCH_CHANNEL = CANONICAL_BRANCH_ID || 'branch-main'; // غيّر هذه القيمة لتبديل قناة POS وKDS معًا.
     const branchChannelSource = syncSettings.channel
       || syncSettings.branch_channel
       || syncSettings.branchChannel
@@ -1597,7 +1489,7 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         orders: new Map(),
         orderLines: new Map(),
         orderNotes: new Map(),
-        orderEvents: new Map(),
+        orderStatusLogs: new Map(),
         [SHIFT_STORE]: new Map(),
         [META_STORE]: new Map(),
         [TEMP_STORE]: new Map(),
@@ -1617,7 +1509,7 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
             },
             orderLines:{ keyPath:'uid', indices:[{ name:'by_order', keyPath:'orderId' }] },
             orderNotes:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
-            orderEvents:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
+            orderStatusLogs:{ keyPath:'id', indices:[{ name:'by_order', keyPath:'orderId' }] },
             [SHIFT_STORE]:{
               keyPath:'id',
               indices:[
@@ -1763,6 +1655,50 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         const id = line.id || `${orderId}::${line.itemId || Math.random().toString(16).slice(2,8)}`;
         const qty = Number(line.qty) || 0;
         const price = Number(line.price) || 0;
+        const baseStatus = line.status || defaults.status || 'draft';
+        const baseStage = line.stage || defaults.stage;
+        const kitchenSection = line.kitchenSection || null;
+        const createdAt = toTimestamp(line.createdAt || defaults.createdAt);
+        const updatedAt = toTimestamp(line.updatedAt || defaults.updatedAt);
+        const logContext = {
+          orderId,
+          lineId: id,
+          statusId: baseStatus,
+          kitchenSection,
+          actorId: defaults.actorId || null,
+          updatedAt
+        };
+        const statusLogSources = [
+          line.statusLogs,
+          line.status_logs,
+          line.statusHistory,
+          line.status_history,
+          line.events
+        ];
+        const statusLogs = [];
+        const seen = new Set();
+        statusLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderLineStatusLogEntry(entry, logContext);
+            if(normalized && normalized.id && !seen.has(normalized.id)){
+              seen.add(normalized.id);
+              statusLogs.push(normalized);
+            }
+          });
+        });
+        if(!statusLogs.length){
+          const fallback = normalizeOrderLineStatusLogEntry({
+            status: baseStatus,
+            stationId: kitchenSection,
+            changedAt: updatedAt,
+            actorId: logContext.actorId
+          }, logContext);
+          if(fallback) statusLogs.push(fallback);
+        }
+        statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const latestLog = statusLogs[statusLogs.length - 1] || null;
+        const resolvedStatus = latestLog?.status || baseStatus;
         return {
           uid,
           id,
@@ -1773,14 +1709,15 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           qty,
           price,
           total: Number(line.total) || qty * price,
-          status: line.status || 'draft',
-          stage: line.stage || defaults.stage,
-          kitchenSection: line.kitchenSection || null,
+          status: resolvedStatus,
+          stage: baseStage,
+          kitchenSection,
           locked: line.locked !== undefined ? !!line.locked : defaults.lockLineEdits,
           notes: Array.isArray(line.notes) ? line.notes.slice() : (line.notes ? [line.notes] : []),
           discount: normalizeDiscount(line.discount),
-          createdAt: toTimestamp(line.createdAt || defaults.createdAt),
-          updatedAt: toTimestamp(line.updatedAt || defaults.updatedAt)
+          createdAt,
+          updatedAt,
+          statusLogs
         };
       }
 
@@ -1809,12 +1746,61 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         const normalizedPayments = Array.isArray(order.payments)
           ? order.payments.map(pay=> ({ ...pay, amount: Number(pay.amount) || 0 }))
           : [];
+        const fallbackStatus = order.status || order.statusId || order.header?.status || 'open';
+        const fallbackStage = order.fulfillmentStage || order.stage || order.header?.stage || 'new';
+        const fallbackPaymentState = order.paymentState || order.payment_state || order.header?.paymentState || 'unpaid';
+        const updatedBy = order.updatedBy || order.authorId || order.actorId || null;
+        const logContext = {
+          orderId: order.id,
+          statusId: fallbackStatus,
+          stageId: fallbackStage,
+          paymentStateId: fallbackPaymentState,
+          actorId: updatedBy || 'pos',
+          updatedAt: order.updatedAt || now
+        };
+        const statusLogSources = [
+          order.statusLogs,
+          order.status_logs,
+          order.statusHistory,
+          order.status_history,
+          order.events,
+          order.header?.statusLogs,
+          order.header?.status_history,
+          order.header?.events
+        ];
+        const statusLogs = [];
+        const seenLogIds = new Set();
+        statusLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderStatusLogEntry(entry, logContext);
+            if(normalized && normalized.id && !seenLogIds.has(normalized.id)){
+              seenLogIds.add(normalized.id);
+              statusLogs.push(normalized);
+            }
+          });
+        });
+        if(!statusLogs.length){
+          const fallbackLog = normalizeOrderStatusLogEntry({
+            status: fallbackStatus,
+            stage: fallbackStage,
+            paymentState: fallbackPaymentState,
+            changedAt: logContext.updatedAt,
+            actorId: logContext.actorId
+          }, logContext);
+          if(fallbackLog) statusLogs.push(fallbackLog);
+        }
+        statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const latestStatusLog = statusLogs[statusLogs.length - 1] || {};
+        const resolvedStatus = latestStatusLog.status || fallbackStatus;
+        const resolvedStage = latestStatusLog.stage || fallbackStage;
+        const resolvedPaymentState = latestStatusLog.paymentState || fallbackPaymentState;
         const header = {
           id: order.id,
           type: order.type || 'dine_in',
-          status: order.status || 'open',
-          fulfillmentStage: order.fulfillmentStage || order.stage || 'new',
-          paymentState: order.paymentState || 'unpaid',
+          status: resolvedStatus,
+          fulfillmentStage: resolvedStage,
+          paymentState: resolvedPaymentState,
           tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
           guests: Number.isFinite(order.guests) ? Number(order.guests) : 0,
           totals: order.totals && typeof order.totals === 'object' ? { ...order.totals } : {},
@@ -1851,32 +1837,13 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           stage: header.fulfillmentStage,
           lockLineEdits: header.lockLineEdits,
           createdAt: header.createdAt,
-          updatedAt: header.updatedAt
+          updatedAt: header.updatedAt,
+          actorId: logContext.actorId,
+          status: header.status
         };
         const lines = ensureArray(order.lines).map(line=> normalizeLineRecord(order.id, line, defaults));
         const notes = ensureArray(order.notes).map(note=> normalizeNoteRecord(order, note));
-        const events = ensureArray(order.events).map(evt=>{
-          const id = evt.id || `${order.id}::event::${toTimestamp(evt.at || evt.createdAt || header.updatedAt)}`;
-          return {
-            id,
-            orderId: order.id,
-            stage: evt.stage || header.fulfillmentStage,
-            status: evt.status || header.status,
-            at: toTimestamp(evt.at || evt.createdAt || header.updatedAt),
-            actorId: evt.actorId || evt.authorId || order.updatedBy || order.authorId || 'pos'
-          };
-        });
-        if(!events.length){
-          events.push({
-            id: `${order.id}::event::${header.updatedAt}`,
-            orderId: order.id,
-            stage: header.fulfillmentStage,
-            status: header.status,
-            at: header.updatedAt,
-            actorId: order.updatedBy || order.authorId || 'pos'
-          });
-        }
-        return { header, lines, notes, events };
+        return { header, lines, notes, statusLogs };
       }
 
       function hydrateLine(record){
@@ -1895,7 +1862,10 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           notes: Array.isArray(record.notes) ? record.notes : [],
           discount: normalizeDiscount(record.discount),
           createdAt: record.createdAt,
-          updatedAt: record.updatedAt
+          updatedAt: record.updatedAt,
+          statusLogs: Array.isArray(record.statusLogs)
+            ? record.statusLogs.map(log=> ({ ...log }))
+            : []
         };
       }
 
@@ -1916,12 +1886,12 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         }
         notesRaw.sort((a,b)=> (a.createdAt || 0) - (b.createdAt || 0));
         const eventsRaw = [];
-        for(const evt of storeMaps.orderEvents.values()){
+        for(const evt of storeMaps.orderStatusLogs.values()){
           if(evt.orderId === base.id){
             eventsRaw.push(evt);
           }
         }
-        eventsRaw.sort((a,b)=> (a.at || 0) - (b.at || 0));
+        eventsRaw.sort((a,b)=> (a.changedAt || a.at || 0) - (b.changedAt || b.at || 0));
         return {
           ...base,
           lines: linesRaw.map(hydrateLine),
@@ -1935,7 +1905,17 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           payments: Array.isArray(base.payments) ? base.payments.map(pay=> ({ ...pay })) : [],
           discount: normalizeDiscount(base.discount),
           dirty:false,
-          events: eventsRaw.map(evt=>({ id: evt.id, stage: evt.stage, status: evt.status, at: evt.at, actorId: evt.actorId }))
+          statusLogs: eventsRaw.map(evt=>({
+            id: evt.id,
+            status: evt.status,
+            stage: evt.stage,
+            paymentState: evt.paymentState,
+            actorId: evt.actorId,
+            source: evt.source,
+            reason: evt.reason,
+            metadata: evt.metadata,
+            changedAt: evt.changedAt || evt.at
+          }))
         };
       }
 
@@ -1945,10 +1925,10 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         storeMaps.orders.set(orderId, normalized.header);
         removeByOrderId('orderLines', orderId);
         removeByOrderId('orderNotes', orderId);
-        removeByOrderId('orderEvents', orderId);
+        removeByOrderId('orderStatusLogs', orderId);
         normalized.lines.forEach(line=> storeMaps.orderLines.set(line.uid, line));
         normalized.notes.forEach(note=> storeMaps.orderNotes.set(note.id, note));
-        normalized.events.forEach(evt=> storeMaps.orderEvents.set(evt.id, evt));
+        normalized.statusLogs.forEach(evt=> storeMaps.orderStatusLogs.set(evt.id, evt));
         markSyncLog(Date.now());
         return true;
       }
@@ -2003,6 +1983,45 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
             ? Number(order.posNumber)
             : (Number.isFinite(order.metadata?.posNumber) ? Number(order.metadata.posNumber) : null)
         };
+        const tempStatusLogs = [];
+        const tempLogContext = {
+          orderId: payload.id,
+          statusId: payload.status,
+          stageId: payload.fulfillmentStage,
+          paymentStateId: payload.paymentState,
+          actorId: order.updatedBy || order.authorId || null,
+          updatedAt: payload.updatedAt
+        };
+        const tempLogSources = [
+          order.statusLogs,
+          order.status_logs,
+          order.statusHistory,
+          order.status_history,
+          order.events
+        ];
+        const seenLogs = new Set();
+        tempLogSources.forEach(source=>{
+          if(!Array.isArray(source)) return;
+          source.forEach(entry=>{
+            const normalized = normalizeOrderStatusLogEntry(entry, tempLogContext);
+            if(normalized && normalized.id && !seenLogs.has(normalized.id)){
+              seenLogs.add(normalized.id);
+              tempStatusLogs.push(normalized);
+            }
+          });
+        });
+        if(!tempStatusLogs.length){
+          const fallbackLog = normalizeOrderStatusLogEntry({
+            status: payload.status,
+            stage: payload.fulfillmentStage,
+            paymentState: payload.paymentState,
+            changedAt: payload.updatedAt,
+            actorId: tempLogContext.actorId
+          }, tempLogContext);
+          if(fallbackLog) tempStatusLogs.push(fallbackLog);
+        }
+        tempStatusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        payload.statusLogs = tempStatusLogs;
         return {
           id: payload.id,
           payload,
@@ -2104,7 +2123,7 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
             orders: Array.from(storeMaps.orders.values()).map(cloneRecord),
             orderLines: Array.from(storeMaps.orderLines.values()).map(cloneRecord),
             orderNotes: Array.from(storeMaps.orderNotes.values()).map(cloneRecord),
-            orderEvents: Array.from(storeMaps.orderEvents.values()).map(cloneRecord),
+            orderStatusLogs: Array.from(storeMaps.orderStatusLogs.values()).map(cloneRecord),
             [TEMP_STORE]: Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord),
             [SHIFT_STORE]: Array.from(storeMaps[SHIFT_STORE].values()).map(cloneRecord),
             [META_STORE]: Array.from(storeMaps[META_STORE].values()).map(cloneRecord),
@@ -2144,10 +2163,10 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           if(!note || !note.id) return;
           storeMaps.orderNotes.set(note.id, { ...note });
         });
-        const eventList = Array.isArray(stores.orderEvents) ? stores.orderEvents : [];
+        const eventList = Array.isArray(stores.orderStatusLogs) ? stores.orderStatusLogs : [];
         eventList.forEach(evt=>{
           if(!evt || !evt.id) return;
-          storeMaps.orderEvents.set(evt.id, { ...evt });
+          storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
         const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
         tempList.forEach(record=>{
@@ -2395,6 +2414,9 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           progressState:'awaiting',
           totalItems:0,
           completedItems:0,
+          readyItems:0,
+          inProgressItems:0,
+          queuedItems:0,
           remainingItems:0,
           hasAlerts:false,
           isExpedite:false,
@@ -2406,6 +2428,9 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           readyAt:null,
           completedAt:null,
           expoAt:null,
+          lastStatusChangedAt:null,
+          lastReadyAt:null,
+          lastCompletedAt:null,
           syncChecksum:`${order.id}-${stationId}`,
           notes: notesToText(line.notes, '; '),
           meta:{ orderSource:'pos', kdsTab: stationId },
@@ -2418,7 +2443,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           quantity = 1;
         }
         existing.totalItems += quantity;
-        existing.remainingItems += quantity;
         jobsMap.set(jobId, existing);
         const baseLineId = toIdentifier(line.id, line.uid, line.storageId, `${order.id}-line-${lineIndex}`) || `${order.id}-line-${lineIndex}`;
         const detailId = `${jobId}-detail-${baseLineId}`;
@@ -2486,16 +2510,86 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
             priceChange
           });
         });
-        historyEntries.push({
-          id:`HIS-${jobId}-${baseLineId}`,
-          jobOrderId: jobId,
-          status:'queued',
-          actorId:'pos',
-          actorName:'POS',
-          actorRole:'pos',
-          changedAt: createdIso,
-          meta:{ source:'pos', lineId: line.id || baseLineId }
+        const lineLogsRaw = Array.isArray(line.statusLogs) ? line.statusLogs.slice() : [];
+        if(!lineLogsRaw.length){
+          lineLogsRaw.push({
+            id: `${detailId}::log::${detail.createdAt}`,
+            status: line.status || 'queued',
+            changedAt: line.updatedAt || updatedIso,
+            actorId: order.updatedBy || 'pos',
+            source: 'pos'
+          });
+        }
+        lineLogsRaw.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+        const resolvedLineStatus = lineLogsRaw[lineLogsRaw.length - 1]?.status || line.status || 'queued';
+        detail.status = resolvedLineStatus;
+        detail.updatedAt = normalizeIso(lineLogsRaw[lineLogsRaw.length - 1]?.changedAt || detail.updatedAt);
+        lineLogsRaw.forEach((log, logIndex)=>{
+          const changedIso = normalizeIso(log.changedAt || detail.updatedAt);
+          if(['preparing','in_progress','cooking'].includes(log.status || '')){
+            if(!existing.startedAt) existing.startedAt = changedIso;
+            if(!detail.startAt) detail.startAt = changedIso;
+            existing.progressState = 'cooking';
+          }
+          if(['ready'].includes(log.status || '')){
+            if(!existing.readyAt) existing.readyAt = changedIso;
+            if(!detail.finishAt) detail.finishAt = changedIso;
+            existing.lastReadyAt = changedIso;
+          }
+          if(['served','completed'].includes(log.status || '')){
+            if(!existing.completedAt) existing.completedAt = changedIso;
+            if(!detail.finishAt) detail.finishAt = changedIso;
+            existing.lastCompletedAt = changedIso;
+          }
+          existing.lastStatusChangedAt = changedIso;
+          existing.updatedAt = changedIso;
+          historyEntries.push({
+            id:`HIS-${detailId}-${logIndex}`,
+            jobOrderId: jobId,
+            status: log.status || resolvedLineStatus,
+            actorId: log.actorId || 'pos',
+            actorName: log.actorId || 'POS',
+            actorRole: log.source || 'pos',
+            changedAt: changedIso,
+            meta:{ source: log.source || 'pos', lineId: line.id || baseLineId }
+          });
         });
+        if(['served','completed'].includes(resolvedLineStatus)){
+          existing.completedItems += quantity;
+        } else if(['ready'].includes(resolvedLineStatus)){
+          existing.readyItems += quantity;
+        } else if(['preparing','in_progress','cooking'].includes(resolvedLineStatus)){
+          existing.inProgressItems += quantity;
+        } else {
+          existing.queuedItems += quantity;
+        }
+      });
+      jobsMap.forEach(job=>{
+        const total = job.totalItems || 0;
+        const completed = job.completedItems || 0;
+        const ready = job.readyItems || 0;
+        const inProgress = job.inProgressItems || 0;
+        const queued = job.queuedItems || 0;
+        job.remainingItems = Math.max(0, total - completed);
+        if(job.lastStatusChangedAt){
+          job.updatedAt = normalizeIso(job.lastStatusChangedAt);
+        }
+        if(total <= 0) return;
+        if(completed >= total){
+          job.status = 'completed';
+          job.progressState = 'completed';
+          if(job.lastCompletedAt) job.completedAt = job.completedAt || normalizeIso(job.lastCompletedAt);
+        } else if((ready + completed) >= total){
+          job.status = 'ready';
+          job.progressState = 'ready';
+          if(job.lastReadyAt) job.readyAt = job.readyAt || normalizeIso(job.lastReadyAt);
+        } else if(inProgress > 0){
+          job.status = 'in_progress';
+          job.progressState = 'cooking';
+        } else if(queued > 0){
+          job.status = 'queued';
+          job.progressState = 'awaiting';
+        }
       });
       const headers = Array.from(jobsMap.values());
       if(!headers.length) return null;
@@ -2650,7 +2744,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       });
       socket.on('open', ()=>{
         ready = true;
-        console.info('[Mishkah][POS][KDS] Sync connection opened.', { endpoint });
         if(token){
           awaitingAuth = true;
           socket.send({ type:'auth', data:{ token } });
@@ -2772,9 +2865,13 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
     const branch = options.branch ? normalizeChannelName(options.branch, BRANCH_CHANNEL) : BRANCH_CHANNEL;
     const topic = `pos:sync:${branch}`;
     const httpBase = options.httpEndpoint || null;
-    const httpEndpoint = httpBase
-      ? (httpBase.endsWith(branch) ? httpBase : `${httpBase.replace(/\/$/, '')}/${branch}`)
-      : null;
+    const httpEndpoint = (()=>{
+      if(!httpBase) return null;
+      if(/\/modules\//.test(httpBase)) return httpBase;
+      if(httpBase.includes(':branch')) return httpBase.replace(':branch', branch);
+      if(httpBase.includes('{branch}')) return httpBase.replace('{branch}', branch);
+      return httpBase.endsWith(branch) ? httpBase : `${httpBase.replace(/\/$/, '')}/${branch}`;
+    })();
     const wsEndpoint = options.wsEndpoint;
     const token = options.token || null;
     const authOff = ensureBoolean(options.authOff, false);
@@ -3039,10 +3136,16 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       }
       const body = await response.json();
       emitDiagnostic('http:fetch:success', {
-        level:'info',
+        level:'debug',
         message:'Central snapshot fetched successfully.',
         data:{ endpoint: httpEndpoint, httpStatus, version: body?.version ?? null, hasSnapshot: !!body?.snapshot }
       });
+      if(body && typeof body === 'object' && !body.snapshot){
+        const remotePayload = extractRemotePayload(body);
+        if(remotePayload && typeof remotePayload === 'object'){
+          return { snapshot: remotePayload, version: body.version ?? version, branchId: body.branchId || branch, moduleId: body.moduleId || 'pos' };
+        }
+      }
       return body;
     };
 
@@ -3572,15 +3675,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       MOCK_BASE?.kds?.wsEndpoint
     ));
     const kdsEndpoint = disableRealtimeInStaticDemo ? (mockEndpoint || null) : (mockEndpoint || DEFAULT_KDS_ENDPOINT);
-    if(!mockEndpoint){
-      if(kdsEndpoint){
-        console.info('[Mishkah][POS] Using default KDS WebSocket endpoint.', { endpoint: kdsEndpoint });
-      } else {
-        console.info('[Mishkah][POS] KDS WebSocket endpoint disabled for static demo environment.');
-      }
-    } else {
-      console.info('[Mishkah][POS] Using configured KDS WebSocket endpoint from mock base.', { endpoint: kdsEndpoint });
-    }
     const resolveStoredKdsToken = ()=>{
       if(typeof window === 'undefined') return null;
       const candidates = [];
@@ -3628,11 +3722,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       resolveStoredKdsToken()
     );
     const kdsToken = typeof kdsTokenSource === 'string' && kdsTokenSource.trim() ? kdsTokenSource.trim() : null;
-    if(kdsToken){
-      console.info('[Mishkah][POS] Using configured KDS auth token.', { length: kdsToken.length });
-    } else {
-      console.info('[Mishkah][POS] No KDS auth token provided. Operating without authentication.');
-    }
     const mockSyncHttpBase = normalizeEndpointString(firstDefined(
       MOCK_BASE?.sync?.httpEndpoint,
       MOCK_BASE?.sync?.http_endpoint
@@ -3641,15 +3730,16 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       syncSettings.http_endpoint,
       syncSettings.httpEndpoint
     ));
-    let posSyncHttpBase = mockSyncHttpBase;
+    let posSyncHttpBase = BRANCH_EVENTS_ROUTE || mockSyncHttpBase;
     if(disableRealtimeInStaticDemo && posSyncHttpBase && isSameOriginEndpoint(posSyncHttpBase)){
       posSyncHttpBase = null;
     }
     if(!posSyncHttpBase){
-      posSyncHttpBase = disableRealtimeInStaticDemo ? null : configuredSyncHttpBase;
+      const fallbackHttp = BRANCH_EVENTS_ROUTE || configuredSyncHttpBase || null;
+      posSyncHttpBase = disableRealtimeInStaticDemo ? null : fallbackHttp;
     }
     if(!posSyncHttpBase && !disableRealtimeInStaticDemo){
-      posSyncHttpBase = '/api/pos-sync';
+      posSyncHttpBase = BRANCH_EVENTS_ROUTE || '/api/pos-sync';
     }
     const mockSyncWsEndpoint = normalizeEndpointString(firstDefined(
       MOCK_BASE?.sync?.wsEndpoint,
@@ -3688,14 +3778,14 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
     );
     const posSyncAuthOff = ensureBoolean(posSyncAuthOffSource, false);
     if(posSyncAuthOff){
-      console.info('[Mishkah][POS] Central sync auth bypass enabled via frontend settings.', {
+      console.warn('[Mishkah][POS] Central sync auth bypass enabled via frontend settings.', {
         source: posAuthRuntime.authOffSource || (posSyncAuthOffSource != null ? 'settings.sync.*' : 'default')
       });
     }
     const centralSyncMeta = ensurePlainObject(MOCK_BASE?.meta?.centralSync);
     const centralSyncDisabled = ensureBoolean(centralSyncMeta.disabled, false);
     if(centralSyncDisabled){
-      console.info('[Mishkah][POS] Central sync disabled via dataset meta.', {
+      console.warn('[Mishkah][POS] Central sync disabled via dataset meta.', {
         reason: centralSyncMeta.reason || null,
         mode: centralSyncMeta.mode || 'ws2-only'
       });
@@ -3728,10 +3818,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       enforceCentralOnly = false;
       allowIndexedDbFallback = true;
     }
-    if(isStaticDemoEnvironment && !posSyncHttpBase && !posSyncWsEndpoint){
-      console.info('[Mishkah][POS] Central sync disabled for static demo environment (no HTTP or WS endpoints available).');
-    }
-
     const initialCentralMode = centralSyncMeta.mode || (enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive');
     let centralSyncStatus = {
       state: posSyncWsEndpoint ? 'offline' : 'disabled',
@@ -4393,7 +4479,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
           console.warn('[Mishkah][POS] invoice allocation failed', error);
           const requiresCentral = error && typeof error.code === 'string' && error.code.startsWith('POS_SYNC');
           if(requiresCentral && centralSyncDisabled){
-            console.info('[Mishkah][POS] Falling back to local invoice allocation (central sync disabled).');
           } else if(requiresCentral && !allowIndexedDbFallback){
             throw error;
           }
@@ -4902,6 +4987,61 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       };
     }
 
+    function normalizeOrderStatusLogEntry(entry, context){
+      if(!entry || !context || !context.orderId) return null;
+      const changedAt = toMillis(
+        entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+        context.updatedAt
+      );
+      const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'open';
+      const stageId = entry.stage_id || entry.stageId || entry.stage || context.stageId || null;
+      const paymentStateId = entry.payment_state_id || entry.paymentStateId || entry.paymentState || context.paymentStateId || null;
+      const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+      const source = entry.source || entry.channel || entry.origin || null;
+      const reason = entry.reason || entry.note || null;
+      const metadata = ensurePlainObject(entry.metadata || entry.meta);
+      const id = entry.id || `${context.orderId}::status::${changedAt}`;
+      return {
+        id,
+        orderId: context.orderId,
+        status: statusId,
+        stage: stageId || undefined,
+        paymentState: paymentStateId || undefined,
+        actorId: actorId || undefined,
+        source: source || undefined,
+        reason: reason || undefined,
+        metadata,
+        changedAt
+      };
+    }
+
+    function normalizeOrderLineStatusLogEntry(entry, context){
+      if(!entry || !context || !context.orderId || !context.lineId) return null;
+      const changedAt = toMillis(
+        entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+        context.updatedAt
+      );
+      const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'draft';
+      const stationId = entry.station_id || entry.stationId || entry.section_id || entry.sectionId || entry.kitchen_section_id || entry.kitchenSectionId || context.kitchenSection || null;
+      const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+      const source = entry.source || entry.channel || entry.origin || null;
+      const reason = entry.reason || entry.note || null;
+      const metadata = ensurePlainObject(entry.metadata || entry.meta);
+      const id = entry.id || `${context.lineId}::status::${changedAt}`;
+      return {
+        id,
+        orderId: context.orderId,
+        orderLineId: context.lineId,
+        status: statusId,
+        stationId: stationId || undefined,
+        actorId: actorId || undefined,
+        source: source || undefined,
+        reason: reason || undefined,
+        metadata,
+        changedAt
+      };
+    }
+
     function normalizeOrderLine(raw, context){
       if(!raw) return null;
       const itemId = raw.item_id || raw.itemId;
@@ -4914,22 +5054,63 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       const notes = Array.isArray(raw.notes) ? raw.notes.map(note=> normalizeNote(note, context.actorId)).filter(Boolean) : [];
       const discount = normalizeDiscount(raw.discount);
       const kitchenSection = raw.kitchen_section_id || raw.kitchenSectionId || menuItem?.kitchenSection || context.kitchenSection || null;
+      const createdAt = toMillis(raw.created_at || raw.createdAt, context.createdAt);
+      const updatedAt = toMillis(raw.updated_at || raw.updatedAt, context.updatedAt);
+      const lineId = raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`;
+      const logContext = {
+        orderId: context.orderId,
+        lineId,
+        statusId,
+        kitchenSection,
+        actorId: context.actorId,
+        updatedAt
+      };
+      const statusLogSources = [
+        raw.status_logs,
+        raw.statusLogs,
+        raw.status_history,
+        raw.statusHistory,
+        raw.events
+      ];
+      const lineStatusLogs = [];
+      statusLogSources.forEach(source=>{
+        if(!Array.isArray(source)) return;
+        source.forEach(entry=>{
+          const normalized = normalizeOrderLineStatusLogEntry(entry, logContext);
+          if(normalized && normalized.id){
+            lineStatusLogs.push(normalized);
+          }
+        });
+      });
+      if(!lineStatusLogs.length){
+        const fallback = normalizeOrderLineStatusLogEntry({
+          status: statusId,
+          stationId: kitchenSection,
+          changedAt: updatedAt,
+          actorId: logContext.actorId
+        }, logContext);
+        if(fallback) lineStatusLogs.push(fallback);
+      }
+      lineStatusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
+      const latestLineLog = lineStatusLogs[lineStatusLogs.length - 1] || null;
+      const resolvedStatusId = latestLineLog?.status || statusId;
       return {
-        id: raw.id || `ln-${context.orderId}-${itemId || Math.random().toString(16).slice(2,8)}`,
+        id: lineId,
         itemId,
         name: menuItem ? menuItem.name : cloneName(raw.name),
         description: menuItem ? menuItem.description : cloneName(raw.description),
         qty,
         price,
         total: round(total),
-        status: statusId,
+        status: resolvedStatusId,
         stage: stageId,
         kitchenSection,
         locked: raw.locked !== undefined ? !!raw.locked : (orderStageMap.get(stageId)?.lockLineEdits ?? true),
         notes,
         discount,
-        createdAt: toMillis(raw.created_at || raw.createdAt, context.createdAt),
-        updatedAt: toMillis(raw.updated_at || raw.updatedAt, context.updatedAt)
+        createdAt,
+        updatedAt,
+        statusLogs: lineStatusLogs
       };
     }
 
@@ -4947,7 +5128,8 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       const guests = header.guests || raw.guests || 0;
       const allowAdditions = header.allow_line_additions !== undefined ? !!header.allow_line_additions : (ORDER_TYPES.find(t=> t.id === typeId)?.allowsLineAdditions ?? (typeId === 'dine_in'));
       const lockLineEdits = header.locked_line_edits !== undefined ? !!header.locked_line_edits : (orderStageMap.get(stageId)?.lockLineEdits ?? true);
-      const lineContext = { orderId:id, stageId, createdAt, updatedAt };
+      const actorId = raw.updated_by || raw.updatedBy || header.updated_by || header.updatedBy || 'seed';
+      const lineContext = { orderId:id, stageId, createdAt, updatedAt, actorId };
       const lines = Array.isArray(raw.lines) ? raw.lines.map(line=> normalizeOrderLine(line, lineContext)).filter(Boolean) : [];
       const discount = normalizeDiscount(raw.discount || header.discount);
       const totals = header.totals || raw.totals || calculateTotals(lines, settings, typeId, { orderDiscount: discount });
@@ -4959,13 +5141,44 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
             amount: round(Number(entry.amount) || 0)
           }))
         : [];
-      const events = Array.isArray(raw.events) ? raw.events.map(evt=>({
-        id: evt.id || `${id}::evt::${toMillis(evt.at)}`,
-        stage: evt.stage_id || evt.stageId || stageId,
-        status: evt.status_id || evt.statusId || statusId,
-        at: toMillis(evt.at, createdAt),
-        actorId: evt.actor_id || evt.actorId || 'system'
-      })) : [];
+      const statusLogs = [];
+      const statusLogSources = [
+        raw.status_logs,
+        raw.statusLogs,
+        raw.status_history,
+        raw.statusHistory,
+        raw.events
+      ];
+      const logContext = {
+        orderId: id,
+        statusId,
+        stageId,
+        paymentStateId,
+        actorId,
+        updatedAt
+      };
+      const seenLogs = new Set();
+      statusLogSources.forEach(source=>{
+        if(!Array.isArray(source)) return;
+        source.forEach(entry=>{
+          const normalized = normalizeOrderStatusLogEntry(entry, logContext);
+          if(normalized && normalized.id && !seenLogs.has(normalized.id)){
+            seenLogs.add(normalized.id);
+            statusLogs.push(normalized);
+          }
+        });
+      });
+      if(!statusLogs.length){
+        const fallbackLog = normalizeOrderStatusLogEntry({
+          status: statusId,
+          stage: stageId,
+          paymentState: paymentStateId,
+          changedAt: updatedAt,
+          actorId
+        }, logContext);
+        if(fallbackLog) statusLogs.push(fallbackLog);
+      }
+      statusLogs.sort((a,b)=> (a.changedAt || 0) - (b.changedAt || 0));
       const normalizedTotals = totals && typeof totals === 'object'
         ? totals
         : calculateTotals(lines, settings, typeId, { orderDiscount: discount });
@@ -4982,7 +5195,7 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
         notes,
         discount,
         payments,
-        events,
+        statusLogs,
         createdAt,
         updatedAt,
         savedAt: updatedAt,
@@ -8408,13 +8621,11 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
     const POS_DEV_TOOLS = {
       async resetIndexedDB(){
         if(!posDB.available || typeof posDB.resetAll !== 'function'){
-          console.info('[Mishkah][POS] Data store reset is not available in this environment.');
           return false;
         }
         await posDB.resetAll();
         invoiceSequence = 0;
         await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
-        console.info('[Mishkah][POS] In-memory data store cleared.');
         return true;
       },
       async refresh(){
@@ -8437,7 +8648,6 @@ console.log('pos.js v 1.13','built at','2025-10-20T11:08:53.920Z');
       enumerable:false,
       writable:false
     });
-    console.info('%c[Mishkah POS] Developer helpers ready → use __MishkahPOSDev__.resetIndexedDB() to wipe local data.', 'color:#fbbf24;font-weight:bold;');
     const auto = U.twcss.auto(posState, app, { pageScaffold:true });
 
     function closeActiveModals(ctx){
