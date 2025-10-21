@@ -2140,8 +2140,24 @@
       async function importSnapshot(snapshot){
         if(!snapshot || typeof snapshot !== 'object') return false;
         const stores = snapshot.stores && typeof snapshot.stores === 'object' ? snapshot.stores : {};
+        const previousStores = Object.keys(storeMaps).reduce((acc, name)=>{
+          acc[name] = Array.from(storeMaps[name].values()).map(cloneRecord);
+          return acc;
+        }, {});
         Object.values(storeMaps).forEach(map=> map.clear());
-        const ordersList = Array.isArray(stores.orders) ? stores.orders : [];
+        const hasStore = (name)=> Object.prototype.hasOwnProperty.call(stores, name);
+        const resolveStoreList = (name)=>{
+          if(hasStore(name)){
+            const value = stores[name];
+            return Array.isArray(value) ? value : [];
+          }
+          const fallback = previousStores[name] || [];
+          if(fallback.length){
+            console.warn('[Mishkah][POS] Remote snapshot missing store — preserving local data.', { store:name, count:fallback.length });
+          }
+          return fallback;
+        };
+        const ordersList = resolveStoreList('orders');
         ordersList.forEach(header=>{
           if(!header || !header.id) return;
           const normalized = {
@@ -2152,38 +2168,38 @@
           };
           storeMaps.orders.set(normalized.id, normalized);
         });
-        const lineList = Array.isArray(stores.orderLines) ? stores.orderLines : [];
+        const lineList = resolveStoreList('orderLines');
         lineList.forEach(line=>{
           if(!line || !line.orderId) return;
           const uid = line.uid || `${line.orderId}::${line.id || Math.random().toString(16).slice(2,8)}`;
           storeMaps.orderLines.set(uid, { ...line, uid });
         });
-        const noteList = Array.isArray(stores.orderNotes) ? stores.orderNotes : [];
+        const noteList = resolveStoreList('orderNotes');
         noteList.forEach(note=>{
           if(!note || !note.id) return;
           storeMaps.orderNotes.set(note.id, { ...note });
         });
-        const eventList = Array.isArray(stores.orderStatusLogs) ? stores.orderStatusLogs : [];
+        const eventList = resolveStoreList('orderStatusLogs');
         eventList.forEach(evt=>{
           if(!evt || !evt.id) return;
           storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
-        const tempList = Array.isArray(stores[TEMP_STORE]) ? stores[TEMP_STORE] : [];
+        const tempList = resolveStoreList(TEMP_STORE);
         tempList.forEach(record=>{
           if(!record || !record.id) return;
           storeMaps[TEMP_STORE].set(record.id, { ...record });
         });
-        const shiftList = Array.isArray(stores[SHIFT_STORE]) ? stores[SHIFT_STORE] : [];
+        const shiftList = resolveStoreList(SHIFT_STORE);
         shiftList.forEach(shift=>{
           const normalized = normalizeShiftRecord(shift);
           storeMaps[SHIFT_STORE].set(normalized.id, normalized);
         });
-        const metaList = Array.isArray(stores[META_STORE]) ? stores[META_STORE] : [];
+        const metaList = resolveStoreList(META_STORE);
         metaList.forEach(meta=>{
           const id = meta.id || meta.posId || 'default';
           storeMaps[META_STORE].set(id, { id, invoiceCounter: Number(meta.invoiceCounter || 0) });
         });
-        const syncList = Array.isArray(stores.syncLog) ? stores.syncLog : [];
+        const syncList = resolveStoreList('syncLog');
         syncList.forEach(entry=>{
           const ts = toTimestamp(entry.ts);
           storeMaps.syncLog.set(ts, { ts });
@@ -2872,6 +2888,16 @@
       if(httpBase.includes('{branch}')) return httpBase.replace('{branch}', branch);
       return httpBase.endsWith(branch) ? httpBase : `${httpBase.replace(/\/$/, '')}/${branch}`;
     })();
+    const resolvedHttpEndpoint = (()=>{
+      const normalized = normalizeEndpointString(httpEndpoint);
+      if(!normalized) return null;
+      if(isSameOriginEndpoint(normalized)) return normalized;
+      if(typeof globalThis !== 'undefined' && globalThis.location){
+        try { return new URL(normalized, globalThis.location.origin).toString(); } catch(_err){ return normalized; }
+      }
+      return normalized;
+    })();
+    let activeHttpEndpoint = resolvedHttpEndpoint;
     const wsEndpoint = options.wsEndpoint;
     const token = options.token || null;
     const authOff = ensureBoolean(options.authOff, false);
@@ -2884,7 +2910,7 @@
     let ready = false;
     let awaitingAuth = false;
     let online = false;
-    let disabled = !httpEndpoint && !wsEndpoint;
+    let disabled = !activeHttpEndpoint && !wsEndpoint;
     let disableReason = disabled ? 'Central sync disabled by configuration.' : null;
     let initialSyncComplete = false;
     let initialSyncPromise = null;
@@ -2898,6 +2924,7 @@
       version: 0,
       updatedAt: null,
       endpoint: wsEndpoint || null,
+      httpEndpoint: activeHttpEndpoint,
       lastError: disableReason,
       mode,
       requireOnline,
@@ -2920,7 +2947,7 @@
       disabled,
       version,
       endpoint: wsEndpoint || null,
-      httpEndpoint,
+      httpEndpoint: activeHttpEndpoint,
       queueSize: pendingFrames.length,
       pendingMutations: pendingMutations.size,
       requireOnline,
@@ -2946,7 +2973,7 @@
     };
 
     emitDiagnostic('config:init', {
-      data:{ branch, httpEndpoint, wsEndpoint, hasToken: !!token, requireOnline, allowLocalFallback, authOff }
+      data:{ branch, httpEndpoint: activeHttpEndpoint, wsEndpoint, hasToken: !!token, requireOnline, allowLocalFallback, authOff }
     });
 
     const createSyncError = (code, message)=>{
@@ -2957,7 +2984,10 @@
 
     const emitStatus = (patch={})=>{
       const previous = { ...status };
-      status = { ...status, ...patch };
+      const mergedPatch = patch && typeof patch === 'object'
+        ? (patch.httpEndpoint === undefined ? { ...patch, httpEndpoint: activeHttpEndpoint } : { ...patch })
+        : { httpEndpoint: activeHttpEndpoint };
+      status = { ...status, ...mergedPatch };
       if(patch && (patch.state && patch.state !== previous.state)){
         const stateLevel = status.state === 'online'
           ? 'info'
@@ -3052,6 +3082,24 @@
       });
     });
 
+    const deriveHttpFallbackEndpoints = (endpoint)=>{
+      const result = [];
+      const normalized = normalizeEndpointString(endpoint);
+      if(!normalized) return result;
+      const trimmed = normalized.replace(/\/$/, '');
+      if(!trimmed) return result;
+      const addCandidate = (candidate)=>{
+        if(!candidate) return;
+        if(!result.includes(candidate)) result.push(candidate);
+      };
+      if(trimmed.endsWith('/events')){
+        const base = trimmed.replace(/\/events$/, '');
+        addCandidate(base);
+        addCandidate(`${base}/snapshot`);
+      }
+      return result;
+    };
+
     const fetchSnapshot = async ()=>{
       if(disabled){
         return { snapshot:null, version, disabled:true };
@@ -3059,7 +3107,7 @@
       if(typeof fetch !== 'function'){
         throw createSyncError('POS_SYNC_UNSUPPORTED', 'Fetch API is not available in this environment.');
       }
-      if(!httpEndpoint){
+      if(!activeHttpEndpoint){
         emitDiagnostic('config:disable', {
           level:'warn',
           message:'Central sync HTTP endpoint unavailable.',
@@ -3068,32 +3116,61 @@
         disableSync('Central sync HTTP endpoint unavailable.');
         return { snapshot:null, version, disabled:true };
       }
-      emitDiagnostic('http:fetch:start', {
-        level:'debug',
-        message:'Fetching central snapshot via HTTP.',
-        data:{ endpoint: httpEndpoint }
-      });
-      let response;
-      try{
-        response = await fetch(httpEndpoint, { headers });
-      } catch(fetchError){
-        emitDiagnostic('http:fetch:error', {
-          level:'error',
-          message:'HTTP fetch failed.',
-          data:{ endpoint: httpEndpoint },
-          error: fetchError
+      const httpCandidates = [activeHttpEndpoint, ...deriveHttpFallbackEndpoints(activeHttpEndpoint)];
+      let response = null;
+      let httpStatus = null;
+      let lastEndpoint = activeHttpEndpoint;
+
+      for(let attempt = 0; attempt < httpCandidates.length; attempt += 1){
+        const endpointCandidate = normalizeEndpointString(httpCandidates[attempt]);
+        if(!endpointCandidate) continue;
+        lastEndpoint = endpointCandidate;
+        activeHttpEndpoint = endpointCandidate;
+        emitDiagnostic('http:fetch:start', {
+          level:'debug',
+          message:'Fetching central snapshot via HTTP.',
+          data:{ endpoint: endpointCandidate, attempt: attempt + 1 }
         });
-        throw fetchError;
+        try{
+          response = await fetch(endpointCandidate, { headers });
+        } catch(fetchError){
+          emitDiagnostic('http:fetch:error', {
+            level:'error',
+            message:'HTTP fetch failed.',
+            data:{ endpoint: endpointCandidate, attempt: attempt + 1 },
+            error: fetchError
+          });
+          if(attempt === httpCandidates.length - 1){
+            throw fetchError;
+          }
+          continue;
+        }
+        const statusNumber = Number(response.status);
+        httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
+        if((httpStatus === 404 || httpStatus === 405 || httpStatus === 410) && attempt < httpCandidates.length - 1){
+          emitDiagnostic('http:fetch:fallback', {
+            level:'warn',
+            message:`Central sync endpoint unavailable (HTTP ${httpStatus}) — retrying with fallback endpoint.`,
+            data:{ endpoint: endpointCandidate, httpStatus, next: httpCandidates[attempt + 1] || null }
+          });
+          continue;
+        }
+        break;
       }
+
+      if(!response){
+        throw createSyncError('POS_SYNC_HTTP', 'Unable to fetch central snapshot.');
+      }
+
       const statusNumber = Number(response.status);
-      const httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
+      httpStatus = Number.isFinite(statusNumber) ? statusNumber : response.status;
       if(httpStatus === 401 || httpStatus === 403){
         emitDiagnostic('http:fetch:unauthorized', {
           level: authOff ? 'warn' : 'error',
           message: authOff
             ? `Central sync responded with HTTP ${httpStatus}, but auth bypass is active.`
             : `Central sync rejected token (HTTP ${httpStatus}).`,
-          data:{ endpoint: httpEndpoint, httpStatus, authOff }
+          data:{ endpoint: lastEndpoint, httpStatus, authOff }
         });
         if(authOff){
           return { snapshot:null, version, disabled:false, httpStatus, authOff:true };
@@ -3106,7 +3183,7 @@
       }
       if(httpStatus === 404 || httpStatus === 405 || httpStatus === 410){
         const offlineMessage = `Central sync endpoint unavailable (HTTP ${httpStatus}).`;
-        const offlineData = { endpoint: httpEndpoint, httpStatus };
+        const offlineData = { endpoint: lastEndpoint, httpStatus };
         emitDiagnostic(requireOnline && !allowLocalFallback ? 'config:disable' : 'http:fetch:fallback', {
           level:'warn',
           message: offlineMessage,
@@ -3130,7 +3207,7 @@
         emitDiagnostic('http:fetch:error', {
           level:'error',
           message:`HTTP ${httpStatus}`,
-          data:{ endpoint: httpEndpoint, httpStatus }
+          data:{ endpoint: lastEndpoint, httpStatus }
         });
         throw createSyncError('POS_SYNC_HTTP', `HTTP ${httpStatus}`);
       }
@@ -3138,7 +3215,7 @@
       emitDiagnostic('http:fetch:success', {
         level:'debug',
         message:'Central snapshot fetched successfully.',
-        data:{ endpoint: httpEndpoint, httpStatus, version: body?.version ?? null, hasSnapshot: !!body?.snapshot }
+        data:{ endpoint: lastEndpoint, httpStatus, version: body?.version ?? null, hasSnapshot: !!body?.snapshot }
       });
       if(body && typeof body === 'object' && !body.snapshot){
         const remotePayload = extractRemotePayload(body);
@@ -4779,9 +4856,55 @@
 
     let pendingRemoteResult = null;
 
+    const hasEntries = (list)=> Array.isArray(list) && list.length > 0;
+    const isViablePosDataset = (dataset)=>{
+      if(!dataset || typeof dataset !== 'object') return false;
+      const hasSettings = dataset.settings && typeof dataset.settings === 'object';
+      if(!hasSettings) return false;
+      const hasMenuItems = hasEntries(dataset.items) || hasEntries(dataset.menuItems) || hasEntries(dataset.menu_items);
+      const hasCategories = hasEntries(dataset.categories) || hasEntries(dataset.menu_categories);
+      const hasCategorySections = hasEntries(dataset.category_sections);
+      const hasOrderTypes = hasEntries(dataset.order_types);
+      const hasPaymentMethods = hasEntries(dataset.payment_methods);
+      const hasLegacyTableData = hasEntries(dataset.tables?.pos_database);
+      return hasMenuItems
+        || hasCategories
+        || hasCategorySections
+        || hasOrderTypes
+        || hasPaymentMethods
+        || hasLegacyTableData;
+    };
+
     function applyLiveSnapshotFromWs2(snapshot, meta={}){
       if(!snapshot || typeof snapshot !== 'object') return;
-      MOCK_BASE = cloneDeep(snapshot);
+      const candidate = extractDatasetFromSnapshot(snapshot) || snapshot;
+      const candidateViable = isViablePosDataset(candidate);
+      const previousViable = isViablePosDataset(MOCK_BASE);
+      if(!candidateViable && previousViable){
+        const keys = candidate && typeof candidate === 'object' ? Object.keys(candidate).slice(0, 8) : [];
+        pushCentralDiagnostic({
+          level:'warn',
+          source:'central-sync',
+          event:'ws2:snapshot:skipped',
+          message:'Ignored live dataset without catalog entries; keeping existing menu.',
+          data:{
+            keys,
+            hasItems: hasEntries(candidate?.items),
+            hasCategories: hasEntries(candidate?.categories),
+            hasSections: hasEntries(candidate?.category_sections),
+            hasLegacyTableData: hasEntries(candidate?.tables?.pos_database)
+          }
+        });
+        pendingRemoteResult = {
+          derived: cloneMenuDerived(),
+          remote: snapshotRemoteStatus(remoteStatus)
+        };
+        if(appRef){
+          flushRemoteUpdate();
+        }
+        return;
+      }
+      MOCK_BASE = cloneDeep(candidate);
       MOCK = cloneDeep(MOCK_BASE);
       PAYMENT_METHODS = derivePaymentMethods(MOCK);
       const menuDerived = applyMenuDataset(MOCK);
