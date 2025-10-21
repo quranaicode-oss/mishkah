@@ -216,8 +216,9 @@
             >
               <div class="flex items-start gap-3">
                 <span
-                  class="mt-1 inline-block h-3 w-3 rounded-full"
-                  style="background-color: {series.color || 'var(--primary)'}"
+                  class="mt-1 inline-block h-3 w-3 rounded-full bg-[var(--primary)]"
+                  data-series-swatch
+                  data-series-id="{series.id}"
                 ></span>
                 <div>
                   <strong class="text-sm font-semibold">{trans(series.nameKey)}</strong>
@@ -402,9 +403,50 @@
           }
         }
 
-        var DEFAULT_MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        var DEFAULT_MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-        var SALES_PALETTE = ['#38bdf8', '#f97316', '#a855f7', '#22c55e', '#facc15', '#ef4444'];
+        var DEFAULT_MONTHS_EN = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
+        var DEFAULT_MONTHS_AR = 'يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر'.split('|');
+        var SALES_PALETTE = '#38bdf8,#f97316,#a855f7,#22c55e,#facc15,#ef4444'.split(',');
+        var pendingChartSync = null;
+        var chartSyncScheduled = false;
+        var CHART_READY_MAX_ATTEMPTS = 24;
+
+        function whenChartApiReady(callback, attempt) {
+          var tries = typeof attempt === 'number' ? attempt : 0;
+          var host = window.Mishkah || window.Mishka || null;
+          var chartApi = host && host.UI ? host.UI.Chart : null;
+          if (chartApi) {
+            if (typeof callback === 'function') callback(chartApi);
+            return;
+          }
+          if (tries >= CHART_READY_MAX_ATTEMPTS) {
+            chartSyncScheduled = false;
+            if (pendingChartSync) {
+              console.warn('[Mishkah] Chart API was not ready in time for auto hydration');
+            }
+            return;
+          }
+          var delay = Math.min(600, 40 * (tries + 1));
+          window.setTimeout(function () {
+            whenChartApiReady(callback, tries + 1);
+          }, delay);
+        }
+
+        function scheduleChartSync(state, ctx) {
+          pendingChartSync = { state: state, ctx: ctx };
+          if (chartSyncScheduled) return;
+          chartSyncScheduled = true;
+          whenChartApiReady(function () {
+            chartSyncScheduled = false;
+            var payload = pendingChartSync;
+            pendingChartSync = null;
+            if (!payload) return;
+            try {
+              syncSalesChart(payload.state, payload.ctx);
+            } catch (err) {
+              console.warn('[Mishkah] failed to hydrate chart after waiting for API', err);
+            }
+          });
+        }
 
         function numericList(values) {
           var list = [];
@@ -665,6 +707,30 @@
           return { latestK: latestK, orders: Math.max(0, Math.round(orders)) };
         }
 
+        function applyLegendSwatches(state) {
+          var analytics = resolveAnalytics(state);
+          if (!analytics || !Array.isArray(analytics.series) || !analytics.series.length) return;
+          var nodes = document.querySelectorAll('[data-series-swatch]');
+          if (!nodes || !nodes.length) return;
+          var colorMap = Object.create(null);
+          for (var i = 0; i < analytics.series.length; i += 1) {
+            var entry = analytics.series[i];
+            if (!entry || !entry.id) continue;
+            colorMap[entry.id] = entry.color || pickPaletteColor(i) || 'var(--primary)';
+          }
+          for (var j = 0; j < nodes.length; j += 1) {
+            var node = nodes[j];
+            if (!node || !node.getAttribute) continue;
+            var id = node.getAttribute('data-series-id');
+            var color = (id && colorMap[id]) || pickPaletteColor(j) || 'var(--primary)';
+            try {
+              node.style.backgroundColor = color;
+            } catch (_err) {
+              node.setAttribute('data-series-color', color);
+            }
+          }
+        }
+
         function syncSalesChart(state, ctx) {
           if (!state && ctx && typeof ctx.getState === 'function') {
             try {
@@ -679,7 +745,11 @@
           if (!canvas) return;
           var host = window.Mishkah || window.Mishka || null;
           var chartApi = host && host.UI ? host.UI.Chart : null;
-          if (!chartApi) return;
+          applyLegendSwatches(state);
+          if (!chartApi) {
+            scheduleChartSync(state, ctx);
+            return;
+          }
 
           var months = resolveMonths(state, analytics);
           var datasets = buildSalesDatasets(analytics.series || [], months, ctx, state);
@@ -881,11 +951,12 @@
         function initialChartKickoff() {
           var attempts = 0;
           var MAX_ATTEMPTS = 12;
-          var tick = function () {
+
+          var attemptSync = function () {
             var canvas = document.getElementById('quick-sales-chart');
             if (!canvas && attempts < MAX_ATTEMPTS) {
               attempts += 1;
-              window.setTimeout(tick, 50 * attempts);
+              window.setTimeout(attemptSync, 50 * (attempts + 1));
               return;
             }
             var snapshot = resolveAutoState();
@@ -896,7 +967,19 @@
             }
             ensureCountdownLoop(snapshot);
           };
-          tick();
+
+          if (window.MishkahAuto && typeof window.MishkahAuto.ready === 'function') {
+            var readyResult = window.MishkahAuto.ready(function () {
+              attemptSync();
+            });
+            if (readyResult && typeof readyResult.catch === 'function') {
+              readyResult.catch(function () {
+                attemptSync();
+              });
+            }
+          } else {
+            attemptSync();
+          }
         }
 
         if (document.readyState === 'loading') {
