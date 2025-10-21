@@ -4,6 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>شاشة المطبخ (KDS)</title>
+  <script>
+    (function configureBranchParam(global) {
+      if (!global) return;
+      const allowed = ['dar', 'remal'];
+      global.POS_ALLOWED_BRANCHES = allowed.slice();
+      const normalize = (value) => {
+        if (typeof value !== 'string') return '';
+        return value
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      };
+      let branchParam = null;
+      try {
+        const params = new URLSearchParams(global.location ? global.location.search || '' : '');
+        branchParam = normalize(params.get('brname'));
+      } catch (_err) {
+        branchParam = '';
+      }
+      if (branchParam && allowed.includes(branchParam)) {
+        global.KDS_BRANCH_PARAM = branchParam;
+        global.KDS_BRANCH_ERROR = null;
+      } else {
+        global.KDS_BRANCH_PARAM = null;
+        global.KDS_BRANCH_ERROR = branchParam ? 'unsupported-branch' : 'missing-branch';
+      }
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
   <style>
     :root {
       color-scheme: light dark;
@@ -36,13 +65,56 @@
   <script src="./pos-mock-data.js"></script>
   <script src="./kds-mock-data.js"></script>
   <script>
-    // غيّر القيمة التالية إذا احتجت تشغيل شاشة KDS على قناة مختلفة عن POS.
-    window.MishkahBranchChannel = 'branch-main';
-    window.MishkahKdsChannel = window.MishkahBranchChannel;
+    (function configureChannels(global) {
+      if (!global) return;
+      const branchId = global.KDS_BRANCH_PARAM;
+      if (branchId) {
+        global.MishkahBranchChannel = branchId;
+        global.MishkahKdsChannel = branchId;
+      }
+    })(typeof window !== 'undefined' ? window : null);
   </script>
 </head>
 <body>
   <div id="app"></div>
-  <script src="./kds.js"></script>
+  <script>
+    (function bootstrapKds(global) {
+      if (!global) return;
+      const branchId = global.KDS_BRANCH_PARAM;
+      const allowed = Array.isArray(global.POS_ALLOWED_BRANCHES) ? global.POS_ALLOWED_BRANCHES : [];
+      const container = global.document && global.document.getElementById('app');
+      if (!branchId || (allowed.length && !allowed.includes(branchId))) {
+        if (container) {
+          const reasonKey = global.KDS_BRANCH_ERROR || 'missing-branch';
+          const reason = reasonKey === 'unsupported-branch'
+            ? 'اسم الفرع غير مدعوم'
+            : 'لم يتم تحديد الفرع';
+          const hint = allowed.length ? allowed.map((entry) => `?brname=${entry}`).join(' أو ') : '?brname=<branch>';
+          container.innerHTML = `
+            <section style="margin:auto;max-width:560px;padding:3rem 2rem;text-align:center;color:#f8fafc;background:rgba(15,23,42,0.72);border-radius:1.5rem;border:1px solid rgba(148,163,184,0.35);backdrop-filter:blur(8px);">
+              <h1 style="font-size:2rem;margin-bottom:1rem;">لا يمكن تحميل شاشة المطبخ</h1>
+              <p style="margin:0 auto 1.5rem;line-height:1.8;">
+                تحتاج شاشة KDS إلى تحديد الفرع عبر معامل <code>brname</code> في الرابط.<br/>
+                مثال: <code>${hint}</code>
+              </p>
+              <p style="margin:0;font-size:0.95rem;color:rgba(226,232,240,0.75);">
+                السبب: <strong>${reason}</strong>
+              </p>
+            </section>
+          `;
+        }
+        return;
+      }
+      const script = global.document.createElement('script');
+      script.src = './kds.js';
+      script.defer = false;
+      global.document.body.appendChild(script);
+      global.KDS_WS2_DYNAMIC_ENDPOINTS = {
+        branchId,
+        moduleId: 'pos',
+        restBase: `/api/branch/${encodeURIComponent(branchId)}/pos`
+      };
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
 </body>
 </html>

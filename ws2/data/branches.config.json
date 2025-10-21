@@ -1,5 +1,14 @@
 {
-  "branches": {},
+  "branches": {
+    "dar": {
+      "label": "دار — الفرع الرئيسي",
+      "modules": ["pos"]
+    },
+    "remal": {
+      "label": "رمال — الفرع السحابي",
+      "modules": ["pos"]
+    }
+  },
   "patterns": [
     {
       "match": "^lab:",
@@ -10,5 +19,5 @@
       "modules": ["pos"]
     }
   ],
-  "defaults": []
+  "defaults": ["pos"]
 }
