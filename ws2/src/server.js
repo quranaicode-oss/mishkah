@@ -184,7 +184,8 @@ const SYNC_TOPIC_PREFIX = 'sync::';
 const PUBSUB_TOPICS = new Map(); // topic => { subscribers:Set<string>, lastData:object|null }
 const SYNC_STATES = new Map(); // key => { branchId, moduleId, version, moduleSnapshot, updatedAt }
 const TRANS_HISTORY_LIMIT = Math.max(50, Number(process.env.WS2_TRANS_HISTORY_LIMIT) || 500);
-const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object}> }
+const TRANS_MUTATION_HISTORY_LIMIT = Math.max(5, Number(process.env.WS2_TRANS_MUTATION_HISTORY_LIMIT) || 25);
+const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object,mutationIds:Set<string>,lastAckMutationId?:string}> }
 
 function syncStateKey(branchId, moduleId) {
   const safeBranch = branchId || 'default';
@@ -236,9 +237,29 @@ function rememberTransRecord(key, transId, payload) {
   const tracker = getTransTracker(key);
   if (!tracker) return null;
   if (tracker.records.has(transId)) {
-    return tracker.records.get(transId);
+    const existing = tracker.records.get(transId);
+    if (payload?.mutationId && existing) {
+      if (!existing.mutationIds) existing.mutationIds = new Set();
+      if (!existing.mutationIds.has(payload.mutationId)) {
+        existing.mutationIds.add(payload.mutationId);
+        if (existing.mutationIds.size > TRANS_MUTATION_HISTORY_LIMIT) {
+          const trimmed = Array.from(existing.mutationIds).slice(-TRANS_MUTATION_HISTORY_LIMIT);
+          existing.mutationIds = new Set(trimmed);
+        }
+        existing.lastAckMutationId = payload.mutationId;
+      }
+    }
+    return existing;
   }
-  const record = { ts: Date.now(), payload: deepClone(payload) };
+  const record = {
+    ts: Date.now(),
+    payload: deepClone(payload),
+    mutationIds: new Set(),
+    lastAckMutationId: payload?.mutationId || null
+  };
+  if (payload?.mutationId) {
+    record.mutationIds.add(payload.mutationId);
+  }
   tracker.records.set(transId, record);
   tracker.order.push(transId);
   if (tracker.order.length > TRANS_HISTORY_LIMIT) {
@@ -669,8 +690,54 @@ async function handlePubsubFrame(client, frame) {
         }
         const duplicate = recallTransRecord(trackerKey, transId);
         if (duplicate && duplicate.payload) {
-          logger.info({ clientId: client.id, branchId: descriptor.branchId, moduleId: descriptor.moduleId, transId }, 'Duplicate trans_id ignored; replaying cached payload.');
-          sendToClient(client, { type: 'publish', topic, data: deepClone(duplicate.payload) });
+          const cached = duplicate.payload;
+          const ackPayload = deepClone(cached);
+          const requestedMutationId = typeof frameData.mutationId === 'string' && frameData.mutationId.trim()
+            ? frameData.mutationId.trim()
+            : null;
+          const previousMutationId = cached && typeof cached === 'object' && cached.mutationId
+            ? cached.mutationId
+            : duplicate.lastAckMutationId || null;
+          if (ackPayload && typeof ackPayload === 'object') {
+            if (requestedMutationId) {
+              ackPayload.mutationId = requestedMutationId;
+            }
+            const baseMeta = ackPayload.meta && typeof ackPayload.meta === 'object'
+              ? { ...ackPayload.meta }
+              : {};
+            const duplicateMeta = {
+              ...baseMeta,
+              duplicateTrans: true,
+              transId,
+              previousMutationId: previousMutationId || null,
+              ackedMutationId: requestedMutationId || previousMutationId || null
+            };
+            if (frameData.meta && typeof frameData.meta === 'object') {
+              ackPayload.meta = { ...duplicateMeta, ...frameData.meta };
+            } else {
+              ackPayload.meta = duplicateMeta;
+            }
+          }
+          if (requestedMutationId) {
+            if (!duplicate.mutationIds) duplicate.mutationIds = new Set();
+            if (!duplicate.mutationIds.has(requestedMutationId)) {
+              duplicate.mutationIds.add(requestedMutationId);
+              if (duplicate.mutationIds.size > TRANS_MUTATION_HISTORY_LIMIT) {
+                const trimmed = Array.from(duplicate.mutationIds).slice(-TRANS_MUTATION_HISTORY_LIMIT);
+                duplicate.mutationIds = new Set(trimmed);
+              }
+            }
+            duplicate.lastAckMutationId = requestedMutationId;
+          }
+          logger.info({
+            clientId: client.id,
+            branchId: descriptor.branchId,
+            moduleId: descriptor.moduleId,
+            transId,
+            requestedMutationId,
+            previousMutationId
+          }, 'Duplicate trans_id acknowledged without reapplying payload.');
+          sendToClient(client, { type: 'publish', topic, data: ackPayload });
           return;
         }
         let state = await ensureSyncState(descriptor.branchId, descriptor.moduleId);
