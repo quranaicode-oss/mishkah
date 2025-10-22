@@ -466,7 +466,7 @@
           var context = ctx || window.MishkahAuto || null;
           var state = snapshot;
           if (state == null && typeof resolveAutoState === 'function') {
-            state = resolveAutoState();
+            state = resolveAutoState(context);
           }
           if (!state && context && typeof context.getState === 'function') {
             try {
@@ -1043,8 +1043,8 @@
           });
         }
 
-        function resolveAutoState() {
-          var auto = window.MishkahAuto || null;
+        function resolveAutoState(source) {
+          var auto = source || window.MishkahAuto || null;
           if (!auto) return null;
           if (typeof auto.getState === 'function') {
             try {
@@ -1100,16 +1100,39 @@
           );
         }
 
-        function quickDashboardMount() {
+        function quickDashboardMount(app, helpers) {
+          var ctx = app || (helpers && helpers.app) || window.MishkahAuto || null;
+          if (ctx) {
+            connectAutoState(ctx);
+          }
           var auto = window.MishkahAuto || null;
-          if (auto) connectAutoState(auto);
-          var initial = resolveAutoState();
-          if (initial) ensureCountdownLoop(initial);
-          queueQuickDashboardHydration({ ctx: auto, snapshot: initial, immediate: true });
+          if (auto && auto !== ctx) {
+            connectAutoState(auto);
+          }
+          var initial = resolveAutoState(ctx);
+          if (!initial && ctx && typeof ctx.getState === 'function') {
+            try {
+              initial = ctx.getState();
+            } catch (_errInitial) {
+              initial = ctx.state || null;
+            }
+          }
+          if (!initial && auto && typeof auto.getState === 'function') {
+            try {
+              initial = auto.getState();
+            } catch (_errAuto) {
+              initial = auto.state || null;
+            }
+          }
+          if (initial) {
+            ensureCountdownLoop(initial);
+          }
+          queueQuickDashboardHydration({ ctx: ctx || auto, snapshot: initial || null, immediate: true });
           onAutoReady(function (instance) {
-            var target = instance || window.MishkahAuto || null;
+            var target = instance || window.MishkahAuto || ctx || null;
             connectAutoState(target);
-            queueQuickDashboardHydration({ ctx: target, snapshot: resolveAutoState() || null });
+            var snapshot = resolveAutoState(target) || initial || null;
+            queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
           });
         }
       </script>
