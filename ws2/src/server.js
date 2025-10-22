@@ -669,6 +669,36 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
         }
         seenKeys.add(key);
       }
+      if (seenKeys.has(key)) {
+        return {
+          ok: false,
+          reason: 'duplicate-primary-key',
+          tableName,
+          key
+        };
+      }
+      seenKeys.add(key);
+      if (existingByKey.has(key)) {
+        const currentRow = existingByKey.get(key);
+        if (!snapshotsEqual(currentRow, row)) {
+          return {
+            ok: false,
+            reason: 'row-modified',
+            tableName,
+            key
+          };
+        }
+        existingByKey.delete(key);
+      }
+    }
+
+    if (existingByKey.size) {
+      return {
+        ok: false,
+        reason: 'row-missing',
+        tableName,
+        missingKeys: Array.from(existingByKey.keys())
+      };
     }
   }
 
