@@ -118,3 +118,23 @@ Before the POS can subscribe to the central sync channel you must provide a Bear
 
 You may also stash the token in `localStorage` under `MISHKAH_POS_SYNC_TOKEN`, or assign `window.MishkahPosSyncAuth = { token: '...' }` before `pos-sync-auth.js` executes. The helper checks every source, picks the first non-empty value, pushes it back onto `window.MishkahPosSyncAuth`, and surfaces the result in the developer console for quick verification.【F:pos-sync-auth.js†L19-L108】
 
+## 12. سجل الأحداث أحادي الاتجاه · Append-Only Event Log
+
+**العربية:**
+
+لتقليل التعقيد في الطوابير ومنع أخطاء تعديل البيانات بعد نشرها، يمكن تفعيل نمط "insert only" بحيث تُخزَّن جميع تغييرات اليوم في سجل أحداث موحّد. الفكرة الأساسية هي أن كل جهاز يعتمد نفس الـ **schema**، سواءً ضمن الكود أو ملف JSON مصاحب، ما يمنع اختلاف أسماء الحقول بين الفروع. يتم توزيع الـ schema الثابت عبر الحزم أو الـ CDN ويُعاد تحميله عند كل نشر حتى يتأكد المطوّرون من توحيد هيكل البيانات قبل التعامل مع أي بيانات حية.
+
+- **البيانات الثابتة (Master Data):** قائمة الأصناف، أنواع الطلبات، أسماء الموظفين، وعدد الطاولات يمكن شحنها مع التطبيق وتخزينها في IndexedDB ضمن مساحة `master`. يتولى الخادم بث أي تحديث (صنف جديد، حذف صنف) عبر رسائل `push` مخصّصة (مثال: `pos:master:update`). العميل يسجل التحديث كإدخال جديد مع حالة (`status: inactive`) بدل الحذف الفعلي، ما يسمح بتتبع التغييرات دون فقدان السجل.
+- **بيانات الحركة اليومية (Operational Log):** الطلبات والمدفوعات تُسجل كسجلات جديدة فقط. في حال تعديل أو إلغاء طلب، يُضاف سجل "تعويض" يحمل نوع العملية (`reversal`, `status_change`) ويشير إلى `originId` الخاص بالطلب الأصلي. تتجاهل عمليات القراءة السجلات ذات `voided: true` أو تجمعها مع القيود المعاكسة لإظهار الحالة النهائية.
+- **آلية الطلب من الخادم:** عند بدء اليوم، يرسل كل فرع رسالة `sync:hello` تحوي آخر `eventId` مخزّن محليًا لكل جدول منطقي (`orders`, `payments`, ...). الخادم يرد بدفعة من الأحداث التالية فقط (`eventId > lastKnown`). بهذه الطريقة لا يحتاج الفرع إلى إعادة تحميل التاريخ السابق إلا إذا طلب صراحةً إعادة التهيئة.
+- **التنظيف الليلي:** أثناء إقفال اليوم، تُصدّر جميع السجلات اليومية إلى قاعدة بيانات PostgreSQL للأرشفة/التحليل، ثم يتم تنفيذ أمر `reset` على IndexedDB لبدء يوم جديد بسجل فارغ، بينما تبقى بيانات `master` كما هي. يمكن تشغيل عملية الأرشفة هذه عبر أمر موحّد على الخادم لتقليل الأخطاء اليدوية.
+
+**English:**
+
+To simplify queues and eliminate post-write edits, enable an **append-only** pattern where every change for the business day is stored as a single event stream. Each device ships with the same JSON schema file (or embedded map) to avoid field-name drift across branches. The schema is versioned and distributed with the client bundle so teams validate UI bindings against the exact data structure before shipping.
+
+- **Master data:** Menu items, order types, staff roster, and table layout can be seeded locally in IndexedDB under a `master` store. The server publishes updates (e.g., "new item", "retire item") via dedicated push topics such as `pos:master:update`. Clients insert a fresh record with `status` flags (instead of destructive deletes) so the audit trail remains intact.
+- **Operational log:** Orders and payments are always appended. If an order needs to be amended or cancelled, emit a compensating entry with an `operation` flag (`reversal`, `status_change`) referencing the original `eventId`. Read models collapse these events on the fly by ignoring superseded entries or summing adjustments, ensuring the live UI matches the latest state without in-place mutation.
+- **Server fetch handshake:** At boot the branch sends `sync:hello` containing the last stored `eventId` per logical stream (`orders`, `payments`, ...). The server responds with a queue slice (`eventId > lastKnown`), so the client only ingests fresh events. Full re-syncs are rare and triggered manually when a branch requests a new snapshot.
+- **Nightly rollover:** When the store closes, export the day’s events to PostgreSQL (or another durable store) for analytics, then issue a `reset` to clear the operational stores in IndexedDB. Master data remains untouched, ensuring the next trading day starts from a clean log while preserving immutable history centrally.
+
