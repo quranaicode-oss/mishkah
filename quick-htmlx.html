@@ -1081,6 +1081,7 @@
             }
 
             var prevAnalytics = prev && prev.data && typeof prev.data.analytics === 'object' ? prev.data.analytics : null;
+            var reusePrevious = options.reusePrevious === true;
             var months = resolveMonths(prev || next, analytics);
             if (!months.length) {
               months = resolveMonths(next, analytics);
@@ -1112,7 +1113,9 @@
               if (!base || !base.id) continue;
               var reference = prevMap[base.id];
               var color = base.color || (reference && reference.color) || pickPaletteColor(index);
-              var values = generateSalesSeries(reference && reference.values, monthCount, metricsSource, catalogMap[base.id]);
+              var shouldReuseValues = reusePrevious || options.bootstrap === true;
+              var seedValues = shouldReuseValues && reference ? reference.values : null;
+              var values = generateSalesSeries(seedValues, monthCount, metricsSource, catalogMap[base.id]);
               updatedSeries.push({
                 id: base.id,
                 nameKey: base.nameKey || base.id,
