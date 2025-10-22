@@ -1,8 +1,16 @@
 {
+  "version": 1,
+  "meta": {
+    "branchId": "branch-main",
+    "moduleId": "pos",
+    "generatedAt": "2024-02-20T09:30:00Z",
+    "source": "pos-mock-data"
+  },
   "tables": {
     "pos_database": [
       {
         "id": "seed-pos-dataset",
+        "branchId": "branch-main",
         "payload": {
           "settings": {
             "tax_rate": 0.14,
@@ -28,8 +36,8 @@
               },
               "channel": "branch-main",
               "ws_endpoint": "/ws",
+              "http_endpoint": "/api/branches/branch-main/modules/pos/events",
               "token": null,
-              "http_endpoint": "/api/pos-sync",
               "central_only": false,
               "allow_indexeddb_fallback": true
             }
@@ -1084,7 +1092,9 @@
               }
             ]
           }
-        }
+        },
+        "createdAt": "2024-02-01T09:00:00Z",
+        "updatedAt": "2024-02-20T09:30:00Z"
       }
     ]
   }

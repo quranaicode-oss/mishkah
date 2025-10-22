@@ -1,8 +1,16 @@
 {
+  "version": 1,
+  "meta": {
+    "branchId": "dar",
+    "moduleId": "pos",
+    "generatedAt": "2024-02-20T09:30:00Z",
+    "source": "pos-mock-data"
+  },
   "tables": {
     "pos_database": [
       {
-        "id": "seed-pos-dataset",
+        "id": "seed-dar-dataset",
+        "branchId": "dar",
         "payload": {
           "settings": {
             "tax_rate": 0.14,
@@ -21,15 +29,15 @@
               }
             },
             "sync": {
-              "branch_id": "branch-main",
+              "branch_id": "dar",
               "branch_name": {
-                "ar": "الفرع الرئيسي",
-                "en": "Main branch"
+                "ar": "دار - الفرع الرئيسي",
+                "en": "Dar Main Branch"
               },
-              "channel": "branch-main",
+              "channel": "dar",
               "ws_endpoint": "/ws",
-              "token": null,
               "http_endpoint": "/api/branches/dar/modules/pos/events",
+              "token": null,
               "central_only": false,
               "allow_indexeddb_fallback": true
             }
@@ -1084,7 +1092,9 @@
               }
             ]
           }
-        }
+        },
+        "createdAt": "2024-02-01T09:00:00Z",
+        "updatedAt": "2024-02-20T09:30:00Z"
       }
     ]
   }
