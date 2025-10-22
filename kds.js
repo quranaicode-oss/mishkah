@@ -23,6 +23,371 @@
     }
   };
 
+  function createEventReplicator(options={}){
+    const adapter = options.adapter;
+    const endpoint = options.endpoint || null;
+    const branch = options.branch || 'default';
+    const interval = Math.max(2000, Number(options.interval) || 15000);
+    const fetcher = typeof options.fetch === 'function' ? options.fetch : (typeof fetch === 'function' ? fetch : null);
+    const applyEvent = typeof options.applyEvent === 'function' ? options.applyEvent : null;
+    const onBatchApplied = typeof options.onBatchApplied === 'function' ? options.onBatchApplied : null;
+    const onError = typeof options.onError === 'function' ? options.onError : null;
+    const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
+    if(!adapter || typeof adapter.getSyncMetadata !== 'function' || typeof adapter.updateSyncMetadata !== 'function'){
+      console.warn('[Mishkah][KDS] Event replicator requires adapter with sync metadata helpers.');
+      return {
+        start(){},
+        stop(){},
+        async fetchNow(){ return { appliedCount:0, eventsProcessed:0 }; },
+        getCursor(){ return { appliedEventId:null, branchSnapshotVersion:null }; }
+      };
+    }
+    if(!endpoint || !fetcher){
+      console.warn('[Mishkah][KDS] Event replicator inactive — missing endpoint or fetch implementation.');
+      return {
+        start(){},
+        stop(){},
+        async fetchNow(){ return { appliedCount:0, eventsProcessed:0 }; },
+        getCursor(){ return { appliedEventId:null, branchSnapshotVersion:null }; }
+      };
+    }
+    let cursorCache = null;
+    let timer = null;
+    let stopped = true;
+    let queue = Promise.resolve();
+
+    const emitDiagnostic = (event, payload)=>{
+      if(!onDiagnostic) return;
+      try { onDiagnostic(event, payload); } catch(_err){}
+    };
+
+    const loadCursor = async ()=>{
+      if(cursorCache) return cursorCache;
+      try {
+        const record = await adapter.getSyncMetadata(branch);
+        cursorCache = {
+          appliedEventId: record?.appliedEventId || null,
+          branchSnapshotVersion: record?.branchSnapshotVersion || null,
+          updatedAt: record?.updatedAt || null
+        };
+      } catch(error){
+        emitDiagnostic('cursor:error', { error, stage:'load' });
+        cursorCache = { appliedEventId:null, branchSnapshotVersion:null, updatedAt:null };
+      }
+      return cursorCache;
+    };
+
+    const persistCursor = async (patch={})=>{
+      cursorCache = { ...(cursorCache || {}), ...patch };
+      try {
+        const saved = await adapter.updateSyncMetadata(branch, cursorCache);
+        cursorCache = { ...cursorCache, ...saved };
+      } catch(error){
+        emitDiagnostic('cursor:error', { error, stage:'save', patch });
+      }
+      return cursorCache;
+    };
+
+    const resolveEventId = (event)=>{
+      if(!event || typeof event !== 'object') return null;
+      const direct = event.id || event.eventId || event.uuid || event.dataset_id || null;
+      if(direct != null) return String(direct);
+      if(event.record && event.record.id != null) return String(event.record.id);
+      if(event.entry && event.entry.id != null) return String(event.entry.id);
+      const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
+      if(payload){
+        if(payload.id != null) return String(payload.id);
+        if(payload.orderId != null) return String(payload.orderId);
+        if(payload.eventId != null) return String(payload.eventId);
+      }
+      return null;
+    };
+
+    const resolveTimestamp = (event)=>{
+      if(!event || typeof event !== 'object') return Date.now();
+      const candidates = [
+        event.updatedAt,
+        event.createdAt,
+        event.ts,
+        event.time,
+        event.meta?.updatedAt,
+        event.meta?.createdAt,
+        event.meta?.ts
+      ];
+      for(const candidate of candidates){
+        if(candidate == null) continue;
+        const value = typeof candidate === 'string' ? Date.parse(candidate) : Number(candidate);
+        if(Number.isFinite(value)) return value;
+      }
+      return Date.now();
+    };
+
+    const sortEvents = (events)=>{
+      return events.slice().sort((a,b)=>{
+        const tsA = resolveTimestamp(a);
+        const tsB = resolveTimestamp(b);
+        if(tsA !== tsB) return tsA - tsB;
+        const idA = resolveEventId(a) || '';
+        const idB = resolveEventId(b) || '';
+        return idA.localeCompare(idB);
+      });
+    };
+
+    const buildUrl = ()=>{
+      let url = endpoint;
+      const query = new URLSearchParams();
+      const cursor = cursorCache || {};
+      if(cursor.appliedEventId){
+        query.set('after', cursor.appliedEventId);
+      }
+      if(cursor.branchSnapshotVersion){
+        query.set('since_version', cursor.branchSnapshotVersion);
+      }
+      if(options.limit){
+        query.set('limit', options.limit);
+      }
+      if(options.query && typeof options.query === 'object'){
+        Object.entries(options.query).forEach(([key, value])=>{
+          if(value === undefined || value === null) return;
+          query.set(key, value);
+        });
+      }
+      if(typeof options.queryBuilder === 'function'){
+        try {
+          const extra = options.queryBuilder({ cursor, branch });
+          if(extra && typeof extra === 'object'){
+            Object.entries(extra).forEach(([key, value])=>{
+              if(value === undefined || value === null) return;
+              query.set(key, value);
+            });
+          }
+        } catch(error){
+          emitDiagnostic('query:error', { error });
+        }
+      }
+      const queryString = query.toString();
+      if(queryString){
+        url += (url.includes('?') ? '&' : '?') + queryString;
+      }
+      return url;
+    };
+
+    const applyBatch = async (events, context)=>{
+      if(!Array.isArray(events) || !events.length) return { appliedCount:0, eventsProcessed:0 };
+      await loadCursor();
+      const sorted = sortEvents(events);
+      const pointerId = cursorCache?.appliedEventId || null;
+      const startIndex = pointerId ? sorted.findIndex(evt=> resolveEventId(evt) === pointerId) : -1;
+      const slice = startIndex >= 0 ? sorted.slice(startIndex + 1) : sorted;
+      let applied = 0;
+      for(const event of slice){
+        const eventId = resolveEventId(event);
+        let handled = false;
+        if(applyEvent){
+          try {
+            const result = await applyEvent(event, { branch, eventId, context });
+            handled = result !== false;
+          } catch(error){
+            emitDiagnostic('apply:error', { error, eventId, event });
+            if(onError){
+              try { onError(error, event, { branch, stage:'apply' }); } catch(_err){}
+            } else {
+              console.warn('[Mishkah][KDS] Event replicator failed to apply event.', error);
+            }
+            handled = false;
+          }
+        }
+        if(handled && eventId){
+          applied += 1;
+          await persistCursor({ appliedEventId: eventId, updatedAt: Date.now() });
+        }
+      }
+      if(context && context.version !== undefined && context.version !== null){
+        await persistCursor({ branchSnapshotVersion: context.version, updatedAt: Date.now() });
+      }
+      return { appliedCount: applied, eventsProcessed: slice.length };
+    };
+
+    const fetchOnce = async ()=>{
+      await loadCursor();
+      const url = buildUrl();
+      let body = null;
+      let response = null;
+      try {
+        response = await fetcher(url, { cache:'no-store' });
+      } catch(error){
+        emitDiagnostic('fetch:error', { error, url, stage:'network' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-network' }); } catch(_err){}
+        }
+        throw error;
+      }
+      if(!response || !response.ok){
+        const status = response ? response.status : 'network';
+        const error = new Error(`WS2 events HTTP ${status}`);
+        emitDiagnostic('fetch:error', { error, url, status, stage:'http' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-http', status }); } catch(_err){}
+        }
+        throw error;
+      }
+      try {
+        body = await response.json();
+      } catch(error){
+        emitDiagnostic('fetch:error', { error, url, stage:'json' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-json' }); } catch(_err){}
+        }
+        throw error;
+      }
+      const events = Array.isArray(body?.events) ? body.events : [];
+      const version = body?.version ?? body?.branchSnapshotVersion ?? body?.meta?.version ?? body?.snapshot?.version ?? null;
+      const result = await applyBatch(events, { version, raw: body });
+      if(onBatchApplied){
+        try { await onBatchApplied({ ...result, version, body }); } catch(error){ emitDiagnostic('batch:error', { error }); }
+      }
+      if(events.length === 0 && version != null){
+        await persistCursor({ branchSnapshotVersion: version, updatedAt: Date.now() });
+      }
+      return result;
+    };
+
+    const schedule = ()=>{
+      if(stopped) return;
+      if(timer){
+        clearTimeout(timer);
+        timer = null;
+      }
+      timer = setTimeout(()=>{
+        if(stopped) return;
+        queue = queue.then(()=> fetchOnce()).catch(()=>{}).finally(()=> schedule());
+      }, interval);
+    };
+
+    return {
+      start(){
+        if(!stopped) return;
+        stopped = false;
+        queue = queue.then(()=> loadCursor()).catch(()=>{}).then(()=> fetchOnce()).catch(()=>{});
+        schedule();
+      },
+      stop(){
+        stopped = true;
+        if(timer){
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      async fetchNow(){
+        await loadCursor();
+        return queue = queue.then(()=> fetchOnce()).catch(error=>{
+          emitDiagnostic('fetch:error', { error, stage:'manual' });
+          return { appliedCount:0, eventsProcessed:0, error };
+        });
+      },
+      getCursor(){
+        return { ...(cursorCache || {}) };
+      }
+    };
+  }
+
+  function createSyncPointerAdapter(){
+    const store = new Map();
+    return {
+      async getSyncMetadata(scope='default'){
+        const key = scope ? `sync:${scope}` : 'sync:default';
+        if(!store.has(key)){
+          store.set(key, { appliedEventId:null, branchSnapshotVersion:null, updatedAt:null });
+        }
+        const record = store.get(key) || { appliedEventId:null, branchSnapshotVersion:null, updatedAt:null };
+        return { ...record };
+      },
+      async updateSyncMetadata(scope='default', patch={}){
+        const key = scope ? `sync:${scope}` : 'sync:default';
+        const base = store.get(key) || { appliedEventId:null, branchSnapshotVersion:null, updatedAt:null };
+        if(Object.prototype.hasOwnProperty.call(patch, 'appliedEventId')){
+          base.appliedEventId = patch.appliedEventId;
+        }
+        if(Object.prototype.hasOwnProperty.call(patch, 'branchSnapshotVersion')){
+          base.branchSnapshotVersion = patch.branchSnapshotVersion;
+        }
+        const hasUpdatedAt = Object.prototype.hasOwnProperty.call(patch, 'updatedAt');
+        base.updatedAt = hasUpdatedAt ? patch.updatedAt : Date.now();
+        store.set(key, { ...base });
+        return { ...base };
+      }
+    };
+  }
+
+  const resolveEventType = (value)=>{
+    if(!value || typeof value !== 'object') return '';
+    const payload = value.payload && typeof value.payload === 'object' ? value.payload : null;
+    const type = payload?.type || payload?.action || value.type || value.action;
+    return String(type || '').toLowerCase();
+  };
+
+  const isKdsPayload = (value)=>{
+    if(!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    if(value.kds && typeof value.kds === 'object') return true;
+    if(value.jobOrders || value.jobs || value.deliveries || value.handoff) return true;
+    if(Array.isArray(value.orders) && value.orders.length && value.orders[0]?.lines) return true;
+    return false;
+  };
+
+  function extractKdsPayloads(event){
+    if(!event || typeof event !== 'object') return [];
+    const queue = [event];
+    const seen = new Set();
+    const results = [];
+    while(queue.length){
+      const current = queue.shift();
+      if(!current || typeof current !== 'object') continue;
+      if(seen.has(current)) continue;
+      seen.add(current);
+      if(Array.isArray(current)){
+        current.forEach(item=> queue.push(item));
+        continue;
+      }
+      if(isKdsPayload(current)){
+        results.push(current);
+      }
+      Object.keys(current).forEach(key=>{
+        if(['meta','serverId','version','moduleId','branchId','event','action'].includes(key)) return;
+        const value = current[key];
+        if(value && typeof value === 'object') queue.push(value);
+      });
+    }
+    return results;
+  }
+
+  function applyWs2EventToKds(event, appInstance){
+    if(!appInstance || typeof appInstance.setState !== 'function') return false;
+    const payloads = extractKdsPayloads(event);
+    if(!payloads.length) return false;
+    const meta = event?.meta || {};
+    let applied = false;
+    payloads.forEach(entry=>{
+      const dataset = entry.kds && typeof entry.kds === 'object' ? entry.kds : entry;
+      if(dataset.jobOrders || dataset.deliveries || dataset.handoff || dataset.drivers || dataset.meta || dataset.master){
+        applyRemoteOrder(appInstance, dataset, meta);
+        applied = true;
+      }
+      if(dataset.jobUpdate && dataset.jobUpdate.jobId){
+        applyJobUpdateMessage(appInstance, dataset.jobUpdate, meta);
+        applied = true;
+      }
+      if(dataset.deliveryUpdate && dataset.deliveryUpdate.orderId){
+        applyDeliveryUpdateMessage(appInstance, dataset.deliveryUpdate, meta);
+        applied = true;
+      }
+      if(dataset.handoffUpdate && dataset.handoffUpdate.orderId){
+        applyHandoffUpdateMessage(appInstance, dataset.handoffUpdate, meta);
+        applied = true;
+      }
+    });
+    return applied;
+  }
+
   const normalizeChannelName = (value, fallback='default')=>{
     const base = value == null ? '' : String(value).trim();
     const raw = base || fallback || 'default';
@@ -1363,6 +1728,47 @@
   if(syncClient){
     syncClient.connect();
   }
+
+  const eventsEndpointCandidate = (
+    (kdsSource?.sync && (kdsSource.sync.eventsEndpoint || kdsSource.sync.events_endpoint))
+      || syncSettings.events_endpoint
+      || syncSettings.eventsEndpoint
+      || syncSettings.http_endpoint
+      || syncSettings.httpEndpoint
+      || database?.settings?.sync?.events_endpoint
+      || database?.settings?.sync?.http_endpoint
+  );
+  const branchForEvents = database?.branch?.id || database?.branchId || BRANCH_CHANNEL || 'default';
+  const eventsEndpoint = (typeof eventsEndpointCandidate === 'string' && eventsEndpointCandidate.trim())
+    ? eventsEndpointCandidate.trim()
+    : `/api/branches/${encodeURIComponent(branchForEvents)}/modules/pos/events`;
+  const eventsPollInterval = Number(syncSettings.events_poll_interval
+    ?? syncSettings.eventsPollInterval
+    ?? syncSettings.ws2_poll_interval
+    ?? syncSettings.ws2PollInterval
+    ?? 0);
+  const kdsEventCursor = createSyncPointerAdapter();
+  const ws2KdsEventReplicator = createEventReplicator({
+    adapter: kdsEventCursor,
+    branch: BRANCH_CHANNEL,
+    endpoint: eventsEndpoint,
+    interval: Math.max(15000, Number.isFinite(eventsPollInterval) ? eventsPollInterval : 0),
+    applyEvent: (event)=> applyWs2EventToKds(event, app),
+    onBatchApplied: (result={})=>{
+      if(!result || !result.appliedCount) return;
+      app.setState(state=>({
+        ...state,
+        data:{
+          ...state.data,
+          sync:{ ...(state.data.sync || {}), lastMessage: Date.now(), state:'online' }
+        }
+      }));
+    },
+    onError:(error)=>{
+      console.warn('[Mishkah][KDS] WS2 event replicator error.', error);
+    }
+  });
+  ws2KdsEventReplicator.start();
 
   let broadcastChannel = null;
   if(typeof BroadcastChannel !== 'undefined'){
