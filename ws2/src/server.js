@@ -581,7 +581,7 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
           ok: false,
           reason: 'missing-primary-key',
           tableName,
-          index: idx
+          key
         };
       }
       if (seenKeys.has(key)) {
