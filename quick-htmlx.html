@@ -493,7 +493,19 @@
         function queueQuickDashboardHydration(options) {
           var quickHydration = ensureQuickHydrationState();
           var opts = options || {};
-          if (opts.ctx) quickHydration.ctx = opts.ctx;
+          if (opts.ctx) {
+            var nextCtx = opts.ctx;
+            var currentCtx = quickHydration.ctx;
+            var nextHasState = nextCtx && typeof nextCtx.getState === 'function';
+            var currentHasState = currentCtx && typeof currentCtx.getState === 'function';
+            if (!currentCtx || (nextHasState && !currentHasState)) {
+              quickHydration.ctx = nextCtx;
+            } else if (!currentHasState && !nextHasState) {
+              quickHydration.ctx = nextCtx;
+            } else if (nextHasState && currentHasState) {
+              quickHydration.ctx = nextCtx;
+            }
+          }
           if (Object.prototype.hasOwnProperty.call(opts, 'snapshot')) {
             quickHydration.snapshot = opts.snapshot;
           }

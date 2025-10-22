@@ -4,11 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>شاشة المطبخ (KDS)</title>
+  <script src="./pos-kds-chart-distribution.js"></script>
   <script>
     (function configureBranchParam(global) {
       if (!global) return;
       const allowed = ['dar', 'remal'];
       global.POS_ALLOWED_BRANCHES = allowed.slice();
+      global.__MishkahChartReady__ = Promise.resolve();
       const normalize = (value) => {
         if (typeof value !== 'string') return '';
         return value
@@ -27,6 +29,20 @@
       if (branchParam && allowed.includes(branchParam)) {
         global.KDS_BRANCH_PARAM = branchParam;
         global.KDS_BRANCH_ERROR = null;
+        const distributor = global.MishkahChartDistributor;
+        if (distributor && typeof distributor.prepare === 'function') {
+          const readiness = Promise.resolve()
+            .then(() => distributor.prepare('kds'))
+            .catch((error) => {
+              const code = error && error.code ? error.code : 'chart-package-failed';
+              global.KDS_BRANCH_ERROR = code === 'chart-version-mismatch'
+                ? 'chart-version-mismatch'
+                : 'chart-package-failed';
+              global.__MishkahChartReadyError__ = { screen: 'kds', code, error };
+              throw error;
+            });
+          global.__MishkahChartReady__ = readiness;
+        }
       } else {
         global.KDS_BRANCH_PARAM = null;
         global.KDS_BRANCH_ERROR = branchParam ? 'unsupported-branch' : 'missing-branch';
@@ -65,6 +81,36 @@
   <script src="./pos-mock-data.js"></script>
   <script src="./kds-mock-data.js"></script>
   <script>
+    (function preloadSchemaManifest(global) {
+      if (!global) return;
+      if (global.MishkahSchemaManifestPromise) return;
+      const manifestUrl = './schema-manifest.json';
+      if (typeof global.fetch !== 'function') {
+        const fallback = Promise.resolve(null);
+        global.MishkahSchemaManifestPromise = fallback;
+        global.MishkahSchemaManifest = null;
+        global.MishkahSchemaManifestError = new Error('fetch unavailable');
+        return;
+      }
+      const loader = (async () => {
+        try {
+          const response = await fetch(manifestUrl, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to load manifest: ${response.status}`);
+          }
+          const payload = await response.json();
+          global.MishkahSchemaManifest = payload;
+          return payload;
+        } catch (error) {
+          console.warn('[Mishkah] schema manifest bootstrap failed', error);
+          global.MishkahSchemaManifestError = error;
+          return null;
+        }
+      })();
+      global.MishkahSchemaManifestPromise = loader;
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
+  <script>
     (function configureChannels(global) {
       if (!global) return;
       const branchId = global.KDS_BRANCH_PARAM;
@@ -88,8 +134,20 @@
           const reasonKey = global.KDS_BRANCH_ERROR || 'missing-branch';
           const reason = reasonKey === 'unsupported-branch'
             ? 'اسم الفرع غير مدعوم'
+            : reasonKey === 'chart-version-mismatch'
+              ? 'إصدار الحزمة الرسومية تغيّر'
+              : reasonKey === 'chart-package-failed'
+                ? 'تعذّر تحميل الحزمة الرسومية'
             : 'لم يتم تحديد الفرع';
           const hint = allowed.length ? allowed.map((entry) => `?brname=${entry}`).join(' أو ') : '?brname=<branch>';
+          const action = reasonKey === 'chart-version-mismatch'
+            ? 'يرجى إعادة تحميل الصفحة أو الضغط على زر إعادة التهيئة لمسح بيانات الرسم السابقة.'
+            : reasonKey === 'chart-package-failed'
+              ? 'حاول إعادة تحميل الصفحة لاحقًا أو تحقق من الاتصال بالشبكة.'
+              : '';
+          const recovery = reasonKey === 'chart-version-mismatch'
+            ? `<button type="button" style="margin-top:1.75rem;padding:0.85rem 1.5rem;border-radius:999px;border:none;background:rgba(129,140,248,0.18);color:#c7d2fe;font-size:1rem;cursor:pointer;" onclick="(async function(){ if(window.MishkahChartDistributor){ try{ await window.MishkahChartDistributor.reset(); } catch(_err){} } window.location.reload(); })()">إعادة التهيئة الآن</button>`
+            : '';
           container.innerHTML = `
             <section style="margin:auto;max-width:560px;padding:3rem 2rem;text-align:center;color:#f8fafc;background:rgba(15,23,42,0.72);border-radius:1.5rem;border:1px solid rgba(148,163,184,0.35);backdrop-filter:blur(8px);">
               <h1 style="font-size:2rem;margin-bottom:1rem;">لا يمكن تحميل شاشة المطبخ</h1>
@@ -100,15 +158,48 @@
               <p style="margin:0;font-size:0.95rem;color:rgba(226,232,240,0.75);">
                 السبب: <strong>${reason}</strong>
               </p>
+              ${action ? `<p style="margin:1rem auto 0;font-size:0.95rem;color:rgba(244,244,245,0.8);">${action}</p>` : ''}
+              ${recovery}
             </section>
           `;
         }
         return;
       }
-      const script = global.document.createElement('script');
-      script.src = './kds.js';
-      script.defer = false;
-      global.document.body.appendChild(script);
+      const readiness = global.__MishkahChartReady__ || Promise.resolve();
+      Promise.resolve(readiness)
+        .then(() => {
+          const script = global.document.createElement('script');
+          script.src = './kds.js';
+          script.defer = false;
+          global.document.body.appendChild(script);
+        })
+        .catch((error) => {
+          console.error('[Mishkah][KDS] Chart package readiness failed', error);
+          if (!container) return;
+          const errorCode = (error && error.code) ? error.code : (global.KDS_BRANCH_ERROR || 'chart-package-failed');
+          const reason = errorCode === 'chart-version-mismatch'
+            ? 'إصدار الحزمة الرسومية تغيّر'
+            : 'تعذّر تحميل الحزمة الرسومية';
+          const action = errorCode === 'chart-version-mismatch'
+            ? 'يرجى إعادة تحميل الصفحة بعد مسح بيانات التخزين المرتبطة بالمخططات.'
+            : 'تحقق من الاتصال وأعد المحاولة لاحقًا.';
+          const recovery = errorCode === 'chart-version-mismatch'
+            ? `<button type=\"button\" style=\"margin-top:1.75rem;padding:0.85rem 1.5rem;border-radius:999px;border:none;background:rgba(129,140,248,0.18);color:#c7d2fe;font-size:1rem;cursor:pointer;\" onclick=\"(async function(){ if(window.MishkahChartDistributor){ try{ await window.MishkahChartDistributor.reset(); } catch(_err){} } window.location.reload(); })()\">إعادة التهيئة الآن</button>`
+            : '';
+          container.innerHTML = `
+            <section style="margin:auto;max-width:560px;padding:3rem 2rem;text-align:center;color:#f8fafc;background:rgba(15,23,42,0.72);border-radius:1.5rem;border:1px solid rgba(148,163,184,0.35);backdrop-filter:blur(8px);">
+              <h1 style="font-size:2rem;margin-bottom:1rem;">تعذّر بدء الواجهة</h1>
+              <p style="margin:0 auto 1.5rem;line-height:1.8;">
+                فشل تجهيز بيانات المخطط المطلوبة لتشغيل شاشة المطبخ.
+              </p>
+              <p style="margin:0;font-size:0.95rem;color:rgba(226,232,240,0.75);">
+                السبب: <strong>${reason}</strong>
+              </p>
+              <p style="margin:1rem auto 0;font-size:0.95rem;color:rgba(244,244,245,0.8);">${action}</p>
+              ${recovery}
+            </section>
+          `;
+        });
       global.KDS_WS2_DYNAMIC_ENDPOINTS = {
         branchId,
         moduleId: 'pos',

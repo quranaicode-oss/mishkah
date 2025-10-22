@@ -1560,6 +1560,34 @@
       const ensureArray = (value)=> Array.isArray(value) ? value : [];
       const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
 
+      const ensureMetaRecord = (key, defaults={})=>{
+        const safeKey = key || 'default';
+        const existing = storeMaps[META_STORE].get(safeKey);
+        if(existing){
+          if(defaults && typeof defaults === 'object'){
+            let mutated = false;
+            Object.keys(defaults).forEach(prop=>{
+              if(prop === 'id') return;
+              if(existing[prop] === undefined){
+                existing[prop] = cloneDeep(defaults[prop]);
+                mutated = true;
+              }
+            });
+            if(mutated) storeMaps[META_STORE].set(safeKey, existing);
+          }
+          return existing;
+        }
+        const created = { id: safeKey };
+        if(defaults && typeof defaults === 'object'){
+          Object.keys(defaults).forEach(prop=>{
+            if(prop === 'id') return;
+            created[prop] = cloneDeep(defaults[prop]);
+          });
+        }
+        storeMaps[META_STORE].set(safeKey, created);
+        return created;
+      };
+
       const removeByOrderId = (storeName, orderId)=>{
         const store = storeMaps[storeName];
         for(const [key, record] of store.entries()){
@@ -1650,17 +1678,9 @@
         return cloneRecord(payload);
       }
 
-      function ensureInvoiceCounter(posId){
-        const key = posId || 'default';
-        if(!storeMaps[META_STORE].has(key)){
-          storeMaps[META_STORE].set(key, { id:key, invoiceCounter:0 });
-        }
-        return storeMaps[META_STORE].get(key);
-      }
-
       async function nextInvoiceNumber(posId, prefix){
         if(!posId) throw new Error('posId required for invoice sequence');
-        const meta = { ...ensureInvoiceCounter(posId) };
+        const meta = { ...ensureMetaRecord(posId, { invoiceCounter:0 }) };
         const nextValue = Number(meta.invoiceCounter || 0) + 1;
         meta.invoiceCounter = nextValue;
         storeMaps[META_STORE].set(posId, meta);
@@ -1669,8 +1689,54 @@
       }
 
       async function peekInvoiceCounter(posId){
-        const meta = ensureInvoiceCounter(posId);
+        const meta = ensureMetaRecord(posId, { invoiceCounter:0 });
         return Number(meta.invoiceCounter || 0);
+      }
+
+      async function getSyncMetadata(scope='default'){
+        const key = scope ? `sync:${scope}` : 'sync:default';
+        const record = ensureMetaRecord(key, {
+          appliedEventId:null,
+          branchSnapshotVersion:null,
+          syncUpdatedAt:null
+        });
+        return {
+          appliedEventId: record.appliedEventId ?? null,
+          branchSnapshotVersion: record.branchSnapshotVersion ?? null,
+          updatedAt: record.syncUpdatedAt ?? null
+        };
+      }
+
+      async function updateSyncMetadata(scope='default', patch={}){
+        const key = scope ? `sync:${scope}` : 'sync:default';
+        const base = { ...ensureMetaRecord(key, {
+          appliedEventId:null,
+          branchSnapshotVersion:null,
+          syncUpdatedAt:null
+        }) };
+        let changed = false;
+        if(Object.prototype.hasOwnProperty.call(patch, 'appliedEventId') && patch.appliedEventId !== base.appliedEventId){
+          base.appliedEventId = patch.appliedEventId;
+          changed = true;
+        }
+        if(Object.prototype.hasOwnProperty.call(patch, 'branchSnapshotVersion') && patch.branchSnapshotVersion !== base.branchSnapshotVersion){
+          base.branchSnapshotVersion = patch.branchSnapshotVersion;
+          changed = true;
+        }
+        const hasUpdatedAt = Object.prototype.hasOwnProperty.call(patch, 'updatedAt');
+        const resolvedUpdatedAt = hasUpdatedAt ? patch.updatedAt : Date.now();
+        if(resolvedUpdatedAt !== base.syncUpdatedAt){
+          base.syncUpdatedAt = resolvedUpdatedAt;
+          changed = true;
+        }
+        if(changed){
+          storeMaps[META_STORE].set(key, base);
+        }
+        return {
+          appliedEventId: base.appliedEventId ?? null,
+          branchSnapshotVersion: base.branchSnapshotVersion ?? null,
+          updatedAt: base.syncUpdatedAt ?? null
+        };
       }
 
       async function resetAll(){
@@ -2224,8 +2290,19 @@
         });
         const metaList = resolveStoreList(META_STORE);
         metaList.forEach(meta=>{
+          if(!meta || typeof meta !== 'object') return;
           const id = meta.id || meta.posId || 'default';
-          storeMaps[META_STORE].set(id, { id, invoiceCounter: Number(meta.invoiceCounter || 0) });
+          const record = { id, invoiceCounter: Number(meta.invoiceCounter || 0) };
+          if(Object.prototype.hasOwnProperty.call(meta, 'appliedEventId')){
+            record.appliedEventId = meta.appliedEventId;
+          }
+          if(Object.prototype.hasOwnProperty.call(meta, 'branchSnapshotVersion')){
+            record.branchSnapshotVersion = meta.branchSnapshotVersion;
+          }
+          if(Object.prototype.hasOwnProperty.call(meta, 'syncUpdatedAt')){
+            record.syncUpdatedAt = meta.syncUpdatedAt;
+          }
+          storeMaps[META_STORE].set(id, record);
         });
         const syncList = resolveStoreList('syncLog');
         syncList.forEach(entry=>{
@@ -2259,7 +2336,9 @@
         peekInvoiceCounter,
         resetAll,
         exportSnapshot,
-        importSnapshot
+        importSnapshot,
+        getSyncMetadata,
+        updateSyncMetadata
       };
     }
     function createKDSBridge(url){
@@ -3785,6 +3864,453 @@
     };
   }
 
+  function createEventReplicator(options={}){
+    const adapter = options.adapter;
+    const endpoint = options.endpoint || null;
+    const branch = options.branch || 'default';
+    const interval = Math.max(2000, Number(options.interval) || 15000);
+    const fetcher = typeof options.fetch === 'function' ? options.fetch : (typeof fetch === 'function' ? fetch : null);
+    const applyEvent = typeof options.applyEvent === 'function' ? options.applyEvent : null;
+    const onBatchApplied = typeof options.onBatchApplied === 'function' ? options.onBatchApplied : null;
+    const onError = typeof options.onError === 'function' ? options.onError : null;
+    const onDiagnostic = typeof options.onDiagnostic === 'function' ? options.onDiagnostic : null;
+    if(!adapter || typeof adapter.getSyncMetadata !== 'function' || typeof adapter.updateSyncMetadata !== 'function'){
+      console.warn('[Mishkah][POS] Event replicator requires adapter with sync metadata helpers.');
+      return {
+        start(){},
+        stop(){},
+        async fetchNow(){ return { appliedCount:0, eventsProcessed:0 }; },
+        getCursor(){ return { appliedEventId:null, branchSnapshotVersion:null }; }
+      };
+    }
+    if(!endpoint || !fetcher){
+      console.warn('[Mishkah][POS] Event replicator inactive — missing endpoint or fetch implementation.');
+      return {
+        start(){},
+        stop(){},
+        async fetchNow(){ return { appliedCount:0, eventsProcessed:0 }; },
+        getCursor(){ return { appliedEventId:null, branchSnapshotVersion:null }; }
+      };
+    }
+    let cursorCache = null;
+    let timer = null;
+    let stopped = true;
+    let queue = Promise.resolve();
+
+    const emitDiagnostic = (event, payload)=>{
+      if(!onDiagnostic) return;
+      try { onDiagnostic(event, payload); } catch(_err){}
+    };
+
+    const loadCursor = async ()=>{
+      if(cursorCache) return cursorCache;
+      try {
+        const record = await adapter.getSyncMetadata(branch);
+        cursorCache = {
+          appliedEventId: record?.appliedEventId || null,
+          branchSnapshotVersion: record?.branchSnapshotVersion || null,
+          updatedAt: record?.updatedAt || null
+        };
+      } catch(error){
+        emitDiagnostic('cursor:error', { error, stage:'load' });
+        cursorCache = { appliedEventId:null, branchSnapshotVersion:null, updatedAt:null };
+      }
+      return cursorCache;
+    };
+
+    const persistCursor = async (patch={})=>{
+      cursorCache = { ...(cursorCache || {}), ...patch };
+      try {
+        const saved = await adapter.updateSyncMetadata(branch, cursorCache);
+        cursorCache = { ...cursorCache, ...saved };
+      } catch(error){
+        emitDiagnostic('cursor:error', { error, stage:'save', patch });
+      }
+      return cursorCache;
+    };
+
+    const resolveEventId = (event)=>{
+      if(!event || typeof event !== 'object') return null;
+      const direct = event.id || event.eventId || event.uuid || event.dataset_id || null;
+      if(direct != null) return String(direct);
+      if(event.record && event.record.id != null) return String(event.record.id);
+      if(event.entry && event.entry.id != null) return String(event.entry.id);
+      const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
+      if(payload){
+        if(payload.id != null) return String(payload.id);
+        if(payload.orderId != null) return String(payload.orderId);
+        if(payload.eventId != null) return String(payload.eventId);
+      }
+      return null;
+    };
+
+    const resolveTimestamp = (event)=>{
+      if(!event || typeof event !== 'object') return Date.now();
+      const candidates = [
+        event.updatedAt,
+        event.createdAt,
+        event.ts,
+        event.time,
+        event.meta?.updatedAt,
+        event.meta?.createdAt,
+        event.meta?.ts
+      ];
+      for(const candidate of candidates){
+        if(candidate == null) continue;
+        const value = typeof candidate === 'string' ? Date.parse(candidate) : Number(candidate);
+        if(Number.isFinite(value)) return value;
+      }
+      return Date.now();
+    };
+
+    const sortEvents = (events)=>{
+      return events.slice().sort((a,b)=>{
+        const tsA = resolveTimestamp(a);
+        const tsB = resolveTimestamp(b);
+        if(tsA !== tsB) return tsA - tsB;
+        const idA = resolveEventId(a) || '';
+        const idB = resolveEventId(b) || '';
+        return idA.localeCompare(idB);
+      });
+    };
+
+    const buildUrl = ()=>{
+      let url = endpoint;
+      const query = new URLSearchParams();
+      const cursor = cursorCache || {};
+      if(cursor.appliedEventId){
+        query.set('after', cursor.appliedEventId);
+      }
+      if(cursor.branchSnapshotVersion){
+        query.set('since_version', cursor.branchSnapshotVersion);
+      }
+      if(options.limit){
+        query.set('limit', options.limit);
+      }
+      if(options.query && typeof options.query === 'object'){
+        Object.entries(options.query).forEach(([key, value])=>{
+          if(value === undefined || value === null) return;
+          query.set(key, value);
+        });
+      }
+      if(typeof options.queryBuilder === 'function'){
+        try {
+          const extra = options.queryBuilder({ cursor, branch });
+          if(extra && typeof extra === 'object'){
+            Object.entries(extra).forEach(([key, value])=>{
+              if(value === undefined || value === null) return;
+              query.set(key, value);
+            });
+          }
+        } catch(error){
+          emitDiagnostic('query:error', { error });
+        }
+      }
+      const queryString = query.toString();
+      if(queryString){
+        url += (url.includes('?') ? '&' : '?') + queryString;
+      }
+      return url;
+    };
+
+    const applyBatch = async (events, context)=>{
+      if(!Array.isArray(events) || !events.length) return { appliedCount:0, eventsProcessed:0 };
+      await loadCursor();
+      const sorted = sortEvents(events);
+      const pointerId = cursorCache?.appliedEventId || null;
+      const startIndex = pointerId ? sorted.findIndex(evt=> resolveEventId(evt) === pointerId) : -1;
+      const slice = startIndex >= 0 ? sorted.slice(startIndex + 1) : sorted;
+      let applied = 0;
+      for(const event of slice){
+        const eventId = resolveEventId(event);
+        let handled = false;
+        if(applyEvent){
+          try {
+            const result = await applyEvent(event, { branch, eventId, context });
+            handled = result !== false;
+          } catch(error){
+            emitDiagnostic('apply:error', { error, eventId, event });
+            if(onError){
+              try { onError(error, event, { branch, stage:'apply' }); } catch(_err){}
+            } else {
+              console.warn('[Mishkah][POS] Event replicator failed to apply event.', error);
+            }
+            handled = false;
+          }
+        }
+        if(handled && eventId){
+          applied += 1;
+          await persistCursor({ appliedEventId: eventId, updatedAt: Date.now() });
+        }
+      }
+      if(context && context.version !== undefined && context.version !== null){
+        await persistCursor({ branchSnapshotVersion: context.version, updatedAt: Date.now() });
+      }
+      return { appliedCount: applied, eventsProcessed: slice.length };
+    };
+
+    const fetchOnce = async ()=>{
+      await loadCursor();
+      const url = buildUrl();
+      let body = null;
+      let response = null;
+      try {
+        response = await fetcher(url, { cache:'no-store' });
+      } catch(error){
+        emitDiagnostic('fetch:error', { error, url, stage:'network' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-network' }); } catch(_err){}
+        }
+        throw error;
+      }
+      if(!response || !response.ok){
+        const status = response ? response.status : 'network';
+        const error = new Error(`WS2 events HTTP ${status}`);
+        emitDiagnostic('fetch:error', { error, url, status, stage:'http' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-http', status }); } catch(_err){}
+        }
+        throw error;
+      }
+      try {
+        body = await response.json();
+      } catch(error){
+        emitDiagnostic('fetch:error', { error, url, stage:'json' });
+        if(onError){
+          try { onError(error, null, { branch, stage:'fetch-json' }); } catch(_err){}
+        }
+        throw error;
+      }
+      const events = Array.isArray(body?.events) ? body.events : [];
+      const version = body?.version ?? body?.branchSnapshotVersion ?? body?.meta?.version ?? body?.snapshot?.version ?? null;
+      const result = await applyBatch(events, { version, raw: body });
+      if(onBatchApplied){
+        try { await onBatchApplied({ ...result, version, body }); } catch(error){ emitDiagnostic('batch:error', { error }); }
+      }
+      if(events.length === 0 && version != null){
+        await persistCursor({ branchSnapshotVersion: version, updatedAt: Date.now() });
+      }
+      return result;
+    };
+
+    const schedule = ()=>{
+      if(stopped) return;
+      if(timer){
+        clearTimeout(timer);
+        timer = null;
+      }
+      timer = setTimeout(()=>{
+        if(stopped) return;
+        queue = queue.then(()=> fetchOnce()).catch(()=>{}).finally(()=> schedule());
+      }, interval);
+    };
+
+    return {
+      start(){
+        if(!stopped) return;
+        stopped = false;
+        queue = queue.then(()=> loadCursor()).catch(()=>{}).then(()=> fetchOnce()).catch(()=>{});
+        schedule();
+      },
+      stop(){
+        stopped = true;
+        if(timer){
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      async fetchNow(){
+        await loadCursor();
+        return queue = queue.then(()=> fetchOnce()).catch(error=>{
+          emitDiagnostic('fetch:error', { error, stage:'manual' });
+          return { appliedCount:0, eventsProcessed:0, error };
+        });
+      },
+      getCursor(){
+        return { ...(cursorCache || {}) };
+      }
+    };
+  }
+
+  const ORDER_TYPE_GUARDS = new Set(['dine_in','dine-in','dine in','takeaway','delivery','pickup','drive_thru','drive-thru']);
+
+  function resolveEventType(value){
+    if(!value || typeof value !== 'object') return '';
+    const payload = value.payload && typeof value.payload === 'object' ? value.payload : null;
+    const metaType = payload?.type || payload?.action || payload?.eventType || payload?.event_type;
+    const topLevel = value.type || value.action;
+    return String(metaType || topLevel || '').toLowerCase();
+  }
+
+  function isOrderRecord(candidate){
+    if(!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+    const header = candidate.header && typeof candidate.header === 'object' ? candidate.header : null;
+    const id = candidate.id || candidate.orderId || candidate.order_id || header?.id || null;
+    if(!id) return false;
+    if(candidate.lines || candidate.orderLines || candidate.order_lines) return true;
+    if(candidate.totals || candidate.total || candidate.summary) return true;
+    if(candidate.status || candidate.order_status || header?.status) return true;
+    if(candidate.shiftId || candidate.shift_id || header?.shiftId) return true;
+    if(candidate.metadata && typeof candidate.metadata === 'object' && candidate.metadata.shiftId) return true;
+    if(candidate.type && ORDER_TYPE_GUARDS.has(String(candidate.type).toLowerCase())) return true;
+    if(header) return true;
+    return false;
+  }
+
+  function normalizeRemoteOrderRecord(raw, eventMeta={}){
+    if(!raw || typeof raw !== 'object') return null;
+    if(Array.isArray(raw)){
+      const picked = raw.find(entry=> isOrderRecord(entry));
+      return picked ? normalizeRemoteOrderRecord(picked, eventMeta) : null;
+    }
+    if(raw.order && typeof raw.order === 'object'){
+      return normalizeRemoteOrderRecord(raw.order, eventMeta);
+    }
+    if(raw.payload && typeof raw.payload === 'object' && !Array.isArray(raw.payload)){
+      return normalizeRemoteOrderRecord(raw.payload, eventMeta);
+    }
+    const header = raw.header && typeof raw.header === 'object' ? raw.header : null;
+    const order = cloneDeep(raw);
+    if(header){
+      order.id = order.id || header.id;
+      order.type = order.type || header.type;
+      order.status = order.status || header.status;
+      order.fulfillmentStage = order.fulfillmentStage || header.fulfillmentStage || header.stage;
+      order.paymentState = order.paymentState || header.paymentState;
+      order.shiftId = order.shiftId || header.shiftId;
+      order.posId = order.posId || header.posId || header.metadata?.posId;
+      order.posLabel = order.posLabel || header.posLabel || header.metadata?.posLabel;
+      order.posNumber = order.posNumber || header.posNumber || header.metadata?.posNumber;
+      if(!Array.isArray(order.lines) && Array.isArray(header.lines)){
+        order.lines = header.lines.map(line=> ({ ...line }));
+      }
+      order.metadata = { ...(order.metadata || {}), ...(header.metadata || {}) };
+    }
+    order.id = order.id || order.orderId || order.order_id || null;
+    order.shiftId = order.shiftId || order.shift_id || order.shift || order.metadata?.shiftId || null;
+    order.type = order.type || order.order_type || order.metadata?.orderType || order.metadata?.type || null;
+    if(!order.posId){
+      order.posId = order.metadata?.posId || POS_INFO.id;
+    }
+    if(!order.posLabel){
+      order.posLabel = order.metadata?.posLabel || POS_INFO.label;
+    }
+    if(!Number.isFinite(Number(order.posNumber))){
+      const posNumberSource = order.metadata?.posNumber || order.posNumber;
+      order.posNumber = Number.isFinite(Number(posNumberSource)) ? Number(posNumberSource) : POS_INFO.number;
+    }
+    if(Array.isArray(order.orderLines) && !Array.isArray(order.lines)){
+      order.lines = order.orderLines.map(line=> ({ ...line }));
+    }
+    if(Array.isArray(order.details) && !Array.isArray(order.lines)){
+      order.lines = order.details.map(line=> ({ ...line }));
+    }
+    if(order.deleted === true || order.isDeleted === true){
+      order.status = order.status || 'cancelled';
+    }
+    order.updatedAt = order.updatedAt || order.updated_at || Date.now();
+    order.createdAt = order.createdAt || order.created_at || order.updatedAt;
+    order.savedAt = order.savedAt || order.saved_at || order.updatedAt;
+    if(order.id && order.shiftId){
+      order.dirty = false;
+      order.isPersisted = true;
+      if(!order.fulfillmentStage && order.status === 'cancelled'){
+        order.fulfillmentStage = 'cancelled';
+      }
+      order.metadata = {
+        ...(order.metadata || {}),
+        ws2EventType: eventMeta.type || null
+      };
+      return order;
+    }
+    return null;
+  }
+
+  function collectOrderCandidates(event){
+    if(!event || typeof event !== 'object') return [];
+    const queue = [event];
+    const seen = new Set();
+    const results = [];
+    while(queue.length){
+      const current = queue.shift();
+      if(!current || typeof current !== 'object') continue;
+      if(seen.has(current)) continue;
+      seen.add(current);
+      if(Array.isArray(current)){
+        current.forEach(entry=> queue.push(entry));
+        continue;
+      }
+      if(isOrderRecord(current)){
+        const normalized = normalizeRemoteOrderRecord(current, { type: resolveEventType(event) });
+        if(normalized && normalized.id) results.push(normalized);
+      }
+      Object.keys(current).forEach(key=>{
+        if(['meta','serverId','version','moduleId','branchId','event','action'].includes(key)) return;
+        const value = current[key];
+        if(value && typeof value === 'object') queue.push(value);
+      });
+    }
+    return results;
+  }
+
+  async function applyWs2EventToPos(event, adapter){
+    if(!adapter || typeof adapter.saveOrder !== 'function') return false;
+    const type = resolveEventType(event);
+    const isDelete = type.includes('delete');
+    const candidates = collectOrderCandidates(event);
+    if(isDelete && !candidates.length){
+      const fallbacks = [
+        event?.payload?.reverseRecord,
+        event?.payload?.reverse,
+        event?.payload?.previous,
+        event?.payload?.snapshot,
+        event?.record
+      ];
+      fallbacks.forEach(entry=>{
+        const normalized = normalizeRemoteOrderRecord(entry, { type });
+        if(normalized && normalized.id) candidates.push(normalized);
+      });
+      if(!candidates.length){
+        const orderId = event?.payload?.orderId || event?.payload?.id || resolveEventId(event);
+        if(orderId){
+          candidates.push({
+            id: String(orderId),
+            shiftId: `sync-${POS_INFO.id}`,
+            status:'cancelled',
+            fulfillmentStage:'cancelled',
+            paymentState:'refunded',
+            dirty:false,
+            isPersisted:true,
+            metadata:{ deleted:true, ws2EventType:type },
+            updatedAt: Date.now(),
+            createdAt: Date.now(),
+            savedAt: Date.now()
+          });
+        }
+      }
+    }
+    if(!candidates.length) return false;
+    let applied = false;
+    for(const order of candidates){
+      if(!order || !order.id) continue;
+      if(!order.shiftId){
+        order.shiftId = `sync-${POS_INFO.id}`;
+      }
+      if(isDelete){
+        order.status = order.status || 'cancelled';
+        order.fulfillmentStage = order.fulfillmentStage || 'cancelled';
+        order.metadata = { ...(order.metadata || {}), deleted:true, ws2EventType:type };
+      }
+      try {
+        await adapter.saveOrder(order);
+        applied = true;
+      } catch(error){
+        console.warn('[Mishkah][POS] Failed to persist WS2 event order payload.', { id: order.id, error });
+      }
+    }
+    return applied;
+  }
+
     const kdsSettings = ensurePlainObject(settings.kds);
     const kdsSyncSettings = ensurePlainObject(kdsSettings.sync);
     const rawKdsEndpointSetting = normalizeEndpointString(firstDefined(
@@ -4035,6 +4561,39 @@
         lastError: centralSyncMeta.reason || 'Central sync disabled via dataset meta.'
       });
     }
+
+    const ws2EventsEndpoint = normalizeEndpointString(firstDefined(
+      syncSettings.events_endpoint,
+      syncSettings.eventsEndpoint,
+      syncSettings.ws2_events_endpoint,
+      syncSettings.ws2EventsEndpoint,
+      BRANCH_EVENTS_ROUTE
+    ));
+    const ws2PollInterval = Number(syncSettings.events_poll_interval
+      ?? syncSettings.eventsPollInterval
+      ?? syncSettings.ws2_poll_interval
+      ?? syncSettings.ws2PollInterval
+      ?? 0);
+    const ws2EventReplicator = createEventReplicator({
+      adapter: posDB,
+      branch: BRANCH_CHANNEL,
+      endpoint: ws2EventsEndpoint,
+      interval: Math.max(12000, Number.isFinite(ws2PollInterval) ? ws2PollInterval : 0),
+      applyEvent: (event)=> applyWs2EventToPos(event, posDB),
+      onBatchApplied: async (result={})=>{
+        if(!result || !result.appliedCount) return;
+        try { await posDB.markSync(); } catch(_err){}
+        try {
+          await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true });
+        } catch(error){
+          console.warn('[Mishkah][POS] WS2 event replicator refresh failed.', error);
+        }
+      },
+      onError: (error)=>{
+        console.warn('[Mishkah][POS] WS2 event replicator error.', error);
+      }
+    });
+    ws2EventReplicator.start();
 
     const wrapDbMutation = (methodName, metaResolver)=>{
       const original = posDB && typeof posDB[methodName] === 'function' ? posDB[methodName].bind(posDB) : null;
