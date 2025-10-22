@@ -169,7 +169,7 @@
             data-chart-type="line"
             data-chart-bind="data.analytics"
             data-chart-height="{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}"
-            style="min-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;"
+            style="min-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;max-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;"
             id="quick-sales-chart"
           ></canvas>
           <p
@@ -525,6 +525,7 @@
         }
 
         function runQuickDashboardHydration(ctx, snapshot) {
+          ensureHelperBindings(snapshot);
           var context = ctx || window.MishkahAuto || null;
           var state = snapshot;
           if (state == null && typeof resolveAutoState === 'function') {
@@ -540,6 +541,7 @@
           if (!state && context && context.state) {
             state = context.state;
           }
+          ensureHelperBindings(state);
           var hydrated = false;
           try {
             hydrated = syncSalesChart(state, context);
@@ -569,7 +571,7 @@
             }
           }
           if (Object.prototype.hasOwnProperty.call(opts, 'snapshot')) {
-            quickHydration.snapshot = opts.snapshot;
+            quickHydration.snapshot = ensureHelperBindings(opts.snapshot);
           }
           var immediate = opts.immediate === true;
           var delay = immediate ? 0 : Math.min(240, 12 + quickHydration.attempts * 18);
@@ -580,7 +582,7 @@
           }
           quickHydration.timer = window.setTimeout(function () {
             quickHydration.timer = null;
-            var snapshot = quickHydration.snapshot;
+            var snapshot = ensureHelperBindings(quickHydration.snapshot);
             quickHydration.snapshot = undefined;
             var ok = runQuickDashboardHydration(quickHydration.ctx, snapshot);
             if (ok) {
@@ -728,6 +730,30 @@
             }
           }
           return formatted + ' ' + (suffix || '');
+        }
+
+        function ensureHelperBindings(target) {
+          if (!target || typeof target !== 'object') return target;
+          var helpers = target.helpers;
+          if (!helpers || typeof helpers !== 'object') {
+            helpers = {};
+            target.helpers = helpers;
+          }
+          var registry = {
+            formatCurrency: formatCurrency,
+            currentAnalyticsMonth: currentAnalyticsMonth,
+            latestValue: latestValue,
+            sumSeries: sumSeries,
+            formatThousands: formatThousands
+          };
+          for (var key in registry) {
+            if (!Object.prototype.hasOwnProperty.call(registry, key)) continue;
+            var fn = registry[key];
+            if (typeof fn !== 'function') continue;
+            helpers[key] = fn;
+            target[key] = fn;
+          }
+          return target;
         }
 
         function hexToRgba(color, alpha) {
@@ -927,10 +953,11 @@
           if (canvas.style) {
             canvas.style.height = resolvedHeight + 'px';
             canvas.style.minHeight = resolvedHeight + 'px';
+            canvas.style.maxHeight = resolvedHeight + 'px';
             if (!canvas.style.width) canvas.style.width = '100%';
             if (!canvas.style.display) canvas.style.display = 'block';
           } else {
-            canvas.setAttribute('style', 'height:' + resolvedHeight + 'px;min-height:' + resolvedHeight + 'px;width:100%;display:block;');
+            canvas.setAttribute('style', 'height:' + resolvedHeight + 'px;min-height:' + resolvedHeight + 'px;max-height:' + resolvedHeight + 'px;width:100%;display:block;');
           }
 
           var payload = typeof chartApi.buildPayload === 'function'
@@ -998,19 +1025,19 @@
           var context = ctx || options.ctx || window.MishkahAuto || null;
           if (!context) return false;
 
-          var snapshot = options.snapshot || null;
+          var snapshot = ensureHelperBindings(options.snapshot || null);
           if (!snapshot && typeof resolveAutoState === 'function') {
-            snapshot = resolveAutoState(context);
+            snapshot = ensureHelperBindings(resolveAutoState(context));
           }
           if (!snapshot && context) {
             if (typeof context.getState === 'function') {
               try {
-                snapshot = context.getState();
+                snapshot = ensureHelperBindings(context.getState());
               } catch (_errGetState) {
-                snapshot = context.state || null;
+                snapshot = ensureHelperBindings(context.state || null);
               }
             } else if (context.state) {
-              snapshot = context.state;
+              snapshot = ensureHelperBindings(context.state);
             }
           }
 
@@ -1047,12 +1074,14 @@
             next.data = next.data || {};
             var analytics = next.data.analytics && typeof next.data.analytics === 'object' ? next.data.analytics : {};
             next.data.analytics = analytics;
+            ensureHelperBindings(next);
 
             if (analytics.autoSimulate === false && options.force !== true) {
               return;
             }
 
             var prevAnalytics = prev && prev.data && typeof prev.data.analytics === 'object' ? prev.data.analytics : null;
+            var reusePrevious = options.reusePrevious === true;
             var months = resolveMonths(prev || next, analytics);
             if (!months.length) {
               months = resolveMonths(next, analytics);
@@ -1084,7 +1113,9 @@
               if (!base || !base.id) continue;
               var reference = prevMap[base.id];
               var color = base.color || (reference && reference.color) || pickPaletteColor(index);
-              var values = generateSalesSeries(reference && reference.values, monthCount, metricsSource, catalogMap[base.id]);
+              var shouldReuseValues = reusePrevious || options.bootstrap === true;
+              var seedValues = shouldReuseValues && reference ? reference.values : null;
+              var values = generateSalesSeries(seedValues, monthCount, metricsSource, catalogMap[base.id]);
               updatedSeries.push({
                 id: base.id,
                 nameKey: base.nameKey || base.id,
@@ -1121,7 +1152,7 @@
 
             performed = true;
           }, function (latest) {
-            var nextSnapshot = latest || null;
+            var nextSnapshot = ensureHelperBindings(latest || null);
             if (nextSnapshot) {
               ensureCountdownLoop(nextSnapshot);
             }
@@ -1157,8 +1188,9 @@
           if (!fresh) return;
           auto.__mkQuickDashboardConnected = true;
           auto.onState(function (snapshot) {
-            ensureCountdownLoop(snapshot || null);
-            queueQuickDashboardHydration({ ctx: auto, snapshot: snapshot, immediate: true });
+            var resolved = ensureHelperBindings(snapshot || null);
+            ensureCountdownLoop(resolved);
+            queueQuickDashboardHydration({ ctx: auto, snapshot: resolved, immediate: true });
           });
         }
 
@@ -1214,6 +1246,7 @@
               initial = auto.state || null;
             }
           }
+          initial = ensureHelperBindings(initial || null);
           var seeded = randomizeSalesReport(null, ctx || auto, { snapshot: initial || null, bootstrap: true });
           if (!seeded) {
             if (initial) {
@@ -1224,7 +1257,7 @@
           onAutoReady(function (instance) {
             var target = instance || window.MishkahAuto || ctx || null;
             connectAutoState(target);
-            var snapshot = resolveAutoState(target) || initial || null;
+            var snapshot = ensureHelperBindings(resolveAutoState(target) || initial || null);
             var seededUpdate = randomizeSalesReport(null, target || ctx, { snapshot: snapshot, bootstrap: true });
             if (!seededUpdate) {
               if (snapshot) {
@@ -1232,7 +1265,7 @@
               }
               queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
             }
-          }
+          });
           if (initial) {
             ensureCountdownLoop(initial);
           }
@@ -1240,7 +1273,7 @@
           onAutoReady(function (instance) {
             var target = instance || window.MishkahAuto || ctx || null;
             connectAutoState(target);
-            var snapshot = resolveAutoState(target) || initial || null;
+            var snapshot = ensureHelperBindings(resolveAutoState(target) || initial || null);
             queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
           });
         }
