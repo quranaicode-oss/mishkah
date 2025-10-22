@@ -1,16 +1,12 @@
 {
+  "moduleId": "pos",
+  "branchId": "dar",
   "version": 1,
-  "meta": {
-    "branchId": "remal",
-    "moduleId": "pos",
-    "generatedAt": "2024-02-20T09:30:00Z",
-    "source": "pos-mock-data"
-  },
   "tables": {
     "pos_database": [
       {
-        "id": "seed-remal-dataset",
-        "branchId": "remal",
+        "id": "seed-dar-dataset",
+        "branchId": "dar",
         "payload": {
           "settings": {
             "tax_rate": 0.14,
@@ -29,14 +25,14 @@
               }
             },
             "sync": {
-              "branch_id": "remal",
+              "branch_id": "dar",
               "branch_name": {
-                "ar": "رمال - الفرع السحابي",
-                "en": "Remal Cloud Branch"
+                "ar": "دار - الفرع الرئيسي",
+                "en": "Dar Main Branch"
               },
-              "channel": "remal",
+              "channel": "dar",
               "ws_endpoint": "/ws",
-              "http_endpoint": "/api/branches/remal/modules/pos/events",
+              "http_endpoint": "/api/branches/dar/modules/pos/events",
               "token": null,
               "central_only": false,
               "allow_indexeddb_fallback": true
@@ -1097,5 +1093,12 @@
         "updatedAt": "2024-02-20T09:30:00Z"
       }
     ]
+  },
+  "meta": {
+    "branchId": "dar",
+    "moduleId": "pos",
+    "lastUpdatedAt": "2024-02-20T09:30:00Z",
+    "serverId": "seed",
+    "datasetSource": "seed"
   }
 }
