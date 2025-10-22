@@ -1232,6 +1232,16 @@
               }
               queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
             }
+          }
+          if (initial) {
+            ensureCountdownLoop(initial);
+          }
+          queueQuickDashboardHydration({ ctx: ctx || auto, snapshot: initial || null, immediate: true });
+          onAutoReady(function (instance) {
+            var target = instance || window.MishkahAuto || ctx || null;
+            connectAutoState(target);
+            var snapshot = resolveAutoState(target) || initial || null;
+            queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
           });
         }
       </script>
