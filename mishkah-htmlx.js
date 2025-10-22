@@ -120,6 +120,21 @@
     return [value];
   }
 
+  function parseAfterMountTargets(raw) {
+    if (raw == null) return [];
+    var text = String(raw).trim();
+    if (!text) return [];
+    var parts = text.split(',');
+    var names = [];
+    for (var i = 0; i < parts.length; i += 1) {
+      var name = parts[i] ? parts[i].trim() : '';
+      if (!name) continue;
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) continue;
+      if (names.indexOf(name) === -1) names.push(name);
+    }
+    return names;
+  }
+
   function createNodeKey(namespace, path, hint) {
     var ns = namespace ? String(namespace) : 'ns';
     var basis = ns + '|' + String(path || '') + (hint ? '|' + String(hint) : '');
@@ -2347,7 +2362,7 @@
   }
 
   function collectTemplateScriptsWithDynamic(templateEl, fragment) {
-    var bundle = { global: { fns: {}, locals: {} }, scoped: {}, env: [], data: [], ajaxMaps: [], warnings: [] };
+    var bundle = { global: { fns: {}, locals: {} }, scoped: {}, env: [], data: [], ajaxMaps: [], afterMount: [], warnings: [] };
     if (!fragment) return bundle;
 
     var scriptInfos = [];
@@ -2417,6 +2432,20 @@
         } else {
           Object.assign(bundle.global.fns, info.fns);
           Object.assign(bundle.global.locals, info.locals);
+        }
+        if (scriptEl.hasAttribute('data-after-mount')) {
+          var afterTargets = parseAfterMountTargets(scriptEl.getAttribute('data-after-mount'));
+          var delayAttr = scriptEl.getAttribute('data-after-delay') || scriptEl.getAttribute('data-after-mount-delay') || scriptEl.getAttribute('data-delay');
+          var parsedDelay = Number(delayAttr);
+          if (!Number.isFinite(parsedDelay) || parsedDelay < 0) {
+            parsedDelay = 10;
+          }
+          bundle.afterMount.push({
+            owner: owner || null,
+            names: afterTargets,
+            delay: parsedDelay,
+            source: describeTemplate(templateEl)
+          });
         }
       }
     }
@@ -3372,6 +3401,53 @@
         scopedLocalsMap[scopeId] = mergeFunctionLocals(scopedEntry.locals || {}, runtimeScoped[scopeId]);
       }
     }
+    function resolveAfterMountFn(name, owner) {
+      if (!name) return null;
+      if (owner && scopedLocalsMap[owner] && typeof scopedLocalsMap[owner][name] === 'function') {
+        return scopedLocalsMap[owner][name];
+      }
+      if (scriptLocals && typeof scriptLocals[name] === 'function') {
+        return scriptLocals[name];
+      }
+      if (runtimeGlobal && typeof runtimeGlobal[name] === 'function') {
+        return runtimeGlobal[name];
+      }
+      return null;
+    }
+    var afterMountEntries = [];
+    if (scriptBundle && scriptBundle.afterMount && scriptBundle.afterMount.length) {
+      for (var am = 0; am < scriptBundle.afterMount.length; am += 1) {
+        var task = scriptBundle.afterMount[am] || {};
+        var targetNames = Array.isArray(task.names) && task.names.length
+          ? task.names.slice()
+          : ['__afterMount__', 'afterMount'];
+        var resolved = [];
+        for (var tn = 0; tn < targetNames.length; tn += 1) {
+          var candidate = resolveAfterMountFn(targetNames[tn], task.owner || null);
+          if (candidate && resolved.indexOf(candidate) === -1) {
+            resolved.push(candidate);
+          }
+        }
+        if (!resolved.length) {
+          if (task.names && task.names.length) {
+            warnings.push('HTMLx: data-after-mount لم يعثر على أي دوال مطابقة داخل ' + (task.source || parts.namespace));
+          }
+          continue;
+        }
+        (function (fns, delay) {
+          afterMountEntries.push({
+            delay: delay,
+            fn: function (payload, helpers) {
+              var out;
+              for (var i = 0; i < fns.length; i += 1) {
+                out = fns[i](payload, helpers);
+              }
+              return out;
+            }
+          });
+        })(resolved.slice(), task.delay);
+      }
+    }
     var orders = synthesizeOrders(parts.namespace, events, scriptBundle, { global: runtimeGlobal, scoped: runtimeScoped }, useScope ? tplId : null);
 
     var compileCtx = { scopedLocals: scopedLocalsMap };
@@ -3410,6 +3486,7 @@
       ajaxDirectives: ajaxDirectives,
       bootstrapFns: bootstrapFns,
       initFns: initFns,
+      afterMount: afterMountEntries,
       warnings: warnings,
       element: template
     };
@@ -3588,6 +3665,36 @@
         console.warn('HTMLx: ' + stage + ' فشل داخل ' + label + ':', error);
       }
     }
+  }
+
+  function normalizeAfterMountDelay(value) {
+    var delay = Number(value);
+    if (!Number.isFinite(delay) || delay < 0) return 10;
+    if (delay > 10000) return 10000;
+    return delay;
+  }
+
+  function scheduleAfterMount(entries, payload, extra) {
+    if (!entries || !entries.length) return;
+    var timer = (global && typeof global.setTimeout === 'function')
+      ? function (fn, ms) { return global.setTimeout(fn, ms); }
+      : function (fn) { fn(); return 0; };
+    entries.forEach(function (entry) {
+      if (!entry || typeof entry.fn !== 'function') return;
+      var delay = normalizeAfterMountDelay(entry.delay);
+      timer(function () {
+        try {
+          var result = runLifecycle([entry], payload, 'after-mount', extra);
+          if (result && typeof result.catch === 'function') {
+            result.catch(function (error) {
+              console.warn('HTMLx: after-mount task rejected:', error);
+            });
+          }
+        } catch (err) {
+          console.warn('HTMLx: after-mount scheduling failed:', err);
+        }
+      }, delay);
+    });
   }
 
   function buildAjaxTaskConfig(task, registry) {
@@ -3910,7 +4017,7 @@
     if (ajaxDirectives && ajaxDirectives.length) {
       await executeAjaxTasks(ajaxDirectives, ajaxRegistry, db, options || {});
     }
-    var lifecycle = { bootstrap: [], init: [] };
+    var lifecycle = { bootstrap: [], init: [], afterMount: [] };
     for (var bi = 0; bi < compiled.length; bi += 1) {
       var compiledEntry = compiled[bi];
       if (!compiledEntry) continue;
@@ -3922,6 +4029,12 @@
       if (compiledEntry.initFns && compiledEntry.initFns.length) {
         compiledEntry.initFns.forEach(function (fn) {
           lifecycle.init.push({ fn: fn, template: compiledEntry });
+        });
+      }
+      if (compiledEntry.afterMount && compiledEntry.afterMount.length) {
+        compiledEntry.afterMount.forEach(function (task) {
+          if (!task || typeof task.fn !== 'function') return;
+          lifecycle.afterMount.push({ fn: task.fn, template: compiledEntry, delay: task.delay });
         });
       }
     }
@@ -4009,6 +4122,10 @@
         return { fn: fn, template: null };
       });
       await runLifecycle(optionSequence, app, 'init', { app: app });
+    }
+
+    if (lifecycle.afterMount && lifecycle.afterMount.length) {
+      scheduleAfterMount(lifecycle.afterMount, app, { app: app });
     }
 
     return { app: app, compiled: compiled, renderers: rendererList };

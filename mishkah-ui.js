@@ -1697,6 +1697,77 @@ UI.CounterCard = ({ value=0, gkeyInc, gkeyDec }) =>
   });
 
 
+const COMPONENT_CLASSIFICATIONS = {
+  Chart: { types: ['visualization', 'chart'], parents: ['Figure', 'Dashboard'] },
+  Charts: { types: ['visualization', 'chart'], parents: ['Figure', 'Dashboard'] },
+  Countdown: { types: ['display', 'timer'], parents: ['Text', 'Dashboard'] },
+  AppRoot: { types: ['layout', 'structure'], parents: [] },
+  Toolbar: { types: ['layout', 'navigation'], parents: ['AppRoot', 'Header'] },
+  ToolbarGroup: { types: ['layout', 'control-group'], parents: ['Toolbar'] },
+  Footerbar: { types: ['layout', 'footer'], parents: ['AppRoot'] },
+  HStack: { types: ['layout', 'stack'], parents: ['Containers'] },
+  VStack: { types: ['layout', 'stack'], parents: ['Containers'] },
+  Divider: { types: ['layout', 'separator'], parents: ['HStack', 'VStack', 'Card'] },
+  Button: { types: ['input', 'action'], parents: ['Forms', 'Toolbar', 'Card'] },
+  Switcher: { types: ['input', 'toggle'], parents: ['Toolbar', 'Forms'] },
+  ThemeToggleIcon: { types: ['input', 'toggle'], parents: ['Toolbar', 'Header'] },
+  LanguageSwitch: { types: ['input', 'toggle'], parents: ['Toolbar', 'Header'] },
+  SegmentedSwitch: { types: ['input', 'selector'], parents: ['Toolbar', 'Forms'] },
+  Card: { types: ['layout', 'surface'], parents: ['AppRoot', 'Dashboard'] },
+  SweetNotice: { types: ['feedback', 'notice'], parents: ['Card'] },
+  Input: { types: ['input', 'field'], parents: ['Forms'] },
+  Textarea: { types: ['input', 'field'], parents: ['Forms'] },
+  Select: { types: ['input', 'field'], parents: ['Forms'] },
+  Label: { types: ['input', 'label'], parents: ['Forms'] },
+  NumpadDecimal: { types: ['input', 'composite'], parents: ['Overlay', 'Forms'] },
+  Field: { types: ['layout', 'form-field'], parents: ['Forms', 'Card'] },
+  Badge: { types: ['display', 'status'], parents: ['List', 'Toolbar', 'Card'] },
+  Chip: { types: ['input', 'filter'], parents: ['ChipGroup'] },
+  ChipGroup: { types: ['input', 'selector'], parents: ['Toolbar', 'Forms'] },
+  ScrollArea: { types: ['layout', 'container'], parents: ['Card', 'Drawer', 'Modal'] },
+  SearchBar: { types: ['input', 'search'], parents: ['Toolbar', 'Forms'] },
+  EmptyState: { types: ['feedback', 'placeholder'], parents: ['Card', 'ScrollArea'] },
+  List: { types: ['data', 'list'], parents: ['ScrollArea', 'Card'] },
+  ListItem: { types: ['data', 'list-item'], parents: ['List'] },
+  QtyStepper: { types: ['input', 'stepper'], parents: ['Forms', 'Cart'] },
+  PriceText: { types: ['display', 'numeric'], parents: ['ListItem', 'Card'] },
+  Segmented: { types: ['navigation', 'selector'], parents: ['Toolbar', 'Card'] },
+  StatCard: { types: ['visualization', 'metric'], parents: ['Dashboard', 'Card'] },
+  Tabs: { types: ['navigation', 'selector'], parents: ['AppRoot', 'Card'] },
+  Drawer: { types: ['layout', 'overlay'], parents: ['AppRoot'] },
+  Modal: { types: ['layout', 'overlay'], parents: ['AppRoot'] },
+  Table: { types: ['data', 'table'], parents: ['Card', 'Dashboard'] },
+  ToastHost: { types: ['feedback', 'overlay'], parents: ['AppRoot'] },
+  pushToast: { types: ['command', 'feedback'], parents: ['ToastHost'] },
+  AppShell: { types: ['layout', 'structure'], parents: [] },
+  CounterCard: { types: ['visualization', 'metric', 'control'], parents: ['Card', 'Dashboard'] }
+};
+
+Object.keys(COMPONENT_CLASSIFICATIONS).forEach(function (name) {
+  var meta = COMPONENT_CLASSIFICATIONS[name] || {};
+  var target = UI[name];
+  if (!target) return;
+  var types = Array.isArray(meta.types) ? meta.types.slice() : [];
+  var parents = Array.isArray(meta.parents) ? meta.parents.slice() : [];
+  try {
+    target.types = types;
+  } catch (err) {
+    try {
+      Object.defineProperty(target, 'types', { value: types, configurable: true, writable: true });
+    } catch (_err) {}
+  }
+  try {
+    target.parents = parents;
+  } catch (err2) {
+    try {
+      Object.defineProperty(target, 'parents', { value: parents, configurable: true, writable: true });
+    } catch (_err2) {}
+  }
+});
+
+UI.__componentMeta = Object.assign({}, UI.__componentMeta || {}, COMPONENT_CLASSIFICATIONS);
+
+
 /* ===================== Built-in Orders (tabs/modal/drawer + routing) ===================== */
 const ORDERS = {
   'ui.tabs.select': { on:['click'], gkeys:['ui:tabs:select'], handler:(e,ctx)=>{
@@ -2101,6 +2172,20 @@ M.UI.posOrders = POS_ORDERS;
   M.UI = M.UI || {};
   M.UI.Markdown = (opts={}) => MarkdownRenderer(opts);
   U.UDM = MarkdownRenderer;
+
+  var meta = M.UI.__componentMeta = M.UI.__componentMeta || {};
+  meta.Markdown = { types: ['content', 'typography'], parents: ['Card', 'ScrollArea'] };
+  var markdownComponent = M.UI.Markdown;
+  if (markdownComponent) {
+    var types = meta.Markdown.types.slice();
+    var parents = meta.Markdown.parents.slice();
+    try { markdownComponent.types = types; } catch (_err) {
+      try { Object.defineProperty(markdownComponent, 'types', { value: types, configurable: true, writable: true }); } catch (_err2) {}
+    }
+    try { markdownComponent.parents = parents; } catch (_err3) {
+      try { Object.defineProperty(markdownComponent, 'parents', { value: parents, configurable: true, writable: true }); } catch (_err4) {}
+    }
+  }
 })(window);
 
 
