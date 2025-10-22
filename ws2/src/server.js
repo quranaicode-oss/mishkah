@@ -4,8 +4,10 @@ import { constants as FS_CONSTANTS } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
+import { Pool } from 'pg';
 
 import logger from './logger.js';
+import { getEventStoreContext, appendEvent as appendModuleEvent, loadEventMeta, updateEventMeta, rotateEventLog, listArchivedLogs, readLogFile, discardLogFile } from './eventStore.js';
 import { createId, nowIso, safeJsonParse, deepClone } from './utils.js';
 import SchemaEngine from './schema/engine.js';
 import ModuleStore from './moduleStore.js';
@@ -30,6 +32,11 @@ const ENV_SCHEMA_PATH = process.env.WS_SCHEMA_PATH
 const MODULES_CONFIG_PATH = process.env.MODULES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'modules.json');
 const BRANCHES_CONFIG_PATH = process.env.BRANCHES_CONFIG_PATH || path.join(ROOT_DIR, 'data', 'branches.config.json');
 const HISTORY_DIR = process.env.HISTORY_DIR || path.join(ROOT_DIR, 'data', 'history');
+const EVENT_ARCHIVE_INTERVAL_MS = Math.max(60000, Number(process.env.WS2_EVENT_ARCHIVE_INTERVAL_MS || process.env.EVENT_ARCHIVE_INTERVAL_MS) || 5 * 60 * 1000);
+const EVENTS_PG_URL = process.env.WS2_EVENTS_PG_URL || process.env.EVENTS_PG_URL || process.env.WS2_PG_URL || process.env.DATABASE_URL || null;
+const EVENT_ARCHIVER_DISABLED = ['1', 'true', 'yes'].includes(
+  String(process.env.WS2_EVENT_ARCHIVE_DISABLED || process.env.EVENT_ARCHIVE_DISABLED || '').toLowerCase()
+);
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -125,6 +132,10 @@ function getModuleLivePath(branchId, moduleId) {
   return path.join(getBranchModuleDir(branchId, moduleId), relative);
 }
 
+function getModuleLiveDir(branchId, moduleId) {
+  return path.dirname(getModuleLivePath(branchId, moduleId));
+}
+
 function getModuleFilePath(branchId, moduleId) {
   return getModuleLivePath(branchId, moduleId);
 }
@@ -140,11 +151,18 @@ function getModuleArchivePath(branchId, moduleId, timestamp) {
   return path.join(historyDir, `${timestamp}.json`);
 }
 
+function getModuleEventStoreContext(branchId, moduleId) {
+  const liveDir = getModuleLiveDir(branchId, moduleId);
+  const historyDir = path.join(getModuleHistoryDir(branchId, moduleId), 'events');
+  return getEventStoreContext({ branchId, moduleId, liveDir, historyDir });
+}
+
 async function ensureBranchModuleLayout(branchId, moduleId) {
   const moduleDir = getBranchModuleDir(branchId, moduleId);
   await mkdir(moduleDir, { recursive: true });
   await mkdir(path.dirname(getModuleLivePath(branchId, moduleId)), { recursive: true });
   await mkdir(getModuleHistoryDir(branchId, moduleId), { recursive: true });
+  await mkdir(path.join(getModuleHistoryDir(branchId, moduleId), 'events'), { recursive: true });
 }
 
 async function readJsonSafe(filePath, fallback = null) {
@@ -1039,6 +1057,9 @@ async function hydrateModulesFromDisk() {
 }
 
 await hydrateModulesFromDisk();
+startEventArchiveService().catch((error) => {
+  logger.warn({ err: error }, 'Failed to start event archive service');
+});
 
 async function buildBranchSnapshot(branchId) {
   const modules = getBranchModules(branchId);
@@ -1076,6 +1097,133 @@ function listBranchSummaries() {
     entry.modules.push({ moduleId, version: store.version, meta: deepClone(store.meta || {}) });
   }
   return Array.from(summaries.values());
+}
+
+let eventArchivePool = null;
+let eventArchiveTimer = null;
+let eventArchiveTableReady = false;
+
+function listEventStoreContexts() {
+  const contexts = [];
+  for (const key of moduleStores.keys()) {
+    const [branchId, moduleId] = key.split('::');
+    contexts.push(getModuleEventStoreContext(branchId, moduleId));
+  }
+  return contexts;
+}
+
+async function ensureEventArchiveTable(pool) {
+  if (eventArchiveTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ws2_event_journal (
+      id TEXT PRIMARY KEY,
+      branch_id TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      table_name TEXT,
+      action TEXT NOT NULL,
+      record JSONB,
+      meta JSONB,
+      publish_state JSONB,
+      created_at TIMESTAMPTZ NOT NULL,
+      recorded_at TIMESTAMPTZ NOT NULL,
+      sequence BIGINT
+    )
+  `);
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS ws2_event_journal_branch_module_idx ON ws2_event_journal (branch_id, module_id, sequence)'
+  );
+  eventArchiveTableReady = true;
+}
+
+async function uploadEventArchive(pool, context, filePath) {
+  const entries = await readLogFile(filePath);
+  if (!entries.length) {
+    await discardLogFile(filePath);
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const insertSql =
+      'INSERT INTO ws2_event_journal (id, branch_id, module_id, table_name, action, record, meta, publish_state, created_at, recorded_at, sequence) ' +
+      'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ' +
+      'ON CONFLICT (id) DO UPDATE SET meta = EXCLUDED.meta, publish_state = EXCLUDED.publish_state, recorded_at = EXCLUDED.recorded_at';
+    for (const entry of entries) {
+      await client.query(insertSql, [
+        entry.id,
+        entry.branchId || context.branchId,
+        entry.moduleId || context.moduleId,
+        entry.table || null,
+        entry.action || 'module:insert',
+        entry.record || null,
+        entry.meta || {},
+        entry.publishState || {},
+        entry.createdAt ? new Date(entry.createdAt) : new Date(),
+        entry.recordedAt ? new Date(entry.recordedAt) : new Date(),
+        entry.sequence || null
+      ]);
+    }
+    await client.query('COMMIT');
+    await discardLogFile(filePath);
+    logger.info(
+      { branchId: context.branchId, moduleId: context.moduleId, filePath, events: entries.length },
+      'Archived event log batch to PostgreSQL'
+    );
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function runEventArchiveCycle(pool) {
+  const contexts = listEventStoreContexts();
+  if (!contexts.length) return;
+  await ensureEventArchiveTable(pool);
+  for (const context of contexts) {
+    try {
+      await rotateEventLog(context);
+    } catch (error) {
+      logger.warn({ err: error, branchId: context.branchId, moduleId: context.moduleId }, 'Failed to rotate event log');
+    }
+    const archives = await listArchivedLogs(context);
+    for (const filePath of archives) {
+      try {
+        await uploadEventArchive(pool, context, filePath);
+      } catch (error) {
+        logger.warn({ err: error, branchId: context.branchId, moduleId: context.moduleId, filePath }, 'Failed to archive event log');
+      }
+    }
+  }
+}
+
+async function startEventArchiveService() {
+  if (EVENT_ARCHIVER_DISABLED) {
+    logger.info('Event archive service disabled via configuration flag');
+    return;
+  }
+  if (!EVENTS_PG_URL) {
+    logger.info('Event archive service disabled: PostgreSQL URL missing');
+    return;
+  }
+  if (!eventArchivePool) {
+    eventArchivePool = new Pool({ connectionString: EVENTS_PG_URL });
+    eventArchivePool.on('error', (err) => {
+      logger.warn({ err }, 'PostgreSQL pool error');
+    });
+  }
+  const runCycle = async () => {
+    try {
+      await runEventArchiveCycle(eventArchivePool);
+    } catch (error) {
+      logger.warn({ err: error }, 'Event archive cycle failed');
+    }
+  };
+  await runCycle();
+  eventArchiveTimer = setInterval(runCycle, EVENT_ARCHIVE_INTERVAL_MS);
+  eventArchiveTimer.unref();
+  logger.info({ intervalMs: EVENT_ARCHIVE_INTERVAL_MS }, 'Event archive service started');
 }
 
 async function serveStaticAsset(req, res, url) {
@@ -1261,6 +1409,102 @@ async function handleBranchesApi(req, res, url) {
     return;
   }
 
+  if (tail.length === 2 && tail[0] === 'events' && tail[1] === 'batch') {
+    if (req.method !== 'POST') {
+      jsonResponse(res, 405, { error: 'method-not-allowed' });
+      return;
+    }
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (error) {
+      jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+      return;
+    }
+    if (!body || !Object.prototype.hasOwnProperty.call(body, 'lastAckId')) {
+      jsonResponse(res, 400, { error: 'missing-last-ack-id' });
+      return;
+    }
+    const lastAckId = body.lastAckId;
+    if (lastAckId !== null && typeof lastAckId !== 'string') {
+      jsonResponse(res, 400, { error: 'invalid-last-ack-id' });
+      return;
+    }
+    const incomingEvents = Array.isArray(body.events) ? body.events : [];
+    const normalizedEvents = [];
+    for (let idx = 0; idx < incomingEvents.length; idx += 1) {
+      const rawEvent = incomingEvents[idx];
+      if (!rawEvent || typeof rawEvent !== 'object') {
+        jsonResponse(res, 400, { error: 'invalid-event-payload', index: idx });
+        return;
+      }
+      const action = typeof rawEvent.action === 'string' ? rawEvent.action : 'module:insert';
+      if (action !== 'module:insert') {
+        jsonResponse(res, 400, { error: 'unsupported-event-action', index: idx, action });
+        return;
+      }
+      const tableName = rawEvent.table || rawEvent.tableName || rawEvent.targetTable;
+      if (!tableName || typeof tableName !== 'string') {
+        jsonResponse(res, 400, { error: 'missing-table-name', index: idx });
+        return;
+      }
+      normalizedEvents.push({
+        ...rawEvent,
+        action,
+        tableName,
+        record: rawEvent.record || rawEvent.data || {}
+      });
+    }
+    const eventContext = getModuleEventStoreContext(branchId, moduleId);
+    const eventMeta = await loadEventMeta(eventContext);
+    const expectedAck = eventMeta.lastEventId || null;
+    if (lastAckId !== expectedAck) {
+      jsonResponse(res, 409, { error: 'last-ack-mismatch', expected: expectedAck, received: lastAckId });
+      return;
+    }
+    if (eventMeta.lastAckId !== lastAckId) {
+      await updateEventMeta(eventContext, { lastAckId });
+    }
+    const broadcast = body.broadcast !== false;
+    const ingested = [];
+    for (const entry of normalizedEvents) {
+      try {
+        const result = await handleModuleEvent(
+          branchId,
+          moduleId,
+          {
+            ...entry,
+            table: entry.tableName,
+            record: entry.record,
+            eventId: entry.eventId || entry.id || null
+          },
+          null,
+          { source: 'rest-batch', broadcast }
+        );
+        ingested.push(result);
+      } catch (error) {
+        logger.warn({ err: error, branchId, moduleId }, 'Batch event failed');
+        jsonResponse(res, 400, { error: 'module-event-failed', message: error.message, index: ingested.length });
+        return;
+      }
+    }
+    const latestMeta = await loadEventMeta(eventContext);
+    jsonResponse(res, 200, {
+      branchId,
+      moduleId,
+      ingested: ingested.length,
+      lastAckId: latestMeta.lastAckId,
+      lastEventId: latestMeta.lastEventId,
+      sequences: ingested.map((item) => ({
+        id: item?.logEntry?.id || null,
+        sequence: item?.logEntry?.sequence || null,
+        table: item?.logEntry?.table || null,
+        createdAt: item?.logEntry?.createdAt || null
+      }))
+    });
+    return;
+  }
+
   if (tail.length === 1 && tail[0] === 'events') {
     if (req.method === 'GET') {
       const events = Array.isArray(snapshot.tables?.pos_database)
@@ -1272,6 +1516,8 @@ async function handleBranchesApi(req, res, url) {
             payload: row.payload ? deepClone(row.payload) : null
           }))
         : [];
+      const eventContext = getModuleEventStoreContext(branchId, moduleId);
+      const eventLogMeta = await loadEventMeta(eventContext).catch(() => null);
       jsonResponse(res, 200, {
         branchId,
         moduleId,
@@ -1279,6 +1525,7 @@ async function handleBranchesApi(req, res, url) {
         updatedAt: snapshot.meta?.lastUpdatedAt || null,
         serverId: SERVER_ID,
         events,
+        eventLog: eventLogMeta ? deepClone(eventLogMeta) : null,
         snapshot: deepClone(snapshot)
       });
       return;
@@ -1289,7 +1536,7 @@ async function handleBranchesApi(req, res, url) {
     }
     try {
       const body = await readBody(req);
-      const result = await handleModuleEvent(branchId, moduleId, body, null);
+      const result = await handleModuleEvent(branchId, moduleId, body, null, { source: 'rest' });
       jsonResponse(res, 200, result);
     } catch (error) {
       logger.warn({ err: error, branchId, moduleId }, 'Module event failed (REST)');
@@ -1334,7 +1581,7 @@ async function resetModule(branchId, moduleId) {
   return store;
 }
 
-async function handleModuleEvent(branchId, moduleId, payload = {}, client) {
+async function handleModuleEvent(branchId, moduleId, payload = {}, client = null, options = {}) {
   const action = typeof payload.action === 'string' ? payload.action : 'module:insert';
   if (action !== 'module:insert') {
     throw new Error(`Unsupported module action: ${action}`);
@@ -1343,10 +1590,39 @@ async function handleModuleEvent(branchId, moduleId, payload = {}, client) {
   if (!tableName) throw new Error('Missing table name for module insert');
   const recordPayload = payload.record || payload.data || {};
   const store = await ensureModuleStore(branchId, moduleId);
-  const created = store.insert(tableName, recordPayload, { clientId: client?.id || null, userId: payload.userId || null });
+  const created = store.insert(tableName, recordPayload, {
+    clientId: client?.id || null,
+    userId: payload.userId || null,
+    source: options.source || payload.source || null
+  });
   await persistModuleStore(store);
   const snapshot = store.getSnapshot();
-  const meta = { serverId: SERVER_ID, branchId, moduleId, table: tableName, timestamp: nowIso() };
+  const baseMeta = {
+    serverId: SERVER_ID,
+    branchId,
+    moduleId,
+    table: tableName,
+    timestamp: nowIso()
+  };
+  if (options.source || payload.source) {
+    baseMeta.source = options.source || payload.source;
+  }
+  if (payload.meta && typeof payload.meta === 'object') {
+    baseMeta.clientMeta = deepClone(payload.meta);
+  }
+  const eventContext = getModuleEventStoreContext(branchId, moduleId);
+  const logEntry = await appendModuleEvent(eventContext, {
+    id: payload.eventId || payload.id || null,
+    action,
+    branchId,
+    moduleId,
+    table: tableName,
+    record: created,
+    meta: baseMeta,
+    publishState: payload.publishState
+  });
+  await updateEventMeta(eventContext, { lastAckId: logEntry.id });
+  const enrichedMeta = { ...baseMeta, eventId: logEntry.id, sequence: logEntry.sequence };
   const ack = {
     type: 'server:ack',
     action,
@@ -1355,7 +1631,10 @@ async function handleModuleEvent(branchId, moduleId, payload = {}, client) {
     version: store.version,
     table: tableName,
     record: created,
-    meta
+    eventId: logEntry.id,
+    sequence: logEntry.sequence,
+    publishState: logEntry.publishState,
+    meta: enrichedMeta
   };
   const event = {
     type: 'server:event',
@@ -1366,13 +1645,18 @@ async function handleModuleEvent(branchId, moduleId, payload = {}, client) {
     table: tableName,
     record: created,
     snapshot,
-    meta
+    eventId: logEntry.id,
+    sequence: logEntry.sequence,
+    publishState: logEntry.publishState,
+    meta: enrichedMeta
   };
   if (client) {
     sendToClient(client, ack);
   }
-  broadcastToBranch(branchId, event, client);
-  return { ack, event };
+  if (options.broadcast !== false) {
+    broadcastToBranch(branchId, event, client);
+  }
+  return { ack, event, logEntry };
 }
 
 function registerClient(client) {
@@ -1494,7 +1778,7 @@ async function handleMessage(client, raw) {
         return;
       }
       try {
-        await handleModuleEvent(branchId, moduleId, parsed, client);
+        await handleModuleEvent(branchId, moduleId, parsed, client, { source: parsed.source || 'ws-client' });
       } catch (error) {
         logger.warn({ err: error, clientId: client.id, branchId, moduleId }, 'Module event failed');
         sendServerLog(client, 'error', error.message || 'Module event failed');
