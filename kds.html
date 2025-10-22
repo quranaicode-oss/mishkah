@@ -65,6 +65,36 @@
   <script src="./pos-mock-data.js"></script>
   <script src="./kds-mock-data.js"></script>
   <script>
+    (function preloadSchemaManifest(global) {
+      if (!global) return;
+      if (global.MishkahSchemaManifestPromise) return;
+      const manifestUrl = './schema-manifest.json';
+      if (typeof global.fetch !== 'function') {
+        const fallback = Promise.resolve(null);
+        global.MishkahSchemaManifestPromise = fallback;
+        global.MishkahSchemaManifest = null;
+        global.MishkahSchemaManifestError = new Error('fetch unavailable');
+        return;
+      }
+      const loader = (async () => {
+        try {
+          const response = await fetch(manifestUrl, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to load manifest: ${response.status}`);
+          }
+          const payload = await response.json();
+          global.MishkahSchemaManifest = payload;
+          return payload;
+        } catch (error) {
+          console.warn('[Mishkah] schema manifest bootstrap failed', error);
+          global.MishkahSchemaManifestError = error;
+          return null;
+        }
+      })();
+      global.MishkahSchemaManifestPromise = loader;
+    })(typeof window !== 'undefined' ? window : null);
+  </script>
+  <script>
     (function configureChannels(global) {
       if (!global) return;
       const branchId = global.KDS_BRANCH_PARAM;
