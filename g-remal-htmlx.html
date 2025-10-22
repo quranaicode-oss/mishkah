@@ -1027,9 +1027,30 @@
 
         function scrollToSection(id, ctx) {
           if (!id) return;
+          var root = typeof window !== 'undefined' && window ? window : typeof globalThis !== 'undefined' ? globalThis : null;
+          var utils = root && root.Mishkah && root.Mishkah.utils;
+          var DOM = utils && utils.DOM;
+          if (DOM && typeof DOM.scrollTo === 'function') {
+            var result = DOM.scrollTo({ id: id }, { behavior: 'smooth', block: 'start', inline: 'nearest' }, ctx);
+            if (!result) {
+              return;
+            }
+            if (result.ok || result.reason === 'blocked') {
+              return;
+            }
+            if (result.element && typeof result.element.scrollIntoView === 'function') {
+              try {
+                result.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } catch (_err) {
+                try { result.element.scrollIntoView(); }
+                catch (_err2) { /* ignore */ }
+              }
+            }
+            return;
+          }
           var selector = '#' + id;
-          var el = null;
-          if (ctx && typeof ctx.scopeQuery === 'function') {
+          var el = DOM && typeof DOM.resolveTarget === 'function' ? DOM.resolveTarget(selector, ctx) : null;
+          if (!el && ctx && typeof ctx.scopeQuery === 'function') {
             el = ctx.scopeQuery(selector);
           }
           if (!el && ctx && ctx.scopeNode && typeof ctx.scopeNode.querySelector === 'function') {
