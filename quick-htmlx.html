@@ -1261,7 +1261,7 @@
               }
               queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
             }
-          }
+          });
           if (initial) {
             ensureCountdownLoop(initial);
           }
