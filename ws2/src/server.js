@@ -481,40 +481,61 @@ function normalizeIncomingSnapshot(store, incomingSnapshot) {
 }
 
 function ensureInsertOnlySnapshot(store, incomingSnapshot) {
-  const currentSnapshot = store.getSnapshot();
-  const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
+  const requiredTables = Array.isArray(store.tables) ? store.tables : [];
   const incomingTables = incomingSnapshot.tables && typeof incomingSnapshot.tables === 'object' ? incomingSnapshot.tables : {};
 
   for (const tableName of requiredTables) {
+    if (!(tableName in incomingTables)) {
+      continue;
+    }
     const incomingRows = incomingTables[tableName];
     if (!Array.isArray(incomingRows)) {
       return {
         ok: false,
-        reason: 'missing-table',
+        reason: 'invalid-table-format',
         tableName
       };
     }
-    const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
-    if (incomingRows.length < currentRows.length) {
-      return {
-        ok: false,
-        reason: 'row-count-decreased',
-        tableName,
-        currentCount: currentRows.length,
-        incomingCount: incomingRows.length
-      };
+    let tableDefinition = null;
+    try {
+      tableDefinition = store.schemaEngine.getTable(tableName);
+    } catch (_err) {
+      tableDefinition = null;
     }
-    for (let idx = 0; idx < currentRows.length; idx += 1) {
-      const currentRow = currentRows[idx];
-      const incomingRow = incomingRows[idx];
-      if (JSON.stringify(currentRow) !== JSON.stringify(incomingRow)) {
+    const primaryFields = Array.isArray(tableDefinition?.fields)
+      ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
+      : [];
+    if (!primaryFields.length) {
+      continue;
+    }
+    const seenKeys = new Set();
+    for (const row of incomingRows) {
+      if (!row || typeof row !== 'object') {
+        continue;
+      }
+      const keyParts = [];
+      let hasAllParts = true;
+      for (const fieldName of primaryFields) {
+        const value = row[fieldName];
+        if (value === undefined || value === null) {
+          hasAllParts = false;
+          break;
+        }
+        keyParts.push(String(value));
+      }
+      if (!hasAllParts) {
+        continue;
+      }
+      const key = keyParts.join('::');
+      if (seenKeys.has(key)) {
         return {
           ok: false,
-          reason: 'row-modified',
+          reason: 'duplicate-primary-key',
           tableName,
-          index: idx
+          key
         };
       }
+      seenKeys.add(key);
     }
   }
 
