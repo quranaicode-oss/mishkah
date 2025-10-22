@@ -482,18 +482,34 @@ function normalizeIncomingSnapshot(store, incomingSnapshot) {
 
 function ensureInsertOnlySnapshot(store, incomingSnapshot) {
   const currentSnapshot = store.getSnapshot();
-  const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
+  const currentVersion = Number(currentSnapshot?.version) || 0;
+  const incomingVersion = Number(incomingSnapshot?.version);
+  if (Number.isFinite(incomingVersion) && incomingVersion < currentVersion) {
+    return {
+      ok: false,
+      reason: 'version-regression',
+      currentVersion,
+      incomingVersion
+    };
+  }
+
+  const requiredTables = Array.isArray(store.tables) ? store.tables : [];
   const incomingTables = incomingSnapshot.tables && typeof incomingSnapshot.tables === 'object' ? incomingSnapshot.tables : {};
 
   for (const tableName of requiredTables) {
+    if (!(tableName in incomingTables)) {
+      continue;
+    }
+
     const incomingRows = incomingTables[tableName];
     if (!Array.isArray(incomingRows)) {
       return {
         ok: false,
-        reason: 'missing-table',
+        reason: 'invalid-table-format',
         tableName
       };
     }
+
     const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
     if (incomingRows.length < currentRows.length) {
       return {
@@ -504,17 +520,100 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
         incomingCount: incomingRows.length
       };
     }
-    for (let idx = 0; idx < currentRows.length; idx += 1) {
-      const currentRow = currentRows[idx];
-      const incomingRow = incomingRows[idx];
-      if (JSON.stringify(currentRow) !== JSON.stringify(incomingRow)) {
+
+    let tableDefinition = null;
+    try {
+      tableDefinition = store.schemaEngine.getTable(tableName);
+    } catch (_err) {
+      tableDefinition = null;
+    }
+
+    const primaryFields = Array.isArray(tableDefinition?.fields)
+      ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
+      : [];
+
+    const buildKey = (record) => {
+      if (!primaryFields.length || !record || typeof record !== 'object') return null;
+      const keyParts = [];
+      for (const fieldName of primaryFields) {
+        const value = record[fieldName];
+        if (value === undefined || value === null) {
+          return null;
+        }
+        keyParts.push(String(value));
+      }
+      return keyParts.join('::');
+    };
+
+    const canUsePrimaryKeys = primaryFields.length && currentRows.every((row) => buildKey(row) !== null);
+
+    if (!canUsePrimaryKeys) {
+      for (let idx = 0; idx < currentRows.length; idx += 1) {
+        if (!snapshotsEqual(currentRows[idx], incomingRows[idx])) {
+          return {
+            ok: false,
+            reason: 'row-modified',
+            tableName,
+            index: idx
+          };
+        }
+      }
+      continue;
+    }
+
+    const existingByKey = new Map();
+    for (const row of currentRows) {
+      const key = buildKey(row);
+      if (key && !existingByKey.has(key)) {
+        existingByKey.set(key, row);
+      }
+    }
+
+    const seenKeys = new Set();
+    for (let idx = 0; idx < incomingRows.length; idx += 1) {
+      const row = incomingRows[idx];
+      if (!row || typeof row !== 'object') {
+        continue;
+      }
+      const key = buildKey(row);
+      if (!key) {
         return {
           ok: false,
-          reason: 'row-modified',
+          reason: 'missing-primary-key',
           tableName,
           index: idx
         };
       }
+      if (seenKeys.has(key)) {
+        return {
+          ok: false,
+          reason: 'duplicate-primary-key',
+          tableName,
+          key
+        };
+      }
+      seenKeys.add(key);
+      if (existingByKey.has(key)) {
+        const currentRow = existingByKey.get(key);
+        if (!snapshotsEqual(currentRow, row)) {
+          return {
+            ok: false,
+            reason: 'row-modified',
+            tableName,
+            key
+          };
+        }
+        existingByKey.delete(key);
+      }
+    }
+
+    if (existingByKey.size) {
+      return {
+        ok: false,
+        reason: 'row-missing',
+        tableName,
+        missingKeys: Array.from(existingByKey.keys())
+      };
     }
   }
 
