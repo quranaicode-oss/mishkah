@@ -1026,15 +1026,20 @@
         }
 
         function scrollToSection(id, ctx) {
-          var env = runtime();
-          if (env && typeof env.selectRoot === 'function') {
-            var root = env.selectRoot(ctx);
-            if (root) {
-              var el = root.querySelector('#' + id);
-              if (el && typeof el.scrollIntoView === 'function') {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }
+          if (!id) return;
+          var selector = '#' + id;
+          var el = null;
+          if (ctx && typeof ctx.scopeQuery === 'function') {
+            el = ctx.scopeQuery(selector);
+          }
+          if (!el && ctx && ctx.scopeNode && typeof ctx.scopeNode.querySelector === 'function') {
+            el = ctx.scopeNode.querySelector(selector);
+          }
+          if (!el && typeof document !== 'undefined' && document && typeof document.querySelector === 'function') {
+            el = document.querySelector(selector);
+          }
+          if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
 
