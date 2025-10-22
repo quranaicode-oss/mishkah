@@ -64,8 +64,6 @@ export default class ModuleStore {
     const tables = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
     for (const tableName of this.tables) {
       const incomingRows = Array.isArray(tables[tableName]) ? tables[tableName] : [];
-      const existingRows = Array.isArray(this.data[tableName]) ? this.data[tableName] : [];
-      const mergedRows = existingRows.map((row) => deepClone(row));
       let tableDefinition = null;
       try {
         tableDefinition = this.schemaEngine.getTable(tableName);
@@ -75,11 +73,8 @@ export default class ModuleStore {
       const primaryFields = Array.isArray(tableDefinition?.fields)
         ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
         : [];
-      const hasPrimaryKey = primaryFields.length > 0;
-      const indexByKey = new Map();
-      const fallbackSeen = hasPrimaryKey ? null : new Set(mergedRows.map((row) => JSON.stringify(row)));
       const buildKey = (record) => {
-        if (!hasPrimaryKey || !record || typeof record !== 'object') return null;
+        if (!primaryFields.length || !record || typeof record !== 'object') return null;
         const parts = [];
         for (const fieldName of primaryFields) {
           const value = record[fieldName];
@@ -90,35 +85,26 @@ export default class ModuleStore {
         }
         return parts.join('::');
       };
-      mergedRows.forEach((row, idx) => {
-        const key = buildKey(row);
-        if (key && !indexByKey.has(key)) {
-          indexByKey.set(key, idx);
-        }
-      });
-      if (!incomingRows.length) {
-        this.data[tableName] = mergedRows;
-        continue;
-      }
+      const keyed = new Map();
+      const fallback = new Map();
       for (const rawRow of incomingRows) {
+        if (!rawRow || typeof rawRow !== 'object') continue;
         const row = deepClone(rawRow);
         const key = buildKey(row);
-        if (key && indexByKey.has(key)) {
-          mergedRows[indexByKey.get(key)] = row;
-        } else if (key) {
-          indexByKey.set(key, mergedRows.length);
-          mergedRows.push(row);
-        } else if (fallbackSeen) {
-          const serialized = JSON.stringify(row);
-          if (!fallbackSeen.has(serialized)) {
-            fallbackSeen.add(serialized);
-            mergedRows.push(row);
-          }
-        } else {
-          mergedRows.push(row);
+        if (key) {
+          keyed.set(key, row);
+          continue;
         }
+        let serialized = null;
+        try {
+          serialized = JSON.stringify(row);
+        } catch (_err) {
+          serialized = null;
+        }
+        const fallbackKey = serialized || `row:${fallback.size + keyed.size}`;
+        fallback.set(fallbackKey, row);
       }
-      this.data[tableName] = mergedRows;
+      this.data[tableName] = [...keyed.values(), ...fallback.values()];
     }
     const total = Object.values(this.data).reduce((acc, value) => {
       if (Array.isArray(value)) return acc + value.length;
