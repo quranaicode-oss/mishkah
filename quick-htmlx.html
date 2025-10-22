@@ -169,7 +169,7 @@
             data-chart-type="line"
             data-chart-bind="data.analytics"
             data-chart-height="{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}"
-            style="min-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;"
+            style="min-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;max-height:{state.data.analytics.chart && state.data.analytics.chart.height ? state.data.analytics.chart.height : 320}px;"
             id="quick-sales-chart"
           ></canvas>
           <p
@@ -953,10 +953,11 @@
           if (canvas.style) {
             canvas.style.height = resolvedHeight + 'px';
             canvas.style.minHeight = resolvedHeight + 'px';
+            canvas.style.maxHeight = resolvedHeight + 'px';
             if (!canvas.style.width) canvas.style.width = '100%';
             if (!canvas.style.display) canvas.style.display = 'block';
           } else {
-            canvas.setAttribute('style', 'height:' + resolvedHeight + 'px;min-height:' + resolvedHeight + 'px;width:100%;display:block;');
+            canvas.setAttribute('style', 'height:' + resolvedHeight + 'px;min-height:' + resolvedHeight + 'px;max-height:' + resolvedHeight + 'px;width:100%;display:block;');
           }
 
           var payload = typeof chartApi.buildPayload === 'function'
