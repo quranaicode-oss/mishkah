@@ -379,6 +379,137 @@ function snapshotsEqual(a, b) {
   }
 }
 
+const POS_TEMP_STORE = 'order_temp';
+const POS_KNOWN_STORES = [
+  'orders',
+  'orderLines',
+  'orderNotes',
+  'orderStatusLogs',
+  'shifts',
+  'posMeta',
+  'syncLog',
+  POS_TEMP_STORE
+];
+const POS_STORE_KEY_SET = new Set(POS_KNOWN_STORES);
+const POS_STORE_KEY_RESOLVERS = {
+  orders: (row) => (row && row.id != null ? String(row.id) : null),
+  orderLines: (row) => {
+    if (!row || typeof row !== 'object') return null;
+    if (row.uid != null) return String(row.uid);
+    if (row.orderId != null && row.id != null) return `${row.orderId}::${row.id}`;
+    return null;
+  },
+  orderNotes: (row) => (row && row.id != null ? String(row.id) : null),
+  orderStatusLogs: (row) => (row && row.id != null ? String(row.id) : null),
+  shifts: (row) => (row && row.id != null ? String(row.id) : null),
+  posMeta: (row) => (row && row.id != null ? String(row.id) : null),
+  syncLog: (row) => {
+    if (!row || typeof row !== 'object') return null;
+    if (row.ts != null) return String(row.ts);
+    if (row.id != null) return String(row.id);
+    return null;
+  }
+};
+
+function mergeStoreRows(existingRows = [], incomingRows = [], storeName) {
+  const keyResolver = POS_STORE_KEY_RESOLVERS[storeName] || ((row) => (row && row.id != null ? String(row.id) : null));
+  const keyed = new Map();
+  const fallback = new Map();
+  const register = (rawRow, preferIncoming) => {
+    if (!rawRow || typeof rawRow !== 'object') return;
+    const row = deepClone(rawRow);
+    const key = keyResolver(row);
+    if (key) {
+      if (preferIncoming || !keyed.has(key)) {
+        keyed.set(key, row);
+      }
+      return;
+    }
+    let serialized = null;
+    try {
+      serialized = JSON.stringify(row);
+    } catch (_err) {
+      serialized = null;
+    }
+    const fallbackKey = serialized || `row:${fallback.size + keyed.size}`;
+    if (preferIncoming || !fallback.has(fallbackKey)) {
+      fallback.set(fallbackKey, row);
+    }
+  };
+  existingRows.forEach((row) => register(row, false));
+  incomingRows.forEach((row) => register(row, true));
+  return [...keyed.values(), ...fallback.values()];
+}
+
+function mergePosStores(existingStores, incomingStores) {
+  const existing = isPlainObject(existingStores) ? existingStores : {};
+  const incoming = isPlainObject(incomingStores) ? incomingStores : {};
+  const merged = {};
+  const names = new Set([...Object.keys(existing), ...Object.keys(incoming), ...POS_KNOWN_STORES]);
+  names.delete(POS_TEMP_STORE);
+  for (const name of names) {
+    const currentRows = Array.isArray(existing[name]) ? existing[name] : [];
+    if (!Object.prototype.hasOwnProperty.call(incoming, name)) {
+      merged[name] = currentRows.map((row) => deepClone(row));
+      continue;
+    }
+    const incomingRows = Array.isArray(incoming[name]) ? incoming[name] : [];
+    merged[name] = mergeStoreRows(currentRows, incomingRows, name);
+  }
+  merged[POS_TEMP_STORE] = [];
+  return merged;
+}
+
+function extractIncomingPosStores(payload) {
+  const stores = {};
+  if (!isPlainObject(payload)) return stores;
+  const explicitStores = isPlainObject(payload.stores) ? payload.stores : {};
+  for (const name of POS_KNOWN_STORES) {
+    const explicitValue = explicitStores[name];
+    if (Array.isArray(explicitValue)) {
+      stores[name] = explicitValue;
+      continue;
+    }
+    const rootValue = payload[name];
+    if (Array.isArray(rootValue)) {
+      stores[name] = rootValue;
+    }
+  }
+  return stores;
+}
+
+function mergePosPayload(existingPayload, incomingPayload) {
+  const base = isPlainObject(existingPayload) ? deepClone(existingPayload) : {};
+  const incoming = isPlainObject(incomingPayload) ? deepClone(incomingPayload) : {};
+
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key === 'stores' || POS_STORE_KEY_SET.has(key)) continue;
+    if (Array.isArray(value)) {
+      base[key] = value.map((entry) => deepClone(entry));
+    } else if (isPlainObject(value)) {
+      const currentValue = base[key];
+      base[key] = isPlainObject(currentValue)
+        ? { ...deepClone(currentValue), ...value }
+        : value;
+    } else {
+      base[key] = value;
+    }
+  }
+
+  const incomingStores = extractIncomingPosStores(incomingPayload);
+  const mergedStores = mergePosStores(existingPayload?.stores, incomingStores);
+  base.stores = mergedStores;
+
+  for (const name of POS_KNOWN_STORES) {
+    if (name === POS_TEMP_STORE) continue;
+    if (Object.prototype.hasOwnProperty.call(base, name)) {
+      delete base[name];
+    }
+  }
+
+  return base;
+}
+
 function normalizePosSnapshot(store, incomingSnapshot) {
   if (!isPlainObject(incomingSnapshot)) return null;
   if (!store.tables.includes('pos_database')) return null;
@@ -402,48 +533,63 @@ function normalizePosSnapshot(store, incomingSnapshot) {
   const existingRows = Array.isArray(currentSnapshot.tables?.pos_database)
     ? currentSnapshot.tables.pos_database.map((row) => deepClone(row))
     : [];
-  const lastPayload = existingRows.length ? existingRows[existingRows.length - 1]?.payload : null;
+  const previousRecord = existingRows.length ? existingRows[existingRows.length - 1] : null;
+  const previousPayload = previousRecord && isPlainObject(previousRecord.payload) ? previousRecord.payload : {};
+  const mergedPayload = mergePosPayload(previousPayload, dataset);
 
-  if (lastPayload && snapshotsEqual(lastPayload, dataset)) {
+  if (previousRecord && snapshotsEqual(previousRecord.payload, mergedPayload)) {
     return currentSnapshot;
   }
 
   const nowTs = nowIso();
   const meta = isPlainObject(dataset.meta) ? dataset.meta : {};
-  const baseId = meta.snapshotId || meta.id || meta.exportId || incomingSnapshot.id || null;
-  let recordId = baseId ? String(baseId) : createId(`${store.moduleId}-snapshot`);
-  if (existingRows.some((row) => row?.id === recordId && !snapshotsEqual(row.payload, dataset))) {
-    recordId = `${recordId}-${Date.now().toString(36)}`;
-  } else if (existingRows.some((row) => row?.id === recordId && snapshotsEqual(row.payload, dataset))) {
-    return currentSnapshot;
-  }
-
-  const createdAt = toIsoTimestamp(meta.exportedAt, nowTs);
+  const baseId = previousRecord?.id || meta.snapshotId || meta.id || meta.exportId || incomingSnapshot.id || null;
+  const recordId = baseId ? String(baseId) : createId(`${store.moduleId}-live`);
+  const createdAt = previousRecord?.createdAt || toIsoTimestamp(meta.exportedAt, nowTs) || nowTs;
   const record = {
     id: recordId,
     branchId: store.branchId,
-    payload: deepClone(dataset),
+    payload: deepClone(mergedPayload),
     createdAt,
     updatedAt: nowTs
   };
 
-  const nextRows = existingRows.concat([record]);
-  const version = Number.isFinite(Number(dataset.version))
-    ? Number(dataset.version)
-    : Number.isFinite(Number(incomingSnapshot.version))
-    ? Number(incomingSnapshot.version)
-    : (currentSnapshot.version || 0) + 1;
+  const versionCandidates = [];
+  const datasetVersion = Number(dataset.version);
+  if (Number.isFinite(datasetVersion)) {
+    versionCandidates.push(datasetVersion);
+  }
+  const incomingVersion = Number(incomingSnapshot.version);
+  if (Number.isFinite(incomingVersion)) {
+    versionCandidates.push(incomingVersion);
+  }
+  if (Number.isFinite(Number(currentSnapshot.version))) {
+    versionCandidates.push(Number(currentSnapshot.version) + 1);
+    versionCandidates.push(Number(currentSnapshot.version));
+  }
+  const version = versionCandidates.length
+    ? Math.max(...versionCandidates)
+    : Number.isFinite(Number(currentSnapshot.version))
+    ? Number(currentSnapshot.version)
+    : 1;
 
   const nextMeta = currentSnapshot.meta && isPlainObject(currentSnapshot.meta) ? deepClone(currentSnapshot.meta) : {};
+  if (isPlainObject(meta)) {
+    Object.assign(nextMeta, deepClone(meta));
+  }
   nextMeta.lastUpdatedAt = nowTs;
   nextMeta.lastCentralSyncAt = nowTs;
-  nextMeta.centralVersion = version;
+  if (Number.isFinite(datasetVersion)) {
+    nextMeta.centralVersion = datasetVersion;
+  } else if (Number.isFinite(incomingVersion)) {
+    nextMeta.centralVersion = incomingVersion;
+  }
 
   return {
     moduleId: store.moduleId,
     branchId: store.branchId,
     version,
-    tables: { pos_database: nextRows },
+    tables: { pos_database: [record] },
     meta: nextMeta
   };
 }
@@ -482,38 +628,80 @@ function normalizeIncomingSnapshot(store, incomingSnapshot) {
 
 function ensureInsertOnlySnapshot(store, incomingSnapshot) {
   const currentSnapshot = store.getSnapshot();
-  const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
+  const currentVersion = Number(currentSnapshot?.version) || 0;
+  const incomingVersion = Number(incomingSnapshot?.version);
+  if (Number.isFinite(incomingVersion) && incomingVersion < currentVersion) {
+    return {
+      ok: false,
+      reason: 'version-regression',
+      currentVersion,
+      incomingVersion
+    };
+  }
+
+  const requiredTables = Array.isArray(store.tables) ? store.tables : [];
   const incomingTables = incomingSnapshot.tables && typeof incomingSnapshot.tables === 'object' ? incomingSnapshot.tables : {};
 
   for (const tableName of requiredTables) {
+    if (!(tableName in incomingTables)) {
+      continue;
+    }
+
     const incomingRows = incomingTables[tableName];
     if (!Array.isArray(incomingRows)) {
       return {
         ok: false,
-        reason: 'missing-table',
+        reason: 'invalid-table-format',
         tableName
       };
     }
-    const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
-    if (incomingRows.length < currentRows.length) {
-      return {
-        ok: false,
-        reason: 'row-count-decreased',
-        tableName,
-        currentCount: currentRows.length,
-        incomingCount: incomingRows.length
-      };
+
+    let tableDefinition = null;
+    try {
+      tableDefinition = store.schemaEngine.getTable(tableName);
+    } catch (_err) {
+      tableDefinition = null;
     }
-    for (let idx = 0; idx < currentRows.length; idx += 1) {
-      const currentRow = currentRows[idx];
-      const incomingRow = incomingRows[idx];
-      if (JSON.stringify(currentRow) !== JSON.stringify(incomingRow)) {
-        return {
-          ok: false,
-          reason: 'row-modified',
-          tableName,
-          index: idx
-        };
+
+    const primaryFields = Array.isArray(tableDefinition?.fields)
+      ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
+      : [];
+
+    if (primaryFields.length) {
+      const seenKeys = new Set();
+      for (let idx = 0; idx < incomingRows.length; idx += 1) {
+        const row = incomingRows[idx];
+        if (!row || typeof row !== 'object') {
+          continue;
+        }
+        const parts = [];
+        let valid = true;
+        for (const fieldName of primaryFields) {
+          const value = row[fieldName];
+          if (value === undefined || value === null) {
+            valid = false;
+            break;
+          }
+          parts.push(String(value));
+        }
+        if (!valid) {
+          return {
+            ok: false,
+            reason: 'missing-primary-key',
+            tableName,
+            index: idx
+          };
+        }
+        const key = parts.join('::');
+        if (seenKeys.has(key)) {
+          return {
+            ok: false,
+            reason: 'duplicate-primary-key',
+            tableName,
+            key
+          };
+        }
+        seenKeys.add(key);
       }
     }
   }
