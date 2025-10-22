@@ -41,21 +41,22 @@
           "quick.sales.latest": { "ar": "آخر شهر", "en": "Last month" },
           "quick.sales.yearly": { "ar": "إجمالي العام", "en": "Year total" },
           "quick.sales.legend": { "ar": "يتم عرض الأرقام كآلاف الريالات", "en": "Numbers shown as thousands of SAR" },
+          "quick.sales.randomize": { "ar": "تحديث المبيعات عشوائياً", "en": "Randomize sales report" },
+          "quick.sales.table": { "ar": "جدول المبيعات الشهري", "en": "Monthly sales table" },
+          "quick.sales.product": { "ar": "الصنف", "en": "Product" },
+          "quick.sales.totalRow": { "ar": "إجمالي السنة", "en": "Year total" },
           "quick.timer": { "ar": "الوقت المتبقي", "en": "Time left" },
-          "quick.cart.title": { "ar": "السلة المباشرة", "en": "Live cart" },
-          "quick.cart.randomize": { "ar": "تحديث السلة عشوائياً", "en": "Randomize cart" },
-          "quick.cart.empty": { "ar": "السلة فارغة حالياً", "en": "Cart is empty" },
-          "quick.cart.items.espresso": { "ar": "إسبريسو", "en": "Espresso" },
-          "quick.cart.items.cortado": { "ar": "كورتادو", "en": "Cortado" },
-          "quick.cart.items.flatwhite": { "ar": "فلات وايت", "en": "Flat white" },
-          "quick.cart.items.cheesecake": { "ar": "تشيز كيك بالفراولة", "en": "Strawberry cheesecake" },
-          "quick.cart.items.cinnamon": { "ar": "سينابون دافئ", "en": "Warm cinnamon roll" }
+          "quick.items.espresso": { "ar": "إسبريسو", "en": "Espresso" },
+          "quick.items.cortado": { "ar": "كورتادو", "en": "Cortado" },
+          "quick.items.flatwhite": { "ar": "فلات وايت", "en": "Flat white" },
+          "quick.items.cheesecake": { "ar": "تشيز كيك بالفراولة", "en": "Strawberry cheesecake" },
+          "quick.items.cinnamon": { "ar": "سينابون دافئ", "en": "Warm cinnamon roll" }
         }
       </script>
 
       <script type="application/json" data-path="data">
         {
-          "metrics": { "revenue": 59900, "orders": 2480 },
+          "metrics": { "revenue": 0, "orders": 0 },
           "analytics": {
             "unit": "K",
             "unitLabelKey": "quick.sales.unit",
@@ -91,63 +92,22 @@
             },
             "monthIndex": 11,
             "series": [
-              {
-                "id": "espresso",
-                "nameKey": "quick.cart.items.espresso",
-                "color": "#f97316",
-                "values": [12.4, 13.1, 13.8, 14.6, 15.2, 16.1, 17.4, 18.2, 19.0, 19.8, 20.5, 21.2]
-              },
-              {
-                "id": "cortado",
-                "nameKey": "quick.cart.items.cortado",
-                "color": "#38bdf8",
-                "values": [8.2, 8.5, 8.9, 9.3, 9.7, 10.2, 10.6, 11.0, 11.4, 11.8, 12.1, 12.3]
-              },
-              {
-                "id": "flatwhite",
-                "nameKey": "quick.cart.items.flatwhite",
-                "color": "#a855f7",
-                "values": [6.9, 7.2, 7.5, 7.9, 8.3, 8.7, 9.1, 9.5, 9.9, 10.3, 10.6, 10.9]
-              },
-              {
-                "id": "cheesecake",
-                "nameKey": "quick.cart.items.cheesecake",
-                "color": "#facc15",
-                "values": [4.4, 4.7, 5.0, 5.4, 5.8, 6.1, 6.5, 6.9, 7.2, 7.6, 8.0, 8.4]
-              },
-              {
-                "id": "cinnamon",
-                "nameKey": "quick.cart.items.cinnamon",
-                "color": "#22c55e",
-                "values": [3.8, 4.0, 4.2, 4.4, 4.6, 4.9, 5.2, 5.5, 5.9, 6.3, 6.8, 7.1]
-              }
+              { "id": "espresso", "nameKey": "quick.items.espresso", "color": "#f97316", "values": [] },
+              { "id": "cortado", "nameKey": "quick.items.cortado", "color": "#38bdf8", "values": [] },
+              { "id": "flatwhite", "nameKey": "quick.items.flatwhite", "color": "#a855f7", "values": [] },
+              { "id": "cheesecake", "nameKey": "quick.items.cheesecake", "color": "#facc15", "values": [] },
+              { "id": "cinnamon", "nameKey": "quick.items.cinnamon", "color": "#22c55e", "values": [] }
             ],
-            "chart": { "type": "line", "height": 320, "titleKey": "quick.sales.title" }
+            "chart": { "type": "line", "height": 320, "titleKey": "quick.sales.title" },
+            "autoSimulate": true
           },
           "timer": { "seconds": 270 },
-          "cart": {
-            "currency": "SAR",
-            "items": [
-              {
-                "id": "espresso",
-                "nameKey": "quick.cart.items.espresso",
-                "qty": 1,
-                "price": 18.5
-              },
-              {
-                "id": "cortado",
-                "nameKey": "quick.cart.items.cortado",
-                "qty": 2,
-                "price": 16
-              }
-            ]
-          },
           "catalog": [
-            { "id": "espresso", "nameKey": "quick.cart.items.espresso", "price": 18.5 },
-            { "id": "cortado", "nameKey": "quick.cart.items.cortado", "price": 16 },
-            { "id": "flatwhite", "nameKey": "quick.cart.items.flatwhite", "price": 19 },
-            { "id": "cheesecake", "nameKey": "quick.cart.items.cheesecake", "price": 26.5 },
-            { "id": "cinnamon", "nameKey": "quick.cart.items.cinnamon", "price": 21 }
+            { "id": "espresso", "nameKey": "quick.items.espresso", "price": 18.5 },
+            { "id": "cortado", "nameKey": "quick.items.cortado", "price": 16 },
+            { "id": "flatwhite", "nameKey": "quick.items.flatwhite", "price": 19 },
+            { "id": "cheesecake", "nameKey": "quick.items.cheesecake", "price": 26.5 },
+            { "id": "cinnamon", "nameKey": "quick.items.cinnamon", "price": 21 }
           ],
           "ui": { "countdownTemplate": "⏱️ {{time}}", "salesLegendKey": "quick.sales.legend" }
         }
@@ -184,16 +144,25 @@
         </div>
 
         <figure class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-          <header class="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <figcaption class="text-sm font-medium text-[var(--muted-foreground)]">
                 {trans('quick.sales.title')}
               </figcaption>
               <p class="mt-1 text-xs text-[var(--muted-foreground)]">{trans('quick.sales.subtitle')}</p>
             </div>
-            <span class="text-xs text-[var(--muted-foreground)]">
-              {trans(state.data.analytics.unitLabelKey || 'quick.sales.unit')}
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <span class="text-xs text-[var(--muted-foreground)]">
+                {trans(state.data.analytics.unitLabelKey || 'quick.sales.unit')}
+              </span>
+              <button
+                type="button"
+                class="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg"
+                onclick="randomizeSalesReport(event, ctx)"
+              >
+                {trans('quick.sales.randomize')}
+              </button>
+            </div>
           </header>
           <canvas
             data-chart-auto="line"
@@ -248,43 +217,70 @@
         </div>
 
         <section class="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow)]">
-          <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">{trans('quick.cart.title')}</h2>
-            <button
-              type="button"
-              class="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow)] transition hover:-translate-y-0.5 hover:shadow-lg"
-              onclick="randomizeCart(event, ctx)"
-            >
-              {trans('quick.cart.randomize')}
-            </button>
+          <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-semibold">{trans('quick.sales.table')}</h2>
+              <p class="mt-1 text-xs text-[var(--muted-foreground)]">{trans('quick.sales.subtitle')}</p>
+            </div>
           </header>
-          <ul class="grid gap-3" x-if="state.data.cart.items && state.data.cart.items.length">
-            <li
-              x-for="item in state.data.cart.items"
-              key="item.id"
-              class="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-            >
-              <div class="flex flex-col">
-                <strong class="text-base font-semibold">{trans(item.nameKey)}</strong>
-                <span class="text-sm text-[var(--muted-foreground)]">× {item.qty}</span>
-              </div>
-              <span class="text-base font-semibold">
-                {formatCurrency(item.price * item.qty, state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
-              </span>
-            </li>
-          </ul>
-          <p
-            class="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-8 text-center text-sm text-[var(--muted-foreground)]"
-            x-if="!state.data.cart.items || !state.data.cart.items.length"
-          >
-            {trans('quick.cart.empty')}
-          </p>
-          <footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[var(--border)] pt-4">
-            <span class="text-sm text-[var(--muted-foreground)]">{state.data.cart.updatedAt ? formatUpdatedAt(state.data.cart.updatedAt, state.env.lang) : ''}</span>
-            <strong class="text-xl font-semibold">
-              {formatCurrency(totalCart(state.data.cart), state.data.cart.currency || state.env.currency || 'SAR', state.env.lang)}
-            </strong>
-          </footer>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] border-separate border-spacing-y-2 text-sm">
+              <thead>
+                <tr class="text-[var(--muted-foreground)]">
+                  <th class="whitespace-nowrap px-4 py-2 text-right font-medium">{trans('quick.sales.product')}</th>
+                  <th
+                    x-for="month in (state.data.analytics.table && state.data.analytics.table.months) || []"
+                    key="month"
+                    class="px-2 py-2 text-center font-medium"
+                  >
+                    {month}
+                  </th>
+                  <th class="px-3 py-2 text-center font-medium">{trans('quick.sales.totalRow')}</th>
+                </tr>
+              </thead>
+              <tbody class="text-[var(--foreground)]">
+                <tr
+                  x-for="row in (state.data.analytics.table && state.data.analytics.table.rows) || []"
+                  key="row.id"
+                  class="bg-[var(--surface)]"
+                >
+                  <th scope="row" class="whitespace-nowrap px-4 py-3 text-right font-medium">
+                    <span
+                      class="ml-2 inline-block h-3 w-3 -translate-y-px rounded-full bg-[var(--primary)]"
+                      data-series-swatch
+                      data-series-id="{row.id}"
+                    ></span>
+                    <span>{trans(row.nameKey)}</span>
+                  </th>
+                  <td
+                    x-for="cell in row.cells || []"
+                    key="cell.index"
+                    class="px-2 py-2 text-center font-medium text-[var(--primary)]"
+                  >
+                    {formatThousands(cell.value, state.data.analytics.unit, state.env && state.env.lang)}
+                  </td>
+                  <td class="px-3 py-2 text-center font-semibold text-[var(--primary)]">
+                    {formatThousands(row.total, state.data.analytics.unit, state.env && state.env.lang)}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="text-[var(--accent)]">
+                  <th class="whitespace-nowrap px-4 py-3 text-right font-semibold">{trans('quick.sales.totalRow')}</th>
+                  <td
+                    x-for="cell in (state.data.analytics.table && state.data.analytics.table.totals) || []"
+                    key="cell.index"
+                    class="px-2 py-2 text-center font-semibold"
+                  >
+                    {formatThousands(cell.value, state.data.analytics.unit, state.env && state.env.lang)}
+                  </td>
+                  <td class="px-3 py-2 text-center font-semibold">
+                    {formatThousands(state.data.analytics.table ? state.data.analytics.table.yearlyTotal : 0, state.data.analytics.unit, state.env && state.env.lang)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </section>
       </section>
 
@@ -301,23 +297,115 @@
             .join(',');
         }
 
-        function getCatalog(ctx) {
-          var snapshot = null;
-          if (ctx && typeof ctx.getState === 'function') {
-            try {
-              snapshot = ctx.getState();
-            } catch (err) {
-              snapshot = null;
-            }
-          }
-          if (!snapshot && ctx && ctx.state) {
-            snapshot = ctx.state;
-          }
-          var catalog = snapshot && snapshot.data && Array.isArray(snapshot.data.catalog) ? snapshot.data.catalog : null;
+        function resolveCatalog(state) {
+          var data = state && state.data ? state.data : null;
+          var catalog = data && Array.isArray(data.catalog) ? data.catalog : null;
           if (catalog && catalog.length) {
             return catalog.slice();
           }
           return [];
+        }
+
+        function buildCatalogMap(list) {
+          var map = Object.create(null);
+          if (!Array.isArray(list)) return map;
+          for (var i = 0; i < list.length; i += 1) {
+            var item = list[i];
+            if (!item || !item.id) continue;
+            map[item.id] = item;
+          }
+          return map;
+        }
+
+        function computeAveragePrice(map) {
+          if (!map) return 20;
+          var total = 0;
+          var count = 0;
+          for (var key in map) {
+            if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
+            var entry = map[key];
+            var price = Number(entry && entry.price);
+            if (Number.isFinite(price) && price > 0) {
+              total += price;
+              count += 1;
+            }
+          }
+          if (!count) return 20;
+          return total / count;
+        }
+
+        function ensureSeriesBlueprint(analytics, catalogList, prevAnalytics) {
+          var blueprint = [];
+          var seen = Object.create(null);
+          var pushEntry = function (entry) {
+            if (!entry || !entry.id || seen[entry.id]) return;
+            seen[entry.id] = true;
+            blueprint.push({
+              id: entry.id,
+              nameKey: entry.nameKey || entry.id,
+              color: entry.color || null
+            });
+          };
+          if (analytics && Array.isArray(analytics.series)) {
+            for (var i = 0; i < analytics.series.length; i += 1) {
+              pushEntry(analytics.series[i]);
+            }
+          }
+          if (prevAnalytics && Array.isArray(prevAnalytics.series)) {
+            for (var j = 0; j < prevAnalytics.series.length; j += 1) {
+              pushEntry(prevAnalytics.series[j]);
+            }
+          }
+          if (Array.isArray(catalogList)) {
+            for (var k = 0; k < catalogList.length; k += 1) {
+              pushEntry(catalogList[k]);
+            }
+          }
+          return blueprint;
+        }
+
+        function buildSalesTable(seriesList, months) {
+          var safeMonths = Array.isArray(months) ? months.slice() : [];
+          var rows = [];
+          var totals = [];
+          for (var i = 0; i < safeMonths.length; i += 1) {
+            totals.push({ index: i, value: 0 });
+          }
+          var yearly = 0;
+          if (Array.isArray(seriesList)) {
+            for (var s = 0; s < seriesList.length; s += 1) {
+              var series = seriesList[s];
+              if (!series || !series.id) continue;
+              var values = ensureSeriesLength(series.values, safeMonths.length);
+              var cells = [];
+              var sum = 0;
+              for (var m = 0; m < safeMonths.length; m += 1) {
+                var numeric = Number(values[m]);
+                if (!Number.isFinite(numeric)) numeric = 0;
+                numeric = Math.round(numeric * 10) / 10;
+                if (totals[m]) totals[m].value += numeric;
+                sum += numeric;
+                cells.push({ index: m, value: numeric });
+              }
+              yearly += sum;
+              rows.push({
+                id: series.id,
+                nameKey: series.nameKey || series.id,
+                color: series.color || null,
+                cells: cells,
+                total: Math.round(sum * 10) / 10
+              });
+            }
+          }
+          for (var t = 0; t < totals.length; t += 1) {
+            totals[t].value = Math.round(totals[t].value * 10) / 10;
+          }
+          return {
+            months: safeMonths,
+            rows: rows,
+            totals: totals,
+            yearlyTotal: Math.round(yearly * 10) / 10
+          };
         }
 
         function ensureLanguage(lang) {
@@ -375,32 +463,6 @@
           } catch (err) {
             var fixed = numeric.toFixed(2);
             return safeLang === 'ar' ? fixed + ' ' + code : code + ' ' + fixed;
-          }
-        }
-
-        function totalCart(cart) {
-          if (!cart || !Array.isArray(cart.items)) return 0;
-          var total = 0;
-          for (var i = 0; i < cart.items.length; i += 1) {
-            var item = cart.items[i];
-            var line = Number(item && item.price) * Number(item && item.qty);
-            if (Number.isFinite(line)) total += line;
-          }
-          return Math.max(0, Math.round(total * 100) / 100);
-        }
-
-        function formatUpdatedAt(timestamp, lang) {
-          if (!timestamp) return '';
-          try {
-            var date = new Date(timestamp);
-            if (Number.isNaN(date.getTime())) return '';
-            var safeLang = ensureLanguage(lang);
-            return date.toLocaleTimeString(safeLang === 'ar' ? 'ar-SA' : 'en-US', {
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-          } catch (err) {
-            return '';
           }
         }
 
@@ -774,27 +836,6 @@
           return values;
         }
 
-        function aggregateAnalytics(seriesList, catalogMap) {
-          var latestK = 0;
-          var orders = 0;
-          if (!Array.isArray(seriesList)) return { latestK: 0, orders: 0 };
-          for (var i = 0; i < seriesList.length; i += 1) {
-            var series = seriesList[i];
-            if (!series) continue;
-            var values = numericList(series.values);
-            if (!values.length) continue;
-            var last = values[values.length - 1];
-            latestK += last;
-            var price = catalogMap && catalogMap[series.id] ? Number(catalogMap[series.id].price) : NaN;
-            if (!Number.isFinite(price) || price <= 0) price = 18;
-            var estimated = Math.round((last * 1000) / price);
-            if (Number.isFinite(estimated) && estimated > 0) {
-              orders += estimated;
-            }
-          }
-          return { latestK: latestK, orders: Math.max(0, Math.round(orders)) };
-        }
-
         function applyLegendSwatches(state) {
           var analytics = resolveAnalytics(state);
           if (!analytics || !Array.isArray(analytics.series) || !analytics.series.length) return;
@@ -949,89 +990,110 @@
           }
         }
 
-        function pickRandomItems(ctx, catalogSource) {
-          var pool = Array.isArray(catalogSource) ? catalogSource.slice() : getCatalog(ctx);
-          var count = 1 + Math.floor(Math.random() * Math.min(pool.length || 1, 4));
-          var picks = [];
-          for (var i = 0; i < count && pool.length; i += 1) {
-            var index = Math.floor(Math.random() * pool.length);
-            var base = pool.splice(index, 1)[0];
-            if (!base) continue;
-            var qty = 1 + Math.floor(Math.random() * 3);
-            picks.push({
-              id: base.id,
-              nameKey: base.nameKey,
-              qty: qty,
-              price: base.price
-            });
-          }
-          return picks;
-        }
-
-        function randomizeCart(event, ctx) {
+        function randomizeSalesReport(event, ctx, opts) {
           if (event && typeof event.preventDefault === 'function') {
             event.preventDefault();
           }
-          if (!ctx) return;
-          var catalogList = getCatalog(ctx);
-          var items = pickRandomItems(ctx, catalogList);
-          var totalQty = 0;
-          for (var i = 0; i < items.length; i += 1) {
-            totalQty += Number.isFinite(items[i].qty) ? items[i].qty : 0;
+          var options = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+          var context = ctx || options.ctx || window.MishkahAuto || null;
+          if (!context) return false;
+
+          var snapshot = options.snapshot || null;
+          if (!snapshot && typeof resolveAutoState === 'function') {
+            snapshot = resolveAutoState(context);
           }
-          var now = new Date();
-          commit(ctx, function (next, prev) {
-            next.data = next.data || {};
-            var cart = next.data.cart || {};
-            cart.items = items;
-            cart.updatedAt = now.toISOString();
-            cart.currency = cart.currency || (next.env && next.env.currency) || 'SAR';
-            next.data.cart = cart;
+          if (!snapshot && context) {
+            if (typeof context.getState === 'function') {
+              try {
+                snapshot = context.getState();
+              } catch (_errGetState) {
+                snapshot = context.state || null;
+              }
+            } else if (context.state) {
+              snapshot = context.state;
+            }
+          }
 
-            var metricsSnapshot = {
-              revenue: totalCart(cart),
-              orders: totalQty || items.length
-            };
+          var analyticsState = resolveAnalytics(snapshot);
+          if (analyticsState && analyticsState.autoSimulate === false && options.force !== true) {
+            if (options.bootstrap && snapshot) {
+              ensureCountdownLoop(snapshot);
+              queueQuickDashboardHydration({ ctx: context, snapshot: snapshot, immediate: true });
+            }
+            return true;
+          }
 
-            var analytics = next.data.analytics && typeof next.data.analytics === 'object' ? next.data.analytics : {};
-            var prevAnalytics = prev && prev.data && typeof prev.data.analytics === 'object' ? prev.data.analytics : null;
-            var months = resolveMonths(next, analytics);
-            var monthCount = months.length || 12;
-            var catalogMap = {};
-            if (Array.isArray(catalogList)) {
-              for (var j = 0; j < catalogList.length; j += 1) {
-                catalogMap[catalogList[j].id] = catalogList[j];
+          var hasValues = false;
+          if (analyticsState && Array.isArray(analyticsState.series)) {
+            for (var s = 0; s < analyticsState.series.length; s += 1) {
+              var seriesEntry = analyticsState.series[s];
+              if (!seriesEntry || !Array.isArray(seriesEntry.values)) continue;
+              if (numericList(seriesEntry.values).length) {
+                hasValues = true;
+                break;
               }
             }
-            var baseSeries = Array.isArray(analytics.series) ? analytics.series.slice() : [];
-            if (Array.isArray(catalogList)) {
-              catalogList.forEach(function (item) {
-                var exists = baseSeries.some(function (entry) { return entry && entry.id === item.id; });
-                if (!exists) {
-                  baseSeries.push({ id: item.id, nameKey: item.nameKey, values: [] });
-                }
-              });
+          }
+          if (options.bootstrap && hasValues && options.force !== true) {
+            if (snapshot) {
+              ensureCountdownLoop(snapshot);
+              queueQuickDashboardHydration({ ctx: context, snapshot: snapshot, immediate: true });
             }
-            var prevMap = {};
+            return true;
+          }
+
+          var performed = false;
+          commit(context, function (next, prev) {
+            next.data = next.data || {};
+            var analytics = next.data.analytics && typeof next.data.analytics === 'object' ? next.data.analytics : {};
+            next.data.analytics = analytics;
+
+            if (analytics.autoSimulate === false && options.force !== true) {
+              return;
+            }
+
+            var prevAnalytics = prev && prev.data && typeof prev.data.analytics === 'object' ? prev.data.analytics : null;
+            var months = resolveMonths(prev || next, analytics);
+            if (!months.length) {
+              months = resolveMonths(next, analytics);
+            }
+            var monthCount = months.length || 12;
+            var catalogList = resolveCatalog(next);
+            if (!catalogList.length && prev && prev.data) {
+              catalogList = resolveCatalog(prev);
+            }
+            var catalogMap = buildCatalogMap(catalogList);
+            var blueprint = ensureSeriesBlueprint(analytics, catalogList, prevAnalytics);
+            if (!blueprint.length) return;
+            var prevMap = Object.create(null);
             if (prevAnalytics && Array.isArray(prevAnalytics.series)) {
-              prevAnalytics.series.forEach(function (entry) {
-                if (entry && entry.id) prevMap[entry.id] = entry;
-              });
+              for (var p = 0; p < prevAnalytics.series.length; p += 1) {
+                var entryPrev = prevAnalytics.series[p];
+                if (entryPrev && entryPrev.id) {
+                  prevMap[entryPrev.id] = entryPrev;
+                }
+              }
+            }
+            var metricsSource = next.data.metrics && typeof next.data.metrics === 'object' ? next.data.metrics : null;
+            if ((!metricsSource || typeof metricsSource !== 'object') && prev && prev.data && typeof prev.data.metrics === 'object') {
+              metricsSource = prev.data.metrics;
             }
             var updatedSeries = [];
-            for (var index = 0; index < baseSeries.length; index += 1) {
-              var base = baseSeries[index] || {};
-              if (!base.id) continue;
-              var previousSeries = prevMap[base.id] || base;
-              var color = base.color || (previousSeries && previousSeries.color) || pickPaletteColor(index);
-              var values = generateSalesSeries(previousSeries && previousSeries.values, monthCount, metricsSnapshot, catalogMap[base.id]);
+            for (var index = 0; index < blueprint.length; index += 1) {
+              var base = blueprint[index];
+              if (!base || !base.id) continue;
+              var reference = prevMap[base.id];
+              var color = base.color || (reference && reference.color) || pickPaletteColor(index);
+              var values = generateSalesSeries(reference && reference.values, monthCount, metricsSource, catalogMap[base.id]);
               updatedSeries.push({
                 id: base.id,
-                nameKey: base.nameKey || (catalogMap[base.id] && catalogMap[base.id].nameKey) || base.id,
+                nameKey: base.nameKey || base.id,
                 color: color,
                 values: values
               });
             }
+            if (!updatedSeries.length) return;
+
             analytics.series = updatedSeries;
             analytics.monthIndex = monthCount - 1;
             analytics.unit = analytics.unit || 'K';
@@ -1040,19 +1102,35 @@
             if (!analytics.chart.type) analytics.chart.type = 'line';
             if (!analytics.chart.height) analytics.chart.height = 320;
             if (!analytics.chart.titleKey) analytics.chart.titleKey = 'quick.sales.title';
-            analytics.updatedAt = now.toISOString();
-            next.data.analytics = analytics;
+            analytics.autoSimulate = analytics.autoSimulate === false ? false : true;
+            analytics.updatedAt = new Date().toISOString();
+
+            var table = buildSalesTable(updatedSeries, months);
+            analytics.table = table;
 
             next.data.metrics = next.data.metrics || {};
-            var totals = aggregateAnalytics(updatedSeries, catalogMap);
-            var computedRevenue = Math.max(totals.latestK * 1000, metricsSnapshot.revenue);
-            var computedOrders = Math.max(totals.orders, metricsSnapshot.orders, updatedSeries.length);
-            next.data.metrics.revenue = Math.round(computedRevenue);
-            next.data.metrics.orders = Math.max(0, Math.round(computedOrders));
+            var averagePrice = computeAveragePrice(catalogMap);
+            var yearlyK = table.yearlyTotal || 0;
+            var revenueVariance = 0.9 + Math.random() * 0.25;
+            var revenue = Math.max(0, yearlyK * 1000 * revenueVariance);
+            var orderBase = revenue / Math.max(averagePrice, 1);
+            var orderVariance = 0.85 + Math.random() * 0.3;
+
+            next.data.metrics.revenue = Math.round(revenue);
+            next.data.metrics.orders = Math.max(1, Math.round(orderBase * orderVariance));
+
+            performed = true;
           }, function (latest) {
-            ensureCountdownLoop(latest || null);
-            queueQuickDashboardHydration({ ctx: ctx, snapshot: latest, immediate: true });
+            var nextSnapshot = latest || null;
+            if (nextSnapshot) {
+              ensureCountdownLoop(nextSnapshot);
+            }
+            if (performed || (options.bootstrap && nextSnapshot)) {
+              queueQuickDashboardHydration({ ctx: context, snapshot: nextSnapshot, immediate: true });
+            }
           });
+
+          return performed;
         }
 
         function resolveAutoState(source) {
@@ -1134,6 +1212,25 @@
               initial = auto.getState();
             } catch (_errAuto) {
               initial = auto.state || null;
+            }
+          }
+          var seeded = randomizeSalesReport(null, ctx || auto, { snapshot: initial || null, bootstrap: true });
+          if (!seeded) {
+            if (initial) {
+              ensureCountdownLoop(initial);
+            }
+            queueQuickDashboardHydration({ ctx: ctx || auto, snapshot: initial || null, immediate: true });
+          }
+          onAutoReady(function (instance) {
+            var target = instance || window.MishkahAuto || ctx || null;
+            connectAutoState(target);
+            var snapshot = resolveAutoState(target) || initial || null;
+            var seededUpdate = randomizeSalesReport(null, target || ctx, { snapshot: snapshot, bootstrap: true });
+            if (!seededUpdate) {
+              if (snapshot) {
+                ensureCountdownLoop(snapshot);
+              }
+              queueQuickDashboardHydration({ ctx: target || ctx, snapshot: snapshot, immediate: true });
             }
           }
           if (initial) {
