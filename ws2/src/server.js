@@ -62,6 +62,23 @@ function safeDecode(value) {
   }
 }
 
+function parseCookies(header) {
+  if (typeof header !== 'string' || !header.trim()) return {};
+  const entries = header.split(';');
+  const cookies = {};
+  for (const rawEntry of entries) {
+    const entry = rawEntry.trim();
+    if (!entry) continue;
+    const idx = entry.indexOf('=');
+    if (idx <= 0) continue;
+    const name = entry.slice(0, idx).trim();
+    if (!name) continue;
+    const rawValue = entry.slice(idx + 1).trim();
+    cookies[name] = safeDecode(rawValue);
+  }
+  return cookies;
+}
+
 function encodeBranchId(branchId) {
   return encodeURIComponent(branchId);
 }
@@ -166,6 +183,9 @@ const LEGACY_POS_TOPIC_PREFIX = 'pos:sync:';
 const SYNC_TOPIC_PREFIX = 'sync::';
 const PUBSUB_TOPICS = new Map(); // topic => { subscribers:Set<string>, lastData:object|null }
 const SYNC_STATES = new Map(); // key => { branchId, moduleId, version, moduleSnapshot, updatedAt }
+const TRANS_HISTORY_LIMIT = Math.max(50, Number(process.env.WS2_TRANS_HISTORY_LIMIT) || 500);
+const TRANS_MUTATION_HISTORY_LIMIT = Math.max(5, Number(process.env.WS2_TRANS_MUTATION_HISTORY_LIMIT) || 25);
+const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object,mutationIds:Set<string>,lastAckMutationId?:string}> }
 
 function syncStateKey(branchId, moduleId) {
   const safeBranch = branchId || 'default';
@@ -196,6 +216,78 @@ function getSyncTopics(branchId, moduleId) {
     topics.push(`${LEGACY_POS_TOPIC_PREFIX}${safeBranch}`);
   }
   return topics;
+}
+
+function transHistoryKey(branchId, moduleId) {
+  const safeBranch = branchId || 'default';
+  const safeModule = moduleId || 'pos';
+  return `${safeBranch}::${safeModule}`;
+}
+
+function getTransTracker(key) {
+  if (!key) return null;
+  if (!TRANS_HISTORY.has(key)) {
+    TRANS_HISTORY.set(key, { order: [], records: new Map() });
+  }
+  return TRANS_HISTORY.get(key);
+}
+
+function rememberTransRecord(key, transId, payload) {
+  if (!key || !transId || !payload) return null;
+  const tracker = getTransTracker(key);
+  if (!tracker) return null;
+  if (tracker.records.has(transId)) {
+    const existing = tracker.records.get(transId);
+    if (payload?.mutationId && existing) {
+      if (!existing.mutationIds) existing.mutationIds = new Set();
+      if (!existing.mutationIds.has(payload.mutationId)) {
+        existing.mutationIds.add(payload.mutationId);
+        if (existing.mutationIds.size > TRANS_MUTATION_HISTORY_LIMIT) {
+          const trimmed = Array.from(existing.mutationIds).slice(-TRANS_MUTATION_HISTORY_LIMIT);
+          existing.mutationIds = new Set(trimmed);
+        }
+        existing.lastAckMutationId = payload.mutationId;
+      }
+    }
+    return existing;
+  }
+  const record = {
+    ts: Date.now(),
+    payload: deepClone(payload),
+    mutationIds: new Set(),
+    lastAckMutationId: payload?.mutationId || null
+  };
+  if (payload?.mutationId) {
+    record.mutationIds.add(payload.mutationId);
+  }
+  tracker.records.set(transId, record);
+  tracker.order.push(transId);
+  if (tracker.order.length > TRANS_HISTORY_LIMIT) {
+    const overflow = tracker.order.splice(0, tracker.order.length - TRANS_HISTORY_LIMIT);
+    for (const oldId of overflow) {
+      tracker.records.delete(oldId);
+    }
+  }
+  return record;
+}
+
+function recallTransRecord(key, transId) {
+  if (!key || !transId) return null;
+  const tracker = TRANS_HISTORY.get(key);
+  if (!tracker) return null;
+  return tracker.records.get(transId) || null;
+}
+
+function normalizeTransId(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
 }
 
 async function ensureSyncState(branchId, moduleId) {
@@ -230,17 +322,216 @@ async function ensureSyncState(branchId, moduleId) {
   return state;
 }
 
+function summarizeTableCounts(snapshot = {}) {
+  const counts = {};
+  const tables = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
+  for (const [tableName, rows] of Object.entries(tables)) {
+    counts[tableName] = Array.isArray(rows) ? rows.length : 0;
+  }
+  return counts;
+}
+
+function isPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toIsoTimestamp(value, fallback = nowIso()) {
+  if (value == null) return fallback;
+  if (typeof value === 'string' && value.trim()) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const date = new Date(numeric);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  return fallback;
+}
+
+function snapshotsEqual(a, b) {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch (_err) {
+    return false;
+  }
+}
+
+function normalizePosSnapshot(store, incomingSnapshot) {
+  if (!isPlainObject(incomingSnapshot)) return null;
+  if (!store.tables.includes('pos_database')) return null;
+
+  let dataset = null;
+  if (isPlainObject(incomingSnapshot.stores)) {
+    dataset = incomingSnapshot;
+  } else if (isPlainObject(incomingSnapshot.payload)) {
+    dataset = incomingSnapshot.payload;
+  } else if (
+    isPlainObject(incomingSnapshot.settings) ||
+    Array.isArray(incomingSnapshot.orders) ||
+    isPlainObject(incomingSnapshot.meta)
+  ) {
+    dataset = incomingSnapshot;
+  }
+
+  if (!dataset) return null;
+
+  const currentSnapshot = store.getSnapshot();
+  const existingRows = Array.isArray(currentSnapshot.tables?.pos_database)
+    ? currentSnapshot.tables.pos_database.map((row) => deepClone(row))
+    : [];
+  const lastPayload = existingRows.length ? existingRows[existingRows.length - 1]?.payload : null;
+
+  if (lastPayload && snapshotsEqual(lastPayload, dataset)) {
+    return currentSnapshot;
+  }
+
+  const nowTs = nowIso();
+  const meta = isPlainObject(dataset.meta) ? dataset.meta : {};
+  const baseId = meta.snapshotId || meta.id || meta.exportId || incomingSnapshot.id || null;
+  let recordId = baseId ? String(baseId) : createId(`${store.moduleId}-snapshot`);
+  if (existingRows.some((row) => row?.id === recordId && !snapshotsEqual(row.payload, dataset))) {
+    recordId = `${recordId}-${Date.now().toString(36)}`;
+  } else if (existingRows.some((row) => row?.id === recordId && snapshotsEqual(row.payload, dataset))) {
+    return currentSnapshot;
+  }
+
+  const createdAt = toIsoTimestamp(meta.exportedAt, nowTs);
+  const record = {
+    id: recordId,
+    branchId: store.branchId,
+    payload: deepClone(dataset),
+    createdAt,
+    updatedAt: nowTs
+  };
+
+  const nextRows = existingRows.concat([record]);
+  const version = Number.isFinite(Number(dataset.version))
+    ? Number(dataset.version)
+    : Number.isFinite(Number(incomingSnapshot.version))
+    ? Number(incomingSnapshot.version)
+    : (currentSnapshot.version || 0) + 1;
+
+  const nextMeta = currentSnapshot.meta && isPlainObject(currentSnapshot.meta) ? deepClone(currentSnapshot.meta) : {};
+  nextMeta.lastUpdatedAt = nowTs;
+  nextMeta.lastCentralSyncAt = nowTs;
+  nextMeta.centralVersion = version;
+
+  return {
+    moduleId: store.moduleId,
+    branchId: store.branchId,
+    version,
+    tables: { pos_database: nextRows },
+    meta: nextMeta
+  };
+}
+
+function normalizeIncomingSnapshot(store, incomingSnapshot) {
+  if (!incomingSnapshot || typeof incomingSnapshot !== 'object') return incomingSnapshot;
+  if (!incomingSnapshot.tables && isPlainObject(incomingSnapshot.snapshot)) {
+    return normalizeIncomingSnapshot(store, incomingSnapshot.snapshot);
+  }
+  if (isPlainObject(incomingSnapshot.tables)) {
+    const normalized = {
+      moduleId: store.moduleId,
+      branchId: store.branchId,
+      version: Number.isFinite(Number(incomingSnapshot.version))
+        ? Number(incomingSnapshot.version)
+        : store.version,
+      tables: {},
+      meta: isPlainObject(incomingSnapshot.meta) ? deepClone(incomingSnapshot.meta) : {}
+    };
+    for (const tableName of store.tables) {
+      const rows = Array.isArray(incomingSnapshot.tables?.[tableName])
+        ? incomingSnapshot.tables[tableName].map((row) => deepClone(row))
+        : [];
+      normalized.tables[tableName] = rows;
+    }
+    return normalized;
+  }
+
+  const posSnapshot = normalizePosSnapshot(store, incomingSnapshot);
+  if (posSnapshot) {
+    return posSnapshot;
+  }
+
+  return incomingSnapshot;
+}
+
+function ensureInsertOnlySnapshot(store, incomingSnapshot) {
+  const currentSnapshot = store.getSnapshot();
+  const requiredTables = Array.isArray(store.tables) ? store.tables : Object.keys(currentSnapshot.tables || {});
+  const incomingTables = incomingSnapshot.tables && typeof incomingSnapshot.tables === 'object' ? incomingSnapshot.tables : {};
+
+  for (const tableName of requiredTables) {
+    const incomingRows = incomingTables[tableName];
+    if (!Array.isArray(incomingRows)) {
+      return {
+        ok: false,
+        reason: 'missing-table',
+        tableName
+      };
+    }
+    const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
+    if (incomingRows.length < currentRows.length) {
+      return {
+        ok: false,
+        reason: 'row-count-decreased',
+        tableName,
+        currentCount: currentRows.length,
+        incomingCount: incomingRows.length
+      };
+    }
+    for (let idx = 0; idx < currentRows.length; idx += 1) {
+      const currentRow = currentRows[idx];
+      const incomingRow = incomingRows[idx];
+      if (JSON.stringify(currentRow) !== JSON.stringify(incomingRow)) {
+        return {
+          ok: false,
+          reason: 'row-modified',
+          tableName,
+          index: idx
+        };
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+function createInsertOnlyViolation(details) {
+  const error = new Error('Incoming snapshot violates insert-only policy.');
+  error.code = 'INSERT_ONLY_VIOLATION';
+  error.details = details;
+  return error;
+}
+
 async function applySyncSnapshot(branchId, moduleId, snapshot = {}, context = {}) {
   const key = syncStateKey(branchId, moduleId);
   let moduleSnapshot = snapshot && typeof snapshot === 'object' ? deepClone(snapshot) : null;
   try {
     if (moduleSnapshot) {
       const store = await ensureModuleStore(branchId, moduleId);
+      moduleSnapshot = normalizeIncomingSnapshot(store, moduleSnapshot);
+      const validation = ensureInsertOnlySnapshot(store, moduleSnapshot);
+      if (!validation.ok) {
+        throw createInsertOnlyViolation({ ...validation, branchId, moduleId });
+      }
       moduleSnapshot = store.replaceTablesFromSnapshot(moduleSnapshot, { ...context, branchId, moduleId });
       await persistModuleStore(store);
     }
   } catch (error) {
+    if (error?.code === 'INSERT_ONLY_VIOLATION') {
+      const counts = { before: summarizeTableCounts(SYNC_STATES.get(key)?.moduleSnapshot || {}), after: summarizeTableCounts(moduleSnapshot || {}) };
+      logger.warn({ branchId, moduleId, violation: error.details, counts }, 'Rejected destructive sync snapshot');
+      throw error;
+    }
     logger.warn({ err: error, branchId, moduleId }, 'Failed to persist sync snapshot');
+    moduleSnapshot = null;
   }
   if (!moduleSnapshot) {
     const fallback = await ensureSyncState(branchId, moduleId);
@@ -347,6 +638,7 @@ async function broadcastSyncUpdate(branchId, moduleId, state, options = {}) {
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
   }
+  return payload;
 }
 
 async function handlePubsubFrame(client, frame) {
@@ -380,17 +672,109 @@ async function handlePubsubFrame(client, frame) {
       if (!topic) return;
       const descriptor = parseSyncTopic(topic);
       const frameData = frame.data && typeof frame.data === 'object' ? frame.data : {};
+      const userFromFrame = typeof frameData.userId === 'string' && frameData.userId.trim()
+        ? frameData.userId.trim()
+        : null;
+      if (userFromFrame) client.userUuid = userFromFrame;
+      const transId = normalizeTransId(frameData.trans_id || frameData.transId || frameData.mutationId || null);
       if (descriptor) {
+        const trackerKey = transHistoryKey(descriptor.branchId, descriptor.moduleId);
+        if (!transId) {
+          sendToClient(client, {
+            type: 'error',
+            code: 'missing-trans-id',
+            message: 'Publish frames must include a trans_id.',
+            topic
+          });
+          return;
+        }
+        const duplicate = recallTransRecord(trackerKey, transId);
+        if (duplicate && duplicate.payload) {
+          const cached = duplicate.payload;
+          const ackPayload = deepClone(cached);
+          const requestedMutationId = typeof frameData.mutationId === 'string' && frameData.mutationId.trim()
+            ? frameData.mutationId.trim()
+            : null;
+          const previousMutationId = cached && typeof cached === 'object' && cached.mutationId
+            ? cached.mutationId
+            : duplicate.lastAckMutationId || null;
+          if (ackPayload && typeof ackPayload === 'object') {
+            if (requestedMutationId) {
+              ackPayload.mutationId = requestedMutationId;
+            }
+            const baseMeta = ackPayload.meta && typeof ackPayload.meta === 'object'
+              ? { ...ackPayload.meta }
+              : {};
+            const duplicateMeta = {
+              ...baseMeta,
+              duplicateTrans: true,
+              transId,
+              previousMutationId: previousMutationId || null,
+              ackedMutationId: requestedMutationId || previousMutationId || null
+            };
+            if (frameData.meta && typeof frameData.meta === 'object') {
+              ackPayload.meta = { ...duplicateMeta, ...frameData.meta };
+            } else {
+              ackPayload.meta = duplicateMeta;
+            }
+          }
+          if (requestedMutationId) {
+            if (!duplicate.mutationIds) duplicate.mutationIds = new Set();
+            if (!duplicate.mutationIds.has(requestedMutationId)) {
+              duplicate.mutationIds.add(requestedMutationId);
+              if (duplicate.mutationIds.size > TRANS_MUTATION_HISTORY_LIMIT) {
+                const trimmed = Array.from(duplicate.mutationIds).slice(-TRANS_MUTATION_HISTORY_LIMIT);
+                duplicate.mutationIds = new Set(trimmed);
+              }
+            }
+            duplicate.lastAckMutationId = requestedMutationId;
+          }
+          logger.info({
+            clientId: client.id,
+            branchId: descriptor.branchId,
+            moduleId: descriptor.moduleId,
+            transId,
+            requestedMutationId,
+            previousMutationId
+          }, 'Duplicate trans_id acknowledged without reapplying payload.');
+          sendToClient(client, { type: 'publish', topic, data: ackPayload });
+          return;
+        }
         let state = await ensureSyncState(descriptor.branchId, descriptor.moduleId);
         if (frameData.snapshot && typeof frameData.snapshot === 'object') {
-          state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, { origin: 'ws', clientId: client.id });
+          try {
+            state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, {
+              origin: 'ws',
+              clientId: client.id,
+              userUuid: client.userUuid || userFromFrame || null,
+              transId
+            });
+          } catch (error) {
+            if (error?.code === 'INSERT_ONLY_VIOLATION') {
+              sendToClient(client, {
+                type: 'error',
+                code: 'insert-only-violation',
+                message: error.message,
+                details: error.details || null
+              });
+              return;
+            }
+            logger.warn({ err: error, branchId: descriptor.branchId, moduleId: descriptor.moduleId }, 'Failed to apply sync snapshot from WS');
+            sendToClient(client, {
+              type: 'error',
+              code: 'sync-snapshot-failed',
+              message: error?.message || 'Failed to apply snapshot.'
+            });
+            return;
+          }
         }
-        await broadcastSyncUpdate(descriptor.branchId, descriptor.moduleId, state, {
+        const published = await broadcastSyncUpdate(descriptor.branchId, descriptor.moduleId, state, {
           action: frameData.action,
           mutationId: frameData.mutationId,
           meta: frameData.meta,
           frameData
         });
+        rememberTransRecord(trackerKey, transId, published);
       } else {
         await broadcastPubsub(topic, frameData);
       }
@@ -773,7 +1157,22 @@ async function handleSyncApi(req, res, url) {
     }
     const frameData = body && typeof body === 'object' ? body : {};
     const snapshot = frameData.snapshot && typeof frameData.snapshot === 'object' ? frameData.snapshot : null;
-    const state = await applySyncSnapshot(branchId, moduleId, snapshot, { origin: 'http', requestId: frameData.requestId || null });
+    let state;
+    try {
+      state = await applySyncSnapshot(branchId, moduleId, snapshot, { origin: 'http', requestId: frameData.requestId || null });
+    } catch (error) {
+      if (error?.code === 'INSERT_ONLY_VIOLATION') {
+        jsonResponse(res, 409, {
+          error: 'insert-only-violation',
+          message: error.message,
+          details: error.details || null
+        });
+        return true;
+      }
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to apply sync snapshot via HTTP');
+      jsonResponse(res, 500, { error: 'sync-snapshot-failed', message: error?.message || 'Failed to apply snapshot.' });
+      return true;
+    }
     await broadcastSyncUpdate(branchId, moduleId, state, {
       action: frameData.action,
       mutationId: frameData.mutationId,
@@ -863,6 +1262,27 @@ async function handleBranchesApi(req, res, url) {
   }
 
   if (tail.length === 1 && tail[0] === 'events') {
+    if (req.method === 'GET') {
+      const events = Array.isArray(snapshot.tables?.pos_database)
+        ? snapshot.tables.pos_database.map((row) => ({
+            id: row.id,
+            branchId: row.branchId,
+            createdAt: row.createdAt || null,
+            updatedAt: row.updatedAt || null,
+            payload: row.payload ? deepClone(row.payload) : null
+          }))
+        : [];
+      jsonResponse(res, 200, {
+        branchId,
+        moduleId,
+        version: snapshot.version,
+        updatedAt: snapshot.meta?.lastUpdatedAt || null,
+        serverId: SERVER_ID,
+        events,
+        snapshot: deepClone(snapshot)
+      });
+      return;
+    }
     if (req.method !== 'POST') {
       jsonResponse(res, 405, { error: 'method-not-allowed' });
       return;
@@ -1015,6 +1435,9 @@ async function handleHello(client, payload) {
   const branchId = typeof payload.branchId === 'string' && payload.branchId.trim() ? payload.branchId.trim() : 'lab:test-pad';
   client.branchId = branchId;
   client.role = typeof payload.role === 'string' ? payload.role : 'unknown';
+  if (typeof payload.userId === 'string' && payload.userId.trim()) {
+    client.userUuid = payload.userId.trim();
+  }
   client.status = 'ready';
   registerClient(client);
   await ensureBranchModules(branchId);
@@ -1139,6 +1562,8 @@ const wss = new WebSocketServer({ server: httpServer });
 
 wss.on('connection', (ws, req) => {
   const clientId = createId('client');
+  const cookies = parseCookies(req.headers?.cookie || '');
+  const cookieUser = typeof cookies.UserUniid === 'string' && cookies.UserUniid.trim() ? cookies.UserUniid.trim() : null;
   const client = {
     id: clientId,
     ws,
@@ -1149,7 +1574,9 @@ wss.on('connection', (ws, req) => {
     attempts: 0,
     remoteAddress: req.socket?.remoteAddress,
     protocol: 'unknown',
-    pubsubTopics: new Set()
+    pubsubTopics: new Set(),
+    userUuid: cookieUser || null,
+    cookies
   };
   clients.set(client.id, client);
   logger.info({ clientId, address: client.remoteAddress }, 'Client connected');
