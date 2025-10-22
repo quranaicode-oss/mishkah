@@ -590,34 +590,291 @@
   // ---------------------------------------------------------------------------
   // DOM — مساعدات تركيز ولمسات بصرية
   // ---------------------------------------------------------------------------
-  const focusById = (id, { scroll=true }={}) => {
-    if (typeof document === 'undefined') return false;
-    const el = document.getElementById(id);
-    if (!el) return false;
-    try { if (typeof el.focus === 'function') el.focus({ preventScroll: !scroll }); }
-    catch (_err) { /* ignore */ }
-    if (scroll && typeof el.scrollIntoView === 'function'){
-      try { el.scrollIntoView({ behavior:'smooth', block:'center' }); }
-      catch(_err){ /* ignore */ }
+  const domActionHooks = {
+    before: new Set(),
+    after: new Set()
+  };
+
+  const cloneOptions = (input) => {
+    if (!input || typeof input !== 'object') return {};
+    const copy = {};
+    for (const key in input) {
+      if (Object.prototype.hasOwnProperty.call(input, key)) {
+        copy[key] = input[key];
+      }
     }
+    return copy;
+  };
+
+  const isElement = (node) => !!node && typeof node === 'object' && node.nodeType === 1;
+
+  const describeContext = (ctx) => {
+    if (!ctx || typeof ctx !== 'object') return null;
+    const meta = {};
+    if (ctx.scopeId) meta.scopeId = ctx.scopeId;
+    if (ctx.scopePath) meta.scopePath = ctx.scopePath;
+    if (ctx.templateId) meta.templateId = ctx.templateId;
+    if (ctx.scopeNode && typeof ctx.scopeNode.getAttribute === 'function') {
+      const scopeAttr = ctx.scopeNode.getAttribute('data-m-scope');
+      if (scopeAttr) meta.scopeAttr = scopeAttr;
+    }
+    return Object.keys(meta).length ? meta : null;
+  };
+
+  const queryWithin = (base, selector) => {
+    if (!base || typeof base.querySelector !== 'function' || !selector) return null;
+    try { return base.querySelector(selector); }
+    catch (_err) { return null; }
+  };
+
+  const findInContext = (ctx, selector) => {
+    if (!selector) return null;
+    let node = null;
+    if (ctx && typeof ctx.scopeQuery === 'function') {
+      try { node = ctx.scopeQuery(selector); }
+      catch (_err) { node = null; }
+      if (node) return node;
+    }
+    let base = null;
+    if (ctx) {
+      if (ctx.scopeNode && typeof ctx.scopeNode.querySelector === 'function') {
+        base = ctx.scopeNode;
+      } else if (ctx.root && typeof ctx.root.querySelector === 'function') {
+        base = ctx.root;
+      }
+    }
+    if (base) {
+      const local = queryWithin(base, selector);
+      if (local) return local;
+    }
+    if (typeof document !== 'undefined' && document) {
+      return queryWithin(document, selector);
+    }
+    return null;
+  };
+
+  const resolveDOMTarget = (target, ctx) => {
+    if (!target) return null;
+    if (typeof target === 'function') {
+      try { target = target(ctx); }
+      catch (_err) { return null; }
+    }
+    if (isElement(target)) return target;
+    if (target && typeof target === 'object') {
+      if (isElement(target.element)) return target.element;
+      if (typeof target.selector === 'string' && target.selector) {
+        return resolveDOMTarget(String(target.selector), ctx);
+      }
+      if (typeof target.id === 'string' && target.id) {
+        return resolveDOMTarget('#' + target.id, ctx);
+      }
+      if (typeof target.ref === 'string' && target.ref) {
+        return resolveDOMTarget(String(target.ref), ctx);
+      }
+    }
+    if (typeof target === 'string') {
+      const trimmed = target.trim();
+      if (!trimmed) return null;
+      let el = null;
+      if (trimmed.charAt(0) === '#') {
+        el = findInContext(ctx, trimmed);
+      } else {
+        el = findInContext(ctx, trimmed);
+        if (!el && /^[A-Za-z][A-Za-z0-9_:-]*$/.test(trimmed)) {
+          el = findInContext(ctx, '#' + trimmed);
+        }
+      }
+      return el;
+    }
+    return null;
+  };
+
+  const dispatchDomEvent = (type, detail) => {
+    if (typeof document === 'undefined' || !document || typeof document.dispatchEvent !== 'function') return;
+    const eventName = 'mishkah:dom-' + type;
+    try {
+      const evt = typeof CustomEvent === 'function'
+        ? new CustomEvent(eventName, { detail })
+        : null;
+      if (evt) {
+        document.dispatchEvent(evt);
+        return;
+      }
+    } catch (_err) {
+      // ignore and fallback below
+    }
+    try {
+      if (typeof document.createEvent === 'function') {
+        const fallback = document.createEvent('CustomEvent');
+        fallback.initCustomEvent(eventName, false, false, detail);
+        document.dispatchEvent(fallback);
+        return;
+      }
+    } catch (_err) {
+      // ignore and fallback below
+    }
+    try {
+      if (typeof document.createEvent === 'function') {
+        const simple = document.createEvent('Event');
+        simple.initEvent(eventName, false, false);
+        simple.detail = detail;
+        document.dispatchEvent(simple);
+      }
+    } catch (_err) {
+      // ignore
+    }
+  };
+
+  const emitDomAction = (phase, type, meta) => {
+    const payload = Object.assign({ phase, type }, meta || {});
+    const hooks = phase === 'before' ? domActionHooks.before : domActionHooks.after;
+    let blocked = false;
+    hooks.forEach((fn) => {
+      if (blocked) return;
+      try {
+        const res = fn(type, payload);
+        if (phase === 'before' && res === false) blocked = true;
+      } catch (err) {
+        if (typeof console !== 'undefined' && console && typeof console.error === 'function') {
+          console.error('[Mishkah.utils.DOM] action hook failed', err);
+        }
+      }
+    });
+    if (phase === 'after') {
+      dispatchDomEvent(type, payload);
+      return true;
+    }
+    if (blocked) return false;
     return true;
   };
 
-  const flashClass = (id, className, duration=1500) => {
-    if (typeof document === 'undefined') return false;
-    const el = document.getElementById(id);
-    if (!el || !className) return false;
-    el.classList.add(className);
-    if (duration > 0){
-      setTimeout(()=>{
-        try { el.classList.remove(className); }
-        catch(_err){ /* ignore */ }
+  const scrollToTarget = (target, options, ctx) => {
+    const element = resolveDOMTarget(target, ctx);
+    const opt = cloneOptions(options);
+    const contextMeta = describeContext(ctx);
+    const baseMeta = { element, target, options: opt, context: contextMeta, ctx: ctx || null };
+    if (!element) {
+      emitDomAction('after', 'scroll', Object.assign({}, baseMeta, { success: false, reason: 'not-found' }));
+      return { ok: false, reason: 'not-found', element: null, context: contextMeta };
+    }
+    if (!emitDomAction('before', 'scroll', baseMeta)) {
+      emitDomAction('after', 'scroll', Object.assign({}, baseMeta, { success: false, reason: 'blocked' }));
+      return { ok: false, reason: 'blocked', element, context: contextMeta };
+    }
+    if (!Object.prototype.hasOwnProperty.call(opt, 'behavior')) opt.behavior = 'smooth';
+    if (!Object.prototype.hasOwnProperty.call(opt, 'block')) opt.block = 'center';
+    let success = false;
+    try {
+      if (typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView(opt);
+        success = true;
+      }
+    } catch (_err) {
+      try {
+        element.scrollIntoView();
+        success = true;
+      } catch (_err2) {
+        success = false;
+      }
+    }
+    const reason = success ? 'ok' : 'failed';
+    emitDomAction('after', 'scroll', Object.assign({}, baseMeta, { success, reason }));
+    return { ok: success, reason, element, context: contextMeta };
+  };
+
+  const focusTarget = (target, opt={}, ctx) => {
+    const options = cloneOptions(opt);
+    const element = resolveDOMTarget(target, ctx);
+    const contextMeta = describeContext(ctx);
+    const baseMeta = { element, target, options, context: contextMeta, ctx: ctx || null };
+    if (!element) {
+      emitDomAction('after', 'focus', Object.assign({}, baseMeta, { success: false, reason: 'not-found' }));
+      return { ok: false, reason: 'not-found', element: null, context: contextMeta };
+    }
+    if (!emitDomAction('before', 'focus', baseMeta)) {
+      emitDomAction('after', 'focus', Object.assign({}, baseMeta, { success: false, reason: 'blocked' }));
+      return { ok: false, reason: 'blocked', element, context: contextMeta };
+    }
+    const preventScroll = options.scroll === false;
+    let success = false;
+    try {
+      if (typeof element.focus === 'function') {
+        element.focus({ preventScroll });
+        success = true;
+      }
+    } catch (_err) {
+      try {
+        element.focus();
+        success = true;
+      } catch (_err2) {
+        success = false;
+      }
+    }
+    if (success && options.scroll !== false) {
+      const scrollOpt = cloneOptions(options.scrollOptions);
+      if (!Object.prototype.hasOwnProperty.call(scrollOpt, 'behavior')) {
+        scrollOpt.behavior = 'smooth';
+      }
+      if (!Object.prototype.hasOwnProperty.call(scrollOpt, 'block')) {
+        scrollOpt.block = 'center';
+      }
+      scrollToTarget(element, scrollOpt, ctx);
+    }
+    const reason = success ? 'ok' : 'failed';
+    emitDomAction('after', 'focus', Object.assign({}, baseMeta, { success, reason }));
+    return { ok: success, reason, element, context: contextMeta };
+  };
+
+  const focusById = (id, opt={}) => {
+    const ctx = opt && typeof opt === 'object' ? opt.ctx : null;
+    const options = cloneOptions(opt);
+    if (options && Object.prototype.hasOwnProperty.call(options, 'ctx')) {
+      delete options.ctx;
+    }
+    const result = focusTarget({ id }, options, ctx);
+    return !!(result && result.ok);
+  };
+
+  const flashClass = (id, className, duration=1500, ctx=null) => {
+    const element = resolveDOMTarget({ id }, ctx);
+    const contextMeta = describeContext(ctx);
+    const baseMeta = { element, target: { id }, className, duration, context: contextMeta, ctx: ctx || null };
+    if (!element || !className) {
+      emitDomAction('after', 'flash', Object.assign({}, baseMeta, { success: false, reason: element ? 'invalid' : 'not-found' }));
+      return false;
+    }
+    if (!emitDomAction('before', 'flash', baseMeta)) {
+      emitDomAction('after', 'flash', Object.assign({}, baseMeta, { success: false, reason: 'blocked' }));
+      return false;
+    }
+    element.classList.add(className);
+    if (duration > 0) {
+      setTimeout(() => {
+        try { element.classList.remove(className); }
+        catch (_err) { /* ignore */ }
       }, duration);
     }
+    emitDomAction('after', 'flash', Object.assign({}, baseMeta, { success: true }));
     return true;
   };
 
-  U.DOM = { focusById, flashClass };
+  const onDomAction = (phase, handler) => {
+    let normalizedPhase = phase;
+    let fn = handler;
+    if (typeof phase === 'function') {
+      fn = phase;
+      normalizedPhase = 'after';
+    }
+    if (normalizedPhase !== 'before') normalizedPhase = 'after';
+    if (typeof fn !== 'function') return () => {};
+    const bucket = normalizedPhase === 'before' ? domActionHooks.before : domActionHooks.after;
+    bucket.add(fn);
+    return () => {
+      bucket.delete(fn);
+    };
+  };
+
+  U.DOM = { focusById, flashClass, resolveTarget: resolveDOMTarget, scrollTo: scrollToTarget, focus: focusTarget, onAction: onDomAction };
 
   // ---------------------------------------------------------------------------
   // Cache — واجهة بسيطة على Cache API (اختياري)
