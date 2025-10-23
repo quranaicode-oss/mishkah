@@ -3074,35 +3074,38 @@ function getPureJson(data) {
   }
 
   function traverse(obj) {
+    if (obj == null) return obj;
+
+    if (typeof obj === 'string') {
+      const str = obj.trim();
+      // فقط لو يبدو JSON/JS-Object داخل نص
+      if (
+        (str.startsWith('{') && str.endsWith('}')) ||
+        (str.startsWith('[') && str.endsWith(']')) ||
+        looksLikeKeyValue(str) // مثل: en:"x", ar:"y"
+      ) {
+        try {
+          return traverse(tryParseLoose(str));
+        } catch (e) {
+        //  console.warn(`فشل في تحليل الحقل: ${e.message}`);
+          // اتركه كسلسلة كما هو، أو عيّنه null حسب رغبتك:
+          // return null;
+        }
+      }
+      return obj; // اترك النص العادي
+    }
+
     if (Array.isArray(obj)) {
       for (let i = 0; i < obj.length; i++) obj[i] = traverse(obj[i]);
       return obj;
     }
 
-    for (let key in obj) {
-      const v = obj[key];
-      if (typeof v === 'string') {
-        const str = v.trim();
-        // فقط لو يبدو JSON/JS-Object داخل نص
-        if (
-          (str.startsWith('{') && str.endsWith('}')) ||
-          (str.startsWith('[') && str.endsWith(']')) ||
-          looksLikeKeyValue(str) // مثل: en:"x", ar:"y"
-        ) {
-          try {
-            obj[key] = traverse(tryParseLoose(str));
-          } catch (e) {
-          //  console.warn(`فشل في تحليل الحقل '${key}': ${e.message}`);
-            // اتركه كسلسلة كما هو، أو عيّنه null حسب رغبتك:
-            // obj[key] = null;
-          }
-        } else {
-          obj[key] = v; // اترك النص العادي
-        }
-      } else if (v && typeof v === 'object') {
-        obj[key] = traverse(v);
+    if (typeof obj === 'object') {
+      for (let key in obj) {
+        obj[key] = traverse(obj[key]);
       }
     }
+
     return obj;
   }
 
