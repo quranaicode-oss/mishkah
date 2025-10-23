@@ -644,7 +644,11 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
 
   for (const tableName of requiredTables) {
     if (!(tableName in incomingTables)) {
-      continue;
+      return {
+        ok: false,
+        reason: 'missing-table',
+        tableName
+      };
     }
 
     const incomingRows = incomingTables[tableName];
