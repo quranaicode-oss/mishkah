@@ -42,8 +42,56 @@ function defaultMeta(context) {
     lastEventAt: null,
     lastAckId: null,
     totalEvents: 0,
-    updatedAt: now
+    updatedAt: now,
+    tableCursors: {},
+    lastServedTableIds: {},
+    lastClientTableIds: {},
+    lastSnapshotMarker: null,
+    lastClientSnapshotMarker: null,
+    lastClientSyncAt: null
   };
+}
+
+function toCursorRecord(value) {
+  if (!value || typeof value !== 'object') return {};
+  const cursor = {};
+  if (value.key != null) cursor.key = String(value.key);
+  if (value.id != null) cursor.id = String(value.id);
+  if (value.uuid != null) cursor.uuid = String(value.uuid);
+  if (value.uid != null) cursor.uid = String(value.uid);
+  return cursor;
+}
+
+function resolveLineCursor(line) {
+  if (!line || typeof line !== 'object') return null;
+  if (line.meta && typeof line.meta === 'object' && line.meta.recordRef) {
+    const cursor = toCursorRecord(line.meta.recordRef);
+    if (Object.keys(cursor).length) {
+      return cursor;
+    }
+  }
+  const record = line.record && typeof line.record === 'object' ? line.record : null;
+  if (!record) return null;
+  const direct = toCursorRecord(record);
+  if (Object.keys(direct).length) {
+    return direct;
+  }
+  if (record.primaryKey && typeof record.primaryKey === 'object') {
+    const primaryCursor = toCursorRecord(record.primaryKey);
+    if (Object.keys(primaryCursor).length) {
+      return primaryCursor;
+    }
+  }
+  if (record.primary && typeof record.primary === 'object') {
+    const primaryCursor = toCursorRecord(record.primary);
+    if (Object.keys(primaryCursor).length) {
+      return primaryCursor;
+    }
+  }
+  if (record.key != null) {
+    return { key: String(record.key) };
+  }
+  return null;
 }
 
 async function loadMeta(context) {
@@ -153,6 +201,13 @@ export async function appendEvent(options, entry) {
   }
   if (!meta.currentDay) {
     nextMeta.currentDay = now.slice(0, 10);
+  }
+  if (!nextMeta.tableCursors || typeof nextMeta.tableCursors !== 'object') {
+    nextMeta.tableCursors = {};
+  }
+  const cursor = table ? resolveLineCursor(line) : null;
+  if (table && cursor) {
+    nextMeta.tableCursors = { ...nextMeta.tableCursors, [table]: { ...cursor, eventId: id, sequence, updatedAt: now } };
   }
   await writeMeta(context, nextMeta);
   return line;

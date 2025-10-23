@@ -272,6 +272,475 @@ function jsonResponse(res, status, payload) {
   res.end(JSON.stringify(payload, null, 2));
 }
 
+function resolveTimestampInput(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) return numeric;
+    const parsed = Date.parse(trimmed);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function normalizeCursorInput(value) {
+  const payload = {};
+  const candidates = new Set();
+  const register = (field, raw) => {
+    if (raw === undefined || raw === null) return;
+    let str;
+    if (typeof raw === 'string') {
+      str = raw.trim();
+    } else if (typeof raw === 'number' && Number.isFinite(raw)) {
+      str = String(raw);
+    } else if (typeof raw === 'bigint') {
+      str = raw.toString();
+    } else {
+      return;
+    }
+    if (!str) return;
+    candidates.add(str);
+    if (field) {
+      payload[field] = str;
+    }
+  };
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const field of ['key', 'id', 'uuid', 'uid']) {
+      register(field, value[field]);
+    }
+    if (value.primaryKey && typeof value.primaryKey === 'object') {
+      for (const [field, raw] of Object.entries(value.primaryKey)) {
+        register(field, raw);
+      }
+    }
+    if (value.primary && typeof value.primary === 'object') {
+      for (const [field, raw] of Object.entries(value.primary)) {
+        register(field, raw);
+      }
+    }
+    if (!Object.keys(payload).length && value.value !== undefined) {
+      register('key', value.value);
+    }
+  } else if (value !== undefined && value !== null) {
+    register('key', value);
+    register('id', value);
+  }
+
+  return { candidates, object: Object.keys(payload).length ? payload : null };
+}
+
+function recordMatchesCandidates(ref, candidates) {
+  if (!ref || !candidates || !candidates.size) return false;
+  for (const candidate of candidates) {
+    if (ref.key != null && String(ref.key) === candidate) return true;
+    if (ref.id != null && String(ref.id) === candidate) return true;
+    if (ref.uuid != null && String(ref.uuid) === candidate) return true;
+    if (ref.uid != null && String(ref.uid) === candidate) return true;
+    if (ref.primaryKey && typeof ref.primaryKey === 'object') {
+      for (const value of Object.values(ref.primaryKey)) {
+        if (value != null && String(value) === candidate) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function buildRecordCursor(ref) {
+  if (!ref || typeof ref !== 'object') return null;
+  const cursor = {};
+  if (ref.key != null) cursor.key = String(ref.key);
+  if (ref.id != null) cursor.id = String(ref.id);
+  if (ref.uuid != null) cursor.uuid = String(ref.uuid);
+  if (ref.uid != null) cursor.uid = String(ref.uid);
+  if (ref.primaryKey && typeof ref.primaryKey === 'object') {
+    const primaryKey = {};
+    for (const [field, value] of Object.entries(ref.primaryKey)) {
+      if (value !== undefined && value !== null) {
+        primaryKey[field] = String(value);
+      }
+    }
+    if (Object.keys(primaryKey).length) {
+      cursor.primaryKey = primaryKey;
+    }
+  }
+  return Object.keys(cursor).length ? cursor : null;
+}
+
+function stringifyCursor(ref) {
+  if (!ref || typeof ref !== 'object') return null;
+  if (ref.key != null && String(ref.key)) return String(ref.key);
+  if (ref.id != null && String(ref.id)) return String(ref.id);
+  if (ref.uuid != null && String(ref.uuid)) return String(ref.uuid);
+  if (ref.uid != null && String(ref.uid)) return String(ref.uid);
+  if (ref.primaryKey && typeof ref.primaryKey === 'object') {
+    for (const value of Object.values(ref.primaryKey)) {
+      if (value != null) {
+        const str = String(value);
+        if (str) return str;
+      }
+    }
+  }
+  return null;
+}
+
+function computeInsertOnlyDelta(store, tableName, lastCursorValue) {
+  const rows = Array.isArray(store?.tables) && store.tables.includes(tableName) ? store.listTable(tableName) : [];
+  const normalized = normalizeCursorInput(lastCursorValue);
+  let startIndex = 0;
+  let matched = false;
+  if (normalized.candidates.size) {
+    for (let idx = rows.length - 1; idx >= 0; idx -= 1) {
+      const ref = store.getRecordReference(tableName, rows[idx]);
+      if (recordMatchesCandidates(ref, normalized.candidates)) {
+        matched = true;
+        startIndex = idx + 1;
+        break;
+      }
+    }
+  }
+  const requiresFullSync = normalized.candidates.size > 0 && !matched && rows.length > 0;
+  const deltaRows = rows.slice(startIndex);
+  const lastRow = rows.length ? rows[rows.length - 1] : null;
+  const lastCursor = lastRow ? buildRecordCursor(store.getRecordReference(tableName, lastRow)) : null;
+  return {
+    rows: deltaRows,
+    total: rows.length,
+    lastCursor,
+    matched,
+    requiresFullSync,
+    clientCursor: normalized.object,
+    hadCursor: normalized.candidates.size > 0
+  };
+}
+
+function normalizeDeltaRequest(frameData, store) {
+  const tableMap = {};
+  const mapSources = [frameData?.lastTableIds, frameData?.lastIds, frameData?.tableCursors];
+  for (const source of mapSources) {
+    if (!source || typeof source !== 'object') continue;
+    for (const [tableName, value] of Object.entries(source)) {
+      if (typeof tableName !== 'string') continue;
+      const trimmed = tableName.trim();
+      if (!trimmed) continue;
+      tableMap[trimmed] = value;
+    }
+  }
+  const requested = new Set();
+  const arraySources = [
+    frameData?.tables,
+    frameData?.tableNames,
+    frameData?.requestTables,
+    frameData?.includeTables,
+    frameData?.tablesRequested
+  ];
+  for (const source of arraySources) {
+    if (!Array.isArray(source)) continue;
+    for (const value of source) {
+      if (typeof value !== 'string') continue;
+      const trimmed = value.trim();
+      if (trimmed) requested.add(trimmed);
+    }
+  }
+  Object.keys(tableMap).forEach((name) => requested.add(name));
+  const availableTables = Array.isArray(store?.tables) ? store.tables : [];
+  let tableNames = Array.from(requested).filter((name) => availableTables.includes(name));
+  if (!tableNames.length) {
+    tableNames = availableTables.slice();
+  }
+  const normalizedClientCursorMap = {};
+  for (const [table, value] of Object.entries(tableMap)) {
+    const normalized = normalizeCursorInput(value).object;
+    if (normalized) {
+      normalizedClientCursorMap[table] = normalized;
+    }
+  }
+  return { tableNames, tableMap, normalizedClientCursorMap };
+}
+
+function findRecordUsingValue(store, tableName, value) {
+  if (!store || !tableName) return null;
+  let lookup = value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const hasCursorFields = ['key', 'id', 'uuid', 'uid', 'primaryKey', 'primary'].some(
+      (field) => value[field] !== undefined
+    );
+    if (!hasCursorFields) {
+      const ref = store.getRecordReference(tableName, value);
+      lookup = ref ? { key: ref.key, id: ref.id, uuid: ref.uuid, uid: ref.uid, primaryKey: ref.primaryKey } : value;
+    }
+  }
+  const normalized = normalizeCursorInput(lookup);
+  if (!normalized.candidates.size) return null;
+  const rows = store.listTable(tableName);
+  for (const row of rows) {
+    const ref = store.getRecordReference(tableName, row);
+    if (recordMatchesCandidates(ref, normalized.candidates)) {
+      return { record: row, ref };
+    }
+  }
+  return null;
+}
+
+function resolveExistingRecordForConcurrency(store, tableName, record, concurrency = {}) {
+  const sources = [];
+  if (record && typeof record === 'object') {
+    sources.push(record);
+  }
+  if (concurrency && typeof concurrency === 'object') {
+    if (concurrency.recordRef) sources.push(concurrency.recordRef);
+    if (concurrency.cursor) sources.push(concurrency.cursor);
+    if (concurrency.lastKnownId) sources.push(concurrency.lastKnownId);
+    if (concurrency.lastCursor) sources.push(concurrency.lastCursor);
+    if (concurrency.lookup) sources.push(concurrency.lookup);
+  }
+  for (const source of sources) {
+    const found = findRecordUsingValue(store, tableName, source);
+    if (found) return found;
+  }
+  return null;
+}
+
+function extractPaymentState(record) {
+  const queue = [record];
+  const visited = new Set();
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || typeof current !== 'object') continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const direct =
+      current.paymentState ||
+      current.payment_state ||
+      current.paymentStatus ||
+      current.payment_status ||
+      current.state ||
+      current.payment_state_id ||
+      current.paymentStateId;
+    if (typeof direct === 'string' && direct.trim()) {
+      return direct.trim();
+    }
+    const nestedKeys = ['header', 'payload', 'meta', 'metadata', 'data', 'info'];
+    for (const key of nestedKeys) {
+      if (current[key] && typeof current[key] === 'object') {
+        queue.push(current[key]);
+      }
+    }
+  }
+  return null;
+}
+
+function extractRecordUpdatedAt(record) {
+  const queue = [record];
+  const visited = new Set();
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || typeof current !== 'object') continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const fields = [
+      'updatedAt',
+      'updated_at',
+      'modifyDate',
+      'modify_date',
+      'savedAt',
+      'saved_at',
+      'timestamp',
+      'ts',
+      'lastUpdatedAt',
+      'last_updated_at',
+      'lastModifiedAt',
+      'last_modified_at'
+    ];
+    for (const field of fields) {
+      if (current[field] !== undefined && current[field] !== null) {
+        const ts = resolveTimestampInput(current[field]);
+        if (ts != null) return ts;
+      }
+    }
+    const nestedKeys = ['meta', 'metadata', 'header', 'payload', 'data', 'info'];
+    for (const key of nestedKeys) {
+      if (current[key] && typeof current[key] === 'object') {
+        queue.push(current[key]);
+      }
+    }
+  }
+  return null;
+}
+
+function extractClientSnapshotMarker(frameData = {}) {
+  const candidates = [
+    frameData.snapshotMarker,
+    frameData.snapshot_marker,
+    frameData.dayMarker,
+    frameData.day_marker,
+    frameData.businessDate,
+    frameData.business_date,
+    frameData.businessDay,
+    frameData.snapshotDay
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+function resolveServerSnapshotMarker(syncState, eventMeta = null) {
+  if (eventMeta && typeof eventMeta.lastSnapshotMarker === 'string' && eventMeta.lastSnapshotMarker) {
+    return eventMeta.lastSnapshotMarker;
+  }
+  if (eventMeta && typeof eventMeta.currentDay === 'string' && eventMeta.currentDay) {
+    return eventMeta.currentDay;
+  }
+  const snapshotMeta = syncState?.moduleSnapshot?.meta;
+  if (snapshotMeta && typeof snapshotMeta === 'object') {
+    const snapshotCandidates = [
+      snapshotMeta.snapshotMarker,
+      snapshotMeta.businessDate,
+      snapshotMeta.business_date,
+      snapshotMeta.businessDay,
+      snapshotMeta.business_day,
+      snapshotMeta.currentDay,
+      snapshotMeta.day
+    ];
+    for (const candidate of snapshotCandidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+  if (syncState?.updatedAt) {
+    return syncState.updatedAt.slice(0, 10);
+  }
+  return null;
+}
+
+function evaluateConcurrencyGuards(store, tableName, record, concurrency, options = {}) {
+  const result = { conflict: null, requiresFullSync: false, existing: null };
+  if (!store || !tableName) return result;
+  const effectiveConcurrency = concurrency && typeof concurrency === 'object' ? concurrency : {};
+  const { serverMarker = null, clientMarker = null } = options;
+
+  const existingInfo = resolveExistingRecordForConcurrency(store, tableName, record, effectiveConcurrency);
+  if (existingInfo) {
+    result.existing = existingInfo.record;
+  }
+
+  const requireExisting = effectiveConcurrency.requireExisting === true || effectiveConcurrency.disallowCreate === true;
+  if (!existingInfo && requireExisting) {
+    result.conflict = { code: 'record-not-found', message: 'Existing record required but not found.' };
+    result.requiresFullSync = true;
+    return result;
+  }
+
+  if (effectiveConcurrency.requireSnapshotMarker) {
+    const expected = String(effectiveConcurrency.requireSnapshotMarker).trim();
+    if (expected && serverMarker && expected !== serverMarker) {
+      result.conflict = { code: 'snapshot-mismatch', expected, actual: serverMarker };
+      result.requiresFullSync = true;
+      return result;
+    }
+  }
+
+  if (
+    effectiveConcurrency.enforceSnapshot === true &&
+    clientMarker &&
+    serverMarker &&
+    clientMarker !== serverMarker
+  ) {
+    result.conflict = { code: 'snapshot-mismatch', expected: clientMarker, actual: serverMarker };
+    result.requiresFullSync = true;
+    return result;
+  }
+
+  if (!existingInfo) {
+    return result;
+  }
+
+  const currentPaymentState = extractPaymentState(existingInfo.record);
+  const expectedPaymentState =
+    typeof effectiveConcurrency.expectedPaymentState === 'string' && effectiveConcurrency.expectedPaymentState.trim()
+      ? effectiveConcurrency.expectedPaymentState.trim()
+      : typeof effectiveConcurrency.paymentState === 'string' && effectiveConcurrency.paymentState.trim()
+        ? effectiveConcurrency.paymentState.trim()
+        : null;
+
+  if (expectedPaymentState && currentPaymentState && currentPaymentState !== expectedPaymentState) {
+    result.conflict = {
+      code: 'payment-state-conflict',
+      expected: expectedPaymentState,
+      actual: currentPaymentState
+    };
+    return result;
+  }
+
+  const rejectStates = Array.isArray(effectiveConcurrency.rejectPaymentStates)
+    ? effectiveConcurrency.rejectPaymentStates.map((entry) => String(entry).trim()).filter(Boolean)
+    : [];
+  if (rejectStates.length && currentPaymentState) {
+    const lowerCurrent = currentPaymentState.toLowerCase();
+    if (rejectStates.some((entry) => entry.toLowerCase() === lowerCurrent)) {
+      result.conflict = { code: 'payment-state-rejected', actual: currentPaymentState, rejected: rejectStates };
+      return result;
+    }
+  }
+
+  const allowedStates = Array.isArray(effectiveConcurrency.allowedPaymentStates)
+    ? effectiveConcurrency.allowedPaymentStates.map((entry) => String(entry).trim()).filter(Boolean)
+    : [];
+  if (allowedStates.length && currentPaymentState) {
+    const lowerCurrent = currentPaymentState.toLowerCase();
+    if (!allowedStates.some((entry) => entry.toLowerCase() === lowerCurrent)) {
+      result.conflict = { code: 'payment-state-not-allowed', actual: currentPaymentState, allowed: allowedStates };
+      return result;
+    }
+  }
+
+  const thresholdTs = resolveTimestampInput(
+    effectiveConcurrency.ifNotModifiedSince ??
+      effectiveConcurrency.ifModifiedBefore ??
+      effectiveConcurrency.expectedUpdatedAt ??
+      null
+  );
+  if (thresholdTs != null) {
+    const updatedTs = extractRecordUpdatedAt(existingInfo.record);
+    if (updatedTs != null && updatedTs > thresholdTs) {
+      result.conflict = {
+        code: 'concurrent-update',
+        updatedAt: new Date(updatedTs).toISOString(),
+        threshold: new Date(thresholdTs).toISOString()
+      };
+      return result;
+    }
+  }
+
+  if (effectiveConcurrency.lastKnownId) {
+    const normalized = normalizeCursorInput(effectiveConcurrency.lastKnownId);
+    if (normalized.candidates.size) {
+      const matched = recordMatchesCandidates(existingInfo.ref, normalized.candidates);
+      if (!matched) {
+        result.conflict = { code: 'stale-cursor', provided: normalized.object || effectiveConcurrency.lastKnownId };
+        result.requiresFullSync = true;
+        return result;
+      }
+    }
+  }
+
+  return result;
+}
+
+
 function recordWsBroadcast(channel, deliveredCount = 0) {
   if (!metricsState.enabled) return;
   const normalizedChannel = channel || 'unknown';
@@ -2345,12 +2814,16 @@ function resolveSyncRequest(pathname, searchParams) {
   if (segments.length < 2 || segments[0] !== 'api') return null;
   if (segments[1] === 'pos-sync') {
     const branchId = safeDecode(segments[2] || searchParams.get('branch') || 'default');
-    return { branchId, moduleId: 'pos' };
+    const next = (segments[3] || '').toLowerCase();
+    const mode = next === 'delta' ? 'delta' : 'snapshot';
+    return { branchId, moduleId: 'pos', mode };
   }
   if (segments[1] === 'sync') {
     const branchId = safeDecode(segments[2] || searchParams.get('branch') || 'default');
     const moduleId = safeDecode(segments[3] || searchParams.get('module') || 'pos');
-    return { branchId, moduleId };
+    const next = (segments[4] || '').toLowerCase();
+    const mode = next === 'delta' ? 'delta' : 'snapshot';
+    return { branchId, moduleId, mode };
   }
   return null;
 }
@@ -2361,7 +2834,111 @@ async function handleSyncApi(req, res, url) {
     jsonResponse(res, 404, { error: 'sync-endpoint-not-found', path: url.pathname });
     return true;
   }
-  const { branchId, moduleId } = descriptor;
+  const { branchId, moduleId, mode = 'snapshot' } = descriptor;
+
+  if (mode === 'delta') {
+    if (req.method !== 'POST') {
+      jsonResponse(res, 405, { error: 'method-not-allowed' });
+      return true;
+    }
+    let body = null;
+    try {
+      body = await readBody(req);
+    } catch (error) {
+      jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+      return true;
+    }
+    const frameData = body && typeof body === 'object' ? body : {};
+    const store = await ensureModuleStore(branchId, moduleId);
+    const state = await ensureSyncState(branchId, moduleId);
+    const eventContext = getModuleEventStoreContext(branchId, moduleId);
+    let eventMeta = null;
+    try {
+      eventMeta = await loadEventMeta(eventContext);
+    } catch (error) {
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to load event meta for delta request');
+    }
+    const clientMarker = extractClientSnapshotMarker(frameData);
+    const { tableNames, tableMap, normalizedClientCursorMap } = normalizeDeltaRequest(frameData, store);
+    const deltaPayload = {};
+    const stats = {};
+    const responseLastRefs = {};
+    const responseLastIds = {};
+    const cursorMisses = [];
+    let requiresFullSync = tableNames.length === 0;
+
+    for (const tableName of tableNames) {
+      if (!store.tables.includes(tableName)) continue;
+      const tableResult = computeInsertOnlyDelta(store, tableName, tableMap[tableName]);
+      deltaPayload[tableName] = tableResult.rows;
+      stats[tableName] = {
+        total: tableResult.total,
+        returned: tableResult.rows.length,
+        cursorMatched: tableResult.matched === true
+      };
+      if (tableResult.requiresFullSync) {
+        requiresFullSync = true;
+        cursorMisses.push(tableName);
+      }
+      if (!normalizedClientCursorMap[tableName]) {
+        const normalizedInput = normalizeCursorInput(tableMap[tableName]).object;
+        if (normalizedInput) {
+          normalizedClientCursorMap[tableName] = normalizedInput;
+        }
+      }
+      responseLastRefs[tableName] = tableResult.lastCursor || null;
+      responseLastIds[tableName] = stringifyCursor(tableResult.lastCursor);
+    }
+
+    const serverMarker = resolveServerSnapshotMarker(state, eventMeta);
+    if (clientMarker && serverMarker && clientMarker !== serverMarker) {
+      requiresFullSync = true;
+    }
+    if (eventMeta && typeof eventMeta.lastClosedDate === 'string' && clientMarker) {
+      const lastClosed = eventMeta.lastClosedDate.trim();
+      if (lastClosed && clientMarker < lastClosed) {
+        requiresFullSync = true;
+      }
+    }
+
+    const clientVersionRaw = frameData.version ?? frameData.clientVersion ?? frameData.snapshotVersion;
+    const clientVersion = Number(clientVersionRaw);
+
+    const now = nowIso();
+    const metaPatch = {
+      lastServedTableIds: responseLastRefs,
+      lastClientTableIds: normalizedClientCursorMap,
+      lastSnapshotMarker: serverMarker || null,
+      lastClientSnapshotMarker: clientMarker || null,
+      lastClientSyncAt: now
+    };
+    await updateEventMeta(eventContext, metaPatch).catch((error) => {
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to update event meta after delta request');
+    });
+
+    const payload = {
+      branchId,
+      moduleId,
+      version: state.version,
+      updatedAt: state.updatedAt,
+      serverId: SERVER_ID,
+      snapshotMarker: serverMarker || null,
+      requiresFullSync,
+      cursorMisses,
+      lastTableIds: responseLastIds,
+      lastTableRefs: responseLastRefs,
+      deltas: deltaPayload,
+      stats
+    };
+    if (Number.isFinite(clientVersion)) {
+      payload.clientVersion = clientVersion;
+    }
+    if (clientMarker) {
+      payload.clientSnapshotMarker = clientMarker;
+    }
+    jsonResponse(res, 200, payload);
+    return true;
+  }
 
   if (req.method === 'GET') {
     const state = await ensureSyncState(branchId, moduleId);
@@ -2646,6 +3223,156 @@ async function handleBranchesApi(req, res, url) {
   }
 
   const tail = segments.slice(5);
+  if (tail.length === 1 && tail[0] === 'save') {
+    if (req.method !== 'POST') {
+      jsonResponse(res, 405, { error: 'method-not-allowed' });
+      return;
+    }
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (error) {
+      jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+      return;
+    }
+    const payload = body && typeof body === 'object' ? body : {};
+    const tableName =
+      (typeof payload.table === 'string' && payload.table.trim()) ||
+      (typeof payload.tableName === 'string' && payload.tableName.trim()) ||
+      (typeof payload.targetTable === 'string' && payload.targetTable.trim()) ||
+      null;
+    if (!tableName) {
+      jsonResponse(res, 400, { error: 'missing-table-name' });
+      return;
+    }
+    if (!store.tables.includes(tableName)) {
+      jsonResponse(res, 404, { error: 'table-not-found' });
+      return;
+    }
+    const recordSource = payload.record || payload.data || null;
+    if (!recordSource || typeof recordSource !== 'object') {
+      jsonResponse(res, 400, { error: 'missing-record' });
+      return;
+    }
+    const record = deepClone(recordSource);
+    const concurrencyInput =
+      (payload.concurrency && typeof payload.concurrency === 'object' && payload.concurrency) ||
+      (payload.expected && typeof payload.expected === 'object' && payload.expected) ||
+      (payload.guard && typeof payload.guard === 'object' && payload.guard) ||
+      {};
+
+    const clientMarker = extractClientSnapshotMarker(payload);
+    const eventContext = getModuleEventStoreContext(branchId, moduleId);
+    let eventMeta = null;
+    try {
+      eventMeta = await loadEventMeta(eventContext);
+    } catch (error) {
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to load event meta for save request');
+    }
+    const state = await ensureSyncState(branchId, moduleId);
+    const serverMarker = resolveServerSnapshotMarker(state, eventMeta);
+    const concurrencyResult = evaluateConcurrencyGuards(store, tableName, record, concurrencyInput, {
+      serverMarker,
+      clientMarker
+    });
+
+    if (concurrencyResult.requiresFullSync) {
+      jsonResponse(res, 409, {
+        error: 'full-sync-required',
+        branchId,
+        moduleId,
+        table: tableName,
+        details: concurrencyResult.conflict || { code: 'full-sync-required' },
+        snapshotMarker: serverMarker || null,
+        clientSnapshotMarker: clientMarker || null
+      });
+      return;
+    }
+
+    if (concurrencyResult.conflict) {
+      jsonResponse(res, 409, {
+        error: 'concurrency-conflict',
+        branchId,
+        moduleId,
+        table: tableName,
+        details: concurrencyResult.conflict,
+        snapshotMarker: serverMarker || null,
+        clientSnapshotMarker: clientMarker || null
+      });
+      return;
+    }
+
+    const includeRecord = payload.includeRecord !== false;
+    const source = typeof payload.source === 'string' && payload.source.trim() ? payload.source.trim() : 'rest-save';
+    const eventPayload = {
+      action: 'module:save',
+      table: tableName,
+      record,
+      meta: payload.meta,
+      source
+    };
+    if (includeRecord) {
+      eventPayload.includeRecord = true;
+    }
+
+    let result;
+    try {
+      result = await handleModuleEvent(branchId, moduleId, eventPayload, null, {
+        source,
+        includeSnapshot: false
+      });
+    } catch (error) {
+      logger.warn({ err: error, branchId, moduleId }, 'Save endpoint failed to persist event');
+      jsonResponse(res, 400, { error: 'module-event-failed', message: error.message });
+      return;
+    }
+
+    const clientTableIdPatch = {};
+    if (payload.lastTableIds && typeof payload.lastTableIds === 'object') {
+      for (const [tableKey, value] of Object.entries(payload.lastTableIds)) {
+        if (typeof tableKey !== 'string') continue;
+        const normalized = normalizeCursorInput(value).object;
+        if (normalized) {
+          clientTableIdPatch[tableKey] = normalized;
+        }
+      }
+    }
+    if (payload.lastKnownId || payload.cursor) {
+      const normalized = normalizeCursorInput(payload.lastKnownId || payload.cursor).object;
+      if (normalized) {
+        clientTableIdPatch[tableName] = normalized;
+      }
+    }
+
+    const metaPatch = {
+      lastSnapshotMarker: serverMarker || null,
+      lastClientSnapshotMarker: clientMarker || null,
+      lastClientSyncAt: nowIso()
+    };
+    if (Object.keys(clientTableIdPatch).length) {
+      metaPatch.lastClientTableIds = clientTableIdPatch;
+    }
+    const servedCursor = result?.notice?.recordRef ? buildRecordCursor(result.notice.recordRef) : null;
+    if (servedCursor) {
+      metaPatch.lastServedTableIds = { [tableName]: servedCursor };
+    }
+    await updateEventMeta(eventContext, metaPatch).catch((error) => {
+      logger.warn({ err: error, branchId, moduleId }, 'Failed to update event meta after save request');
+    });
+
+    jsonResponse(res, 200, {
+      status: result?.ack?.created ? 'created' : 'saved',
+      branchId,
+      moduleId,
+      table: tableName,
+      record: result?.record || null,
+      ack: result?.ack || null,
+      notice: result?.notice || null,
+      snapshotMarker: serverMarker || null,
+      clientSnapshotMarker: clientMarker || null
+    });
+    return;
+  }
   if (tail.length === 1 && tail[0] === 'reset') {
     if (req.method !== 'POST') {
       jsonResponse(res, 405, { error: 'method-not-allowed' });
