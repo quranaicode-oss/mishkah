@@ -1524,6 +1524,54 @@
         syncLog: new Map()
       };
 
+      const tempStorageKey = `${db.name || 'mishkah-pos'}:${TEMP_STORE}`;
+      const canUseLocalStorage = (()=>{
+        if(typeof window === 'undefined' || !window.localStorage) return false;
+        try {
+          const probeKey = `${tempStorageKey}:probe`;
+          window.localStorage.setItem(probeKey, '1');
+          window.localStorage.removeItem(probeKey);
+          return true;
+        } catch(_err){
+          return false;
+        }
+      })();
+      let tempStoreHydrated = false;
+      const hydrateTempStoreFromStorage = ()=>{
+        if(tempStoreHydrated) return;
+        tempStoreHydrated = true;
+        if(!canUseLocalStorage) return;
+        try {
+          const raw = window.localStorage.getItem(tempStorageKey);
+          if(!raw) return;
+          const parsed = JSON.parse(raw);
+          const entries = Array.isArray(parsed)
+            ? parsed
+            : (parsed && typeof parsed === 'object' ? Object.values(parsed) : []);
+          storeMaps[TEMP_STORE].clear();
+          entries.forEach(entry=>{
+            if(!entry || !entry.id) return;
+            storeMaps[TEMP_STORE].set(entry.id, cloneRecord(entry));
+          });
+        } catch(error){
+          console.warn('[Mishkah][POS] Failed to hydrate temp orders storage.', error);
+        }
+      };
+      const persistTempStoreToStorage = ()=>{
+        if(!canUseLocalStorage) return;
+        try {
+          const payload = Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord);
+          window.localStorage.setItem(tempStorageKey, JSON.stringify(payload));
+        } catch(error){
+          console.warn('[Mishkah][POS] Failed to persist temp orders storage.', error);
+        }
+      };
+      const clearTempStoreFromStorage = ()=>{
+        if(!canUseLocalStorage) return;
+        try { window.localStorage.removeItem(tempStorageKey); } catch(_err){}
+      };
+      hydrateTempStoreFromStorage();
+
       const db = {
         schema:{
           stores:{
@@ -2140,30 +2188,45 @@
       }
 
       async function saveTempOrder(order){
+        hydrateTempStoreFromStorage();
         const record = sanitizeTempOrder(order);
         if(!record) return false;
         storeMaps[TEMP_STORE].set(record.id, record);
+        persistTempStoreToStorage();
         return true;
       }
 
       async function getTempOrder(orderId){
         if(!orderId) return null;
+        hydrateTempStoreFromStorage();
         const record = storeMaps[TEMP_STORE].get(orderId);
         if(!record) return null;
         return hydrateTempRecord(cloneRecord(record));
       }
 
       async function listTempOrders(){
+        hydrateTempStoreFromStorage();
         return Array.from(storeMaps[TEMP_STORE].values()).map(rec=> hydrateTempRecord(cloneRecord(rec))).filter(Boolean);
       }
 
       async function deleteTempOrder(orderId){
         if(!orderId) return false;
-        return storeMaps[TEMP_STORE].delete(orderId);
+        hydrateTempStoreFromStorage();
+        const deleted = storeMaps[TEMP_STORE].delete(orderId);
+        if(deleted){
+          if(storeMaps[TEMP_STORE].size){
+            persistTempStoreToStorage();
+          } else {
+            clearTempStoreFromStorage();
+          }
+        }
+        return deleted;
       }
 
       async function clearTempOrder(){
+        hydrateTempStoreFromStorage();
         storeMaps[TEMP_STORE].clear();
+        clearTempStoreFromStorage();
         return true;
       }
 
@@ -2223,7 +2286,6 @@
             orderLines: Array.from(storeMaps.orderLines.values()).map(cloneRecord),
             orderNotes: Array.from(storeMaps.orderNotes.values()).map(cloneRecord),
             orderStatusLogs: Array.from(storeMaps.orderStatusLogs.values()).map(cloneRecord),
-            [TEMP_STORE]: Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord),
             [SHIFT_STORE]: Array.from(storeMaps[SHIFT_STORE].values()).map(cloneRecord),
             [META_STORE]: Array.from(storeMaps[META_STORE].values()).map(cloneRecord),
             syncLog: Array.from(storeMaps.syncLog.values()).map(cloneRecord)
@@ -2243,12 +2305,18 @@
           acc[name] = Array.from(storeMaps[name].values()).map(cloneRecord);
           return acc;
         }, {});
-        Object.values(storeMaps).forEach(map=> map.clear());
+        Object.entries(storeMaps).forEach(([name, map])=>{
+          if(name === TEMP_STORE) return;
+          map.clear();
+        });
         const hasStore = (name)=> Object.prototype.hasOwnProperty.call(stores, name);
         const resolveStoreList = (name)=>{
           if(hasStore(name)){
             const value = stores[name];
             return Array.isArray(value) ? value : [];
+          }
+          if(name === TEMP_STORE){
+            return Array.from(storeMaps[TEMP_STORE].values()).map(cloneRecord);
           }
           const fallback = previousStores[name] || [];
           if(fallback.length){
@@ -2283,11 +2351,22 @@
           if(!evt || !evt.id) return;
           storeMaps.orderStatusLogs.set(evt.id, { ...evt });
         });
-        const tempList = resolveStoreList(TEMP_STORE);
-        tempList.forEach(record=>{
-          if(!record || !record.id) return;
-          storeMaps[TEMP_STORE].set(record.id, { ...record });
-        });
+        if(hasStore(TEMP_STORE)){
+          const tempList = resolveStoreList(TEMP_STORE);
+          storeMaps[TEMP_STORE].clear();
+          tempList.forEach(record=>{
+            if(!record || !record.id) return;
+            storeMaps[TEMP_STORE].set(record.id, { ...record });
+          });
+          tempStoreHydrated = true;
+          if(tempList.length){
+            persistTempStoreToStorage();
+          } else {
+            clearTempStoreFromStorage();
+          }
+        } else {
+          hydrateTempStoreFromStorage();
+        }
         const shiftList = resolveStoreList(SHIFT_STORE);
         shiftList.forEach(shift=>{
           const normalized = normalizeShiftRecord(shift);
