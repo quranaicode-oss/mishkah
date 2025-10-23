@@ -2266,10 +2266,15 @@ async function handleBranchesApi(req, res, url) {
       const order = (params.get('order') || params.get('sort') || 'asc').toLowerCase();
 
       const rows = baseRows.slice();
+      let orderedRows = rows;
+      if (order === 'desc') {
+        orderedRows = rows.slice().reverse();
+      }
+
       const resolveRefMatch = (value) => {
         if (value == null) return -1;
         const target = String(value);
-        return rows.findIndex((row) => {
+        return orderedRows.findIndex((row) => {
           const ref = store.getRecordReference(tableName, row);
           if (!ref) return false;
           if (ref.key && String(ref.key) === target) return true;
@@ -2280,7 +2285,7 @@ async function handleBranchesApi(req, res, url) {
         });
       };
 
-      let filtered = rows;
+      let filtered = orderedRows;
       const cursorMatch = resolveRefMatch(afterKey || afterId);
       if (cursorMatch >= 0) {
         filtered = filtered.slice(cursorMatch + 1);
@@ -2312,10 +2317,6 @@ async function handleBranchesApi(req, res, url) {
           }
           return false;
         });
-      }
-
-      if (order === 'desc') {
-        filtered = filtered.slice().reverse();
       }
 
       const limited = limit > 0 ? filtered.slice(0, limit) : filtered;
