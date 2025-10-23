@@ -609,10 +609,19 @@ function normalizeIncomingSnapshot(store, incomingSnapshot) {
       tables: {},
       meta: isPlainObject(incomingSnapshot.meta) ? deepClone(incomingSnapshot.meta) : {}
     };
+    const currentSnapshot = store.getSnapshot();
+    const currentTables = currentSnapshot && typeof currentSnapshot.tables === 'object'
+      ? currentSnapshot.tables
+      : {};
     for (const tableName of store.tables) {
-      const rows = Array.isArray(incomingSnapshot.tables?.[tableName])
-        ? incomingSnapshot.tables[tableName].map((row) => deepClone(row))
-        : [];
+      let rows;
+      if (Array.isArray(incomingSnapshot.tables?.[tableName])) {
+        rows = incomingSnapshot.tables[tableName].map((row) => deepClone(row));
+      } else if (Array.isArray(currentTables?.[tableName])) {
+        rows = currentTables[tableName].map((row) => deepClone(row));
+      } else {
+        rows = [];
+      }
       normalized.tables[tableName] = rows;
     }
     return normalized;
@@ -644,7 +653,13 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
 
   for (const tableName of requiredTables) {
     if (!(tableName in incomingTables)) {
-      continue;
+      const currentRows = Array.isArray(currentSnapshot.tables?.[tableName]) ? currentSnapshot.tables[tableName] : [];
+      return {
+        ok: false,
+        reason: 'missing-table',
+        tableName,
+        currentCount: currentRows.length
+      };
     }
 
     const incomingRows = incomingTables[tableName];
@@ -703,28 +718,6 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
         }
         seenKeys.add(key);
       }
-      seenKeys.add(key);
-      if (existingByKey.has(key)) {
-        const currentRow = existingByKey.get(key);
-        if (!snapshotsEqual(currentRow, row)) {
-          return {
-            ok: false,
-            reason: 'row-modified',
-            tableName,
-            key
-          };
-        }
-        existingByKey.delete(key);
-      }
-    }
-
-    if (existingByKey.size) {
-      return {
-        ok: false,
-        reason: 'row-missing',
-        tableName,
-        missingKeys: Array.from(existingByKey.keys())
-      };
     }
   }
 
