@@ -23,6 +23,60 @@
     }
   };
 
+  const GLOBAL = typeof window !== 'undefined' ? window : null;
+  const CACHE_TABLE = 'snapshot';
+  let kdsCacheAdapter = GLOBAL && GLOBAL.__MishkahKdsCacheAdapter__ ? GLOBAL.__MishkahKdsCacheAdapter__ : null;
+  let schedulePersist = ()=>{};
+
+  const clearKdsOperationalData = (snapshot)=>{
+    if(!snapshot || typeof snapshot !== 'object') return snapshot;
+    const next = cloneDeep(snapshot);
+    if(next.jobOrders && typeof next.jobOrders === 'object') next.jobOrders = {};
+    if(next.jobs && typeof next.jobs === 'object') next.jobs = {};
+    if(Array.isArray(next.expoSource)) next.expoSource = [];
+    if(Array.isArray(next.expoTickets)) next.expoTickets = [];
+    if(next.deliveries && typeof next.deliveries === 'object') next.deliveries = { assignments:{}, settlements:{} };
+    if(next.handoff && typeof next.handoff === 'object') next.handoff = {};
+    if(next.filters && typeof next.filters === 'object'){ next.filters.activeTab = next.filters.lockedSection ? next.filters.activeTab : 'prep'; }
+    return next;
+  };
+
+  const buildKdsMetadata = (state, metaPatch={})=>{
+    const sync = state?.data?.sync || {};
+    const meta = state?.data?.meta || {};
+    const resolved = {
+      lastSyncAt: metaPatch.lastSyncAt || sync.lastMessage || sync.lastSyncAt || meta.lastSyncAt || Date.now(),
+      schemaVersion: metaPatch.schemaVersion || meta.posSnapshotVersion || meta.schemaVersion || null,
+      lastId: metaPatch.lastId || metaPatch.appliedEventId || metaPatch.cursor || null,
+      requiresFullSync: !!metaPatch.requiresFullSync,
+      source: metaPatch.source || 'kds'
+    };
+    if(metaPatch.serverHash) resolved.serverHash = metaPatch.serverHash;
+    return resolved;
+  };
+
+  const createSnapshotPersistor = (appInstance, adapter, tableName)=>{
+    if(!adapter || !appInstance || typeof appInstance.getState !== 'function') return ()=>{};
+    let timer = null;
+    const delay = 280;
+    return (metaPatch={})=>{
+      if(!adapter || typeof adapter.save !== 'function') return;
+      if(timer) clearTimeout(timer);
+      timer = setTimeout(async ()=>{
+        timer = null;
+        try {
+          const state = appInstance.getState();
+          if(!state || !state.data) return;
+          const payload = cloneDeep(state.data);
+          const metadata = buildKdsMetadata(state, metaPatch);
+          await adapter.save(tableName, payload, { metadata });
+        } catch(error){
+          console.warn('[Mishkah][KDS] Failed to persist snapshot', error);
+        }
+      }, delay);
+    };
+  };
+
   const toPlainObject = (value)=> (value && typeof value === 'object' ? Object.assign({}, value) : {});
 
   class UnifiedKitchenTimelineEntry {
@@ -2271,6 +2325,32 @@
   if(typeof window !== 'undefined'){
     window.MishkahKdsChannel = BRANCH_CHANNEL;
   }
+  if(!kdsCacheAdapter){
+    const idbModule = GLOBAL && GLOBAL.MishkahIndexedDB ? GLOBAL.MishkahIndexedDB : null;
+    if(idbModule){
+      const namespace = BRANCH_CHANNEL ? `kds:${BRANCH_CHANNEL}` : 'kds:default';
+      kdsCacheAdapter = idbModule.createAdapter({ name:'mishkah-sync', namespace, version:1 });
+      if(GLOBAL) GLOBAL.__MishkahKdsCacheAdapter__ = kdsCacheAdapter;
+    }
+  }
+  if(kdsCacheAdapter && GLOBAL){
+    GLOBAL.KDS_CACHE = Object.assign({}, GLOBAL.KDS_CACHE || {}, { adapter: kdsCacheAdapter, table: CACHE_TABLE });
+    kdsCacheAdapter.ready
+      .then(async ()=>{
+        try {
+          const cached = await kdsCacheAdapter.load(CACHE_TABLE);
+          if(cached && cached.data && typeof database === 'object'){
+            Object.assign(database, cached.data);
+            GLOBAL.__MishkahCachedKdsSnapshot__ = cached;
+          }
+        } catch(error){
+          console.warn('[Mishkah][KDS] Failed to hydrate from IndexedDB', error);
+        }
+      })
+      .catch((error)=>{
+        console.warn('[Mishkah][KDS] IndexedDB adapter unavailable', error);
+      });
+  }
 
   const restConfig = typeof window !== 'undefined' ? window.KDS_WS2_DYNAMIC_ENDPOINTS || null : null;
   const restBase = restConfig && typeof restConfig.restBase === 'string' ? restConfig.restBase.replace(/\/$/, '') : null;
@@ -2438,6 +2518,25 @@
 
   const auto = U.twcss.auto(initialState, app, { pageScaffold:true });
 
+  schedulePersist = createSnapshotPersistor(app, kdsCacheAdapter, CACHE_TABLE);
+  if(kdsCacheAdapter){
+    schedulePersist({ source:'bootstrap', lastSyncAt: Date.now() });
+    if(GLOBAL){
+      const purgeOperational = async ()=>{
+        return kdsCacheAdapter.mutate(CACHE_TABLE, (snapshot)=> clearKdsOperationalData(snapshot), {
+          metadata:{ source:'admin-purge', updatedAt: Date.now(), lastSyncAt: Date.now() },
+          mergeMetadata:true
+        });
+      };
+      GLOBAL.KDS_CACHE = Object.assign({}, GLOBAL.KDS_CACHE || {}, {
+        adapter: kdsCacheAdapter,
+        table: CACHE_TABLE,
+        purgeOperational,
+        clear: ()=> kdsCacheAdapter.clear(CACHE_TABLE)
+      });
+    }
+  }
+
   const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
   const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
   const syncClient = createKitchenSync(app, {
@@ -2486,6 +2585,7 @@
           sync:{ ...(state.data.sync || {}), lastMessage: Date.now(), state:'online' }
         }
       }));
+      schedulePersist({ source:'ws2-events', lastSyncAt: Date.now(), lastId: result?.cursor?.appliedEventId || null });
     },
     onError:(error)=>{
       console.warn('[Mishkah][KDS] WS2 event replicator error.', error);
@@ -2564,6 +2664,7 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyDeliveryUpdateMessage = (appInstance, data={}, meta={})=>{
@@ -2595,10 +2696,11 @@
         ...baseNext,
         data:{
           ...baseNext.data,
-          sync
+        sync
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyHandoffUpdateMessage = (appInstance, data={}, meta={})=>{
@@ -2627,6 +2729,7 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyRemoteOrder = (appInstance, payload={}, meta={})=>{
@@ -2774,6 +2877,7 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   function createKitchenSync(appInstance, options={}){

@@ -77,6 +77,7 @@
   <script src="./mishkah.core.js"></script>
   <script src="./mishkah-ui.js"></script>
   <script src="./mishkah-schema.js"></script>
+  <script src="./mishkah-indexeddb.js"></script>
   <script src="./schema-kds.js"></script>
   <script src="./pos-mock-data.js"></script>
   <script src="./kds-mock-data.js"></script>
@@ -167,6 +168,31 @@
       }
       const readiness = global.__MishkahChartReady__ || Promise.resolve();
       Promise.resolve(readiness)
+        .then(() => {
+          const idb = global.MishkahIndexedDB || null;
+          if(!idb) return null;
+          const namespace = branchId ? `kds:${branchId}` : 'kds:default';
+          const adapter = global.__MishkahKdsCacheAdapter__
+            || idb.createAdapter({ name:'mishkah-sync', namespace, version:1 });
+          global.__MishkahKdsCacheAdapter__ = adapter;
+          global.KDS_CACHE = global.KDS_CACHE || { table:'snapshot' };
+          global.KDS_CACHE.adapter = adapter;
+          global.KDS_CACHE.table = 'snapshot';
+          return adapter.ready.then(async ()=>{
+            try {
+              const cached = await adapter.load('snapshot');
+              if(cached && cached.data){
+                global.__MishkahCachedKdsSnapshot__ = cached;
+                const existing = global.database && typeof global.database === 'object' ? global.database : {};
+                global.database = { ...cached.data, ...existing };
+              }
+            } catch(error){
+              console.warn('[Mishkah][KDS] Failed to hydrate IndexedDB snapshot', error);
+            }
+          }).catch((error)=>{
+            console.warn('[Mishkah][KDS] Cache readiness failed', error);
+          });
+        })
         .then(() => {
           const script = global.document.createElement('script');
           script.src = './kds.js';

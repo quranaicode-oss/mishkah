@@ -78,6 +78,7 @@
   <script src="mishkah.core.js"></script>
   <script src="mishkah-ui.js"></script>
   <script src="mishkah-schema.js"></script>
+  <script src="mishkah-indexeddb.js"></script>
   <script src="schema-pos.js"></script>
   <script src="pos-service-adapter.js"></script>
   <script src="pos-sync-auth.js"></script>
@@ -323,6 +324,31 @@
         }
       }
       const readiness = global.__MishkahChartReady__ || Promise.resolve();
+      const ensurePosCache = () => {
+        const idb = global.MishkahIndexedDB || null;
+        if(!idb) return null;
+        const namespace = branchId ? `pos:${branchId}` : 'pos:default';
+        const adapter = global.__MishkahPosCacheAdapter__
+          || idb.createAdapter({ name:'mishkah-sync', namespace, version:1 });
+        global.__MishkahPosCacheAdapter__ = adapter;
+        global.POS_WS2_CACHE = global.POS_WS2_CACHE || { table:'snapshot' };
+        global.POS_WS2_CACHE.adapter = adapter;
+        global.POS_WS2_CACHE.table = 'snapshot';
+        const hydrate = async ()=>{
+          try {
+            await adapter.ready;
+            const cached = await adapter.load('snapshot');
+            if(cached && cached.data){
+              global.__MishkahCachedPosSnapshot__ = cached;
+              const existing = global.database && typeof global.database === 'object' ? global.database : {};
+              global.database = { ...cached.data, ...existing };
+            }
+          } catch(error){
+            console.warn('[Mishkah][POS] Failed to hydrate IndexedDB snapshot', error);
+          }
+        };
+        return hydrate();
+      };
       const loadScript = (src) => new Promise((resolve, reject) => {
         const script = global.document.createElement('script');
         script.src = src;
@@ -332,6 +358,7 @@
         global.document.body.appendChild(script);
       });
       Promise.resolve(readiness)
+        .then(()=> ensurePosCache())
         .then(() => ['pos-ws.js', 'pos-comp.js', 'pos-orders.js', 'pos.js'].reduce((chain, file) => {
           return chain.then(() => loadScript(`${file}`));
         }, Promise.resolve()))

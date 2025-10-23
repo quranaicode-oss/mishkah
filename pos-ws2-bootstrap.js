@@ -140,6 +140,20 @@
   const reconnectDelay = typeof config.reconnectDelay === 'number' ? Math.max(config.reconnectDelay, 500) : 3000;
   const historyLimit = typeof config.historyLimit === 'number' ? config.historyLimit : 25;
 
+  const snapshotTable = 'snapshot';
+  const idbModule = global.MishkahIndexedDB || null;
+  const cacheNamespace = branchId ? `pos:${branchId}` : 'pos:default';
+  const cacheAdapter = global.__MishkahPosCacheAdapter__
+    || (idbModule ? idbModule.createAdapter({ name:'mishkah-sync', namespace: cacheNamespace, version:1 }) : null);
+  if(cacheAdapter && !global.__MishkahPosCacheAdapter__){
+    global.__MishkahPosCacheAdapter__ = cacheAdapter;
+  }
+  if(cacheAdapter){
+    global.POS_WS2_CACHE = global.POS_WS2_CACHE || { table: snapshotTable };
+    global.POS_WS2_CACHE.adapter = cacheAdapter;
+    global.POS_WS2_CACHE.table = snapshotTable;
+  }
+
   let socket = null;
   let reconnectTimer = null;
   let attempts = 0;
@@ -164,6 +178,23 @@
   };
 
   const structured = typeof structuredClone === 'function' ? structuredClone : null;
+
+  if(cacheAdapter){
+    cacheAdapter.ready
+      .then(async ()=>{
+        try {
+          const cached = await cacheAdapter.load(snapshotTable);
+          if(cached && cached.data && !latestSnapshot){
+            applySnapshot(cached.data, { reason:'cache', source:'indexeddb', ...(cached.meta || {}) });
+          }
+        } catch(error){
+          console.warn('[Mishkah][WS2] Failed to restore snapshot from IndexedDB', error);
+        }
+      })
+      .catch((error)=>{
+        console.warn('[Mishkah][WS2] IndexedDB adapter unavailable', error);
+      });
+  }
 
   function clone(value){
     if (value === null || typeof value !== 'object') return value;
@@ -212,6 +243,90 @@
     return overlay;
   }
 
+  const persistSnapshotToCache = (snapshot, meta={})=>{
+    if(!cacheAdapter) return;
+    const metadata = {
+      lastSyncAt: meta.lastSyncAt || meta.syncedAt || meta.ts || meta.updatedAt || Date.now(),
+      schemaVersion: meta.schemaVersion || meta.version || meta.snapshotVersion || null,
+      lastId: meta.lastEventId || meta.appliedEventId || meta.cursorId || meta.cursor || null,
+      requiresFullSync: !!meta.requiresFullSync,
+      source: meta.source || meta.reason || 'ws2'
+    };
+    const checksum = meta.serverHash || meta.hash || meta.checksum || null;
+    cacheAdapter.save(snapshotTable, snapshot, { metadata, checksum }).catch((error)=>{
+      console.warn('[Mishkah][WS2] Failed to persist snapshot', error);
+    });
+    if(meta.tables && typeof meta.tables === 'object'){
+      Object.entries(meta.tables).forEach(([tableName, tableMeta])=>{
+        cacheAdapter.updateMetadata(`table:${tableName}`, tableMeta).catch((error)=>{
+          console.warn('[Mishkah][WS2] Failed to persist table metadata', { table: tableName, error });
+        });
+      });
+    }
+  };
+
+  const clearOrderPayloadInSnapshot = (snapshot)=>{
+    if(!snapshot || typeof snapshot !== 'object') return snapshot;
+    const next = clone(snapshot);
+    const orderPaths = [
+      ['pos', 'orders'],
+      ['pos', 'orderLines'],
+      ['pos', 'orderNotes'],
+      ['pos', 'orderStatusLogs'],
+      ['pos', 'order_lines'],
+      ['pos', 'order_notes'],
+      ['pos', 'order_status_logs'],
+      ['snapshot', 'orders'],
+      ['modules', 'pos', 'orders'],
+      ['modules', 'pos', 'orderLines'],
+      ['modules', 'pos', 'orderNotes'],
+      ['modules', 'pos', 'orderStatusLogs'],
+      ['modules', 'pos', 'order_lines'],
+      ['modules', 'pos', 'order_notes'],
+      ['modules', 'pos', 'order_status_logs'],
+      ['orders']
+    ];
+    const clearPath = (root, path)=>{
+      let cursor = root;
+      for(let index = 0; index < path.length - 1; index += 1){
+        const key = path[index];
+        if(!cursor || typeof cursor !== 'object' || !(key in cursor)) return;
+        cursor = cursor[key];
+      }
+      const finalKey = path[path.length - 1];
+      if(cursor && typeof cursor === 'object' && Object.prototype.hasOwnProperty.call(cursor, finalKey)){
+        const value = cursor[finalKey];
+        if(Array.isArray(value)) cursor[finalKey] = [];
+        else if(value && typeof value === 'object') cursor[finalKey] = {};
+        else cursor[finalKey] = [];
+      }
+    };
+    orderPaths.forEach((path)=> clearPath(next, path));
+    if(Array.isArray(next.activeOrders)) next.activeOrders = [];
+    if(next.jobOrders && typeof next.jobOrders === 'object') next.jobOrders = {};
+    return next;
+  };
+
+  const exposeCacheUtilities = ()=>{
+    if(!cacheAdapter) return;
+    const purgeOrders = async ()=>{
+      return cacheAdapter.mutate(snapshotTable, (snapshot)=> clearOrderPayloadInSnapshot(snapshot), {
+        metadata:{ source:'admin-purge', updatedAt: Date.now(), lastSyncAt: Date.now() },
+        mergeMetadata:true
+      });
+    };
+    const clearCache = ()=> cacheAdapter.clear(snapshotTable);
+    global.POS_WS2_CACHE = {
+      ...(global.POS_WS2_CACHE || {}),
+      adapter: cacheAdapter,
+      table: snapshotTable,
+      purgeOrders,
+      clear: clearCache
+    };
+  };
+
+  exposeCacheUtilities();
+
   function createRequestId(){
     return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -257,6 +372,7 @@
       readyResolve(latestSnapshot);
     }
     emit({ type:'snapshot', snapshot: clone(latestSnapshot), meta });
+    persistSnapshotToCache(latestSnapshot, meta || {});
   }
 
   function flushQueue(){
@@ -319,6 +435,8 @@
         if (parsed.snapshot || parsed.modules){
           const payloadSnapshot = parsed.snapshot || parsed.modules;
           applySnapshot(payloadSnapshot, { reason:'event', action: parsed.action, entryId: parsed.entry?.id, ...meta });
+        } else if(cacheAdapter){
+          persistSnapshotToCache(latestSnapshot || null, { reason:'event-meta', action: parsed.action, ...meta });
         }
         break;
       }
