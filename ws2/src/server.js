@@ -510,6 +510,404 @@ function mergePosPayload(existingPayload, incomingPayload) {
   return base;
 }
 
+function ensurePlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return { ...value };
+}
+
+function toTimestamp(value, fallback = Date.now()) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeDiscount(discount) {
+  if (!discount || typeof discount !== 'object') return null;
+  const type = discount.type === 'percent' ? 'percent' : discount.type === 'amount' ? 'amount' : null;
+  if (!type) return null;
+  const value = Number(discount.value);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  if (type === 'percent') {
+    return { type, value: Math.min(100, Math.max(0, value)) };
+  }
+  return { type, value: Math.max(0, value) };
+}
+
+function normalizeOrderStatusLogEntry(entry, context) {
+  if (!entry || !context || !context.orderId) return null;
+  const changedAt = toTimestamp(
+    entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+    context.updatedAt
+  );
+  const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'open';
+  const stageId = entry.stage_id || entry.stageId || entry.stage || context.stageId || null;
+  const paymentStateId =
+    entry.payment_state_id || entry.paymentStateId || entry.paymentState || context.paymentStateId || null;
+  const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+  const source = entry.source || entry.channel || entry.origin || null;
+  const reason = entry.reason || entry.note || null;
+  const metadata = ensurePlainObject(entry.metadata || entry.meta);
+  const id = entry.id || `${context.orderId}::status::${changedAt}`;
+  return {
+    id,
+    orderId: context.orderId,
+    status: statusId,
+    stage: stageId || undefined,
+    paymentState: paymentStateId || undefined,
+    actorId: actorId || undefined,
+    source: source || undefined,
+    reason: reason || undefined,
+    metadata,
+    changedAt
+  };
+}
+
+function normalizeOrderLineStatusLogEntry(entry, context) {
+  if (!entry || !context || !context.orderId || !context.lineId) return null;
+  const changedAt = toTimestamp(
+    entry.changed_at || entry.changedAt || entry.at || entry.timestamp,
+    context.updatedAt
+  );
+  const statusId = entry.status_id || entry.statusId || entry.status || context.statusId || 'draft';
+  const stationId =
+    entry.station_id ||
+    entry.stationId ||
+    entry.section_id ||
+    entry.sectionId ||
+    entry.kitchen_section_id ||
+    entry.kitchenSectionId ||
+    context.kitchenSection ||
+    null;
+  const actorId = entry.actor_id || entry.actorId || entry.userId || entry.changedBy || context.actorId || null;
+  const source = entry.source || entry.channel || entry.origin || null;
+  const reason = entry.reason || entry.note || null;
+  const metadata = ensurePlainObject(entry.metadata || entry.meta);
+  const id = entry.id || `${context.lineId}::status::${changedAt}`;
+  return {
+    id,
+    orderId: context.orderId,
+    orderLineId: context.lineId,
+    status: statusId,
+    stationId: stationId || undefined,
+    actorId: actorId || undefined,
+    source: source || undefined,
+    reason: reason || undefined,
+    metadata,
+    changedAt
+  };
+}
+
+function normalizeOrderLineRecord(orderId, line, defaults) {
+  if (!line) return null;
+  const uid = line.uid || line.storageId || `${orderId}::${line.id || line.itemId || createId('ln')}`;
+  const id = line.id || `${orderId}::${line.itemId || createId('ln')}`;
+  const qty = Number(line.qty);
+  const price = Number(line.price);
+  const total = Number(line.total);
+  const baseStatus = line.status || defaults.status || 'draft';
+  const stage = line.stage || defaults.stage || 'new';
+  const kitchenSection = line.kitchenSection || line.stationId || null;
+  const createdAt = toTimestamp(line.createdAt, defaults.createdAt);
+  const updatedAt = toTimestamp(line.updatedAt, defaults.updatedAt);
+  const logContext = {
+    orderId,
+    lineId: id,
+    statusId: baseStatus,
+    kitchenSection,
+    actorId: defaults.actorId || null,
+    updatedAt
+  };
+  const statusLogs = [];
+  const seen = new Set();
+  const statusSources = [
+    line.statusLogs,
+    line.status_logs,
+    line.statusHistory,
+    line.status_history,
+    line.events
+  ];
+  statusSources.forEach((source) => {
+    if (!Array.isArray(source)) return;
+    source.forEach((entry) => {
+      const normalized = normalizeOrderLineStatusLogEntry(entry, logContext);
+      if (normalized && normalized.id && !seen.has(normalized.id)) {
+        seen.add(normalized.id);
+        statusLogs.push(normalized);
+      }
+    });
+  });
+  if (!statusLogs.length) {
+    const fallback = normalizeOrderLineStatusLogEntry(
+      {
+        status: baseStatus,
+        stationId: kitchenSection,
+        changedAt: updatedAt,
+        actorId: logContext.actorId
+      },
+      logContext
+    );
+    if (fallback) statusLogs.push(fallback);
+  }
+  statusLogs.sort((a, b) => (a.changedAt || 0) - (b.changedAt || 0));
+  const latest = statusLogs[statusLogs.length - 1] || {};
+  const resolvedStatus = latest.status || baseStatus;
+  return {
+    uid,
+    id,
+    orderId,
+    itemId: line.itemId || line.menuItemId || null,
+    name: line.name || null,
+    description: line.description || null,
+    qty: Number.isFinite(qty) ? qty : 0,
+    price: Number.isFinite(price) ? price : 0,
+    total: Number.isFinite(total) ? total : (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0),
+    status: resolvedStatus,
+    stage,
+    kitchenSection,
+    locked: line.locked !== undefined ? !!line.locked : !!defaults.lockLineEdits,
+    notes: Array.isArray(line.notes) ? line.notes.slice() : line.notes ? [line.notes] : [],
+    discount: normalizeDiscount(line.discount),
+    createdAt,
+    updatedAt,
+    statusLogs
+  };
+}
+
+function normalizeOrderNoteRecord(orderId, note, fallbackAuthor, fallbackTimestamp) {
+  if (!note) return null;
+  const message =
+    typeof note === 'string'
+      ? note.trim()
+      : typeof note === 'object'
+      ? (note.message || note.text || '').trim()
+      : '';
+  if (!message) return null;
+  const createdAt = toTimestamp(note.createdAt || note.created_at, fallbackTimestamp);
+  return {
+    id: note.id || createId(`note-${orderId}`),
+    orderId,
+    message,
+    authorId: note.authorId || note.author_id || fallbackAuthor || 'pos',
+    authorName: note.authorName || note.author_name || '',
+    createdAt
+  };
+}
+
+function normalizeIncomingOrder(order, options = {}) {
+  if (!order || !order.id) {
+    throw new Error('POS order payload requires an id.');
+  }
+  const shiftId = order.shiftId || order.shift_id || order.metadata?.shiftId;
+  if (!shiftId) {
+    throw new Error('POS order payload requires a shiftId.');
+  }
+  const now = Date.now();
+  const orderId = String(order.id);
+  const createdAt = toTimestamp(order.createdAt, now);
+  const updatedAt = toTimestamp(order.updatedAt, createdAt);
+  const savedAt = toTimestamp(order.savedAt, updatedAt);
+  const type = order.type || order.orderType || 'dine_in';
+  const status = order.status || order.statusId || 'open';
+  const stage = order.fulfillmentStage || order.stage || 'new';
+  const paymentState = order.paymentState || order.payment_state || 'unpaid';
+  const discount = normalizeDiscount(order.discount);
+  const rawPayments = Array.isArray(order.payments) ? order.payments : [];
+  const payments = rawPayments.map((entry, idx) => ({
+    id: entry.id || `pm-${orderId}-${idx + 1}`,
+    method: entry.method || entry.id || entry.type || 'cash',
+    amount: Number(entry.amount) || 0
+  }));
+  const metadata = ensurePlainObject(order.metadata);
+  metadata.version = metadata.version || 2;
+  metadata.linesCount = Array.isArray(order.lines) ? order.lines.length : metadata.linesCount || 0;
+  metadata.notesCount = Array.isArray(order.notes) ? order.notes.length : metadata.notesCount || 0;
+  metadata.posId = order.posId || metadata.posId || null;
+  metadata.posLabel = order.posLabel || metadata.posLabel || null;
+  const posNumberNumeric = Number(order.posNumber ?? metadata.posNumber);
+  const posNumber = Number.isFinite(posNumberNumeric) ? posNumberNumeric : null;
+  if (discount) metadata.discount = discount;
+  if (posNumber !== null) metadata.posNumber = posNumber;
+  const actorId =
+    order.updatedBy || order.actorId || order.authorId || options.userId || metadata.actorId || order.userId || 'pos';
+  const header = {
+    id: orderId,
+    type,
+    status,
+    fulfillmentStage: stage,
+    paymentState,
+    tableIds: Array.isArray(order.tableIds) ? order.tableIds.slice() : [],
+    guests: Number.isFinite(Number(order.guests)) ? Number(order.guests) : 0,
+    totals: ensurePlainObject(order.totals),
+    discount,
+    createdAt,
+    updatedAt,
+    savedAt,
+    allowAdditions: order.allowAdditions !== undefined ? !!order.allowAdditions : true,
+    lockLineEdits: order.lockLineEdits !== undefined ? !!order.lockLineEdits : true,
+    isPersisted: true,
+    dirty: false,
+    origin: order.origin || 'pos',
+    shiftId,
+    posId: order.posId || metadata.posId || null,
+    posLabel: order.posLabel || metadata.posLabel || null,
+    posNumber,
+    metadata,
+    payments: payments.map((entry) => ({ ...entry })),
+    customerId: order.customerId || null,
+    customerAddressId: order.customerAddressId || null,
+    customerName: order.customerName || '',
+    customerPhone: order.customerPhone || '',
+    customerAddress: order.customerAddress || '',
+    customerAreaId: order.customerAreaId || null
+  };
+  if (order.finalizedAt) header.finalizedAt = toTimestamp(order.finalizedAt, savedAt);
+  if (order.finishedAt) header.finishedAt = toTimestamp(order.finishedAt, savedAt);
+
+  const lineDefaults = {
+    orderId,
+    status,
+    stage,
+    lockLineEdits: header.lockLineEdits,
+    createdAt,
+    updatedAt,
+    actorId
+  };
+
+  const lines = Array.isArray(order.lines)
+    ? order.lines.map((line) => normalizeOrderLineRecord(orderId, line, lineDefaults)).filter(Boolean)
+    : [];
+  const notes = Array.isArray(order.notes)
+    ? order.notes.map((note) => normalizeOrderNoteRecord(orderId, note, actorId, updatedAt)).filter(Boolean)
+    : [];
+
+  const statusLogSources = [
+    order.statusLogs,
+    order.status_logs,
+    order.statusHistory,
+    order.status_history,
+    order.events
+  ];
+  const statusLogs = [];
+  const seenStatus = new Set();
+  statusLogSources.forEach((source) => {
+    if (!Array.isArray(source)) return;
+    source.forEach((entry) => {
+      const normalized = normalizeOrderStatusLogEntry(entry, {
+        orderId,
+        statusId: status,
+        stageId: stage,
+        paymentStateId: paymentState,
+        actorId,
+        updatedAt
+      });
+      if (normalized && normalized.id && !seenStatus.has(normalized.id)) {
+        seenStatus.add(normalized.id);
+        statusLogs.push(normalized);
+      }
+    });
+  });
+  if (!statusLogs.length) {
+    const fallback = normalizeOrderStatusLogEntry(
+      { status, stage, paymentState, changedAt: updatedAt, actorId },
+      {
+        orderId,
+        statusId: status,
+        stageId: stage,
+        paymentStateId: paymentState,
+        actorId,
+        updatedAt
+      }
+    );
+    if (fallback) statusLogs.push(fallback);
+  }
+  statusLogs.sort((a, b) => (a.changedAt || 0) - (b.changedAt || 0));
+
+  header.metadata.linesCount = lines.length;
+  header.metadata.notesCount = notes.length;
+
+  return { header, lines, notes, statusLogs };
+}
+
+function buildAckOrder(normalized) {
+  if (!normalized || !normalized.header) return null;
+  return {
+    ...deepClone(normalized.header),
+    lines: normalized.lines.map((line) => deepClone(line)),
+    notes: normalized.notes.map((note) => deepClone(note)),
+    statusLogs: normalized.statusLogs.map((log) => deepClone(log))
+  };
+}
+
+async function applyPosOrderCreate(branchId, moduleId, frameData, context = {}) {
+  const order = frameData.order;
+  if (!order || !order.id) {
+    return { state: await ensureSyncState(branchId, moduleId), order: null, existing: false };
+  }
+  const baseState = await ensureSyncState(branchId, moduleId);
+  const currentRows = Array.isArray(baseState?.moduleSnapshot?.tables?.pos_database)
+    ? baseState.moduleSnapshot.tables.pos_database
+    : [];
+  const latestRecord = currentRows.length ? currentRows[currentRows.length - 1] : null;
+  const currentPayload = latestRecord && typeof latestRecord.payload === 'object' ? latestRecord.payload : {};
+  const currentStores = currentPayload.stores && typeof currentPayload.stores === 'object' ? currentPayload.stores : {};
+  const orderId = String(order.id);
+  const existingOrder = Array.isArray(currentStores.orders)
+    ? currentStores.orders.find((entry) => entry && entry.id === orderId)
+    : null;
+
+  let normalized;
+  try {
+    normalized = normalizeIncomingOrder(order, { userId: context.userUuid || frameData.meta?.userId || null });
+  } catch (error) {
+    throw new Error(error.message || 'Failed to normalize POS order payload.');
+  }
+
+  const persistedAt = normalized.header.savedAt || normalized.header.updatedAt || Date.now();
+  const syncEntry = {
+    ts: persistedAt,
+    type: 'order:create',
+    orderId: normalized.header.id,
+    shiftId: normalized.header.shiftId,
+    userId: context.userUuid || frameData.meta?.userId || null,
+    source: context.clientId || 'ws2'
+  };
+
+  const snapshotPatch = {
+    payload: {
+      stores: {
+        orders: [normalized.header],
+        orderLines: normalized.lines,
+        orderNotes: normalized.notes,
+        orderStatusLogs: normalized.statusLogs,
+        syncLog: [syncEntry]
+      },
+      meta: {
+        lastOrderId: normalized.header.id,
+        lastOrderSavedAt: new Date(persistedAt).toISOString()
+      }
+    },
+    meta: {
+      lastOrderId: normalized.header.id,
+      lastOrderSavedAt: new Date(persistedAt).toISOString()
+    }
+  };
+
+  const nextState = await applySyncSnapshot(branchId, moduleId, snapshotPatch, {
+    ...context,
+    branchId,
+    moduleId,
+    orderId: normalized.header.id,
+    action: 'create-order'
+  });
+
+  return {
+    state: nextState,
+    order: buildAckOrder(normalized),
+    existing: !!existingOrder
+  };
+}
+
 function normalizePosSnapshot(store, incomingSnapshot) {
   if (!isPlainObject(incomingSnapshot)) return null;
   if (!store.tables.includes('pos_database')) return null;
@@ -962,6 +1360,50 @@ async function handlePubsubFrame(client, frame) {
           return;
         }
         let state = await ensureSyncState(descriptor.branchId, descriptor.moduleId);
+        if (
+          descriptor.moduleId === 'pos' &&
+          frameData.action === 'create-order' &&
+          frameData.order &&
+          typeof frameData.order === 'object'
+        ) {
+          try {
+            const result = await applyPosOrderCreate(descriptor.branchId, descriptor.moduleId, frameData, {
+              clientId: client.id,
+              userUuid: client.userUuid || userFromFrame || null,
+              transId,
+              meta: frameData.meta || {}
+            });
+            state = result.state;
+            if (result.order) {
+              frameData.order = result.order;
+              frameData.meta = {
+                ...(frameData.meta && typeof frameData.meta === 'object' ? frameData.meta : {}),
+                persisted: true,
+                persistedAt: result.order.savedAt || result.order.updatedAt || Date.now(),
+                persistedAtIso: new Date(
+                  result.order.savedAt || result.order.updatedAt || Date.now()
+                ).toISOString(),
+                branchId: descriptor.branchId,
+                moduleId: descriptor.moduleId,
+                existing: result.existing
+              };
+              if (result.existing) {
+                frameData.existing = true;
+              }
+            }
+          } catch (error) {
+            logger.warn(
+              { err: error, branchId: descriptor.branchId, moduleId: descriptor.moduleId, orderId: frameData.order?.id },
+              'Failed to persist POS order from publish frame'
+            );
+            sendToClient(client, {
+              type: 'error',
+              code: 'order-persist-failed',
+              message: error?.message || 'Failed to persist order on server.'
+            });
+            return;
+          }
+        }
         if (frameData.snapshot && typeof frameData.snapshot === 'object') {
           try {
             state = await applySyncSnapshot(descriptor.branchId, descriptor.moduleId, frameData.snapshot, {
