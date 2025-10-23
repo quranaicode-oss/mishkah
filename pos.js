@@ -360,6 +360,7 @@
       })();
       return { status, promise };
     }
+    const serviceAdapter = typeof window !== 'undefined' ? (window.POS_SERVICE_ADAPTER || null) : null;
     const dataSource = typeof window !== 'undefined' ? window.__MISHKAH_POS_DATA_SOURCE__ : null;
     async function fetchServerSnapshot(){
       if(typeof window === 'undefined') return null;
@@ -384,6 +385,23 @@
     async function loadInitialDataset(){
 
       if(typeof window === 'undefined') return {};
+      if(serviceAdapter && typeof serviceAdapter.rehydrate === 'function'){
+        try {
+          const stored = await serviceAdapter.rehydrate();
+          if(stored && typeof stored === 'object'){
+            window.__WS2_SERVER_BOOTSTRAP__ = {
+              branch: CANONICAL_BRANCH_ID,
+              module:'pos',
+              snapshot: stored,
+              source:'service-adapter'
+            };
+            window.database = stored;
+            return stored;
+          }
+        } catch(adapterError){
+          console.warn('[Mishkah][POS] Service adapter rehydrate failed.', adapterError);
+        }
+      }
       if(dataSource){
         try {
           if(typeof dataSource.whenReady === 'function'){
@@ -402,9 +420,15 @@
         const bootstrap = { branch: CANONICAL_BRANCH_ID, module:'pos', snapshot: dataset, source:'branch-api' };
         window.__WS2_SERVER_BOOTSTRAP__ = bootstrap;
         window.database = dataset;
+        if(serviceAdapter && typeof serviceAdapter.persistSnapshot === 'function'){
+          try { await serviceAdapter.persistSnapshot(dataset); } catch(persistError){ console.warn('[Mishkah][POS] Failed to persist initial dataset to service adapter.', persistError); }
+        }
         return dataset;
       }
       const fallback = window.database && typeof window.database === 'object' ? window.database : {};
+      if(serviceAdapter && fallback && typeof fallback === 'object' && Object.keys(fallback).length && typeof serviceAdapter.persistSnapshot === 'function'){
+        try { await serviceAdapter.persistSnapshot(fallback); } catch(persistErr){ console.warn('[Mishkah][POS] Failed to persist fallback dataset.', persistErr); }
+      }
       return fallback || {};
     }
     const initialDataset = await loadInitialDataset();
