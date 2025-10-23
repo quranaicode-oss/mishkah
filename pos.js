@@ -1524,7 +1524,8 @@
         syncLog: new Map()
       };
 
-      const tempStorageKey = `${db.name || 'mishkah-pos'}:${TEMP_STORE}`;
+      const databaseName = name || 'mishkah-pos';
+      const tempStorageKey = `${databaseName}:${TEMP_STORE}`;
       const canUseLocalStorage = (()=>{
         if(typeof window === 'undefined' || !window.localStorage) return false;
         try {
@@ -1570,8 +1571,6 @@
         if(!canUseLocalStorage) return;
         try { window.localStorage.removeItem(tempStorageKey); } catch(_err){}
       };
-      hydrateTempStoreFromStorage();
-
       const db = {
         schema:{
           stores:{
@@ -1602,11 +1601,13 @@
           }
         },
         version: Math.max(1, version|0) || 1,
-        name: name || 'mishkah-pos'
+        name: databaseName
       };
 
       const ensureArray = (value)=> Array.isArray(value) ? value : [];
       const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
+
+      hydrateTempStoreFromStorage();
 
       const ensureMetaRecord = (key, defaults={})=>{
         const safeKey = key || 'default';
