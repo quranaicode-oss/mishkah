@@ -5524,7 +5524,7 @@
       formatCurrencyValue,
       round,
       calculateTotals,
-      getActivePaymentEntries,
+      getActivePaymentEntries,generateOrderId ,
       summarizePayments,
       createOrderLine,
       filterMenu,
