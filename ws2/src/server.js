@@ -1259,6 +1259,12 @@ async function broadcastSyncUpdate(branchId, moduleId, state, options = {}) {
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
   }
+  const frameData = options.frameData && typeof options.frameData === 'object' ? options.frameData : {};
+  const branchTopics = resolveBranchTopicsFromFrame(frameData, payload);
+  if (branchTopics.size) {
+    const detail = buildBranchDeltaDetail(branchId, payload, frameData);
+    await broadcastBranchTopics(branchId, branchTopics, detail);
+  }
   return payload;
 }
 
@@ -1273,6 +1279,127 @@ function getTableNoticeTopics(branchId, moduleId, tableName) {
   ];
 }
 
+function normalizeTableIdentifier(value) {
+  if (value == null) return '';
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function resolveBranchTopicSuffixFromTable(tableName) {
+  const normalized = normalizeTableIdentifier(tableName);
+  if (!normalized) return null;
+  if (
+    normalized === 'orders' ||
+    normalized === 'order' ||
+    normalized === 'order_headers' ||
+    normalized === 'orderheaders' ||
+    normalized === 'job_orders' ||
+    normalized === 'joborders'
+  ) {
+    return 'pos:kds:orders';
+  }
+  if (
+    normalized === 'jobs' ||
+    normalized === 'kds_jobs' ||
+    normalized === 'kdsjobs' ||
+    normalized === 'job_queue' ||
+    normalized === 'jobqueue'
+  ) {
+    return 'kds:jobs:updates';
+  }
+  if (
+    normalized === 'payments' ||
+    normalized === 'payment_records' ||
+    normalized === 'paymentrecords' ||
+    normalized === 'order_payments' ||
+    normalized === 'pos_payments' ||
+    normalized === 'pospayments'
+  ) {
+    return 'pos:payments';
+  }
+  return null;
+}
+
+function resolveBranchTopicsFromFrame(frame = {}, payload = {}) {
+  const topics = new Set();
+  if (!frame || typeof frame !== 'object') frame = {};
+  const orderCandidates = [frame.order, frame.orders, frame.jobOrders];
+  if (orderCandidates.some((value) => value && (Array.isArray(value) || typeof value === 'object'))) {
+    topics.add('pos:kds:orders');
+  }
+  if (frame.orderId || frame.orderID) {
+    topics.add('pos:kds:orders');
+  }
+  if (frame.jobId || frame.job || frame.jobs || frame.jobOrders) {
+    topics.add('kds:jobs:updates');
+  }
+  if (frame.payment || frame.payments || frame.paymentId || frame.paymentID) {
+    topics.add('pos:payments');
+  }
+  const tableCandidates = [
+    frame.table,
+    frame.tableName,
+    frame.targetTable,
+    frame.meta?.table,
+    frame.meta?.tableName,
+    payload?.meta?.table,
+    payload?.table
+  ];
+  for (const candidate of tableCandidates) {
+    const suffix = resolveBranchTopicSuffixFromTable(candidate);
+    if (suffix) topics.add(suffix);
+  }
+  return topics;
+}
+
+function buildBranchDeltaDetail(branchId, payload = {}, frame = {}) {
+  const detail = {
+    type: 'branch:delta',
+    branchId,
+    moduleId: payload?.moduleId || frame?.moduleId || 'pos',
+    action: payload?.action || frame?.action || 'update',
+    version: payload?.version || null,
+    mutationId: payload?.mutationId || frame?.mutationId || null
+  };
+  if (frame?.orderId || frame?.order_id) {
+    detail.orderId = frame.orderId || frame.order_id;
+  }
+  if (frame?.order && typeof frame.order === 'object' && frame.order.id !== undefined) {
+    detail.orderId = frame.order.id;
+  }
+  if (frame?.jobId || frame?.job_id) {
+    detail.jobId = frame.jobId || frame.job_id;
+  }
+  if (frame?.paymentId || frame?.payment_id) {
+    detail.paymentId = frame.paymentId || frame.payment_id;
+  }
+  if (payload?.meta && typeof payload.meta === 'object') {
+    detail.meta = deepClone(payload.meta);
+  } else if (frame?.meta && typeof frame.meta === 'object') {
+    detail.meta = deepClone(frame.meta);
+  }
+  return detail;
+}
+
+async function broadcastBranchTopics(branchId, suffixes, detail = {}) {
+  if (!suffixes || !suffixes.size) return;
+  const safeBranch = branchId || 'default';
+  for (const suffix of suffixes) {
+    if (!suffix) continue;
+    const topic = `${safeBranch}:${suffix}`;
+    const payload = {
+      ...deepClone(detail),
+      branchId: safeBranch,
+      topic: suffix,
+      publishedAt: nowIso()
+    };
+    await broadcastPubsub(topic, payload);
+  }
+}
+
 async function broadcastTableNotice(branchId, moduleId, tableName, notice = {}) {
   const payload = {
     type: 'table:update',
@@ -1284,6 +1411,22 @@ async function broadcastTableNotice(branchId, moduleId, tableName, notice = {}) 
   const topics = getTableNoticeTopics(branchId, moduleId, tableName);
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
+  }
+  const branchSuffix = resolveBranchTopicSuffixFromTable(tableName);
+  if (branchSuffix) {
+    const detail = {
+      type: 'branch:table-notice',
+      table: normalizeTableIdentifier(tableName),
+      moduleId,
+      action: notice.action || payload.action || 'table:update',
+      eventId: notice.eventId || null,
+      sequence: notice.sequence || null,
+      recordRef: notice.recordRef || null
+    };
+    if (notice.meta && typeof notice.meta === 'object') {
+      detail.meta = deepClone(notice.meta);
+    }
+    await broadcastBranchTopics(branchId, new Set([branchSuffix]), detail);
   }
   return payload;
 }
