@@ -3,6 +3,51 @@
   global.MishkahPOSChunks.components = function(scope){
     if(!scope || typeof scope !== 'object') return;
     with(scope){
+      const formatSync = typeof scope.formatSync === 'function'
+        ? scope.formatSync.bind(scope)
+        : function(ts, lang){
+            if(!ts) return '';
+            try {
+              const date = ts instanceof Date ? ts : new Date(ts);
+              if(!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+              const locale = typeof scope.getLocale === 'function'
+                ? scope.getLocale(lang)
+                : (lang === 'ar' ? 'ar-EG' : lang === 'en' ? 'en-US' : undefined);
+              return locale ? date.toLocaleString(locale) : date.toLocaleString();
+            } catch(_err){
+              return '';
+            }
+          };
+
+      const statusBadge = typeof scope.statusBadge === 'function'
+        ? scope.statusBadge.bind(scope)
+        : function(db, state, label, options={}){
+            const t = typeof getTexts === 'function' ? getTexts(db) : { ui:{} };
+            const tone = state === 'online' ? 'status/online' : state === 'offline' ? 'status/offline' : 'status/idle';
+            const stateText = state === 'online'
+              ? (t.ui?.status_online || 'Online')
+              : state === 'offline'
+                ? (t.ui?.status_offline || 'Offline')
+                : (t.ui?.status_idle || 'Idle');
+            const extraAttrs = options.attrs || {};
+            const baseClass = typeof tw === 'function' && typeof token === 'function'
+              ? tw`${token(tone)} text-xs`
+              : 'text-xs';
+            const finalClass = extraAttrs.class ? `${baseClass} ${extraAttrs.class}` : baseClass;
+            const leading = options.leading !== undefined ? options.leading : (state === 'online' ? '●' : state === 'offline' ? '✖' : '…');
+            const text = options.text || `${label} • ${stateText}`;
+            if(UI?.Badge){
+              return UI.Badge({
+                variant: options.variant || 'badge/status',
+                attrs:{ ...extraAttrs, class: finalClass },
+                leading,
+                text,
+                trailing: options.trailing
+              });
+            }
+            return D?.Text?.Span ? D.Text.Span({ attrs:{ class: finalClass }}, [text]) : text;
+          };
+
           function ThemeSwitch(db){
             const t = getTexts(db);
             return UI.Segmented({
