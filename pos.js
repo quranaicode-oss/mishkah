@@ -5521,6 +5521,8 @@
       getLocale,
       formatDateTime,
       formatSync,
+      formatCurrencyValue,
+      round,
       calculateTotals,
       getActivePaymentEntries,
       summarizePayments,
