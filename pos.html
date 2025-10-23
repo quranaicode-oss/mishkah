@@ -79,6 +79,7 @@
   <script src="mishkah-ui.js"></script>
   <script src="mishkah-schema.js"></script>
   <script src="schema-pos.js"></script>
+  <script src="pos-service-adapter.js"></script>
   <script src="pos-sync-auth.js"></script>
   <script>
     (function preloadSchemaManifest(global) {
@@ -307,6 +308,20 @@
         moduleId: 'pos',
         restBase: `/api/branch/${encodeURIComponent(branchId)}/pos`
       };
+      if (!global.POS_SERVICE_ADAPTER) {
+        const factory = global.MishkahPosServiceAdapter;
+        if (factory && typeof factory.create === 'function') {
+          try {
+            global.POS_SERVICE_ADAPTER = factory.create({
+              branchId,
+              moduleId: 'pos',
+              dbName: `mishkah-pos-service-${branchId}`
+            });
+          } catch (adapterError) {
+            console.warn('[Mishkah][POS] Failed to initialise service adapter.', adapterError);
+          }
+        }
+      }
       const readiness = global.__MishkahChartReady__ || Promise.resolve();
       const loadScript = (src) => new Promise((resolve, reject) => {
         const script = global.document.createElement('script');
