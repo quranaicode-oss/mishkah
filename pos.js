@@ -1570,6 +1570,7 @@
         syncLog: new Map()
       };
 
+      const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
       const tempStorageKey = `${name || 'mishkah-pos'}:${TEMP_STORE}`;
       const canUseLocalStorage = (()=>{
         if(typeof window === 'undefined' || !window.localStorage) return false;
@@ -1652,7 +1653,6 @@
       };
 
       const ensureArray = (value)=> Array.isArray(value) ? value : [];
-      const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
       let mirrorOnly = false;
 
       const isMirrorMutation = (options)=>{
@@ -5527,6 +5527,7 @@
       getCurrencySymbol,
       getLocale,
       formatDateTime,
+      formatSync,
       calculateTotals,
       createOrderLine,
       filterMenu,

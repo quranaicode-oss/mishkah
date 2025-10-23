@@ -12,6 +12,7 @@ export default class ModuleStore {
     if (!this.meta.lastUpdatedAt) this.meta.lastUpdatedAt = nowIso();
     if (typeof this.meta.counter !== 'number') this.meta.counter = 0;
     if (typeof this.meta.labCounter !== 'number') this.meta.labCounter = this.meta.counter;
+    this.primaryKeyCache = new Map();
     this.seedData = seedData ? deepClone(seedData) : null;
 
     const seedTables = seed.tables || {};
@@ -53,10 +54,173 @@ export default class ModuleStore {
     const created = this.schemaEngine.createRecord(tableName, record, enrichedContext);
     this.data[tableName].push(created);
     this.version += 1;
-    this.meta.lastUpdatedAt = nowIso();
-    this.meta.counter = (this.meta.counter || 0) + 1;
-    this.meta.labCounter = this.meta.counter;
+    this.touchMeta({ increment: 1 });
     return deepClone(created);
+  }
+
+  resolvePrimaryKeyFields(tableName) {
+    if (this.primaryKeyCache.has(tableName)) {
+      return this.primaryKeyCache.get(tableName);
+    }
+    let fields = [];
+    try {
+      const table = this.schemaEngine.getTable(tableName);
+      fields = Array.isArray(table?.fields)
+        ? table.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
+        : [];
+      if (!fields.length) {
+        const hasId = Array.isArray(table?.fields) && table.fields.find((field) => field && field.name === 'id');
+        if (hasId) {
+          fields = ['id'];
+        }
+      }
+      if (!fields.length && Array.isArray(table?.fields) && table.fields.length) {
+        fields = [table.fields[0].name];
+      }
+    } catch (_err) {
+      fields = ['id'];
+    }
+    if (!fields.length) {
+      fields = ['id'];
+    }
+    this.primaryKeyCache.set(tableName, fields);
+    return fields;
+  }
+
+  resolveRecordKey(tableName, input = {}, { require = false } = {}) {
+    const fields = this.resolvePrimaryKeyFields(tableName);
+    const primary = {};
+    for (const name of fields) {
+      const value = input?.[name];
+      if (value === undefined || value === null || value === '') {
+        if (require) {
+          throw new Error(`Missing primary key field "${name}" for table "${tableName}"`);
+        }
+        return { key: null, fields, primary };
+      }
+      primary[name] = value;
+    }
+    const key = fields.map((name) => String(primary[name])).join('::');
+    return { key, fields, primary };
+  }
+
+  findRecordIndex(tableName, key) {
+    if (!key) return -1;
+    const rows = Array.isArray(this.data[tableName]) ? this.data[tableName] : [];
+    for (let idx = 0; idx < rows.length; idx += 1) {
+      const candidateKey = this.resolveRecordKey(tableName, rows[idx], { require: false }).key;
+      if (candidateKey === key) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  touchMeta(options = {}) {
+    const increment = Number(options.increment) || 0;
+    this.meta.lastUpdatedAt = nowIso();
+    if (increment) {
+      this.meta.counter = (this.meta.counter || 0) + increment;
+    }
+    if (options.recount === true) {
+      const total = Object.values(this.data || {}).reduce((acc, value) => {
+        if (Array.isArray(value)) return acc + value.length;
+        return acc;
+      }, 0);
+      this.meta.counter = total;
+      if ('labCounter' in this.meta) {
+        this.meta.labCounter = total;
+      }
+    } else if (increment && 'labCounter' in this.meta) {
+      this.meta.labCounter = (this.meta.labCounter || 0) + increment;
+    }
+  }
+
+  updateRecord(tableName, patch = {}, context = {}) {
+    if (!patch || typeof patch !== 'object') {
+      throw new Error('Update payload must be an object.');
+    }
+    this.ensureTable(tableName);
+    const { key } = this.resolveRecordKey(tableName, patch, { require: true });
+    const index = this.findRecordIndex(tableName, key);
+    if (index < 0) {
+      throw new Error(`Record not found in table "${tableName}".`);
+    }
+    const tableDef = this.schemaEngine.getTable(tableName);
+    const current = this.data[tableName][index];
+    const next = { ...current };
+    for (const field of tableDef.fields || []) {
+      const fieldName = field.name;
+      if (!Object.prototype.hasOwnProperty.call(patch, fieldName)) continue;
+      const value = patch[fieldName];
+      if (value === undefined) continue;
+      next[fieldName] = this.schemaEngine.coerceValue(field, value);
+    }
+    const hasUpdatedAt = Array.isArray(tableDef.fields) && tableDef.fields.some((field) => field.name === 'updatedAt');
+    if (hasUpdatedAt && !Object.prototype.hasOwnProperty.call(patch, 'updatedAt')) {
+      next.updatedAt = nowIso();
+    }
+    this.data[tableName][index] = next;
+    this.version += 1;
+    this.touchMeta();
+    return deepClone(next);
+  }
+
+  merge(tableName, patch = {}, context = {}) {
+    return this.updateRecord(tableName, patch, context);
+  }
+
+  save(tableName, record = {}, context = {}) {
+    const { key } = this.resolveRecordKey(tableName, record, { require: false });
+    if (!key) {
+      const created = this.insert(tableName, record, context);
+      return { record: created, created: true };
+    }
+    const index = this.findRecordIndex(tableName, key);
+    if (index < 0) {
+      const created = this.insert(tableName, record, context);
+      return { record: created, created: true };
+    }
+    const updated = this.updateRecord(tableName, record, context);
+    return { record: updated, created: false };
+  }
+
+  remove(tableName, criteria = {}, context = {}) {
+    this.ensureTable(tableName);
+    const { key } = this.resolveRecordKey(tableName, criteria, { require: true });
+    const index = this.findRecordIndex(tableName, key);
+    if (index < 0) {
+      throw new Error(`Record not found in table "${tableName}".`);
+    }
+    const [removed] = this.data[tableName].splice(index, 1);
+    this.version += 1;
+    this.touchMeta({ recount: true });
+    return { record: deepClone(removed), context };
+  }
+
+  getRecordReference(tableName, record = {}) {
+    const { key, fields, primary } = this.resolveRecordKey(tableName, record, { require: false });
+    const ref = {
+      table: tableName,
+      key,
+      primaryKey: { ...primary }
+    };
+    if (record && record.id !== undefined) {
+      ref.id = record.id;
+    }
+    if (record && record.uuid !== undefined) {
+      ref.uuid = record.uuid;
+    }
+    if (record && record.uid !== undefined) {
+      ref.uid = record.uid;
+    }
+    if (!key && fields && fields.length === 1) {
+      const fieldName = fields[0];
+      if (record && record[fieldName] !== undefined) {
+        ref.key = String(record[fieldName]);
+      }
+    }
+    return ref;
   }
 
   replaceTablesFromSnapshot(snapshot = {}, context = {}) {

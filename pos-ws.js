@@ -1347,7 +1347,306 @@
             }
           };
         }
-      
+
+        function createWs2CrudSync(options={}){
+          const WebSocketX = U.WebSocketX || U.WebSocket;
+          const fetcher = typeof options.fetch === 'function' ? options.fetch : (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
+          const wsEndpoint = options.wsEndpoint || options.endpoint || null;
+          const token = options.token || null;
+          const httpBase = (options.httpEndpoint || options.httpBase || '/api/branches').replace(/\/$/, '');
+          const credentials = options.credentials;
+          const headersOverride = options.headers && typeof options.headers === 'object' ? options.headers : {};
+          const includeAuthHeader = options.includeAuthHeader !== false;
+          const autoConnect = options.autoConnect !== false;
+          const pingConfig = options.ping || { interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' };
+          const wsIdentifiers = typeof POS_WS2_IDENTIFIERS === 'object' && POS_WS2_IDENTIFIERS ? POS_WS2_IDENTIFIERS : {};
+          const posInfo = typeof POS_INFO === 'object' && POS_INFO ? POS_INFO : {};
+          const defaultBranch = options.branchId
+            || options.branch
+            || wsIdentifiers.branchId
+            || posInfo.branchId
+            || (typeof BRANCH_CHANNEL !== 'undefined' ? BRANCH_CHANNEL : null)
+            || 'default';
+          const branchId = defaultBranch;
+          const moduleId = options.moduleId || options.module || 'pos';
+          const normalizeTableName = (name)=> String(name || '').trim();
+          const toTableKey = (name)=> normalizeTableName(name).toLowerCase();
+          const branchSegment = encodeURIComponent(branchId);
+          const moduleSegment = encodeURIComponent(moduleId);
+          const baseHeaders = { accept:'application/json', ...headersOverride };
+          if(token && includeAuthHeader && !baseHeaders.authorization && !baseHeaders.Authorization){
+            baseHeaders.authorization = `Bearer ${token}`;
+          }
+
+          let socket = null;
+          let ready = false;
+          let awaitingAuth = false;
+          let manualClose = false;
+
+          const watchers = new Map();
+          const lastNotice = new Map();
+          const activeTopics = new Set();
+          const pendingTopics = new Set();
+
+          const emit = (callback, payload, context={})=>{
+            if(typeof callback !== 'function') return;
+            try { callback(payload, context); } catch(error){ console.warn('[Mishkah][POS][CRUD] Handler execution failed.', error); }
+          };
+
+          const buildTableUrl = (tableName, query={})=>{
+            const tableSegment = encodeURIComponent(normalizeTableName(tableName));
+            let url = `${httpBase}/${branchSegment}/modules/${moduleSegment}/tables/${tableSegment}`;
+            const params = new URLSearchParams();
+            Object.entries(query || {}).forEach(([key, value])=>{
+              if(value === undefined || value === null) return;
+              if(Array.isArray(value)){
+                value.forEach((entry)=>{ if(entry !== undefined && entry !== null) params.append(key, entry); });
+                return;
+              }
+              params.set(key, value);
+            });
+            const serialized = params.toString();
+            if(serialized){
+              url += `?${serialized}`;
+            }
+            return url;
+          };
+
+          const request = async (method, tableName, { body=null, query=null, headers: extraHeaders=null }={})=>{
+            if(!fetcher){
+              throw new Error('Fetch API is unavailable for WS2 CRUD operations.');
+            }
+            const url = buildTableUrl(tableName, query || {});
+            const headers = { ...baseHeaders, ...(extraHeaders || {}) };
+            const init = { method, headers };
+            if(credentials) init.credentials = credentials;
+            if(body !== null && body !== undefined && method !== 'GET'){
+              if(!headers['content-type'] && !headers['Content-Type']){
+                headers['content-type'] = 'application/json; charset=utf-8';
+              }
+              init.body = JSON.stringify(body);
+            }
+            let response;
+            try {
+              response = await fetcher(url, init);
+            } catch(error){
+              const networkError = new Error(error?.message || 'Network request failed.');
+              networkError.cause = error;
+              networkError.url = url;
+              throw networkError;
+            }
+            let parsed = null;
+            const text = typeof response.text === 'function' ? await response.text() : '';
+            if(text){
+              try { parsed = JSON.parse(text); } catch(_err){ parsed = null; }
+            }
+            if(!response.ok){
+              const err = new Error(parsed?.message || `HTTP ${response.status}`);
+              err.status = response.status;
+              err.body = parsed;
+              err.url = url;
+              throw err;
+            }
+            return parsed === null ? {} : parsed;
+          };
+
+          const ensureTopicSubscription = (topic)=>{
+            if(!topic) return;
+            if(activeTopics.has(topic)) return;
+            activeTopics.add(topic);
+            pendingTopics.add(topic);
+            if(socket && ready && !awaitingAuth){
+              try {
+                socket.send({ type:'subscribe', topic });
+                pendingTopics.delete(topic);
+              } catch(error){
+                console.warn('[Mishkah][POS][CRUD] Failed to subscribe to topic.', { topic, error });
+              }
+            }
+          };
+
+          const ensureTopicsForTable = (tableName)=>{
+            const normalized = normalizeTableName(tableName);
+            if(!normalized) return;
+            const topics = [
+              `sync-table::${branchId}::${moduleId}::${normalized}`,
+              `sync-table::${branchId}::${normalized}`,
+              `table::${normalized}`
+            ];
+            topics.forEach(ensureTopicSubscription);
+          };
+
+          const flushPending = ()=>{
+            if(!socket || !ready || awaitingAuth || !pendingTopics.size) return;
+            const topics = Array.from(pendingTopics);
+            topics.forEach((topic)=>{
+              try {
+                socket.send({ type:'subscribe', topic });
+                pendingTopics.delete(topic);
+              } catch(error){
+                console.warn('[Mishkah][POS][CRUD] Deferred subscription failed.', { topic, error });
+              }
+            });
+          };
+
+          const dispatchNotice = (notice, meta={})=>{
+            if(!notice || typeof notice !== 'object') return;
+            const tableName = normalizeTableName(notice.table || notice.meta?.table);
+            if(!tableName) return;
+            const key = toTableKey(tableName);
+            lastNotice.set(key, notice);
+            emit(options.onNotice, notice, meta);
+            const tableWatchers = watchers.get(key);
+            if(tableWatchers && tableWatchers.size){
+              tableWatchers.forEach((handler)=> emit(handler, notice, meta));
+            }
+          };
+
+          const handleFrame = (frame)=>{
+            if(!frame || typeof frame !== 'object') return;
+            if(frame.type === 'ack'){
+              if(frame.event === 'auth'){
+                awaitingAuth = false;
+                flushPending();
+              }
+              if(frame.event === 'subscribe'){
+                flushPending();
+              }
+              return;
+            }
+            if(frame.type === 'publish'){
+              const payload = frame.data && typeof frame.data === 'object' ? frame.data : null;
+              if(payload && payload.type === 'table:update'){
+                dispatchNotice(payload, { topic: frame.topic, meta: frame.meta || {} });
+              }
+            }
+          };
+
+          const connect = ()=>{
+            if(!WebSocketX || !wsEndpoint){
+              if(!WebSocketX){
+                console.warn('[Mishkah][POS][CRUD] WebSocket adapter unavailable.');
+              }
+              if(!wsEndpoint){
+                console.warn('[Mishkah][POS][CRUD] Missing WS endpoint; notifications disabled.');
+              }
+              return null;
+            }
+            if(socket){
+              try { socket.connect({ waitOpen:false }); } catch(_err){}
+              return socket;
+            }
+            manualClose = false;
+            socket = new WebSocketX(wsEndpoint, { autoReconnect: options.autoReconnect !== false, ping: pingConfig });
+            socket.on('open', ()=>{
+              ready = true;
+              emit(options.onOpen, { endpoint: wsEndpoint });
+              if(token){
+                awaitingAuth = true;
+                try { socket.send({ type:'auth', data:{ token } }); } catch(error){ console.warn('[Mishkah][POS][CRUD] Auth frame failed.', error); }
+              } else {
+                flushPending();
+              }
+            });
+            socket.on('close', (event)=>{
+              ready = false;
+              awaitingAuth = false;
+              emit(options.onClose, event || {});
+              if(!manualClose){
+                activeTopics.forEach((topic)=> pendingTopics.add(topic));
+              }
+            });
+            socket.on('error', (error)=>{
+              ready = false;
+              emit(options.onError, error || {});
+            });
+            socket.on('message', (msg)=>{
+              let payload = msg;
+              if(payload && typeof payload === 'string'){
+                try { payload = JSON.parse(payload); } catch(_err){ payload = null; }
+              }
+              if(!payload || typeof payload !== 'object') return;
+              handleFrame(payload);
+            });
+            try { socket.connect({ waitOpen:false }); } catch(_err){}
+            return socket;
+          };
+
+          const ensureSocket = ()=>{
+            if(!socket) connect();
+            return socket;
+          };
+
+          const disconnect = (code=1000, reason='manual')=>{
+            if(!socket) return;
+            manualClose = true;
+            try { socket.close(code, reason); } catch(_err){}
+            socket = null;
+            ready = false;
+            awaitingAuth = false;
+          };
+
+          const subscribe = (tableName, handler)=>{
+            if(typeof handler !== 'function') return ()=>{};
+            const label = normalizeTableName(tableName);
+            if(!label) return ()=>{};
+            const key = toTableKey(label);
+            if(!watchers.has(key)) watchers.set(key, new Set());
+            watchers.get(key).add(handler);
+            ensureTopicsForTable(label);
+            if(autoConnect) ensureSocket();
+            if(lastNotice.has(key)){
+              emit(handler, lastNotice.get(key), { replay:true });
+            }
+            return ()=>{
+              const set = watchers.get(key);
+              if(!set) return;
+              set.delete(handler);
+              if(!set.size) watchers.delete(key);
+            };
+          };
+
+          const getLastNotice = (tableName)=>{
+            const key = toTableKey(tableName);
+            return lastNotice.get(key) || null;
+          };
+
+          const api = {
+            connect,
+            disconnect,
+            isConnected(){ return !!(socket && ready && !awaitingAuth); },
+            subscribe,
+            getLastNotice,
+            list(tableName, query){ return request('GET', tableName, { query }); },
+            read(tableName, query){ return request('GET', tableName, { query }); },
+            insert(tableName, record, meta){ return request('POST', tableName, { body:{ record, meta } }); },
+            merge(tableName, record, meta){ return request('PATCH', tableName, { body:{ record, meta } }); },
+            save(tableName, record, meta){ return request('PUT', tableName, { body:{ record, meta } }); },
+            remove(tableName, record, meta){ return request('DELETE', tableName, { body:{ record, meta } }); },
+            request,
+            ensureSocket,
+            topics(){ return Array.from(activeTopics); }
+          };
+
+          if(Array.isArray(options.topics)){
+            options.topics.forEach((topic)=>{
+              if(typeof topic === 'string' && topic.trim()){
+                ensureTopicSubscription(topic.trim());
+              }
+            });
+          }
+
+          if(Array.isArray(options.tables)){
+            options.tables.forEach((tableName)=> ensureTopicsForTable(tableName));
+          }
+
+          if(autoConnect && (wsEndpoint || options.tables || options.topics)){
+            ensureSocket();
+          }
+
+          return api;
+        }
+
         const ORDER_TYPE_GUARDS = new Set(['dine_in','dine-in','dine in','takeaway','delivery','pickup','drive_thru','drive-thru']);
       
         function resolveEventType(value){
@@ -1468,10 +1767,55 @@
           }
           return results;
         }
+
+        function applyWs2EventToPos(event, options={}){
+          const entries = Array.isArray(event) ? event : [event];
+          const notices = [];
+          const orders = [];
+          const orderNotices = [];
+          const seenOrderIds = new Set();
+
+          const registerOrder = (order, source)=>{
+            if(!order || !order.id) return;
+            const key = String(order.id);
+            if(seenOrderIds.has(key)) return;
+            seenOrderIds.add(key);
+            orders.push(order);
+            if(typeof options.onOrder === 'function'){
+              try { options.onOrder(order, source); } catch(error){ console.warn('[Mishkah][POS][CRUD] onOrder handler failed.', error); }
+            }
+          };
+
+          entries.forEach((entry)=>{
+            if(!entry || typeof entry !== 'object') return;
+            const notice = entry.notice && typeof entry.notice === 'object' ? entry.notice : (entry.type === 'table:update' ? entry : null);
+            if(notice){
+              notices.push(notice);
+              const tableName = String(notice.table || '').toLowerCase();
+              if(tableName === 'orders' || tableName === 'job_orders' || tableName === 'job-orders'){
+                orderNotices.push(notice);
+              }
+              if(typeof options.onNotice === 'function'){
+                try { options.onNotice(notice, entry); } catch(error){ console.warn('[Mishkah][POS][CRUD] onNotice handler failed.', error); }
+              }
+            }
+            const candidates = collectOrderCandidates(entry);
+            if(Array.isArray(candidates) && candidates.length){
+              candidates.forEach((order)=> registerOrder(order, entry));
+            }
+          });
+
+          if(orderNotices.length && typeof options.onOrdersNotice === 'function'){
+            try { options.onOrdersNotice(orderNotices); } catch(error){ console.warn('[Mishkah][POS][CRUD] onOrdersNotice handler failed.', error); }
+          }
+
+          return { notices, orders };
+        }
       scope.ws = {
         createKDSSync,
         createCentralPosSync,
         createEventReplicator,
+        createWs2CrudSync,
         applyWs2EventToPos
       };
     }
