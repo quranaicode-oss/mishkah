@@ -318,7 +318,7 @@
       });
       Promise.resolve(readiness)
         .then(() => ['pos-ws.js', 'pos-comp.js', 'pos-orders.js', 'pos.js'].reduce((chain, file) => {
-          return chain.then(() => loadScript(`./${file}`));
+          return chain.then(() => loadScript(`${file}`));
         }, Promise.resolve()))
         .catch((error) => {
           console.error('[Mishkah][POS] Chart package readiness failed', error);
