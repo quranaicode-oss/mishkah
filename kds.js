@@ -1,4 +1,4 @@
-(function(){
+(async function(){
   const M = window.Mishkah;
   if(!M || !M.utils || !M.DSL) return;
 
@@ -22,6 +22,727 @@
       return value;
     }
   };
+
+  function createWsDeltaDispatcher(options={}){
+    const Control = U.Control || {};
+    const fetchNow = typeof options.fetchNow === 'function' ? options.fetchNow : null;
+    const label = options.label || 'kds-ws-delta';
+    const throttleMs = Math.max(250, Number(options.throttleMs) || 1200);
+    const debounceMs = Math.max(100, Number(options.debounceMs) || 250);
+    const throttleFactory = typeof Control.throttle === 'function'
+      ? (fn, wait)=> Control.throttle(fn, wait)
+      : (fn)=> fn;
+    const debounceFactory = typeof Control.debounce === 'function'
+      ? (fn, wait)=> Control.debounce(fn, wait)
+      : (fn)=> fn;
+    let pending = false;
+    let lastTriggerAt = 0;
+    let lastEvent = null;
+    let lastResult = null;
+
+    const runFetch = async ()=>{
+      if(!fetchNow) return { appliedCount:0, eventsProcessed:0 };
+      pending = true;
+      lastTriggerAt = Date.now();
+      try {
+        const result = await fetchNow();
+        lastResult = result || null;
+        return result;
+      } catch(error){
+        console.warn(`[Mishkah][KDS][WS] ${label} fetch failed.`, error);
+        lastResult = { error };
+        return lastResult;
+      } finally {
+        pending = false;
+      }
+    };
+
+    const throttledFetch = throttleFactory(()=>{ runFetch().catch(()=>{}); }, throttleMs);
+    const scheduleFetch = debounceFactory(()=>{ throttledFetch(); }, debounceMs);
+
+    return {
+      notify(detail={}){
+        if(!fetchNow) return false;
+        lastEvent = { ...detail, notifiedAt: Date.now() };
+        lastTriggerAt = Date.now();
+        scheduleFetch();
+        return true;
+      },
+      async flush(){
+        return runFetch();
+      },
+      getState(){
+        return { pending, lastTriggerAt, lastEvent, lastResult };
+      }
+    };
+  }
+
+  const GLOBAL = typeof window !== 'undefined' ? window : null;
+  const CACHE_TABLE = 'snapshot';
+  let kdsCacheAdapter = GLOBAL && GLOBAL.__MishkahKdsCacheAdapter__ ? GLOBAL.__MishkahKdsCacheAdapter__ : null;
+  let schedulePersist = ()=>{};
+
+  const clearKdsOperationalData = (snapshot)=>{
+    if(!snapshot || typeof snapshot !== 'object') return snapshot;
+    const next = cloneDeep(snapshot);
+    if(next.jobOrders && typeof next.jobOrders === 'object') next.jobOrders = {};
+    if(next.jobs && typeof next.jobs === 'object') next.jobs = {};
+    if(Array.isArray(next.expoSource)) next.expoSource = [];
+    if(Array.isArray(next.expoTickets)) next.expoTickets = [];
+    if(next.deliveries && typeof next.deliveries === 'object') next.deliveries = { assignments:{}, settlements:{} };
+    if(next.handoff && typeof next.handoff === 'object') next.handoff = {};
+    if(next.filters && typeof next.filters === 'object'){ next.filters.activeTab = next.filters.lockedSection ? next.filters.activeTab : 'prep'; }
+    return next;
+  };
+
+  const buildKdsMetadata = (state, metaPatch={})=>{
+    const sync = state?.data?.sync || {};
+    const meta = state?.data?.meta || {};
+    const resolved = {
+      lastSyncAt: metaPatch.lastSyncAt || sync.lastMessage || sync.lastSyncAt || meta.lastSyncAt || Date.now(),
+      schemaVersion: metaPatch.schemaVersion || meta.posSnapshotVersion || meta.schemaVersion || null,
+      lastId: metaPatch.lastId || metaPatch.appliedEventId || metaPatch.cursor || null,
+      requiresFullSync: !!metaPatch.requiresFullSync,
+      source: metaPatch.source || 'kds'
+    };
+    if(metaPatch.serverHash) resolved.serverHash = metaPatch.serverHash;
+    return resolved;
+  };
+
+  const createSnapshotPersistor = (appInstance, adapter, tableName)=>{
+    if(!adapter || !appInstance || typeof appInstance.getState !== 'function') return ()=>{};
+    let timer = null;
+    const delay = 280;
+    return (metaPatch={})=>{
+      if(!adapter || typeof adapter.save !== 'function') return;
+      if(timer) clearTimeout(timer);
+      timer = setTimeout(async ()=>{
+        timer = null;
+        try {
+          const state = appInstance.getState();
+          if(!state || !state.data) return;
+          const payload = cloneDeep(state.data);
+          const metadata = buildKdsMetadata(state, metaPatch);
+          await adapter.save(tableName, payload, { metadata });
+        } catch(error){
+          console.warn('[Mishkah][KDS] Failed to persist snapshot', error);
+        }
+      }, delay);
+    };
+  };
+
+  const toPlainObject = (value)=> (value && typeof value === 'object' ? Object.assign({}, value) : {});
+
+  class UnifiedKitchenTimelineEntry {
+    constructor(entry={}){
+      Object.assign(this, entry);
+      if(this.changedMs == null){
+        const tsSource = this.changedAt || this.updatedAt || this.createdAt || null;
+        const parsed = typeof tsSource === 'number' ? tsSource : (typeof tsSource === 'string' && tsSource.trim() ? Date.parse(tsSource) : null);
+        this.changedMs = Number.isFinite(parsed) ? parsed : null;
+      }
+      this.kind = 'UnifiedKitchenTimelineEntry';
+    }
+
+    get statusKey(){
+      return this.status || this.state || this.event || 'pending';
+    }
+  }
+
+  class UnifiedKitchenLineItem {
+    constructor(detail={}){
+      Object.assign(this, detail);
+      const quantity = detail.quantity ?? detail.qty ?? detail.count ?? 0;
+      const numeric = Number(quantity);
+      this.quantity = Number.isFinite(numeric) ? numeric : 0;
+      this.modifiers = Array.isArray(detail.modifiers) ? detail.modifiers.map(mod=> toPlainObject(mod)) : [];
+      this.kind = 'UnifiedKitchenLineItem';
+    }
+  }
+
+  class UnifiedKitchenTicket {
+    constructor(record={}){
+      const base = isPlainObject(record) ? record : {};
+      Object.assign(this, base);
+      this.details = Array.isArray(base.details)
+        ? base.details.map(detail=> detail instanceof UnifiedKitchenLineItem ? detail : new UnifiedKitchenLineItem(detail))
+        : [];
+      this.history = Array.isArray(base.history)
+        ? base.history.map(entry=> entry instanceof UnifiedKitchenTimelineEntry ? entry : new UnifiedKitchenTimelineEntry(entry))
+        : [];
+      this.kind = 'UnifiedKitchenTicket';
+    }
+
+    static fromRecord(record){
+      return record instanceof UnifiedKitchenTicket ? record : new UnifiedKitchenTicket(record || {});
+    }
+
+    clone(){
+      return new UnifiedKitchenTicket(this);
+    }
+
+    get timeline(){
+      return this.history;
+    }
+
+    get isDelayed(){
+      if(this.dueMs == null) return false;
+      const reference = this.readyMs ?? this.completedMs ?? Date.now();
+      return reference > this.dueMs;
+    }
+
+    get hasAlerts(){
+      if(this.isDelayed) return true;
+      if(this.isExpedite) return true;
+      return this.details.some(detail=> detail.alert === true || detail.status === 'delayed');
+    }
+  }
+
+  const computeMaxTimestamp = (...sources)=>{
+    let max = 0;
+    const inspect = (value)=>{
+      if(!value || typeof value !== 'object') return;
+      const candidates = [
+        value.updatedAt,
+        value.updated_at,
+        value.modifyDate,
+        value.modify_date,
+        value.changedAt,
+        value.createdAt,
+        value.created_at,
+        value.completedAt,
+        value.completed_at
+      ];
+      for(const candidate of candidates){
+        if(candidate == null) continue;
+        const ms = typeof candidate === 'number' ? candidate : (typeof candidate === 'string' && candidate.trim() ? Date.parse(candidate) : null);
+        if(Number.isFinite(ms) && ms > max) max = ms;
+      }
+    };
+    sources.forEach(source=>{
+      const list = Array.isArray(source) ? source : [];
+      list.forEach(entry=> inspect(entry));
+    });
+    return max > 0 ? new Date(max).toISOString() : null;
+  };
+
+  const mergeListByKey = (base=[], updates=[], key='id')=>{
+    const map = new Map();
+    (Array.isArray(base) ? base : []).forEach(item=>{
+      if(!item || item[key] == null) return;
+      map.set(String(item[key]), Object.assign({}, item));
+    });
+    (Array.isArray(updates) ? updates : []).forEach(item=>{
+      if(!item || item[key] == null) return;
+      const id = String(item[key]);
+      map.set(id, Object.assign({}, map.get(id) || {}, item));
+    });
+    return Array.from(map.values());
+  };
+
+  const mergeJobOrderCollections = (current={}, patch={})=>({
+    headers: mergeListByKey(current.headers, patch.headers, 'id'),
+    details: mergeListByKey(current.details, patch.details, 'id'),
+    modifiers: mergeListByKey(current.modifiers, patch.modifiers, 'id'),
+    statusHistory: mergeListByKey(current.statusHistory, patch.statusHistory, 'id')
+  });
+
+  const mergeDeliveryState = (base={}, patch={})=>{
+    const assignments = Object.assign({}, base.assignments || {});
+    Object.keys(patch.assignments || {}).forEach(orderId=>{
+      assignments[orderId] = Object.assign({}, assignments[orderId] || {}, cloneDeep(patch.assignments[orderId] || {}));
+    });
+    const settlements = Object.assign({}, base.settlements || {});
+    Object.keys(patch.settlements || {}).forEach(orderId=>{
+      settlements[orderId] = Object.assign({}, settlements[orderId] || {}, cloneDeep(patch.settlements[orderId] || {}));
+    });
+    return { assignments, settlements };
+  };
+
+  const mergeHandoffState = (base={}, patch={})=>{
+    const next = Object.assign({}, base || {});
+    Object.keys(patch || {}).forEach(orderId=>{
+      next[orderId] = Object.assign({}, next[orderId] || {}, cloneDeep(patch[orderId] || {}));
+    });
+    return next;
+  };
+
+  const mergeDriversList = (base=[], updates=[])=>{
+    const map = new Map();
+    (Array.isArray(base) ? base : []).forEach(driver=>{
+      if(!driver) return;
+      const key = driver.id != null ? String(driver.id) : (driver.code != null ? String(driver.code) : null);
+      if(!key) return;
+      map.set(key, Object.assign({}, driver));
+    });
+    (Array.isArray(updates) ? updates : []).forEach(driver=>{
+      if(!driver) return;
+      const key = driver.id != null ? String(driver.id) : (driver.code != null ? String(driver.code) : null);
+      if(!key) return;
+      map.set(key, Object.assign({}, map.get(key) || {}, driver));
+    });
+    return Array.from(map.values());
+  };
+
+  const mergeExpoTickets = (base=[], updates=[])=>{
+    if(!Array.isArray(updates) || !updates.length){
+      return Array.isArray(base) ? base.map(ticket=> Object.assign({}, ticket)) : [];
+    }
+    const map = new Map();
+    (Array.isArray(base) ? base : []).forEach(ticket=>{
+      if(!ticket || ticket.id == null) return;
+      map.set(String(ticket.id), Object.assign({}, ticket));
+    });
+    updates.forEach(ticket=>{
+      if(!ticket || ticket.id == null) return;
+      const id = String(ticket.id);
+      map.set(id, Object.assign({}, map.get(id) || {}, ticket));
+    });
+    return Array.from(map.values());
+  };
+
+  const mergeDatasetDeep = (base={}, overlay={})=>{
+    const target = cloneDeep(base || {});
+    const assign = (dest, src)=>{
+      if(!src || typeof src !== 'object') return;
+      Object.keys(src).forEach((key)=>{
+        const value = src[key];
+        if(Array.isArray(value)){
+          dest[key] = value.map(entry=> cloneDeep(entry));
+        } else if(value && typeof value === 'object'){
+          if(!dest[key] || typeof dest[key] !== 'object' || Array.isArray(dest[key])){
+            dest[key] = cloneDeep(value);
+          } else {
+            assign(dest[key], value);
+          }
+        } else {
+          dest[key] = value;
+        }
+      });
+    };
+    assign(target, overlay || {});
+    return target;
+  };
+
+  function createKdsIndexedDBAdapter(options={}){
+    const IndexedDBX = U.IndexedDBX || U.IndexedDB || null;
+    if(!IndexedDBX){
+      console.warn('[Mishkah][KDS] IndexedDB adapter unavailable.');
+      return null;
+    }
+    const branch = options.branch || 'default';
+    const manifest = options.manifest || {};
+    const dbName = options.name || `mishkah-kds-${branch}`;
+    const version = Math.max(1, Number(options.version) || Number(manifest.version) || 1);
+    const idb = new IndexedDBX({
+      name: dbName,
+      version,
+      autoBumpVersion:true,
+      schema:{
+        stores:{
+          snapshots:{ keyPath:'id' },
+          sync:{ keyPath:'id' }
+        }
+      }
+    });
+
+    const loadSnapshotRecord = async ()=>{
+      try {
+        return await idb.get('snapshots', 'active');
+      } catch(error){
+        console.warn('[Mishkah][KDS] Failed to load snapshot record.', error);
+        return null;
+      }
+    };
+
+    const loadSnapshot = async ()=>{
+      const record = await loadSnapshotRecord();
+      if(!record || !record.snapshot) return null;
+      return cloneDeep(record.snapshot);
+    };
+
+    const saveSnapshotRecord = async (snapshot, context={})=>{
+      const payload = {
+        id:'active',
+        snapshot: cloneDeep(snapshot || {}),
+        branch,
+        schemaVersion: version,
+        savedAt: new Date().toISOString(),
+        meta: Object.assign({}, context.meta || {})
+      };
+      await idb.put('snapshots', payload);
+      return payload;
+    };
+
+    const getSyncState = async ()=>{
+      try {
+        const state = await idb.get('sync', 'state');
+        if(state) return Object.assign({}, state);
+      } catch(error){
+        console.warn('[Mishkah][KDS] Failed to read sync state.', error);
+      }
+      return {
+        id:'state',
+        branch,
+        ordersUpdatedAt:null,
+        deliveriesUpdatedAt:null,
+        handoffUpdatedAt:null,
+        driversUpdatedAt:null,
+        updatedAt:null
+      };
+    };
+
+    const updateSyncState = async (patch={})=>{
+      const current = await getSyncState();
+      const next = Object.assign({}, current, cloneDeep(patch || {}), {
+        id:'state',
+        branch,
+        updatedAt: new Date().toISOString()
+      });
+      await idb.put('sync', next);
+      return next;
+    };
+
+    const applyOrdersDelta = async (delta={}, context={})=>{
+      if(!delta || typeof delta !== 'object') return null;
+      const record = await loadSnapshotRecord();
+      const snapshot = record && record.snapshot ? cloneDeep(record.snapshot) : {};
+      const kdsState = snapshot.kds && typeof snapshot.kds === 'object' ? snapshot.kds : (snapshot.kds = {});
+      const jobOrdersCurrent = kdsState.jobOrders || {};
+      const mergedJobOrders = mergeJobOrderCollections(jobOrdersCurrent, delta.jobOrders || {});
+      mergedJobOrders.expoPassTickets = Array.isArray(delta.jobOrders?.expoPassTickets)
+        ? delta.jobOrders.expoPassTickets.map(ticket=> Object.assign({}, ticket))
+        : mergedJobOrders.expoPassTickets || [];
+      kdsState.jobOrders = mergedJobOrders;
+      if(Array.isArray(delta.expoTickets)){
+        kdsState.expoSource = mergeExpoTickets(kdsState.expoSource || [], delta.expoTickets);
+      }
+      if(delta.deliveries){
+        kdsState.deliveries = mergeDeliveryState(kdsState.deliveries || {}, delta.deliveries);
+      }
+      if(delta.handoff){
+        kdsState.handoff = mergeHandoffState(kdsState.handoff || {}, delta.handoff);
+      }
+      if(Array.isArray(delta.drivers)){
+        kdsState.drivers = mergeDriversList(kdsState.drivers || [], delta.drivers);
+      }
+      if(delta.master){
+        const master = delta.master;
+        if(Array.isArray(master.drivers)){
+          kdsState.drivers = mergeDriversList(kdsState.drivers || [], master.drivers);
+        }
+        if(Array.isArray(master.stations)){
+          kdsState.stations = master.stations.map(entry=> toPlainObject(entry));
+        }
+        if(Array.isArray(master.stationCategoryRoutes)){
+          kdsState.stationCategoryRoutes = master.stationCategoryRoutes.map(entry=> toPlainObject(entry));
+        }
+        if(Array.isArray(master.kitchenSections)){
+          kdsState.kitchenSections = master.kitchenSections.map(entry=> toPlainObject(entry));
+        }
+        if(Array.isArray(master.categorySections)){
+          kdsState.categorySections = master.categorySections.map(entry=> toPlainObject(entry));
+        }
+        if(master.categories || master.items){
+          const menuState = kdsState.menu || {};
+          kdsState.menu = {
+            categories: Array.isArray(master.categories) ? master.categories.map(entry=> toPlainObject(entry)) : (menuState.categories || []),
+            items: Array.isArray(master.items) ? master.items.map(entry=> toPlainObject(entry)) : (menuState.items || [])
+          };
+        }
+        if(master.metadata){
+          kdsState.metadata = Object.assign({}, kdsState.metadata || {}, toPlainObject(master.metadata));
+        }
+        if(master.sync){
+          kdsState.sync = Object.assign({}, kdsState.sync || {}, toPlainObject(master.sync));
+        }
+        if(master.channel){
+          kdsState.channel = master.channel;
+          kdsState.sync = Object.assign({}, kdsState.sync || {}, { channel: master.channel });
+        }
+      }
+      if(delta.meta){
+        kdsState.meta = Object.assign({}, kdsState.meta || {}, toPlainObject(delta.meta));
+      }
+      snapshot.kds = kdsState;
+      await saveSnapshotRecord(snapshot, context);
+      if(context.cursor){
+        await updateSyncState(context.cursor);
+      }
+      return snapshot;
+    };
+
+    const replaceSnapshot = async (snapshot, context={})=>{
+      await saveSnapshotRecord(snapshot, context);
+      if(context.cursor){
+        await updateSyncState(context.cursor);
+      }
+      return snapshot;
+    };
+
+    const reset = async ()=>{
+      try { await idb.clear('snapshots'); } catch(_err){}
+      try { await idb.clear('sync'); } catch(_err){}
+    };
+
+    return {
+      db: idb,
+      loadSnapshot,
+      loadSnapshotRecord,
+      saveSnapshot: replaceSnapshot,
+      applyOrdersDelta,
+      getSyncState,
+      updateSyncState,
+      replaceSnapshot,
+      reset
+    };
+  }
+
+  function createKdsDeltaFetcher(options={}){
+    const fetchImpl = typeof options.fetch === 'function' ? options.fetch : (typeof fetch === 'function' ? fetch : null);
+    const rawBase = typeof options.restBase === 'string' ? options.restBase.trim() : '';
+    if(!fetchImpl || !rawBase){
+      return {
+        async fetchOrders(){ return null; },
+        async fetchFullSnapshot(){ return null; }
+      };
+    }
+    const restBase = rawBase.replace(/\/$/, '');
+    const branch = options.branch || null;
+
+    const cloneRow = (row)=> (row && typeof row === 'object' ? Object.assign({}, row) : {});
+    const resolveOrderId = (row)=>{
+      if(!row || typeof row !== 'object') return null;
+      const candidates = [
+        'orderId',
+        'order_id',
+        'orderID',
+        'order',
+        'orderNumber',
+        'order_number',
+        'jobOrderId',
+        'job_order_id',
+        'parentOrderId',
+        'parent_order_id'
+      ];
+      for(const key of candidates){
+        if(row[key] == null) continue;
+        const value = row[key];
+        if(value === '') continue;
+        return String(value);
+      }
+      return null;
+    };
+
+    const mergeDeliveryRecords = (rows=[])=>{
+      const map = {};
+      rows.forEach((row)=>{
+        const orderId = resolveOrderId(row);
+        if(!orderId) return;
+        const normalized = cloneRow(row);
+        delete normalized.orderId;
+        delete normalized.order_id;
+        delete normalized.orderID;
+        delete normalized.order;
+        delete normalized.orderNumber;
+        delete normalized.order_number;
+        delete normalized.jobOrderId;
+        delete normalized.job_order_id;
+        delete normalized.parentOrderId;
+        delete normalized.parent_order_id;
+        map[orderId] = Object.assign({}, map[orderId] || {}, normalized);
+      });
+      return map;
+    };
+
+    const mapHandoffRecords = (rows=[])=>{
+      const map = {};
+      rows.forEach((row)=>{
+        const orderId = resolveOrderId(row) || (row && row.id != null ? String(row.id) : null);
+        if(!orderId) return;
+        const normalized = cloneRow(row);
+        delete normalized.orderId;
+        delete normalized.order_id;
+        delete normalized.orderID;
+        delete normalized.order;
+        delete normalized.orderNumber;
+        delete normalized.order_number;
+        map[orderId] = Object.assign({}, map[orderId] || {}, normalized);
+      });
+      return map;
+    };
+
+    const mapDriversList = (rows=[])=>{
+      const seen = new Map();
+      rows.forEach((row)=>{
+        if(!row || typeof row !== 'object') return;
+        const normalized = cloneRow(row);
+        const keyCandidate = normalized.id ?? normalized.driverId ?? normalized.driver_id ?? normalized.code ?? normalized.driverCode;
+        const key = keyCandidate != null ? String(keyCandidate) : `idx-${seen.size}`;
+        const existing = seen.get(key) || {};
+        seen.set(key, Object.assign({}, existing, normalized));
+      });
+      return Array.from(seen.values());
+    };
+
+    const safeFetch = async (url)=>{
+      let response;
+      try {
+        response = await fetchImpl(url, { cache:'no-store' });
+      } catch(error){
+        const err = new Error(`Network failure for ${url}`);
+        err.cause = error;
+        throw err;
+      }
+      if(response.status === 404){
+        return { rows: [] };
+      }
+      if(response.status === 409){
+        let payload = null;
+        try { payload = await response.json(); } catch(_err){}
+        const err = new Error('Requires full sync');
+        err.code = 'requires-full-sync';
+        err.body = payload;
+        throw err;
+      }
+      if(!response.ok){
+        const text = await response.text().catch(()=> response.statusText || '');
+        const err = new Error(`HTTP ${response.status}`);
+        err.status = response.status;
+        err.body = text;
+        throw err;
+      }
+      try {
+        return await response.json();
+      } catch(error){
+        const err = new Error('Failed to parse JSON response');
+        err.cause = error;
+        throw err;
+      }
+    };
+
+    const fetchTable = async (table, cursor)=>{
+      const query = cursor ? `?updated_after=${encodeURIComponent(cursor)}` : '';
+      const url = `${restBase}/tables/${table}${query}`;
+      try {
+        return await safeFetch(url);
+      } catch(error){
+        if(error.status === 404) return { rows: [] };
+        throw error;
+      }
+    };
+
+    const fetchRows = async (tables, cursor)=>{
+      const names = Array.isArray(tables) ? tables.filter(Boolean) : [tables];
+      if(!names.length) return [];
+      const responses = await Promise.all(names.map(name=> fetchTable(name, cursor).catch(()=> ({ rows: [] }))));
+      const rows = [];
+      responses.forEach(result=>{
+        if(Array.isArray(result.rows)){
+          result.rows.forEach(row=> rows.push(row));
+        }
+      });
+      return rows;
+    };
+
+    const fetchOrders = async (state={})=>{
+      const sinceOrders = state.ordersUpdatedAt || state.updatedAt || null;
+      const sinceDeliveries = state.deliveriesUpdatedAt || sinceOrders;
+      const sinceHandoff = state.handoffUpdatedAt || sinceOrders;
+      const sinceDrivers = state.driversUpdatedAt || sinceOrders;
+      try {
+        const [
+          headers,
+          details,
+          modifiers,
+          history,
+          expo,
+          deliveryAssignments,
+          deliverySettlements,
+          handoffRows,
+          driversRows
+        ] = await Promise.all([
+          fetchTable('job_order_header', sinceOrders),
+          fetchTable('job_order_detail', sinceOrders),
+          fetchTable('job_order_detail_modifier', sinceOrders),
+          fetchTable('job_order_status_history', sinceOrders),
+          fetchTable('expo_pass_ticket', sinceOrders).catch(()=> ({ rows: [] })),
+          fetchRows(['delivery_assignment', 'order_delivery_assignment', 'kds_delivery_assignment'], sinceDeliveries),
+          fetchRows(['delivery_settlement', 'order_delivery_settlement', 'kds_delivery_settlement'], sinceDeliveries),
+          fetchRows(['order_handoff', 'handoff_status', 'handoff_order', 'kds_handoff'], sinceHandoff),
+          fetchRows(['delivery_driver', 'kds_delivery_driver', 'driver'], sinceDrivers)
+        ]);
+        const payload = {
+          jobOrders:{
+            headers: headers.rows || [],
+            details: details.rows || [],
+            modifiers: modifiers.rows || [],
+            statusHistory: history.rows || []
+          },
+          expoTickets: expo.rows || []
+        };
+        const assignmentRows = Array.isArray(deliveryAssignments) ? deliveryAssignments : [];
+        const settlementRows = Array.isArray(deliverySettlements) ? deliverySettlements : [];
+        const handoffList = Array.isArray(handoffRows) ? handoffRows : [];
+        const driversList = Array.isArray(driversRows) ? driversRows : [];
+        const assignmentsMap = mergeDeliveryRecords(assignmentRows);
+        const settlementsMap = mergeDeliveryRecords(settlementRows);
+        if(Object.keys(assignmentsMap).length || Object.keys(settlementsMap).length){
+          payload.deliveries = {};
+          if(Object.keys(assignmentsMap).length) payload.deliveries.assignments = assignmentsMap;
+          if(Object.keys(settlementsMap).length) payload.deliveries.settlements = settlementsMap;
+        }
+        const handoffMap = mapHandoffRecords(handoffList);
+        if(Object.keys(handoffMap).length){
+          payload.handoff = handoffMap;
+        }
+        const driversNormalized = mapDriversList(driversList).map(cloneRow);
+        if(driversNormalized.length){
+          payload.drivers = driversNormalized;
+        }
+        const updatedAt = computeMaxTimestamp(
+          payload.jobOrders.headers,
+          payload.jobOrders.details,
+          payload.jobOrders.statusHistory,
+          payload.expoTickets
+        );
+        const deliveriesUpdatedAt = computeMaxTimestamp(assignmentRows, settlementRows);
+        const handoffUpdatedAt = computeMaxTimestamp(handoffList);
+        const driversUpdatedAt = computeMaxTimestamp(driversList);
+        const cursor = {
+          ordersUpdatedAt: updatedAt || sinceOrders || state.ordersUpdatedAt || null,
+          deliveriesUpdatedAt: deliveriesUpdatedAt || sinceDeliveries || state.deliveriesUpdatedAt || null,
+          handoffUpdatedAt: handoffUpdatedAt || sinceHandoff || state.handoffUpdatedAt || null,
+          driversUpdatedAt: driversUpdatedAt || sinceDrivers || state.driversUpdatedAt || null
+        };
+        return {
+          payload,
+          cursor,
+          requiresFullSync:false,
+          meta:{ branch }
+        };
+      } catch(error){
+        if(error.code === 'requires-full-sync'){
+          return { payload:null, cursor:null, requiresFullSync:true, error, meta:{ branch } };
+        }
+        console.warn('[Mishkah][KDS] Orders delta fetch failed.', error);
+        return null;
+      }
+    };
+
+    const fetchFullSnapshot = async ()=>{
+      try {
+        return await safeFetch(restBase);
+      } catch(error){
+        console.warn('[Mishkah][KDS] Failed to fetch full snapshot.', error);
+        return null;
+      }
+    };
+
+    return { fetchOrders, fetchFullSnapshot };
+  }
+
+  let kdsStorage = null;
 
   function createEventReplicator(options={}){
     const adapter = options.adapter;
@@ -415,6 +1136,14 @@
       "syncing": {
         "ar": "🔄 مزامنة",
         "en": "🔄 Syncing"
+      },
+      "requiresFullSync": {
+        "ar": "♻️ إعادة التهيئة مطلوبة",
+        "en": "♻️ Full sync required"
+      },
+      "resetting": {
+        "ar": "🧹 جارٍ إعادة التهيئة",
+        "en": "🧹 Resetting"
       }
     },
     "stats": {
@@ -855,14 +1584,7 @@
   const getHandoffOrders = (db)=> computeOrdersSnapshot(db)
     .filter(order=> order.handoffStatus === 'assembled' && (order.serviceMode || 'dine_in') !== 'delivery');
 
-  const cloneJob = (job)=>({
-    ...job,
-    details: Array.isArray(job.details) ? job.details.map(detail=>({
-      ...detail,
-      modifiers: Array.isArray(detail.modifiers) ? detail.modifiers.map(mod=>({ ...mod })) : []
-    })) : [],
-    history: Array.isArray(job.history) ? job.history.map(entry=>({ ...entry })) : []
-  });
+  const cloneJob = (job)=> UnifiedKitchenTicket.fromRecord(job).clone();
 
   const buildJobRecords = (jobOrders)=>{
     if(!jobOrders) return [];
@@ -912,7 +1634,7 @@
       cloned.completedMs = parseTime(cloned.completedAt);
       cloned.updatedMs = parseTime(cloned.updatedAt);
       cloned.dueMs = parseTime(cloned.dueAt);
-      return cloned;
+      return UnifiedKitchenTicket.fromRecord(cloned);
     });
   };
 
@@ -1323,9 +2045,12 @@
   };
 
   const applyJobsUpdate = (state, transform)=>{
-    const list = state.data.jobs.list.map(cloneJob);
-    const nextList = transform(list) || list;
-    const jobs = indexJobs(nextList);
+    const sourceList = Array.isArray(state.data.jobs?.list) ? state.data.jobs.list : [];
+    const list = sourceList.map(cloneJob);
+    const transformed = typeof transform === 'function' ? transform(list) || list : list;
+    const normalizedList = (Array.isArray(transformed) ? transformed : list)
+      .map(job=> UnifiedKitchenTicket.fromRecord(job).clone());
+    const jobs = indexJobs(normalizedList);
     const expoTickets = buildExpoTickets(state.data.expoSource, jobs);
     return {
       ...state,
@@ -1598,7 +2323,42 @@
 
   Mishkah.app.setBody(AppView);
 
-  const database = typeof window !== 'undefined' ? (window.database || {}) : {};
+  let schemaManifest = null;
+  if(typeof window !== 'undefined'){
+    try {
+      if(window.MishkahSchemaManifestPromise && typeof window.MishkahSchemaManifestPromise.then === 'function'){
+        schemaManifest = await window.MishkahSchemaManifestPromise.catch(()=> window.MishkahSchemaManifest || null);
+      } else {
+        schemaManifest = window.MishkahSchemaManifest || null;
+      }
+    } catch(error){
+      console.warn('[Mishkah][KDS] Failed to resolve schema manifest.', error);
+      schemaManifest = (typeof window.MishkahSchemaManifest !== 'undefined') ? window.MishkahSchemaManifest : null;
+    }
+  }
+  const kdsSchemaManifest = schemaManifest && typeof schemaManifest === 'object'
+    ? (schemaManifest.schemas ? schemaManifest.schemas.kds || null : null)
+    : null;
+
+  const branchFromWindow = typeof window !== 'undefined'
+    ? (window.KDS_BRANCH_PARAM || window.MishkahKdsChannel || window.MishkahBranchChannel || null)
+    : null;
+  const storageBranch = normalizeChannelName(branchFromWindow || 'branch-main', 'branch-main');
+
+  kdsStorage = createKdsIndexedDBAdapter({ manifest: kdsSchemaManifest, branch: storageBranch });
+  let persistedDataset = null;
+  if(kdsStorage && typeof kdsStorage.loadSnapshot === 'function'){
+    try { persistedDataset = await kdsStorage.loadSnapshot(); } catch(error){ console.warn('[Mishkah][KDS] Failed to load persisted snapshot.', error); }
+  }
+
+  const baseDatabase = (typeof window !== 'undefined' && window.database && typeof window.database === 'object')
+    ? cloneDeep(window.database)
+    : {};
+  const database = persistedDataset ? mergeDatasetDeep(baseDatabase, persistedDataset) : baseDatabase;
+  if(kdsStorage && !persistedDataset){
+    kdsStorage.saveSnapshot(database, { meta:{ reason:'bootstrap' } }).catch(()=>{});
+  }
+
   const kdsSource = database.kds || {};
   const masterSource = typeof kdsSource.master === 'object' && kdsSource.master ? kdsSource.master : {};
   const settings = typeof database.settings === 'object' && database.settings ? database.settings : {};
@@ -1619,6 +2379,37 @@
   if(typeof window !== 'undefined'){
     window.MishkahKdsChannel = BRANCH_CHANNEL;
   }
+  if(!kdsCacheAdapter){
+    const idbModule = GLOBAL && GLOBAL.MishkahIndexedDB ? GLOBAL.MishkahIndexedDB : null;
+    if(idbModule){
+      const namespace = BRANCH_CHANNEL ? `kds:${BRANCH_CHANNEL}` : 'kds:default';
+      kdsCacheAdapter = idbModule.createAdapter({ name:'mishkah-sync', namespace, version:1 });
+      if(GLOBAL) GLOBAL.__MishkahKdsCacheAdapter__ = kdsCacheAdapter;
+    }
+  }
+  if(kdsCacheAdapter && GLOBAL){
+    GLOBAL.KDS_CACHE = Object.assign({}, GLOBAL.KDS_CACHE || {}, { adapter: kdsCacheAdapter, table: CACHE_TABLE });
+    kdsCacheAdapter.ready
+      .then(async ()=>{
+        try {
+          const cached = await kdsCacheAdapter.load(CACHE_TABLE);
+          if(cached && cached.data && typeof database === 'object'){
+            Object.assign(database, cached.data);
+            GLOBAL.__MishkahCachedKdsSnapshot__ = cached;
+          }
+        } catch(error){
+          console.warn('[Mishkah][KDS] Failed to hydrate from IndexedDB', error);
+        }
+      })
+      .catch((error)=>{
+        console.warn('[Mishkah][KDS] IndexedDB adapter unavailable', error);
+      });
+  }
+
+  const restConfig = typeof window !== 'undefined' ? window.KDS_WS2_DYNAMIC_ENDPOINTS || null : null;
+  const restBase = restConfig && typeof restConfig.restBase === 'string' ? restConfig.restBase.replace(/\/$/, '') : null;
+  const deltaFetcher = createKdsDeltaFetcher({ restBase, fetch: typeof fetch === 'function' ? fetch : null, branch: BRANCH_CHANNEL });
+
   const stations = buildStations(database, kdsSource, masterSource);
   const stationMap = toStationMap(stations);
   const initialStationRoutes = Array.isArray(kdsSource.stationCategoryRoutes)
@@ -1715,16 +2506,110 @@
     ui:{
       modals:{ driver:false },
       modalOpen:false,
-      deliveryAssignment:null
+      deliveryAssignment:null,
+      fullSync:{ state:'idle', reason:null, error:null }
     }
   };
 
   const app = M.app.createApp(initialState, {});
+
+  const resetStateForFullSync = (state={}, info={})=>{
+    const now = Date.now();
+    const reason = info.reason || 'requires-full-sync';
+    const currentData = state.data || {};
+    const filters = currentData.filters || {};
+    const locked = !!filters.lockedSection;
+    const nextFilters = locked ? { ...filters } : { ...filters, activeTab: 'prep' };
+    return {
+      ...state,
+      data:{
+        ...currentData,
+        filters: nextFilters,
+        sync:{
+          ...(currentData.sync || {}),
+          state:'requiresFullSync',
+          requiresFullSync:true,
+          lastMessage: now,
+          reason
+        }
+      },
+      ui:{
+        ...(state.ui || {}),
+        modalOpen:false,
+        modals:{ ...(state.ui?.modals || {}), driver:false },
+        deliveryAssignment:null,
+        fullSync:{ state:'required', reason, error: info.error || null, updatedAt: now }
+      }
+    };
+  };
+
+  const handleFullSyncRequest = (info={})=>{
+    const reason = info.reason || 'requires-full-sync';
+    if(kdsStorage && typeof kdsStorage.reset === 'function'){
+      kdsStorage.reset().catch(()=>{});
+    }
+    app.setState(state=> resetStateForFullSync(state, { reason, error: info.error || null }));
+    if(typeof document !== 'undefined'){
+      try {
+        const lang = (document.documentElement && document.documentElement.lang) || 'ar';
+        const message = lang && lang.toLowerCase().startsWith('en')
+          ? '♻️ Full kitchen sync required. Reloading…'
+          : '♻️ تتطلب الشاشة مزامنة كاملة، سيتم إعادة التهيئة...';
+        let banner = document.getElementById('kds-fullsync-banner');
+        if(!banner){
+          banner = document.createElement('div');
+          banner.id = 'kds-fullsync-banner';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:0.9rem 1.6rem;background:rgba(15,23,42,0.92);color:#f8fafc;font-size:0.95rem;font-weight:600;text-align:center;z-index:9999;box-shadow:0 18px 40px rgba(15,23,42,0.6);';
+          document.body.appendChild(banner);
+        }
+        banner.textContent = message;
+      } catch(_err){}
+    }
+    if(typeof window !== 'undefined'){
+      setTimeout(()=>{ try { window.location.reload(); } catch(_err){} }, 1500);
+    }
+  };
+
   const auto = U.twcss.auto(initialState, app, { pageScaffold:true });
+
+  schedulePersist = createSnapshotPersistor(app, kdsCacheAdapter, CACHE_TABLE);
+  if(kdsCacheAdapter){
+    schedulePersist({ source:'bootstrap', lastSyncAt: Date.now() });
+    if(GLOBAL){
+      const purgeOperational = async ()=>{
+        return kdsCacheAdapter.mutate(CACHE_TABLE, (snapshot)=> clearKdsOperationalData(snapshot), {
+          metadata:{ source:'admin-purge', updatedAt: Date.now(), lastSyncAt: Date.now() },
+          mergeMetadata:true
+        });
+      };
+      GLOBAL.KDS_CACHE = Object.assign({}, GLOBAL.KDS_CACHE || {}, {
+        adapter: kdsCacheAdapter,
+        table: CACHE_TABLE,
+        purgeOperational,
+        clear: ()=> kdsCacheAdapter.clear(CACHE_TABLE)
+      });
+    }
+  }
 
   const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
   const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
-  const syncClient = createKitchenSync(app, { endpoint: wsEndpoint, token: wsToken, channel: BRANCH_CHANNEL });
+  let ws2KdsEventReplicator = null;
+  const wsNotificationDispatcher = createWsDeltaDispatcher({
+    fetchNow: ()=> ws2KdsEventReplicator ? ws2KdsEventReplicator.fetchNow() : Promise.resolve({ appliedCount:0, eventsProcessed:0 }),
+    throttleMs: 1500,
+    debounceMs: 250,
+    label:'kds-sync'
+  });
+
+  const syncClient = createKitchenSync(app, {
+    endpoint: wsEndpoint,
+    token: wsToken,
+    channel: BRANCH_CHANNEL,
+    notificationDispatcher: wsNotificationDispatcher
+    adapter: kdsStorage,
+    deltaFetcher,
+    onRequiresFullSync: handleFullSyncRequest
+  });
   if(syncClient){
     syncClient.connect();
   }
@@ -1748,7 +2633,7 @@
     ?? syncSettings.ws2PollInterval
     ?? 0);
   const kdsEventCursor = createSyncPointerAdapter();
-  const ws2KdsEventReplicator = createEventReplicator({
+  ws2KdsEventReplicator = createEventReplicator({
     adapter: kdsEventCursor,
     branch: BRANCH_CHANNEL,
     endpoint: eventsEndpoint,
@@ -1763,6 +2648,7 @@
           sync:{ ...(state.data.sync || {}), lastMessage: Date.now(), state:'online' }
         }
       }));
+      schedulePersist({ source:'ws2-events', lastSyncAt: Date.now(), lastId: result?.cursor?.appliedEventId || null });
     },
     onError:(error)=>{
       console.warn('[Mishkah][KDS] WS2 event replicator error.', error);
@@ -1803,28 +2689,6 @@
     try{ broadcastChannel.postMessage(payload); } catch(_err){}
   };
 
-  const mergeJobOrders = (current={}, patch={})=>{
-    const mergeList = (base=[], updates=[], key='id')=>{
-      const map = new Map();
-      base.forEach(item=>{
-        if(!item || item[key] == null) return;
-        map.set(String(item[key]), { ...item });
-      });
-      updates.forEach(item=>{
-        if(!item || item[key] == null) return;
-        const id = String(item[key]);
-        map.set(id, Object.assign({}, map.get(id) || {}, item));
-      });
-      return Array.from(map.values());
-    };
-    return {
-      headers: mergeList(Array.isArray(current.headers) ? current.headers : [], Array.isArray(patch.headers) ? patch.headers : []),
-      details: mergeList(Array.isArray(current.details) ? current.details : [], Array.isArray(patch.details) ? patch.details : []),
-      modifiers: mergeList(Array.isArray(current.modifiers) ? current.modifiers : [], Array.isArray(patch.modifiers) ? patch.modifiers : []),
-      statusHistory: mergeList(Array.isArray(current.statusHistory) ? current.statusHistory : [], Array.isArray(patch.statusHistory) ? patch.statusHistory : [])
-    };
-  };
-
   const applyJobUpdateMessage = (appInstance, data={}, meta={})=>{
     const jobId = data.jobId || data.id;
     const patch = data.payload && typeof data.payload === 'object' ? data.payload : {};
@@ -1863,6 +2727,7 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyDeliveryUpdateMessage = (appInstance, data={}, meta={})=>{
@@ -1894,10 +2759,11 @@
         ...baseNext,
         data:{
           ...baseNext.data,
-          sync
+        sync
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyHandoffUpdateMessage = (appInstance, data={}, meta={})=>{
@@ -1926,12 +2792,27 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   const applyRemoteOrder = (appInstance, payload={}, meta={})=>{
+    if(kdsStorage && typeof kdsStorage.applyOrdersDelta === 'function'){
+      try {
+        const storagePayload = Object.assign({}, payload, {
+          jobOrders: Object.assign({}, payload.jobOrders || {}, {
+            expoPassTickets: Array.isArray(payload.jobOrders?.expoPassTickets)
+              ? payload.jobOrders.expoPassTickets.map(entry=> ({ ...entry }))
+              : (Array.isArray(payload.expoTickets) ? payload.expoTickets.map(entry=> ({ ...entry })) : [])
+          })
+        });
+        Promise.resolve()
+          .then(()=> kdsStorage.applyOrdersDelta(storagePayload, { meta }))
+          .catch(()=>{});
+      } catch(_err){}
+    }
     if(!payload || !payload.jobOrders) return;
     appInstance.setState(state=>{
-      const mergedOrders = mergeJobOrders(state.data.jobOrders || {}, payload.jobOrders);
+      const mergedOrders = mergeJobOrderCollections(state.data.jobOrders || {}, payload.jobOrders);
       const jobRecordsNext = buildJobRecords(mergedOrders);
       const jobsIndexedNext = indexJobs(jobRecordsNext);
       const expoSourcePatch = Array.isArray(payload.jobOrders?.expoPassTickets)
@@ -2059,6 +2940,7 @@
         }
       };
     });
+    schedulePersist(meta);
   };
 
   function createKitchenSync(appInstance, options={}){
@@ -2071,17 +2953,48 @@
       console.warn('[Mishkah][KDS] Missing WebSocket endpoint. Sync is disabled.');
     }
     if(!WebSocketX || !endpoint) return null;
+
+    const adapter = options.adapter || null;
+    const deltaFetcher = options.deltaFetcher || null;
+    const onRequiresFullSync = typeof options.onRequiresFullSync === 'function' ? options.onRequiresFullSync : null;
+
     const channelName = options.channel ? normalizeChannelName(options.channel, BRANCH_CHANNEL) : '';
     const topicPrefix = channelName ? `${channelName}:` : '';
     const topicOrders = options.topicOrders || `${topicPrefix}pos:kds:orders`;
     const topicJobs = options.topicJobs || `${topicPrefix}kds:jobs:updates`;
     const topicDelivery = options.topicDelivery || `${topicPrefix}kds:delivery:updates`;
     const topicHandoff = options.topicHandoff || `${topicPrefix}kds:handoff:updates`;
+    const notificationDispatcher = options.notificationDispatcher;
     const token = options.token;
+
+    const fetchSyncState = async ()=>{
+      if(!adapter || typeof adapter.getSyncState !== 'function') return {};
+      try {
+        return await adapter.getSyncState();
+      } catch(error){
+        console.warn('[Mishkah][KDS] Failed to load sync cursor from adapter.', error);
+        return {};
+      }
+    };
+
+    const handleFullSync = (context={})=>{
+      if(!onRequiresFullSync) return;
+      try { onRequiresFullSync(context); } catch(handlerErr){ console.warn('[Mishkah][KDS] Full sync handler failed.', handlerErr); }
+    };
+
     let socket = null;
     let ready = false;
     let awaitingAuth = false;
     const queue = [];
+    let deltaQueue = Promise.resolve();
+
+    const enqueueDelta = (runner)=>{
+      deltaQueue = deltaQueue.then(()=> runner()).catch(error=>{
+        console.warn('[Mishkah][KDS] Delta processing failed.', error);
+      });
+      return deltaQueue;
+    };
+
     const sendEnvelope = (payload)=>{
       if(!socket) return;
       if(ready && !awaitingAuth){
@@ -2090,16 +3003,127 @@
         queue.push(payload);
       }
     };
+
     const flushQueue = ()=>{
       if(!ready || awaitingAuth) return;
       while(queue.length){
         socket.send(queue.shift());
       }
     };
+
+    const applyOrdersDelta = async (meta={}, fallbackPayload=null, fallbackHandler=null, expectKeys=null)=>{
+      if(!deltaFetcher || typeof deltaFetcher.fetchOrders !== 'function'){
+        if(typeof fallbackHandler === 'function'){
+          fallbackHandler();
+        } else if(fallbackPayload){
+          applyRemoteOrder(appInstance, fallbackPayload, meta);
+        }
+        return false;
+      }
+      let result = null;
+      try {
+        const state = await fetchSyncState();
+        result = await deltaFetcher.fetchOrders(state);
+      } catch(error){
+        console.warn('[Mishkah][KDS] Orders delta fetch failed.', error);
+        result = null;
+      }
+      if(!result){
+        if(typeof fallbackHandler === 'function'){
+          fallbackHandler();
+        } else if(fallbackPayload){
+          applyRemoteOrder(appInstance, fallbackPayload, meta);
+        }
+        return false;
+      }
+      if(result.requiresFullSync){
+        handleFullSync({ reason:'orders-delta', meta: result.meta || {}, error: result.error || null });
+        if(Array.isArray(expectKeys) && expectKeys.includes('*') && typeof fallbackHandler === 'function'){
+          fallbackHandler();
+        }
+        return true;
+      }
+      if(result.payload){
+        const normalizedPayload = Object.assign({}, result.payload, {
+          jobOrders: Object.assign({}, result.payload.jobOrders || {}, {
+            expoPassTickets: Array.isArray(result.payload.expoTickets)
+              ? result.payload.expoTickets.map(entry=> ({ ...entry }))
+              : (result.payload.jobOrders?.expoPassTickets || [])
+          })
+        });
+        if(adapter && typeof adapter.applyOrdersDelta === 'function'){
+          try { await adapter.applyOrdersDelta(normalizedPayload, { cursor: result.cursor || {}, meta }); } catch(error){ console.warn('[Mishkah][KDS] Failed to persist delta snapshot.', error); }
+        }
+        applyRemoteOrder(appInstance, normalizedPayload, meta);
+        const expectations = Array.isArray(expectKeys) ? expectKeys : (expectKeys ? ['*'] : []);
+        const shouldFallback = expectations.some((key)=>{
+          if(key === '*') return true;
+          if(key === 'deliveries'){
+            const deliveries = normalizedPayload.deliveries || {};
+            const assignments = deliveries.assignments || {};
+            const settlements = deliveries.settlements || {};
+            return !Object.keys(assignments).length && !Object.keys(settlements).length;
+          }
+          if(key === 'handoff'){
+            const handoff = normalizedPayload.handoff || {};
+            return !Object.keys(handoff).length;
+          }
+          if(key === 'drivers'){
+            const drivers = normalizedPayload.drivers;
+            return !Array.isArray(drivers) || !drivers.length;
+          }
+          if(key === 'jobOrders'){
+            const jobOrders = normalizedPayload.jobOrders || {};
+            const total = ['headers','details','modifiers','statusHistory']
+              .reduce((acc, field)=> acc + (Array.isArray(jobOrders[field]) ? jobOrders[field].length : 0), 0);
+            return total === 0;
+          }
+          if(key === 'expoTickets'){
+            const tickets = normalizedPayload.expoTickets;
+            return !Array.isArray(tickets) || !tickets.length;
+          }
+          const value = normalizedPayload[key];
+          if(value == null) return true;
+          if(Array.isArray(value)) return !value.length;
+          if(typeof value === 'object') return !Object.keys(value).length;
+          return false;
+        });
+        if(shouldFallback){
+          if(typeof fallbackHandler === 'function') fallbackHandler();
+          else if(fallbackPayload){
+            applyRemoteOrder(appInstance, fallbackPayload, meta);
+          }
+        }
+        return true;
+      }
+      if(typeof fallbackHandler === 'function'){
+        fallbackHandler();
+      } else if(fallbackPayload){
+        applyRemoteOrder(appInstance, fallbackPayload, meta);
+      }
+      return false;
+    };
+
     socket = new WebSocketX(endpoint, {
       autoReconnect:true,
       ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
     });
+
+    const dispatchNotification = (topicKey, payload, meta={})=>{
+      if(!notificationDispatcher || typeof notificationDispatcher.notify !== 'function') return false;
+      try {
+        return notificationDispatcher.notify({
+          topic: topicKey,
+          channel: channelName || BRANCH_CHANNEL,
+          payload,
+          meta
+        }) === true;
+      } catch(error){
+        console.warn('[Mishkah][KDS] Notification dispatcher failed.', error);
+        return false;
+      }
+    };
+
     socket.on('open', ()=>{
       ready = true;
       console.info('[Mishkah][KDS] Sync connection opened.', { endpoint });
@@ -2139,17 +3163,42 @@
         return;
       }
       if(msg.type === 'publish'){
+        const meta = msg.meta || {};
         if(msg.topic === topicOrders){
-          applyRemoteOrder(appInstance, msg.data || {}, msg.meta || {});
+          const dispatched = dispatchNotification('orders', msg.data || {}, meta);
+          if(!dispatched){
+            applyRemoteOrder(appInstance, msg.data || {}, meta);
+          }
         }
         if(msg.topic === topicJobs){
-          applyJobUpdateMessage(appInstance, msg.data || {}, msg.meta || {});
+          const dispatched = dispatchNotification('jobs', msg.data || {}, meta);
+          if(!dispatched){
+            applyJobUpdateMessage(appInstance, msg.data || {}, meta);
+          }
         }
         if(msg.topic === topicDelivery){
-          applyDeliveryUpdateMessage(appInstance, msg.data || {}, msg.meta || {});
+          const dispatched = dispatchNotification('delivery', msg.data || {}, meta);
+          if(!dispatched){
+            applyDeliveryUpdateMessage(appInstance, msg.data || {}, meta);
+          }
         }
         if(msg.topic === topicHandoff){
-          applyHandoffUpdateMessage(appInstance, msg.data || {}, msg.meta || {});
+          const dispatched = dispatchNotification('handoff', msg.data || {}, meta);
+          if(!dispatched){
+            applyHandoffUpdateMessage(appInstance, msg.data || {}, meta);
+          }
+        const data = msg.data || {};
+        if(msg.topic === topicOrders){
+          enqueueDelta(()=> applyOrdersDelta(meta, data, ()=> applyRemoteOrder(appInstance, data, meta)));
+        }
+        if(msg.topic === topicJobs){
+          enqueueDelta(()=> applyOrdersDelta(meta, null, ()=> applyJobUpdateMessage(appInstance, data, meta)));
+        }
+        if(msg.topic === topicDelivery){
+          enqueueDelta(()=> applyOrdersDelta(meta, null, ()=> applyDeliveryUpdateMessage(appInstance, data, meta), ['deliveries']));
+        }
+        if(msg.topic === topicHandoff){
+          enqueueDelta(()=> applyOrdersDelta(meta, null, ()=> applyHandoffUpdateMessage(appInstance, data, meta), ['handoff']));
         }
         return;
       }

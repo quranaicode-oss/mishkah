@@ -6,6 +6,7 @@ import { createId, nowIso, deepClone, mergeDeep } from './utils.js';
 
 const EVENT_LOG_BASENAME = 'events.log';
 const EVENT_META_BASENAME = 'events.meta.json';
+const EVENT_REJECTION_BASENAME = 'events.rejected.log';
 
 function normalizeContext(options = {}) {
   if (!options || !options.liveDir) {
@@ -19,6 +20,7 @@ function normalizeContext(options = {}) {
   };
   context.logPath = options.logPath || path.join(context.liveDir, EVENT_LOG_BASENAME);
   context.metaPath = options.metaPath || path.join(context.liveDir, EVENT_META_BASENAME);
+  context.rejectionLogPath = options.rejectionLogPath || path.join(context.liveDir, EVENT_REJECTION_BASENAME);
   context.historyDir = context.historyDir || path.join(context.liveDir, 'history');
   return context;
 }
@@ -246,6 +248,28 @@ export async function updateEventMeta(options, patch) {
   next.updatedAt = nowIso();
   await writeMeta(context, next);
   return next;
+}
+
+export async function logRejectedMutation(options, details = {}) {
+  const context = normalizeContext(options);
+  await ensureDir(context.liveDir);
+  const now = nowIso();
+  const entry = {
+    id: details.id || createId('rej'),
+    branchId: details.branchId || context.branchId,
+    moduleId: details.moduleId || context.moduleId,
+    reason: details.reason || 'rejected-mutation',
+    createdAt: details.createdAt || now,
+    recordedAt: now,
+    source: details.source || null,
+    mutationId: details.mutationId || null,
+    transId: details.transId || null,
+    table: details.table || null,
+    meta: details.meta ? deepClone(details.meta) : {},
+    payload: details.payload ? deepClone(details.payload) : null
+  };
+  await appendFile(context.rejectionLogPath, `${JSON.stringify(entry)}\n`, 'utf8');
+  return entry;
 }
 
 export async function rotateEventLog(options) {

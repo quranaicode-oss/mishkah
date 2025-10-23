@@ -7,7 +7,17 @@ import { WebSocketServer } from 'ws';
 import { Pool } from 'pg';
 
 import logger from './logger.js';
-import { getEventStoreContext, appendEvent as appendModuleEvent, loadEventMeta, updateEventMeta, rotateEventLog, listArchivedLogs, readLogFile, discardLogFile } from './eventStore.js';
+import {
+  getEventStoreContext,
+  appendEvent as appendModuleEvent,
+  loadEventMeta,
+  updateEventMeta,
+  rotateEventLog,
+  listArchivedLogs,
+  readLogFile,
+  discardLogFile,
+  logRejectedMutation
+} from './eventStore.js';
 import { createId, nowIso, safeJsonParse, deepClone } from './utils.js';
 import SchemaEngine from './schema/engine.js';
 import ModuleStore from './moduleStore.js';
@@ -37,6 +47,60 @@ const EVENTS_PG_URL = process.env.WS2_EVENTS_PG_URL || process.env.EVENTS_PG_URL
 const EVENT_ARCHIVER_DISABLED = ['1', 'true', 'yes'].includes(
   String(process.env.WS2_EVENT_ARCHIVE_DISABLED || process.env.EVENT_ARCHIVE_DISABLED || '').toLowerCase()
 );
+const METRICS_ENABLED = !['0', 'false', 'no', 'off'].includes(
+  String(process.env.WS2_METRICS || process.env.WS2_ENABLE_METRICS || '1').toLowerCase()
+);
+const PROM_EXPORTER_PREFERRED = METRICS_ENABLED && !['0', 'false', 'no', 'off'].includes(
+  String(process.env.WS2_PROMETHEUS_DISABLED || process.env.WS2_DISABLE_PROMETHEUS || '').toLowerCase()
+);
+
+const metricsState = {
+  enabled: METRICS_ENABLED,
+  prom: { client: null, register: null, counters: {}, histograms: {} },
+  ws: { broadcasts: 0, frames: 0 },
+  ajax: { requests: 0, totalDurationMs: 0 },
+  http: { requests: 0 }
+};
+
+if (PROM_EXPORTER_PREFERRED) {
+  (async () => {
+    try {
+      const prom = await import('prom-client');
+      metricsState.prom.client = prom;
+      metricsState.prom.register = prom.register;
+      if (typeof prom.collectDefaultMetrics === 'function') {
+        prom.collectDefaultMetrics();
+      }
+      metricsState.prom.counters.wsBroadcasts = new prom.Counter({
+        name: 'ws2_ws_broadcast_events_total',
+        help: 'Total websocket broadcast payloads sent by channel',
+        labelNames: ['channel']
+      });
+      metricsState.prom.counters.wsFrames = new prom.Counter({
+        name: 'ws2_ws_frames_delivered_total',
+        help: 'Total websocket frames delivered to clients',
+        labelNames: ['channel']
+      });
+      metricsState.prom.counters.httpRequests = new prom.Counter({
+        name: 'ws2_http_requests_total',
+        help: 'Total HTTP requests processed by the WS2 gateway',
+        labelNames: ['kind', 'method']
+      });
+      metricsState.prom.histograms.ajaxDuration = new prom.Histogram({
+        name: 'ws2_ajax_request_duration_ms',
+        help: 'Duration of AJAX (REST) requests in milliseconds',
+        labelNames: ['method'],
+        buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2000]
+      });
+    } catch (error) {
+      logger.info({ err: error }, 'Prometheus exporter disabled; prom-client not available');
+      metricsState.prom.client = null;
+      metricsState.prom.register = null;
+      metricsState.prom.counters = {};
+      metricsState.prom.histograms = {};
+    }
+  })();
+}
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -155,6 +219,19 @@ function getModuleEventStoreContext(branchId, moduleId) {
   const liveDir = getModuleLiveDir(branchId, moduleId);
   const historyDir = path.join(getModuleHistoryDir(branchId, moduleId), 'events');
   return getEventStoreContext({ branchId, moduleId, liveDir, historyDir });
+}
+
+async function recordRejectedMutation(branchId, moduleId, details = {}) {
+  try {
+    const context = getModuleEventStoreContext(branchId, moduleId);
+    await logRejectedMutation(context, {
+      branchId,
+      moduleId,
+      ...details
+    });
+  } catch (error) {
+    logger.warn({ err: error, branchId, moduleId }, 'Failed to record rejected mutation');
+  }
 }
 
 async function ensureBranchModuleLayout(branchId, moduleId) {
@@ -664,12 +741,82 @@ function evaluateConcurrencyGuards(store, tableName, record, concurrency, option
 }
 
 
+function recordWsBroadcast(channel, deliveredCount = 0) {
+  if (!metricsState.enabled) return;
+  const normalizedChannel = channel || 'unknown';
+  metricsState.ws.broadcasts += 1;
+  if (Number.isFinite(deliveredCount) && deliveredCount > 0) {
+    metricsState.ws.frames += deliveredCount;
+  }
+  if (metricsState.prom.counters.wsBroadcasts) {
+    metricsState.prom.counters.wsBroadcasts.inc({ channel: normalizedChannel }, 1);
+  }
+  if (metricsState.prom.counters.wsFrames && Number.isFinite(deliveredCount) && deliveredCount > 0) {
+    metricsState.prom.counters.wsFrames.inc({ channel: normalizedChannel }, deliveredCount);
+  }
+}
+
+function recordHttpRequest(method, isAjax, durationMs = 0) {
+  if (!metricsState.enabled) return;
+  const normalizedMethod = String(method || 'GET').toUpperCase();
+  metricsState.http.requests += 1;
+  if (metricsState.prom.counters.httpRequests) {
+    metricsState.prom.counters.httpRequests.inc({ kind: isAjax ? 'ajax' : 'http', method: normalizedMethod }, 1);
+  }
+  if (isAjax) {
+    const duration = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
+    metricsState.ajax.requests += 1;
+    metricsState.ajax.totalDurationMs += duration;
+    if (metricsState.prom.histograms.ajaxDuration) {
+      metricsState.prom.histograms.ajaxDuration.observe({ method: normalizedMethod }, duration);
+    }
+  }
+}
+
+async function renderMetrics() {
+  if (!metricsState.enabled) {
+    return '# HELP ws2_metrics_disabled WS2 metrics disabled\n# TYPE ws2_metrics_disabled gauge\nws2_metrics_disabled 1\n';
+  }
+  if (metricsState.prom.register && typeof metricsState.prom.register.metrics === 'function') {
+    try {
+      return await metricsState.prom.register.metrics();
+    } catch (error) {
+      logger.warn({ err: error }, 'Failed to collect Prometheus metrics; falling back to in-memory snapshot');
+    }
+  }
+  const avgAjax = metricsState.ajax.requests
+    ? metricsState.ajax.totalDurationMs / metricsState.ajax.requests
+    : 0;
+  const lines = [
+    '# HELP ws2_ws_broadcast_total Total websocket broadcast payloads',
+    '# TYPE ws2_ws_broadcast_total counter',
+    `ws2_ws_broadcast_total ${metricsState.ws.broadcasts}`,
+    '# HELP ws2_ws_frames_total Total websocket frames delivered',
+    '# TYPE ws2_ws_frames_total counter',
+    `ws2_ws_frames_total ${metricsState.ws.frames}`,
+    '# HELP ws2_http_requests_total Total HTTP requests handled by WS2',
+    '# TYPE ws2_http_requests_total counter',
+    `ws2_http_requests_total ${metricsState.http.requests}`,
+    '# HELP ws2_ajax_requests_total Total AJAX/REST requests handled by WS2',
+    '# TYPE ws2_ajax_requests_total counter',
+    `ws2_ajax_requests_total ${metricsState.ajax.requests}`,
+    '# HELP ws2_ajax_request_duration_avg_ms Average AJAX/REST duration in milliseconds',
+    '# TYPE ws2_ajax_request_duration_avg_ms gauge',
+    `ws2_ajax_request_duration_avg_ms ${avgAjax.toFixed(2)}`,
+    '# HELP ws2_metrics_timestamp_seconds Timestamp when metrics snapshot generated',
+    '# TYPE ws2_metrics_timestamp_seconds gauge',
+    `ws2_metrics_timestamp_seconds ${Math.round(Date.now() / 1000)}`
+  ];
+  return `${lines.join('\n')}\n`;
+}
+
 
 const PUBSUB_TYPES = new Set(['auth', 'subscribe', 'publish', 'ping', 'pong']);
 const LEGACY_POS_TOPIC_PREFIX = 'pos:sync:';
 const SYNC_TOPIC_PREFIX = 'sync::';
 const PUBSUB_TOPICS = new Map(); // topic => { subscribers:Set<string>, lastData:object|null }
 const SYNC_STATES = new Map(); // key => { branchId, moduleId, version, moduleSnapshot, updatedAt }
+const FULL_SYNC_FLAGS = new Map(); // key => { id, branchId, moduleId, enabled, reason, requestedBy, updatedAt }
 const TRANS_HISTORY_LIMIT = Math.max(50, Number(process.env.WS2_TRANS_HISTORY_LIMIT) || 500);
 const TRANS_MUTATION_HISTORY_LIMIT = Math.max(5, Number(process.env.WS2_TRANS_MUTATION_HISTORY_LIMIT) || 25);
 const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object,mutationIds:Set<string>,lastAckMutationId?:string}> }
@@ -705,6 +852,81 @@ function getSyncTopics(branchId, moduleId) {
     topics.push(`${LEGACY_POS_TOPIC_PREFIX}${safeBranch}`);
   }
   return topics;
+}
+
+function fullSyncKey(branchId, moduleId = '*') {
+  const safeBranch = branchId || 'default';
+  const safeModule = moduleId || '*';
+  return `${safeBranch}::${safeModule}`;
+}
+
+function listFullSyncFlags(filter = {}) {
+  const entries = Array.from(FULL_SYNC_FLAGS.values());
+  const branchId = filter.branchId || null;
+  const moduleId = filter.moduleId || null;
+  return entries.filter((entry) => {
+    if (branchId && entry.branchId !== branchId) return false;
+    if (moduleId && entry.moduleId !== moduleId && entry.moduleId !== '*') return false;
+    return true;
+  });
+}
+
+function serializeFullSyncFlag(entry) {
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    branchId: entry.branchId,
+    moduleId: entry.moduleId,
+    enabled: entry.enabled,
+    reason: entry.reason || null,
+    requestedBy: entry.requestedBy || null,
+    updatedAt: entry.updatedAt,
+    meta: entry.meta || null,
+    clearedBy: entry.clearedBy || null
+  };
+}
+
+function isFullSyncFlagActive(branchId, moduleId) {
+  return listFullSyncFlags({ branchId, moduleId }).some((entry) => entry.enabled);
+}
+
+function getActiveFullSyncFlags(branchId, moduleId = null) {
+  return listFullSyncFlags({ branchId, moduleId }).filter((entry) => entry.enabled);
+}
+
+function upsertFullSyncFlag(branchId, moduleId = '*', options = {}) {
+  const key = fullSyncKey(branchId, moduleId);
+  const now = nowIso();
+  const next = {
+    id: options.id || FULL_SYNC_FLAGS.get(key)?.id || createId('fsync'),
+    branchId,
+    moduleId,
+    enabled: options.enabled !== false,
+    reason: options.reason || FULL_SYNC_FLAGS.get(key)?.reason || null,
+    requestedBy: options.requestedBy || FULL_SYNC_FLAGS.get(key)?.requestedBy || null,
+    updatedAt: now
+  };
+  if (options.meta && typeof options.meta === 'object') {
+    next.meta = { ...FULL_SYNC_FLAGS.get(key)?.meta, ...options.meta };
+  } else if (FULL_SYNC_FLAGS.get(key)?.meta) {
+    next.meta = { ...FULL_SYNC_FLAGS.get(key).meta };
+  }
+  FULL_SYNC_FLAGS.set(key, next);
+  return next;
+}
+
+function disableFullSyncFlag(branchId, moduleId = '*', options = {}) {
+  const key = fullSyncKey(branchId, moduleId);
+  const existing = FULL_SYNC_FLAGS.get(key);
+  if (!existing) return null;
+  const next = {
+    ...existing,
+    enabled: false,
+    updatedAt: nowIso(),
+    clearedBy: options.requestedBy || options.clearedBy || existing.clearedBy || null
+  };
+  FULL_SYNC_FLAGS.set(key, next);
+  return next;
 }
 
 function transHistoryKey(branchId, moduleId) {
@@ -1618,6 +1840,14 @@ async function applySyncSnapshot(branchId, moduleId, snapshot = {}, context = {}
     if (error?.code === 'INSERT_ONLY_VIOLATION') {
       const counts = { before: summarizeTableCounts(SYNC_STATES.get(key)?.moduleSnapshot || {}), after: summarizeTableCounts(moduleSnapshot || {}) };
       logger.warn({ branchId, moduleId, violation: error.details, counts }, 'Rejected destructive sync snapshot');
+      await recordRejectedMutation(branchId, moduleId, {
+        reason: 'insert-only-violation',
+        source: context.origin || context.source || 'snapshot',
+        mutationId: context.mutationId || null,
+        transId: context.transId || null,
+        table: error.details?.tableName || null,
+        meta: { ...error.details, counts }
+      });
       throw error;
     }
     logger.warn({ err: error, branchId, moduleId }, 'Failed to persist sync snapshot');
@@ -1688,6 +1918,11 @@ function buildSyncPublishData(state, overrides = {}) {
     ...(baseFrame.meta || {}),
     ...(overrides.meta || {})
   };
+  const activeFlags = getActiveFullSyncFlags(state.branchId, state.moduleId);
+  if (activeFlags.length) {
+    meta.fullSyncRequired = true;
+    meta.fullSyncFlags = activeFlags.map((entry) => serializeFullSyncFlag(entry));
+  }
   const payload = {
     action: overrides.action || baseFrame.action || 'snapshot',
     branchId: state.branchId,
@@ -1710,11 +1945,15 @@ async function broadcastPubsub(topic, data) {
   const record = await ensurePubsubTopic(topic);
   record.lastData = deepClone(data);
   const frame = { type: 'publish', topic, data: deepClone(data) };
+  let delivered = 0;
   for (const clientId of record.subscribers) {
     const target = clients.get(clientId);
     if (!target) continue;
-    sendToClient(target, frame);
+    if (sendToClient(target, frame)) {
+      delivered += 1;
+    }
   }
+  recordWsBroadcast('pubsub', delivered);
 }
 
 function isPubsubFrame(payload) {
@@ -1727,6 +1966,12 @@ async function broadcastSyncUpdate(branchId, moduleId, state, options = {}) {
   const topics = getSyncTopics(branchId, moduleId);
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
+  }
+  const frameData = options.frameData && typeof options.frameData === 'object' ? options.frameData : {};
+  const branchTopics = resolveBranchTopicsFromFrame(frameData, payload);
+  if (branchTopics.size) {
+    const detail = buildBranchDeltaDetail(branchId, payload, frameData);
+    await broadcastBranchTopics(branchId, branchTopics, detail);
   }
   return payload;
 }
@@ -1742,6 +1987,127 @@ function getTableNoticeTopics(branchId, moduleId, tableName) {
   ];
 }
 
+function normalizeTableIdentifier(value) {
+  if (value == null) return '';
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function resolveBranchTopicSuffixFromTable(tableName) {
+  const normalized = normalizeTableIdentifier(tableName);
+  if (!normalized) return null;
+  if (
+    normalized === 'orders' ||
+    normalized === 'order' ||
+    normalized === 'order_headers' ||
+    normalized === 'orderheaders' ||
+    normalized === 'job_orders' ||
+    normalized === 'joborders'
+  ) {
+    return 'pos:kds:orders';
+  }
+  if (
+    normalized === 'jobs' ||
+    normalized === 'kds_jobs' ||
+    normalized === 'kdsjobs' ||
+    normalized === 'job_queue' ||
+    normalized === 'jobqueue'
+  ) {
+    return 'kds:jobs:updates';
+  }
+  if (
+    normalized === 'payments' ||
+    normalized === 'payment_records' ||
+    normalized === 'paymentrecords' ||
+    normalized === 'order_payments' ||
+    normalized === 'pos_payments' ||
+    normalized === 'pospayments'
+  ) {
+    return 'pos:payments';
+  }
+  return null;
+}
+
+function resolveBranchTopicsFromFrame(frame = {}, payload = {}) {
+  const topics = new Set();
+  if (!frame || typeof frame !== 'object') frame = {};
+  const orderCandidates = [frame.order, frame.orders, frame.jobOrders];
+  if (orderCandidates.some((value) => value && (Array.isArray(value) || typeof value === 'object'))) {
+    topics.add('pos:kds:orders');
+  }
+  if (frame.orderId || frame.orderID) {
+    topics.add('pos:kds:orders');
+  }
+  if (frame.jobId || frame.job || frame.jobs || frame.jobOrders) {
+    topics.add('kds:jobs:updates');
+  }
+  if (frame.payment || frame.payments || frame.paymentId || frame.paymentID) {
+    topics.add('pos:payments');
+  }
+  const tableCandidates = [
+    frame.table,
+    frame.tableName,
+    frame.targetTable,
+    frame.meta?.table,
+    frame.meta?.tableName,
+    payload?.meta?.table,
+    payload?.table
+  ];
+  for (const candidate of tableCandidates) {
+    const suffix = resolveBranchTopicSuffixFromTable(candidate);
+    if (suffix) topics.add(suffix);
+  }
+  return topics;
+}
+
+function buildBranchDeltaDetail(branchId, payload = {}, frame = {}) {
+  const detail = {
+    type: 'branch:delta',
+    branchId,
+    moduleId: payload?.moduleId || frame?.moduleId || 'pos',
+    action: payload?.action || frame?.action || 'update',
+    version: payload?.version || null,
+    mutationId: payload?.mutationId || frame?.mutationId || null
+  };
+  if (frame?.orderId || frame?.order_id) {
+    detail.orderId = frame.orderId || frame.order_id;
+  }
+  if (frame?.order && typeof frame.order === 'object' && frame.order.id !== undefined) {
+    detail.orderId = frame.order.id;
+  }
+  if (frame?.jobId || frame?.job_id) {
+    detail.jobId = frame.jobId || frame.job_id;
+  }
+  if (frame?.paymentId || frame?.payment_id) {
+    detail.paymentId = frame.paymentId || frame.payment_id;
+  }
+  if (payload?.meta && typeof payload.meta === 'object') {
+    detail.meta = deepClone(payload.meta);
+  } else if (frame?.meta && typeof frame.meta === 'object') {
+    detail.meta = deepClone(frame.meta);
+  }
+  return detail;
+}
+
+async function broadcastBranchTopics(branchId, suffixes, detail = {}) {
+  if (!suffixes || !suffixes.size) return;
+  const safeBranch = branchId || 'default';
+  for (const suffix of suffixes) {
+    if (!suffix) continue;
+    const topic = `${safeBranch}:${suffix}`;
+    const payload = {
+      ...deepClone(detail),
+      branchId: safeBranch,
+      topic: suffix,
+      publishedAt: nowIso()
+    };
+    await broadcastPubsub(topic, payload);
+  }
+}
+
 async function broadcastTableNotice(branchId, moduleId, tableName, notice = {}) {
   const payload = {
     type: 'table:update',
@@ -1753,6 +2119,22 @@ async function broadcastTableNotice(branchId, moduleId, tableName, notice = {}) 
   const topics = getTableNoticeTopics(branchId, moduleId, tableName);
   for (const topic of topics) {
     await broadcastPubsub(topic, payload);
+  }
+  const branchSuffix = resolveBranchTopicSuffixFromTable(tableName);
+  if (branchSuffix) {
+    const detail = {
+      type: 'branch:table-notice',
+      table: normalizeTableIdentifier(tableName),
+      moduleId,
+      action: notice.action || payload.action || 'table:update',
+      eventId: notice.eventId || null,
+      sequence: notice.sequence || null,
+      recordRef: notice.recordRef || null
+    };
+    if (notice.meta && typeof notice.meta === 'object') {
+      detail.meta = deepClone(notice.meta);
+    }
+    await broadcastBranchTopics(branchId, new Set([branchSuffix]), detail);
   }
   return payload;
 }
@@ -1853,6 +2235,19 @@ async function handlePubsubFrame(client, frame) {
             requestedMutationId,
             previousMutationId
           }, 'Duplicate trans_id acknowledged without reapplying payload.');
+          await recordRejectedMutation(descriptor.branchId, descriptor.moduleId, {
+            reason: 'duplicate-trans-id',
+            source: 'ws-publish',
+            transId,
+            mutationId: requestedMutationId || previousMutationId || null,
+            meta: {
+              previousMutationId: previousMutationId || null,
+              clientId: client.id,
+              topic,
+              duplicateTrans: true
+            },
+            payload: frameData
+          });
           sendToClient(client, { type: 'publish', topic, data: ackPayload });
           return;
         }
@@ -1871,23 +2266,36 @@ async function handlePubsubFrame(client, frame) {
               meta: frameData.meta || {}
             });
             state = result.state;
-            if (result.order) {
-              frameData.order = result.order;
-              frameData.meta = {
-                ...(frameData.meta && typeof frameData.meta === 'object' ? frameData.meta : {}),
-                persisted: true,
-                persistedAt: result.order.savedAt || result.order.updatedAt || Date.now(),
-                persistedAtIso: new Date(
-                  result.order.savedAt || result.order.updatedAt || Date.now()
-                ).toISOString(),
-                branchId: descriptor.branchId,
-                moduleId: descriptor.moduleId,
-                existing: result.existing
-              };
-              if (result.existing) {
-                frameData.existing = true;
-              }
+          if (result.order) {
+            frameData.order = result.order;
+            frameData.meta = {
+              ...(frameData.meta && typeof frameData.meta === 'object' ? frameData.meta : {}),
+              persisted: true,
+              persistedAt: result.order.savedAt || result.order.updatedAt || Date.now(),
+              persistedAtIso: new Date(
+                result.order.savedAt || result.order.updatedAt || Date.now()
+              ).toISOString(),
+              branchId: descriptor.branchId,
+              moduleId: descriptor.moduleId,
+              existing: result.existing
+            };
+            if (result.existing) {
+              frameData.existing = true;
+              await recordRejectedMutation(descriptor.branchId, descriptor.moduleId, {
+                reason: 'duplicate-order',
+                source: 'ws-pos-order',
+                transId,
+                mutationId: frameData.mutationId || null,
+                meta: {
+                  orderId: result.order.id,
+                  clientId: client.id,
+                  existing: true,
+                  topic
+                },
+                payload: frameData
+              });
             }
+          }
           } catch (error) {
             logger.warn(
               { err: error, branchId: descriptor.branchId, moduleId: descriptor.moduleId, orderId: frameData.order?.id },
@@ -2588,6 +2996,173 @@ async function handleSyncApi(req, res, url) {
   }
 
   jsonResponse(res, 405, { error: 'method-not-allowed' });
+  return true;
+}
+
+async function handleManagementApi(req, res, url) {
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (segments.length < 2 || segments[0] !== 'api' || segments[1] !== 'manage') {
+    return false;
+  }
+  const resource = segments[2] || '';
+
+  const normalizeModules = (input, fallback = ['*']) => {
+    const values = [];
+    if (Array.isArray(input)) {
+      for (const value of input) {
+        if (typeof value === 'string' && value.trim()) {
+          values.push(value.trim());
+        }
+      }
+    } else if (typeof input === 'string' && input.trim()) {
+      values.push(input.trim());
+    }
+    if (!values.length) return fallback.slice();
+    return Array.from(new Set(values));
+  };
+
+  if (resource === 'full-sync') {
+    if (req.method === 'GET') {
+      const branchParam = url.searchParams.get('branch') || url.searchParams.get('branchId');
+      const moduleParam = url.searchParams.get('module') || url.searchParams.get('moduleId');
+      const branchId = branchParam && branchParam.trim() ? branchParam.trim() : null;
+      const moduleId = moduleParam && moduleParam.trim() ? moduleParam.trim() : null;
+      const flags = listFullSyncFlags({ branchId, moduleId }).map((entry) => serializeFullSyncFlag(entry));
+      jsonResponse(res, 200, { branchId, moduleId, flags });
+      return true;
+    }
+
+    if (req.method === 'POST' || req.method === 'PATCH') {
+      let body = {};
+      try {
+        body = await readBody(req);
+      } catch (error) {
+        jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+        return true;
+      }
+      const branchRaw = body.branchId || body.branch;
+      const branchId = typeof branchRaw === 'string' && branchRaw.trim() ? branchRaw.trim() : null;
+      if (!branchId) {
+        jsonResponse(res, 400, { error: 'missing-branch-id' });
+        return true;
+      }
+      const requestedBy = typeof body.requestedBy === 'string' && body.requestedBy.trim() ? body.requestedBy.trim() : null;
+      const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null;
+      const modules = normalizeModules(body.modules || body.moduleIds || body.moduleId || body.module, ['*']);
+      const enabled = body.enabled !== false && body.status !== 'disable' && body.action !== 'disable';
+      const responses = [];
+      for (const moduleId of modules) {
+        const normalizedModule = moduleId && moduleId.trim ? moduleId.trim() : '*';
+        let entry;
+        if (enabled) {
+          entry = upsertFullSyncFlag(branchId, normalizedModule, {
+            reason,
+            requestedBy,
+            enabled: true,
+            meta: body.meta && typeof body.meta === 'object' ? body.meta : undefined
+          });
+        } else {
+          entry = disableFullSyncFlag(branchId, normalizedModule, { requestedBy });
+        }
+        if (entry) {
+          emitFullSyncDirective(entry, { toggledVia: 'management-api' });
+          responses.push(serializeFullSyncFlag(entry));
+        }
+      }
+      jsonResponse(res, 200, { branchId, flags: responses, enabled });
+      return true;
+    }
+
+    if (req.method === 'DELETE') {
+      let body = {};
+      try {
+        body = await readBody(req);
+      } catch (_error) {
+        body = {};
+      }
+      const branchParam = body.branchId || body.branch || url.searchParams.get('branch') || url.searchParams.get('branchId');
+      const branchId = typeof branchParam === 'string' && branchParam.trim() ? branchParam.trim() : null;
+      if (!branchId) {
+        jsonResponse(res, 400, { error: 'missing-branch-id' });
+        return true;
+      }
+      const requestedBy = typeof body.requestedBy === 'string' && body.requestedBy.trim()
+        ? body.requestedBy.trim()
+        : null;
+      const moduleParam = body.moduleId || body.module || body.modules || url.searchParams.get('module') || url.searchParams.get('moduleId');
+      const modules = normalizeModules(moduleParam, ['*']);
+      const disabled = [];
+      for (const moduleId of modules) {
+        const entry = disableFullSyncFlag(branchId, moduleId, { requestedBy });
+        if (entry) {
+          emitFullSyncDirective(entry, { toggledVia: 'management-api' });
+          disabled.push(serializeFullSyncFlag(entry));
+        }
+      }
+      jsonResponse(res, 200, { branchId, flags: disabled, enabled: false });
+      return true;
+    }
+
+    jsonResponse(res, 405, { error: 'method-not-allowed' });
+    return true;
+  }
+
+  if (resource === 'daily-reset' || resource === 'reset') {
+    if (req.method !== 'POST') {
+      jsonResponse(res, 405, { error: 'method-not-allowed' });
+      return true;
+    }
+    let body = {};
+    try {
+      body = await readBody(req);
+    } catch (error) {
+      jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+      return true;
+    }
+    const branchRaw = body.branchId || body.branch;
+    const branchId = typeof branchRaw === 'string' && branchRaw.trim() ? branchRaw.trim() : null;
+    if (!branchId) {
+      jsonResponse(res, 400, { error: 'missing-branch-id' });
+      return true;
+    }
+    const requestedBy = typeof body.requestedBy === 'string' && body.requestedBy.trim() ? body.requestedBy.trim() : null;
+    const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : 'daily-reset';
+    const moduleParam = body.moduleId || body.module || body.modules;
+    let modules = normalizeModules(moduleParam, []);
+    if (!modules.length) {
+      modules = getBranchModules(branchId);
+    }
+    if (!modules.length) {
+      jsonResponse(res, 404, { error: 'modules-not-found', branchId });
+      return true;
+    }
+    const flagOnReset = body.flagFullSync !== false;
+    const results = [];
+    for (const moduleId of modules) {
+      try {
+        const store = await resetModule(branchId, moduleId);
+        const summary = {
+          moduleId,
+          version: store.version,
+          resetAt: nowIso(),
+          status: 'ok'
+        };
+        if (flagOnReset) {
+          const flag = upsertFullSyncFlag(branchId, moduleId, { reason, requestedBy, enabled: true });
+          emitFullSyncDirective(flag, { toggledVia: 'management-api', reason: 'post-reset' });
+          summary.fullSyncFlag = serializeFullSyncFlag(flag);
+        }
+        results.push(summary);
+      } catch (error) {
+        logger.warn({ err: error, branchId, moduleId }, 'Failed to perform daily reset');
+        results.push({ moduleId, status: 'error', error: error.message });
+      }
+    }
+    jsonResponse(res, 200, { branchId, requestedBy, reason, results });
+    return true;
+  }
+
+  jsonResponse(res, 404, { error: 'management-endpoint-not-found', path: url.pathname });
   return true;
 }
 
@@ -3394,24 +3969,51 @@ function unregisterClient(client) {
 }
 
 function sendToClient(client, payload) {
-  if (!client || !client.ws) return;
-  if (client.ws.readyState !== client.ws.OPEN) return;
+  if (!client || !client.ws) return false;
+  if (client.ws.readyState !== client.ws.OPEN) return false;
   try {
     client.ws.send(JSON.stringify(payload));
+    return true;
   } catch (error) {
     logger.warn({ err: error, clientId: client.id }, 'Failed to send message to client');
+    return false;
   }
 }
 
 function broadcastToBranch(branchId, payload, exceptClient = null) {
   const set = branchClients.get(branchId);
   if (!set) return;
+  let delivered = 0;
   for (const clientId of set) {
     const target = clients.get(clientId);
     if (!target) continue;
     if (exceptClient && target.id === exceptClient.id) continue;
-    sendToClient(target, payload);
+    if (sendToClient(target, payload)) {
+      delivered += 1;
+    }
   }
+  recordWsBroadcast('branch', delivered);
+}
+
+function emitFullSyncDirective(flag, extras = {}) {
+  if (!flag) return;
+  const payload = {
+    type: 'server:directive',
+    directive: 'full-sync-flag',
+    id: flag.id,
+    branchId: flag.branchId,
+    moduleId: flag.moduleId,
+    enabled: flag.enabled,
+    reason: flag.reason || null,
+    requestedBy: flag.requestedBy || null,
+    updatedAt: flag.updatedAt,
+    meta: flag.meta || null,
+    ...extras
+  };
+  if (flag.clearedBy) {
+    payload.clearedBy = flag.clearedBy;
+  }
+  broadcastToBranch(flag.branchId, payload);
 }
 
 async function sendSnapshot(client, meta = {}) {
@@ -3421,11 +4023,19 @@ async function sendSnapshot(client, meta = {}) {
   for (const store of modules) {
     snapshot[store.moduleId] = store.getSnapshot();
   }
+  const activeFlags = getActiveFullSyncFlags(client.branchId);
+  const flagPayload = activeFlags.map((entry) => serializeFullSyncFlag(entry));
+  const metaPayload = { ...meta, serverId: SERVER_ID, branchId: client.branchId };
+  if (flagPayload.length) {
+    metaPayload.fullSyncRequired = true;
+    metaPayload.fullSyncFlags = flagPayload;
+  }
   sendToClient(client, {
     type: 'server:snapshot',
     branchId: client.branchId,
     modules: snapshot,
-    meta: { ...meta, serverId: SERVER_ID, branchId: client.branchId }
+    fullSyncFlags: flagPayload,
+    meta: metaPayload
   });
 }
 
@@ -3517,12 +4127,42 @@ function getConnectionState(client) {
 
 const httpServer = createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const requestStart = Date.now();
+  const isAjax = url.pathname.startsWith('/api/');
+
+  if (metricsState.enabled) {
+    res.on('finish', () => {
+      const duration = Date.now() - requestStart;
+      recordHttpRequest(req.method, isAjax, duration);
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/metrics') {
+    try {
+      const body = await renderMetrics();
+      res.writeHead(200, {
+        'content-type': 'text/plain; version=0.0.4; charset=utf-8',
+        'cache-control': 'no-store'
+      });
+      res.end(body);
+    } catch (error) {
+      logger.warn({ err: error }, 'Failed to render metrics response');
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'metrics-unavailable' }));
+    }
+    return;
+  }
 
   if (await serveStaticAsset(req, res, url)) return;
 
   if (req.method === 'GET' && url.pathname === '/healthz') {
     jsonResponse(res, 200, { status: 'ok', serverId: SERVER_ID, now: nowIso() });
     return;
+  }
+
+  if (url.pathname.startsWith('/api/manage')) {
+    const handled = await handleManagementApi(req, res, url);
+    if (handled) return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/state') {
