@@ -5226,10 +5226,11 @@
       const finalize = requiresPayment;
       const openPrint = mode === 'finalize-print';
       const now = Date.now();
+      const defaultLineStatus = finalize ? 'served' : 'queued';
       const safeLines = (order.lines || []).map(line=>({
         ...line,
         locked:true,
-        status: line.status || 'draft',
+        status: line.status && line.status !== 'draft' ? line.status : defaultLineStatus,
         notes: Array.isArray(line.notes) ? line.notes : (line.notes ? [line.notes] : []),
         discount: normalizeDiscount(line.discount),
         updatedAt: now
@@ -5257,7 +5258,9 @@
         return { status:'pending-payment', mode };
       }
       const typeConfig = getOrderTypeConfig(orderType);
-      const status = finalize ? 'finalized' : (order.status || 'open');
+      const status = finalize
+        ? 'finalized'
+        : (order.status && order.status !== 'draft' ? order.status : 'open');
       const finalizeStage = finalize
         ? (orderType === 'dine_in' ? 'closed' : 'delivered')
         : (order.fulfillmentStage || 'new');
@@ -5298,9 +5301,8 @@
         orderPayload.finalizedAt = now;
         orderPayload.finishedAt = now;
       }
-      const isDraftMode = mode === 'draft';
       const centralAvailable = !!(centralSync && typeof centralSync.publishCreateOrder === 'function');
-      if(!isDraftMode && !centralAvailable){
+      if(!centralAvailable){
         UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
         return { status:'error', reason:'central-sync-unavailable' };
       }
@@ -5325,15 +5327,6 @@
       };
       beginOrderSaving();
       try{
-      if(isDraftMode){
-        if(posDB.available && typeof posDB.saveTempOrder === 'function'){
-          await posDB.saveTempOrder({ ...orderPayload, isPersisted:false, dirty:true });
-        }
-        endOrderSaving();
-        UI.pushToast(ctx, { title:t.toast.order_saved, icon:'💾' });
-        return { status:'saved', mode };
-      }
-
         let confirmedOrder = { ...orderPayload };
         if(centralAvailable){
           try{
