@@ -5534,7 +5534,7 @@
       createEmptyCustomerForm,
       notesToText,normalizeDiscount ,
       PAYMENT_METHODS,
-      POS_INFO,
+      POS_INFO,persistOrderFlow ,
       CAIRO_DISTRICTS,
       SHIFT_OPEN_FLOAT_DEFAULT,
       SHIFT_PIN_LENGTH,
