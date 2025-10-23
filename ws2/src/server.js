@@ -2631,7 +2631,14 @@ async function handleModuleEvent(branchId, moduleId, payload = {}, client = null
     notice
   };
 
-  if (options.includeSnapshot || payload.includeSnapshot) {
+  const includeSnapshot =
+    options.includeSnapshot !== undefined
+      ? options.includeSnapshot
+      : payload.includeSnapshot !== undefined
+        ? payload.includeSnapshot
+        : true;
+
+  if (includeSnapshot) {
     event.snapshot = store.getSnapshot();
   }
 
