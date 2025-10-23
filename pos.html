@@ -308,13 +308,18 @@
         restBase: `/api/branch/${encodeURIComponent(branchId)}/pos`
       };
       const readiness = global.__MishkahChartReady__ || Promise.resolve();
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        const script = global.document.createElement('script');
+        script.src = src;
+        script.defer = false;
+        script.onload = () => resolve();
+        script.onerror = (event) => reject(new Error(`Failed to load script ${src}`));
+        global.document.body.appendChild(script);
+      });
       Promise.resolve(readiness)
-        .then(() => {
-          const script = global.document.createElement('script');
-          script.src = './pos.js';
-          script.defer = false;
-          global.document.body.appendChild(script);
-        })
+        .then(() => ['pos-ws.js', 'pos-comp.js', 'pos-orders.js', 'pos.js'].reduce((chain, file) => {
+          return chain.then(() => loadScript(`./${file}`));
+        }, Promise.resolve()))
         .catch((error) => {
           console.error('[Mishkah][POS] Chart package readiness failed', error);
           if (!container) return;
