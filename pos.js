@@ -1607,6 +1607,17 @@
 
       const ensureArray = (value)=> Array.isArray(value) ? value : [];
       const cloneRecord = (value)=> value == null ? value : cloneDeep(value);
+      let mirrorOnly = false;
+
+      const isMirrorMutation = (options)=>{
+        if(!options) return false;
+        if(options.mirror === true) return true;
+        const origin = typeof options.origin === 'string' ? options.origin.toLowerCase() : null;
+        const source = typeof options.source === 'string' ? options.source.toLowerCase() : null;
+        const tag = origin || source || null;
+        if(!tag) return false;
+        return ['remote', 'mirror', 'server', 'snapshot', 'bootstrap', 'ws2-event', 'central-sync'].includes(tag);
+      };
 
       const ensureMetaRecord = (key, defaults={})=>{
         const safeKey = key || 'default';
@@ -2061,7 +2072,12 @@
         };
       }
 
-      async function saveOrder(order){
+      async function saveOrder(order, options={}){
+        if(mirrorOnly && !isMirrorMutation(options)){
+          const error = new Error('POS IndexedDB mirror is read-only.');
+          error.code = 'POS_DB_MIRROR_ONLY';
+          throw error;
+        }
         const normalized = normalizeOrder(order);
         const orderId = normalized.header.id;
         storeMaps.orders.set(orderId, normalized.header);
@@ -2274,7 +2290,7 @@
         if(!Array.isArray(initialOrders) || !initialOrders.length) return false;
         if(storeMaps.orders.size) return false;
         for(const order of initialOrders){
-          try { await saveOrder(order); } catch(_err){ }
+          try { await saveOrder(order, { mirror:true, origin:'bootstrap' }); } catch(_err){ }
         }
         return true;
       }
@@ -2395,10 +2411,14 @@
         });
         if(!ordersList.length && Array.isArray(snapshot.orders) && snapshot.orders.length){
           for(const order of snapshot.orders){
-            try { await saveOrder(order); } catch(_err){ }
+            try { await saveOrder(order, { mirror:true, origin:'snapshot' }); } catch(_err){ }
           }
         }
         return true;
+      }
+
+      function setMirrorMode(value){
+        mirrorOnly = !!value;
       }
 
       return {
@@ -2423,7 +2443,8 @@
         exportSnapshot,
         importSnapshot,
         getSyncMetadata,
-        updateSyncMetadata
+        updateSyncMetadata,
+        setMirrorMode
       };
     }
     function createKDSBridge(url){
@@ -3545,7 +3566,7 @@
           savedAt: payload.order.savedAt || syncTs
         };
         try{
-          await posDB.saveOrder(normalizedOrder);
+          await posDB.saveOrder(normalizedOrder, { mirror:true, origin:'central-sync' });
           if(typeof posDB.markSync === 'function') await posDB.markSync();
           await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true }).catch((err)=>{
             console.warn('[Mishkah][POS] Failed to refresh snapshot after central order', err);
@@ -4387,7 +4408,7 @@
         order.metadata = { ...(order.metadata || {}), deleted:true, ws2EventType:type };
       }
       try {
-        await adapter.saveOrder(order);
+        await adapter.saveOrder(order, { mirror:true, origin:'ws2-event' });
         applied = true;
       } catch(error){
         console.warn('[Mishkah][POS] Failed to persist WS2 event order payload.', { id: order.id, error });
@@ -4574,8 +4595,10 @@
 
     const posDB = createIndexedDBAdapter('mishkah-pos', 4);
     if(posDB && typeof posDB === 'object'){
+      if(typeof posDB.setMirrorMode === 'function') posDB.setMirrorMode(true);
       posDB.centralMode = enforceCentralOnly ? (allowIndexedDbFallback ? 'hybrid' : 'central-only') : 'permissive';
       posDB.allowLocalFallback = allowIndexedDbFallback;
+      posDB.mirrorMode = 'mirror-only';
     }
 
     if(posDB && typeof posDB.saveOrder === 'function'){
@@ -4592,7 +4615,7 @@
               updatedAt: order.updatedAt || Date.now(),
               savedAt: order.savedAt || Date.now()
             };
-            await posDB.saveOrder(normalized);
+            await posDB.saveOrder(normalized, { mirror:true, origin:'bootstrap' });
           }
           if(typeof posDB.markSync === 'function') await posDB.markSync();
           await refreshPersistentSnapshot({ focusCurrent:false, syncOrders:true }).catch((err)=>{
@@ -5032,7 +5055,7 @@
             } else if(statusCandidate === 'assembled' && nextRecord.fulfillmentStage !== 'delivered' && nextRecord.fulfillmentStage !== 'ready'){
               nextRecord.fulfillmentStage = 'ready';
             }
-            return posDB.saveOrder(nextRecord);
+            return posDB.saveOrder(nextRecord, { mirror:true, origin:'central-sync' });
           })
           .catch(err=> console.warn('[Mishkah][POS][KDS] Failed to persist handoff update.', err));
       }
@@ -6809,7 +6832,6 @@
 
         const persistableOrder = { ...confirmedOrder };
         delete persistableOrder.dirty;
-        await posDB.saveOrder(persistableOrder);
         if(posDB.available){
           if(typeof posDB.deleteTempOrder === 'function'){
             try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
@@ -6821,8 +6843,23 @@
             try { await posDB.clearTempOrder(); } catch(_tempErr){}
           }
         }
-        await posDB.markSync();
-        const latestOrders = await posDB.listOrders({ onlyActive:true });
+        let latestOrders = [];
+        if(posDB.available && typeof posDB.listOrders === 'function'){
+          try {
+            latestOrders = await posDB.listOrders({ onlyActive:true });
+          } catch(listErr){
+            console.warn('[Mishkah][POS] Failed to read mirrored orders after publish.', listErr);
+          }
+        }
+        const alreadyMirrored = latestOrders.some(entry=> entry && entry.id === confirmedOrder.id);
+        const displayOrder = { ...persistableOrder, dirty:false, isPersisted:true };
+        if(!alreadyMirrored){
+          latestOrders = [...latestOrders, displayOrder];
+        } else {
+          latestOrders = latestOrders.map((entry)=> (
+            entry && entry.id === displayOrder.id ? { ...entry, ...displayOrder } : entry
+          ));
+        }
         ctx.setState(s=>{
           const data = s.data || {};
           const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
