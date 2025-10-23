@@ -9,11 +9,11 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const DEFAULT_SOURCES = {
   pos: {
-    file: path.join(REPO_ROOT, 'schema-pos.js'),
+    file: path.join(REPO_ROOT, 'mishkah-schema.js'),
     globalName: 'MishkahPOSSchema'
   },
   kds: {
-    file: path.join(REPO_ROOT, 'schema-kds.js'),
+    file: path.join(REPO_ROOT, 'mishkah-schema.js'),
     globalName: 'MishkahKDSSchema'
   }
 };
@@ -28,10 +28,18 @@ async function loadLegacySchema(source) {
   }
   const { file, globalName } = source;
   const scriptSource = await readFile(file, 'utf8');
-  const context = { console };
+  const context = {
+    console,
+    Promise,
+    structuredClone(value){
+      if(value === undefined || value === null) return value;
+      return JSON.parse(JSON.stringify(value));
+    }
+  };
   context.global = context;
   context.window = context;
   context.self = context;
+  context.Mishkah = context.Mishkah || {};
   const script = new vm.Script(scriptSource, { filename: path.basename(file) });
   script.runInNewContext(context);
   const schema = context[globalName];

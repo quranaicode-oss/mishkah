@@ -6,6 +6,56 @@
   const U = M.utils;
   const D = M.DSL;
   const { tw, cx } = U.twcss;
+  const Schema = M.schema || {};
+  const schemaSources = Schema.sources || {};
+  const schemaUtils = Schema.utils || {};
+  const kdsSource = schemaSources.kds || null;
+  const resolveKdsArtifacts = ()=>{
+    if(typeof Schema.getArtifacts === 'function'){
+      return Schema.getArtifacts('kds');
+    }
+    if(kdsSource && typeof Schema.generateArtifacts === 'function'){
+      return Schema.generateArtifacts(kdsSource.definition);
+    }
+    return null;
+  };
+  const kdsArtifacts = resolveKdsArtifacts() || {};
+  const kdsFieldMetadata = kdsArtifacts.fields || {};
+  const kdsFactories = kdsArtifacts.factories || {};
+  const cloneDefault = typeof schemaUtils.clone === 'function'
+    ? schemaUtils.clone
+    : (value)=> (value == null ? value : JSON.parse(JSON.stringify(value)));
+
+  function createRecordUsingSchema(tableName, record){
+    const factory = kdsFactories[tableName];
+    if(factory && typeof factory.create === 'function'){
+      try {
+        return factory.create(record || {});
+      } catch(error){
+        console.warn('[Mishkah][KDS] schema factory failed', { tableName, error });
+      }
+    }
+    const fields = kdsFieldMetadata[tableName];
+    if(!fields) return record;
+    const sanitized = {};
+    Object.keys(fields).forEach((fieldName)=>{
+      if(record && record[fieldName] !== undefined){
+        sanitized[fieldName] = record[fieldName];
+        return;
+      }
+      const column = fields[fieldName].columnName;
+      if(record && column && record[column] !== undefined){
+        sanitized[fieldName] = record[column];
+        return;
+      }
+      if(fields[fieldName].defaultValue !== undefined){
+        sanitized[fieldName] = cloneDefault(fields[fieldName].defaultValue);
+        return;
+      }
+      sanitized[fieldName] = fields[fieldName].nullable ? null : undefined;
+    });
+    return sanitized;
+  }
 
   const hasStructuredClone = typeof structuredClone === 'function';
   const JSONX = U.JSON || {};
@@ -1724,11 +1774,11 @@
     const explicitStations = Array.isArray(kdsSource?.stations) && kdsSource.stations.length
       ? kdsSource.stations.map(station=> ({ ...station }))
       : [];
-    if(explicitStations.length) return explicitStations;
+    if(explicitStations.length) return explicitStations.map(station=> createRecordUsingSchema('kds_station', station));
     const masterStations = Array.isArray(masterSource?.stations) && masterSource.stations.length
       ? masterSource.stations.map(station=> ({ ...station }))
       : [];
-    if(masterStations.length) return masterStations;
+    if(masterStations.length) return masterStations.map(station=> createRecordUsingSchema('kds_station', station));
     const sectionSource = (Array.isArray(database?.kitchen_sections) && database.kitchen_sections.length)
       ? database.kitchen_sections
       : (Array.isArray(masterSource?.kitchenSections) ? masterSource.kitchenSections : []);
@@ -1736,7 +1786,7 @@
       const id = section.id || section.section_id || section.sectionId;
       const nameAr = section.section_name?.ar || section.name?.ar || section.nameAr || id;
       const nameEn = section.section_name?.en || section.name?.en || section.nameEn || id;
-      return {
+      const station = {
         id,
         code: id && id.toString ? id.toString().toUpperCase() : id,
         nameAr,
@@ -1750,6 +1800,7 @@
         createdAt: null,
         updatedAt: null
       };
+      return createRecordUsingSchema('kds_station', station);
     });
   };
 
