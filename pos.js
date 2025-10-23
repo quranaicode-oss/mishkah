@@ -1524,7 +1524,7 @@
         syncLog: new Map()
       };
 
-      const tempStorageKey = `${db.name || 'mishkah-pos'}:${TEMP_STORE}`;
+      const tempStorageKey = `${name || 'mishkah-pos'}:${TEMP_STORE}`;
       const canUseLocalStorage = (()=>{
         if(typeof window === 'undefined' || !window.localStorage) return false;
         try {
