@@ -65,3 +65,51 @@ kds.html?brname=remal
 5. (اختياري) أضف تهيئة front-end لعرض الفرع الجديد في الرسالة التوضيحية أو واجهات الاختيار.
 
 باتباع هذا النمط يصبح WS2 قادراً على قراءة هيكل البيانات ديناميكيًا، توليد نقاط API تلقائية، وإدارة السجلات الحية والتاريخية لكل فرع دون تدخل يدوي.
+
+## أدلة تشغيلية (Operational Playbooks)
+
+### إعادة ضبط يومية للفروع
+
+- استخدم المسار `POST /api/manage/daily-reset` لتفريغ حالة الموديولات وإعادة تحميل البذور الخاصة بها.
+- مثال على الطلب:
+
+```http
+POST /api/manage/daily-reset
+Content-Type: application/json
+
+{
+  "branchId": "dar",
+  "modules": ["pos"],
+  "reason": "closing-shift",
+  "requestedBy": "ops-team"
+}
+```
+
+- عند عدم تحديد `modules` سيتم استخدام كل الموديولات المعرفة للفرع، مع تعيين علم (full-sync flag) تلقائيًا لإجبار العملاء على تحميل لقطة كاملة بعد الإعادة.
+- يمكن تعطيل وضع العلم التلقائي عبر `"flagFullSync": false` إذا لم يكن ذلك مطلوبًا.
+
+### تفعيل أو إلغاء أعلام المزامنة الكاملة
+
+- نقاط الإدارة توفر المسار `POST /api/manage/full-sync` لتفعيل العلم، و`DELETE /api/manage/full-sync` لتعطيله.
+- مثال تفعيل لموديول محدد:
+
+```http
+POST /api/manage/full-sync
+Content-Type: application/json
+
+{
+  "branchId": "dar",
+  "moduleId": "pos",
+  "reason": "manual-audit",
+  "requestedBy": "qa"
+}
+```
+
+- يمكن تمرير مصفوفة عبر `modules` أو ترك الحقل فارغًا لتطبيق العلم على مستوى الفرع بأكمله (`moduleId = "*"`).
+- الاستعلام عن الحالة الحالية يتم عن طريق `GET /api/manage/full-sync?branch=dar` والذي يعيد جميع الأعلام المفعّلة أو المعطّلة.
+
+### تدقيق التعارضات وطلبات الدعم
+
+- كل عملية رفض (مثل اكتشاف دفعة مكررة أو انتهاك سياسة insert-only) يتم تسجيلها في `events.rejected.log` داخل مجلد الموديول (`data/branches/<branch>/modules/<module>/live/`).
+- السجلات تحتوي على `reason` و`transId` وبيانات التعريف للمساعدة في تتبع مصدر المشكلة أثناء التحقيق.
+- يمكن مراقبة نشاط الويب سوكيت وطلبات REST عبر `GET /metrics` (مخرجات بصيغة Prometheus) أو عن طريق قراءة القيم التجميعية إن لم يتوفر `prom-client`.
