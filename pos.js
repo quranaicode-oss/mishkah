@@ -5532,7 +5532,7 @@
       findCustomer,
       findCustomerAddress,
       createEmptyCustomerForm,
-      notesToText,
+      notesToText,normalizeDiscount ,
       PAYMENT_METHODS,
       POS_INFO,
       CAIRO_DISTRICTS,
