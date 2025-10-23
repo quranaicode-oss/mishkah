@@ -5353,7 +5353,10 @@
           }
         }
 
+        let fallbackTriggered = false;
+        let fallbackError = null;
         if(!publishAck){
+          fallbackTriggered = true;
           if(posDB.available && typeof posDB.saveTempOrder === 'function'){
             const fallbackTempOrder = { ...orderPayload, dirty:true, isPersisted:false };
             try{
@@ -5368,21 +5371,27 @@
             message:'Central sync publish returned no acknowledgement; order stored locally.',
             data:{ orderId: orderPayload.id, mode }
           });
-          const fallbackError = new Error('Central sync publish returned no acknowledgement.');
+          fallbackError = new Error('Central sync publish returned no acknowledgement.');
           fallbackError.code = 'POS_SYNC_FALLBACK';
-          throw fallbackError;
+          confirmedOrder = {
+            ...confirmedOrder,
+            dirty:true,
+            isPersisted:false
+          };
         }
 
         const persistableOrder = { ...confirmedOrder };
         delete persistableOrder.dirty;
         if(posDB.available){
           if(typeof posDB.deleteTempOrder === 'function'){
-            try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
+            if(!fallbackTriggered){
+              try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
+            }
             if(idChanged && previousOrderId){
               try { await posDB.deleteTempOrder(previousOrderId); } catch(_tempErr){}
             }
           }
-          if(finalize && typeof posDB.clearTempOrder === 'function'){
+          if(finalize && !fallbackTriggered && typeof posDB.clearTempOrder === 'function'){
             try { await posDB.clearTempOrder(); } catch(_tempErr){}
           }
         }
@@ -5395,7 +5404,11 @@
           }
         }
         const alreadyMirrored = latestOrders.some(entry=> entry && entry.id === confirmedOrder.id);
-        const displayOrder = { ...persistableOrder, dirty:false, isPersisted:true };
+        const displayOrder = {
+          ...persistableOrder,
+          dirty: fallbackTriggered ? true : false,
+          isPersisted: fallbackTriggered ? false : true
+        };
         if(!alreadyMirrored){
           latestOrders = [...latestOrders, displayOrder];
         } else {
@@ -5477,6 +5490,9 @@
           };
         });
         await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
+        if(fallbackError){
+          throw fallbackError;
+        }
         const toastKey = finalize ? 'order_finalized' : 'order_saved';
         UI.pushToast(ctx, { title:t.toast[toastKey], icon: finalize ? '✅' : '💾' });
         return { status:'saved', mode, order: confirmedOrder };
