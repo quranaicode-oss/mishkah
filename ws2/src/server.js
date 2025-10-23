@@ -380,6 +380,17 @@ function snapshotsEqual(a, b) {
 }
 
 const POS_TEMP_STORE = 'order_temp';
+const POS_KNOWN_STORES = [
+  'orders',
+  'orderLines',
+  'orderNotes',
+  'orderStatusLogs',
+  'shifts',
+  'posMeta',
+  'syncLog',
+  POS_TEMP_STORE
+];
+const POS_STORE_KEY_SET = new Set(POS_KNOWN_STORES);
 const POS_STORE_KEY_RESOLVERS = {
   orders: (row) => (row && row.id != null ? String(row.id) : null),
   orderLines: (row) => {
@@ -434,7 +445,7 @@ function mergePosStores(existingStores, incomingStores) {
   const existing = isPlainObject(existingStores) ? existingStores : {};
   const incoming = isPlainObject(incomingStores) ? incomingStores : {};
   const merged = {};
-  const names = new Set([...Object.keys(existing), ...Object.keys(incoming)]);
+  const names = new Set([...Object.keys(existing), ...Object.keys(incoming), ...POS_KNOWN_STORES]);
   names.delete(POS_TEMP_STORE);
   for (const name of names) {
     const currentRows = Array.isArray(existing[name]) ? existing[name] : [];
@@ -445,7 +456,26 @@ function mergePosStores(existingStores, incomingStores) {
     const incomingRows = Array.isArray(incoming[name]) ? incoming[name] : [];
     merged[name] = mergeStoreRows(currentRows, incomingRows, name);
   }
+  merged[POS_TEMP_STORE] = [];
   return merged;
+}
+
+function extractIncomingPosStores(payload) {
+  const stores = {};
+  if (!isPlainObject(payload)) return stores;
+  const explicitStores = isPlainObject(payload.stores) ? payload.stores : {};
+  for (const name of POS_KNOWN_STORES) {
+    const explicitValue = explicitStores[name];
+    if (Array.isArray(explicitValue)) {
+      stores[name] = explicitValue;
+      continue;
+    }
+    const rootValue = payload[name];
+    if (Array.isArray(rootValue)) {
+      stores[name] = rootValue;
+    }
+  }
+  return stores;
 }
 
 function mergePosPayload(existingPayload, incomingPayload) {
@@ -453,7 +483,7 @@ function mergePosPayload(existingPayload, incomingPayload) {
   const incoming = isPlainObject(incomingPayload) ? deepClone(incomingPayload) : {};
 
   for (const [key, value] of Object.entries(incoming)) {
-    if (key === 'stores') continue;
+    if (key === 'stores' || POS_STORE_KEY_SET.has(key)) continue;
     if (Array.isArray(value)) {
       base[key] = value.map((entry) => deepClone(entry));
     } else if (isPlainObject(value)) {
@@ -466,11 +496,15 @@ function mergePosPayload(existingPayload, incomingPayload) {
     }
   }
 
-  const mergedStores = mergePosStores(existingPayload?.stores, incoming.stores);
-  if (Object.keys(mergedStores).length) {
-    base.stores = mergedStores;
-  } else if (base.stores) {
-    delete base.stores;
+  const incomingStores = extractIncomingPosStores(incomingPayload);
+  const mergedStores = mergePosStores(existingPayload?.stores, incomingStores);
+  base.stores = mergedStores;
+
+  for (const name of POS_KNOWN_STORES) {
+    if (name === POS_TEMP_STORE) continue;
+    if (Object.prototype.hasOwnProperty.call(base, name)) {
+      delete base[name];
+    }
   }
 
   return base;
@@ -668,14 +702,6 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
           };
         }
         seenKeys.add(key);
-      }
-      if (seenKeys.has(key)) {
-        return {
-          ok: false,
-          reason: 'duplicate-primary-key',
-          tableName,
-          key
-        };
       }
       seenKeys.add(key);
       if (existingByKey.has(key)) {
