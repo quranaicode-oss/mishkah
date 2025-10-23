@@ -3,6 +3,71 @@
   
   console.log("pos-ws2-bootstrap.js v1")
   const watchers = new Set();
+  const mishkahRoot = global.Mishkah || {};
+  const schemaModule = mishkahRoot.schema || {};
+  const schemaSources = schemaModule.sources || {};
+  const schemaUtils = schemaModule.utils || {};
+  const posSource = schemaSources.pos || null;
+  const resolveArtifacts = ()=>{
+    if(typeof schemaModule.getArtifacts === 'function'){
+      return schemaModule.getArtifacts('pos');
+    }
+    if(posSource && typeof schemaModule.generateArtifacts === 'function'){
+      return schemaModule.generateArtifacts(posSource.definition);
+    }
+    return null;
+  };
+  const posArtifacts = resolveArtifacts() || {};
+  const posFieldMetadata = posArtifacts.fields || {};
+  const posFactories = posArtifacts.factories || {};
+  const cloneDefinition = (value)=>{
+    if(typeof schemaUtils.clone === 'function') return schemaUtils.clone(value);
+    if(value === null || value === undefined) return value;
+    return JSON.parse(JSON.stringify(value));
+  };
+  const canonicalPosDefinition = posSource && posSource.definition ? cloneDefinition(posSource.definition) : null;
+
+  function summarizeFactories(factories){
+    const summary = {};
+    if(!factories) return summary;
+    Object.keys(factories).forEach((tableName)=>{
+      const entry = factories[tableName];
+      summary[tableName] = {
+        hasCreate: typeof entry?.create === 'function',
+        hasUpdate: typeof entry?.update === 'function',
+        hasClass: !!entry?.Class
+      };
+    });
+    return summary;
+  }
+
+  function enrichPosModule(module){
+    if(!module || typeof module !== 'object') return module;
+    const schema = module.schema && typeof module.schema === 'object' ? module.schema : {};
+    if(canonicalPosDefinition){
+      schema.definition = canonicalPosDefinition;
+    }
+    if(posFieldMetadata && Object.keys(posFieldMetadata).length){
+      schema.fields = posFieldMetadata;
+    }
+    const factorySummary = summarizeFactories(posFactories);
+    if(Object.keys(factorySummary).length){
+      schema.factorySummary = factorySummary;
+    }
+    module.schema = schema;
+    return module;
+  }
+
+  function enrichSnapshotWithPosSchema(snapshot){
+    if(!snapshot || typeof snapshot !== 'object') return snapshot;
+    if(snapshot.pos){
+      enrichPosModule(snapshot.pos);
+    }
+    if(snapshot.modules && snapshot.modules.pos){
+      enrichPosModule(snapshot.modules.pos);
+    }
+    return snapshot;
+  }
   const config = global.POS_WS2_CONFIG || {};
   const syncSettings = ((((global.database || {}).settings) || {}).sync) || {};
   const loc = typeof global.location === 'object' ? global.location : null;
@@ -163,6 +228,15 @@
     lastEvent: null
   };
 
+  if(canonicalPosDefinition || (posFieldMetadata && Object.keys(posFieldMetadata).length)){
+    connectionState.schema = connectionState.schema || {};
+    connectionState.schema.pos = {
+      definition: canonicalPosDefinition,
+      fields: posFieldMetadata,
+      factorySummary: summarizeFactories(posFactories)
+    };
+  }
+
   const structured = typeof structuredClone === 'function' ? structuredClone : null;
 
   function clone(value){
@@ -248,8 +322,11 @@
   }
 
   function applySnapshot(snapshot, meta){
+    const baseSnapshot = snapshot ? clone(snapshot) : {};
+    const enrichedSnapshot = enrichSnapshotWithPosSchema(baseSnapshot) || {};
     const overlay = extractOverlay(global.database);
-    latestSnapshot = merge(snapshot || {}, overlay);
+    latestSnapshot = merge(enrichedSnapshot, overlay);
+    enrichSnapshotWithPosSchema(latestSnapshot);
     global.database = latestSnapshot;
     global.__MISHKAH_POS_LAST_SNAPSHOT__ = clone(latestSnapshot);
     if (!readySettled){
