@@ -635,6 +635,45 @@ function normalizeIncomingSnapshot(store, incomingSnapshot) {
   return incomingSnapshot;
 }
 
+function isDeepEqual(a, b) {
+  if (a === b) return true;
+  if (Number.isNaN(a) && Number.isNaN(b)) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let idx = 0; idx < a.length; idx += 1) {
+      if (!isDeepEqual(a[idx], b[idx])) return false;
+    }
+    return true;
+  }
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!isDeepEqual(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+function stableStringifyRow(value) {
+  if (value === undefined) return '"__undefined__"';
+  if (value === null) return 'null';
+  if (typeof value !== 'object') {
+    if (Number.isNaN(value)) return '"__NaN__"';
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringifyRow(item)).join(',')}]`;
+  }
+  const keys = Object.keys(value).sort();
+  const entries = keys.map((key) => `${JSON.stringify(key)}:${stableStringifyRow(value[key])}`);
+  return `{${entries.join(',')}}`;
+}
+
 function ensureInsertOnlySnapshot(store, incomingSnapshot) {
   const currentSnapshot = store.getSnapshot();
   const currentVersion = Number(currentSnapshot?.version) || 0;
@@ -682,8 +721,25 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
       ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
       : [];
 
+    const currentRows = Array.isArray(currentSnapshot.tables?.[tableName])
+      ? currentSnapshot.tables[tableName]
+      : [];
+
+    if (incomingRows.length < currentRows.length) {
+      return {
+        ok: false,
+        reason: 'row-count-regression',
+        tableName,
+        currentCount: currentRows.length,
+        incomingCount: incomingRows.length
+      };
+    }
+
+    let comparedExistingRows = false;
+
     if (primaryFields.length) {
       const seenKeys = new Set();
+      const incomingByKey = new Map();
       for (let idx = 0; idx < incomingRows.length; idx += 1) {
         const row = incomingRows[idx];
         if (!row || typeof row !== 'object') {
@@ -717,6 +773,83 @@ function ensureInsertOnlySnapshot(store, incomingSnapshot) {
           };
         }
         seenKeys.add(key);
+        incomingByKey.set(key, row);
+      }
+
+      let canCompareWithPrimaryKey = true;
+      const currentByKey = new Map();
+      for (let currentIdx = 0; currentIdx < currentRows.length; currentIdx += 1) {
+        const currentRow = currentRows[currentIdx];
+        if (!currentRow || typeof currentRow !== 'object') {
+          canCompareWithPrimaryKey = false;
+          break;
+        }
+        const currentParts = [];
+        let currentValid = true;
+        for (const fieldName of primaryFields) {
+          const value = currentRow[fieldName];
+          if (value === undefined || value === null) {
+            currentValid = false;
+            break;
+          }
+          currentParts.push(String(value));
+        }
+        if (!currentValid) {
+          canCompareWithPrimaryKey = false;
+          break;
+        }
+        const currentKey = currentParts.join('::');
+        currentByKey.set(currentKey, currentRow);
+      }
+
+      if (canCompareWithPrimaryKey) {
+        comparedExistingRows = true;
+        for (const [currentKey, currentRow] of currentByKey.entries()) {
+          if (!incomingByKey.has(currentKey)) {
+            return {
+              ok: false,
+              reason: 'missing-existing-row',
+              tableName,
+              key: currentKey
+            };
+          }
+          if (!isDeepEqual(currentRow, incomingByKey.get(currentKey))) {
+            return {
+              ok: false,
+              reason: 'modified-existing-row',
+              tableName,
+              key: currentKey
+            };
+          }
+        }
+      }
+    }
+
+    if (!comparedExistingRows) {
+      const remainingSignatures = new Map();
+      for (const currentRow of currentRows) {
+        const signature = stableStringifyRow(currentRow);
+        remainingSignatures.set(signature, (remainingSignatures.get(signature) || 0) + 1);
+      }
+      for (const row of incomingRows) {
+        const signature = stableStringifyRow(row);
+        if (remainingSignatures.has(signature)) {
+          const next = remainingSignatures.get(signature) - 1;
+          if (next <= 0) {
+            remainingSignatures.delete(signature);
+          } else {
+            remainingSignatures.set(signature, next);
+          }
+        }
+      }
+      if (remainingSignatures.size > 0) {
+        const [missingSignature] = remainingSignatures.keys();
+        return {
+          ok: false,
+          reason: 'missing-existing-row',
+          tableName,
+          signature: missingSignature
+        };
       }
     }
   }
