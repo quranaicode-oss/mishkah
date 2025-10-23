@@ -2969,7 +2969,7 @@
       globalThis.MishkahPOSChunks.ws(posModuleScope);
     }
     const posWs = posModuleScope.ws || {};
-    const { createKDSSync, createCentralPosSync, createEventReplicator, applyWs2EventToPos } = posWs;
+    const { createKDSSync, createCentralPosSync, createEventReplicator, createWsDeltaDispatcher, applyWs2EventToPos } = posWs;
     const kdsSettings = ensurePlainObject(settings.kds);
     const kdsSyncSettings = ensurePlainObject(kdsSettings.sync);
     const rawKdsEndpointSetting = normalizeEndpointString(firstDefined(
@@ -3255,6 +3255,13 @@
       }
     });
     ws2EventReplicator.start();
+
+    const wsNotificationDispatcher = createWsDeltaDispatcher({
+      fetchNow: ()=> ws2EventReplicator.fetchNow(),
+      throttleMs: 1500,
+      debounceMs: 250,
+      label:'pos-kds-sync'
+    });
 
     const wrapDbMutation = (methodName, metaResolver)=>{
       const original = posDB && typeof posDB[methodName] === 'function' ? posDB[methodName].bind(posDB) : null;
@@ -3897,7 +3904,14 @@
       onDeliveryUpdate: handleKdsDeliveryUpdate,
       onHandoffUpdate: handleKdsHandoffUpdate
     };
-    const kdsSync = createKDSSync({ endpoint: kdsEndpoint, token: kdsToken, handlers: kdsSyncHandlers, channel: BRANCH_CHANNEL, localEmitter: emitLocalKdsMessage });
+    const kdsSync = createKDSSync({
+      endpoint: kdsEndpoint,
+      token: kdsToken,
+      handlers: kdsSyncHandlers,
+      channel: BRANCH_CHANNEL,
+      localEmitter: emitLocalKdsMessage,
+      notificationDispatcher: wsNotificationDispatcher
+    });
     if(kdsSync && typeof kdsSync.connect === 'function'){
       kdsSync.connect();
     }

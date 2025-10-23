@@ -23,6 +23,60 @@
     }
   };
 
+  function createWsDeltaDispatcher(options={}){
+    const Control = U.Control || {};
+    const fetchNow = typeof options.fetchNow === 'function' ? options.fetchNow : null;
+    const label = options.label || 'kds-ws-delta';
+    const throttleMs = Math.max(250, Number(options.throttleMs) || 1200);
+    const debounceMs = Math.max(100, Number(options.debounceMs) || 250);
+    const throttleFactory = typeof Control.throttle === 'function'
+      ? (fn, wait)=> Control.throttle(fn, wait)
+      : (fn)=> fn;
+    const debounceFactory = typeof Control.debounce === 'function'
+      ? (fn, wait)=> Control.debounce(fn, wait)
+      : (fn)=> fn;
+    let pending = false;
+    let lastTriggerAt = 0;
+    let lastEvent = null;
+    let lastResult = null;
+
+    const runFetch = async ()=>{
+      if(!fetchNow) return { appliedCount:0, eventsProcessed:0 };
+      pending = true;
+      lastTriggerAt = Date.now();
+      try {
+        const result = await fetchNow();
+        lastResult = result || null;
+        return result;
+      } catch(error){
+        console.warn(`[Mishkah][KDS][WS] ${label} fetch failed.`, error);
+        lastResult = { error };
+        return lastResult;
+      } finally {
+        pending = false;
+      }
+    };
+
+    const throttledFetch = throttleFactory(()=>{ runFetch().catch(()=>{}); }, throttleMs);
+    const scheduleFetch = debounceFactory(()=>{ throttledFetch(); }, debounceMs);
+
+    return {
+      notify(detail={}){
+        if(!fetchNow) return false;
+        lastEvent = { ...detail, notifiedAt: Date.now() };
+        lastTriggerAt = Date.now();
+        scheduleFetch();
+        return true;
+      },
+      async flush(){
+        return runFetch();
+      },
+      getState(){
+        return { pending, lastTriggerAt, lastEvent, lastResult };
+      }
+    };
+  }
+
   const GLOBAL = typeof window !== 'undefined' ? window : null;
   const CACHE_TABLE = 'snapshot';
   let kdsCacheAdapter = GLOBAL && GLOBAL.__MishkahKdsCacheAdapter__ ? GLOBAL.__MishkahKdsCacheAdapter__ : null;
@@ -2539,10 +2593,19 @@
 
   const wsEndpoint = kdsSource?.sync?.endpoint || database?.kds?.endpoint || database?.sync?.endpoint || 'wss://ws.mas.com.eg/ws';
   const wsToken = kdsSource?.sync?.token || database?.kds?.token || null;
+  let ws2KdsEventReplicator = null;
+  const wsNotificationDispatcher = createWsDeltaDispatcher({
+    fetchNow: ()=> ws2KdsEventReplicator ? ws2KdsEventReplicator.fetchNow() : Promise.resolve({ appliedCount:0, eventsProcessed:0 }),
+    throttleMs: 1500,
+    debounceMs: 250,
+    label:'kds-sync'
+  });
+
   const syncClient = createKitchenSync(app, {
     endpoint: wsEndpoint,
     token: wsToken,
     channel: BRANCH_CHANNEL,
+    notificationDispatcher: wsNotificationDispatcher
     adapter: kdsStorage,
     deltaFetcher,
     onRequiresFullSync: handleFullSyncRequest
@@ -2570,7 +2633,7 @@
     ?? syncSettings.ws2PollInterval
     ?? 0);
   const kdsEventCursor = createSyncPointerAdapter();
-  const ws2KdsEventReplicator = createEventReplicator({
+  ws2KdsEventReplicator = createEventReplicator({
     adapter: kdsEventCursor,
     branch: BRANCH_CHANNEL,
     endpoint: eventsEndpoint,
@@ -2901,6 +2964,7 @@
     const topicJobs = options.topicJobs || `${topicPrefix}kds:jobs:updates`;
     const topicDelivery = options.topicDelivery || `${topicPrefix}kds:delivery:updates`;
     const topicHandoff = options.topicHandoff || `${topicPrefix}kds:handoff:updates`;
+    const notificationDispatcher = options.notificationDispatcher;
     const token = options.token;
 
     const fetchSyncState = async ()=>{
@@ -3044,6 +3108,22 @@
       autoReconnect:true,
       ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
     });
+
+    const dispatchNotification = (topicKey, payload, meta={})=>{
+      if(!notificationDispatcher || typeof notificationDispatcher.notify !== 'function') return false;
+      try {
+        return notificationDispatcher.notify({
+          topic: topicKey,
+          channel: channelName || BRANCH_CHANNEL,
+          payload,
+          meta
+        }) === true;
+      } catch(error){
+        console.warn('[Mishkah][KDS] Notification dispatcher failed.', error);
+        return false;
+      }
+    };
+
     socket.on('open', ()=>{
       ready = true;
       console.info('[Mishkah][KDS] Sync connection opened.', { endpoint });
@@ -3084,6 +3164,29 @@
       }
       if(msg.type === 'publish'){
         const meta = msg.meta || {};
+        if(msg.topic === topicOrders){
+          const dispatched = dispatchNotification('orders', msg.data || {}, meta);
+          if(!dispatched){
+            applyRemoteOrder(appInstance, msg.data || {}, meta);
+          }
+        }
+        if(msg.topic === topicJobs){
+          const dispatched = dispatchNotification('jobs', msg.data || {}, meta);
+          if(!dispatched){
+            applyJobUpdateMessage(appInstance, msg.data || {}, meta);
+          }
+        }
+        if(msg.topic === topicDelivery){
+          const dispatched = dispatchNotification('delivery', msg.data || {}, meta);
+          if(!dispatched){
+            applyDeliveryUpdateMessage(appInstance, msg.data || {}, meta);
+          }
+        }
+        if(msg.topic === topicHandoff){
+          const dispatched = dispatchNotification('handoff', msg.data || {}, meta);
+          if(!dispatched){
+            applyHandoffUpdateMessage(appInstance, msg.data || {}, meta);
+          }
         const data = msg.data || {};
         if(msg.topic === topicOrders){
           enqueueDelta(()=> applyOrdersDelta(meta, data, ()=> applyRemoteOrder(appInstance, data, meta)));

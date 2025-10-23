@@ -6,6 +6,60 @@
           const ensureRequestId = typeof scope.createRequestId === 'function'
             ? scope.createRequestId
             : ()=> `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          function createWsDeltaDispatcher(options={}){
+            const Control = U.Control || {};
+            const fetchNow = typeof options.fetchNow === 'function' ? options.fetchNow : null;
+            const label = options.label || 'ws-delta';
+            const throttleMs = Math.max(250, Number(options.throttleMs) || 1200);
+            const debounceMs = Math.max(100, Number(options.debounceMs) || 200);
+            const throttleFactory = typeof Control.throttle === 'function'
+              ? (fn, wait)=> Control.throttle(fn, wait)
+              : (fn)=> fn;
+            const debounceFactory = typeof Control.debounce === 'function'
+              ? (fn, wait)=> Control.debounce(fn, wait)
+              : (fn)=> fn;
+            let pending = false;
+            let lastTriggerAt = 0;
+            let lastResult = null;
+            let lastEvent = null;
+
+            const runFetch = async ()=>{
+              if(!fetchNow) return { appliedCount:0, eventsProcessed:0 };
+              pending = true;
+              lastTriggerAt = Date.now();
+              try {
+                const result = await fetchNow();
+                lastResult = result || null;
+                return result;
+              } catch(error){
+                console.warn(`[Mishkah][POS][WS] ${label} fetch failed.`, error);
+                lastResult = { error };
+                return lastResult;
+              } finally {
+                pending = false;
+              }
+            };
+
+            const throttledFetch = throttleFactory(()=>{ runFetch().catch(()=>{}); }, throttleMs);
+            const scheduleFetch = debounceFactory(()=>{ throttledFetch(); }, debounceMs);
+
+            return {
+              notify(detail={}){
+                if(!fetchNow) return false;
+                lastEvent = { ...detail, notifiedAt: Date.now() };
+                lastTriggerAt = Date.now();
+                scheduleFetch();
+                return true;
+              },
+              async flush(){
+                return runFetch();
+              },
+              getState(){
+                return { pending, lastTriggerAt, lastResult, lastEvent };
+              }
+            };
+          }
+
           function createKDSSync(options={}){
             const WebSocketX = U.WebSocketX || U.WebSocket;
             const endpoint = options.endpoint;
@@ -63,27 +117,31 @@
             const topicDelivery = options.topicDelivery || `${topicPrefix}kds:delivery:updates`;
             const topicHandoff = options.topicHandoff || `${topicPrefix}kds:handoff:updates`;
             const handlers = options.handlers || {};
+            const notificationDispatcher = options.notificationDispatcher;
             const token = options.token;
             let socket = null;
             let ready = false;
             let awaitingAuth = false;
-            const queue = [];
-            const sendEnvelope = (payload)=>{
-              if(!socket) return;
-              if(ready && !awaitingAuth){
-                socket.send(payload);
-              } else {
-                queue.push(payload);
-              }
-            };
-            const flushQueue = ()=>{
-              if(!ready || awaitingAuth) return;
-              while(queue.length){ socket.send(queue.shift()); }
-            };
             socket = new WebSocketX(endpoint, {
               autoReconnect:true,
               ping:{ interval:15000, timeout:7000, send:{ type:'ping' }, expect:'pong' }
             });
+
+            const dispatchNotification = (topicKey, payload, meta={})=>{
+              if(!notificationDispatcher || typeof notificationDispatcher.notify !== 'function') return false;
+              try {
+                return notificationDispatcher.notify({
+                  topic: topicKey,
+                  channel: channelName || BRANCH_CHANNEL,
+                  payload,
+                  meta
+                }) === true;
+              } catch(error){
+                console.warn('[Mishkah][POS][KDS] Notification dispatcher failed.', error);
+                return false;
+              }
+            };
+
             socket.on('open', ()=>{
               ready = true;
               if(token){
@@ -94,7 +152,6 @@
                 socket.send({ type:'subscribe', topic: topicJobs });
                 socket.send({ type:'subscribe', topic: topicDelivery });
                 socket.send({ type:'subscribe', topic: topicHandoff });
-                flushQueue();
               }
             });
             socket.on('close', (event)=>{
@@ -115,25 +172,34 @@
                   socket.send({ type:'subscribe', topic: topicJobs });
                   socket.send({ type:'subscribe', topic: topicDelivery });
                   socket.send({ type:'subscribe', topic: topicHandoff });
-                  flushQueue();
-                } else if(msg.event === 'subscribe'){
-                  flushQueue();
                 }
                 return;
               }
               if(msg.type === 'publish'){
                 const meta = msg.meta || {};
-                if(msg.topic === topicOrders && typeof handlers.onOrders === 'function'){
-                  try { handlers.onOrders(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onOrders handler failed.', handlerErr); }
+                if(msg.topic === topicOrders){
+                  const dispatched = dispatchNotification('orders', msg.data || {}, meta);
+                  if(!dispatched && typeof handlers.onOrders === 'function'){
+                    try { handlers.onOrders(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onOrders handler failed.', handlerErr); }
+                  }
                 }
-                if(msg.topic === topicJobs && typeof handlers.onJobUpdate === 'function'){
-                  try { handlers.onJobUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onJobUpdate handler failed.', handlerErr); }
+                if(msg.topic === topicJobs){
+                  const dispatched = dispatchNotification('jobs', msg.data || {}, meta);
+                  if(!dispatched && typeof handlers.onJobUpdate === 'function'){
+                    try { handlers.onJobUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onJobUpdate handler failed.', handlerErr); }
+                  }
                 }
-                if(msg.topic === topicDelivery && typeof handlers.onDeliveryUpdate === 'function'){
-                  try { handlers.onDeliveryUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onDeliveryUpdate handler failed.', handlerErr); }
+                if(msg.topic === topicDelivery){
+                  const dispatched = dispatchNotification('delivery', msg.data || {}, meta);
+                  if(!dispatched && typeof handlers.onDeliveryUpdate === 'function'){
+                    try { handlers.onDeliveryUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onDeliveryUpdate handler failed.', handlerErr); }
+                  }
                 }
-                if(msg.topic === topicHandoff && typeof handlers.onHandoffUpdate === 'function'){
-                  try { handlers.onHandoffUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onHandoffUpdate handler failed.', handlerErr); }
+                if(msg.topic === topicHandoff){
+                  const dispatched = dispatchNotification('handoff', msg.data || {}, meta);
+                  if(!dispatched && typeof handlers.onHandoffUpdate === 'function'){
+                    try { handlers.onHandoffUpdate(msg.data || {}, meta); } catch(handlerErr){ console.warn('[Mishkah][POS][KDS] onHandoffUpdate handler failed.', handlerErr); }
+                  }
                 }
                 return;
               }
@@ -147,7 +213,6 @@
                   console.warn('[Mishkah][POS][KDS] Skipped publishing order payload — serialization failed.', { orderId: orderPayload?.id });
                   return null;
                 }
-                sendEnvelope({ type:'publish', topic: topicOrders, data: envelope.payload });
                 pushLocal('orders:payload', { payload: envelope.payload }, { channel: envelope.channel, publishedAt: envelope.publishedAt });
                 return envelope.payload;
               },
@@ -156,7 +221,6 @@
                   console.warn('[Mishkah][POS][KDS] Ignored job update with missing jobId.', update);
                   return;
                 }
-                sendEnvelope({ type:'publish', topic: topicJobs, data: update });
                 pushLocal('job:update', { jobId: update.jobId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
               },
               publishDeliveryUpdate(update){
@@ -164,7 +228,6 @@
                   console.warn('[Mishkah][POS][KDS] Ignored delivery update with missing orderId.', update);
                   return;
                 }
-                sendEnvelope({ type:'publish', topic: topicDelivery, data: update });
                 pushLocal('delivery:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
               },
               publishHandoffUpdate(update){
@@ -172,7 +235,6 @@
                   console.warn('[Mishkah][POS][KDS] Ignored handoff update with missing orderId.', update);
                   return;
                 }
-                sendEnvelope({ type:'publish', topic: topicHandoff, data: update });
                 pushLocal('handoff:update', { orderId: update.orderId, payload: update.payload || {} }, typeof update.meta === 'object' ? update.meta : {});
               }
             };
@@ -1934,7 +1996,8 @@
         createCentralPosSync,
         createEventReplicator,
         createWs2CrudSync,
-        applyWs2EventToPos
+        applyWs2EventToPos,
+        createWsDeltaDispatcher
       };
     }
   };
