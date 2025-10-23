@@ -204,6 +204,8 @@ const SYNC_STATES = new Map(); // key => { branchId, moduleId, version, moduleSn
 const TRANS_HISTORY_LIMIT = Math.max(50, Number(process.env.WS2_TRANS_HISTORY_LIMIT) || 500);
 const TRANS_MUTATION_HISTORY_LIMIT = Math.max(5, Number(process.env.WS2_TRANS_MUTATION_HISTORY_LIMIT) || 25);
 const TRANS_HISTORY = new Map(); // key => { order:string[], records:Map<string,{ts:number,payload:object,mutationIds:Set<string>,lastAckMutationId?:string}> }
+const TABLE_TOPIC_PREFIX = 'sync-table::';
+const GLOBAL_TABLE_TOPIC_PREFIX = 'table::';
 
 function syncStateKey(branchId, moduleId) {
   const safeBranch = branchId || 'default';
@@ -1260,6 +1262,32 @@ async function broadcastSyncUpdate(branchId, moduleId, state, options = {}) {
   return payload;
 }
 
+function getTableNoticeTopics(branchId, moduleId, tableName) {
+  const safeBranch = branchId || 'default';
+  const safeModule = moduleId || 'pos';
+  const safeTable = tableName || 'default';
+  return [
+    `${TABLE_TOPIC_PREFIX}${safeBranch}::${safeModule}::${safeTable}`,
+    `${TABLE_TOPIC_PREFIX}${safeBranch}::${safeTable}`,
+    `${GLOBAL_TABLE_TOPIC_PREFIX}${safeTable}`
+  ];
+}
+
+async function broadcastTableNotice(branchId, moduleId, tableName, notice = {}) {
+  const payload = {
+    type: 'table:update',
+    branchId,
+    moduleId,
+    table: tableName,
+    ...deepClone(notice)
+  };
+  const topics = getTableNoticeTopics(branchId, moduleId, tableName);
+  for (const topic of topics) {
+    await broadcastPubsub(topic, payload);
+  }
+  return payload;
+}
+
 async function handlePubsubFrame(client, frame) {
   if (!client) return;
   client.protocol = 'pubsub';
@@ -2190,6 +2218,243 @@ async function handleBranchesApi(req, res, url) {
     return;
   }
 
+  if (tail[0] === 'tables' && tail.length >= 2) {
+    const tableName = tail[1];
+    if (!store.tables.includes(tableName)) {
+      jsonResponse(res, 404, { error: 'table-not-found' });
+      return;
+    }
+    const tableTail = tail.slice(2);
+    if (tableTail.length && !(tableTail.length === 1 && tableTail[0] === 'records')) {
+      jsonResponse(res, 404, { error: 'not-found' });
+      return;
+    }
+
+    const parseTimestamp = (value) => {
+      if (value == null) return null;
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.getTime();
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim()) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric > 1e9) {
+          return numeric;
+        }
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+      return null;
+    };
+
+    if (req.method === 'GET') {
+      const baseRows = store.listTable(tableName);
+      const params = url.searchParams;
+      const limit = Math.max(0, Number(params.get('limit') || params.get('take') || 0) || 0);
+      const afterId = params.get('afterId') || params.get('after_id') || params.get('after') || params.get('lastId');
+      const afterKey = params.get('afterKey') || params.get('cursor');
+      const afterCreatedParam =
+        params.get('afterCreatedAt') ||
+        params.get('after_created_at') ||
+        params.get('since') ||
+        params.get('begin_date') ||
+        params.get('create_date') ||
+        params.get('created_after');
+      const updatedAfterParam = params.get('updated_after') || params.get('updatedAfter');
+      const order = (params.get('order') || params.get('sort') || 'asc').toLowerCase();
+
+      const rows = baseRows.slice();
+      const resolveRefMatch = (value) => {
+        if (value == null) return -1;
+        const target = String(value);
+        return rows.findIndex((row) => {
+          const ref = store.getRecordReference(tableName, row);
+          if (!ref) return false;
+          if (ref.key && String(ref.key) === target) return true;
+          if (ref.id !== undefined && String(ref.id) === target) return true;
+          if (ref.uid !== undefined && String(ref.uid) === target) return true;
+          if (ref.uuid !== undefined && String(ref.uuid) === target) return true;
+          return false;
+        });
+      };
+
+      let filtered = rows;
+      const cursorMatch = resolveRefMatch(afterKey || afterId);
+      if (cursorMatch >= 0) {
+        filtered = filtered.slice(cursorMatch + 1);
+      }
+
+      const createdAfterTs = parseTimestamp(afterCreatedParam);
+      if (createdAfterTs != null) {
+        filtered = filtered.filter((row) => {
+          const createdCandidates = [row.createdAt, row.created_at, row.createDate, row.create_date];
+          for (const candidate of createdCandidates) {
+            const ts = parseTimestamp(candidate);
+            if (ts != null && ts > createdAfterTs) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+
+      const updatedAfterTs = parseTimestamp(updatedAfterParam);
+      if (updatedAfterTs != null) {
+        filtered = filtered.filter((row) => {
+          const updateCandidates = [row.updatedAt, row.updated_at, row.modifyDate, row.modify_date];
+          for (const candidate of updateCandidates) {
+            const ts = parseTimestamp(candidate);
+            if (ts != null && ts > updatedAfterTs) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+
+      if (order === 'desc') {
+        filtered = filtered.slice().reverse();
+      }
+
+      const limited = limit > 0 ? filtered.slice(0, limit) : filtered;
+      const lastRecord = limited.length ? limited[limited.length - 1] : null;
+      const cursor = lastRecord ? store.getRecordReference(tableName, lastRecord) : null;
+      jsonResponse(res, 200, {
+        branchId,
+        moduleId,
+        table: tableName,
+        count: limited.length,
+        cursor,
+        rows: limited,
+        meta: {
+          limit: limit || null,
+          order,
+          afterId: afterId || null,
+          afterKey: afterKey || null,
+          afterCreatedAt: createdAfterTs != null ? new Date(createdAfterTs).toISOString() : null,
+          updatedAfter: updatedAfterTs != null ? new Date(updatedAfterTs).toISOString() : null
+        }
+      });
+      return;
+    }
+
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+      let body = null;
+      try {
+        body = await readBody(req);
+      } catch (error) {
+        if (req.method !== 'DELETE') {
+          jsonResponse(res, 400, { error: 'invalid-json', message: error.message });
+          return;
+        }
+      }
+      const requestRecord = body && typeof body === 'object' ? body.record || body.data || body : {};
+      const requestMeta = body && typeof body === 'object' && body.meta && typeof body.meta === 'object' ? body.meta : null;
+      let response;
+      try {
+        if (req.method === 'POST') {
+          response = await handleModuleEvent(
+            branchId,
+            moduleId,
+            { action: 'module:insert', table: tableName, record: requestRecord, meta: requestMeta, source: 'rest-crud', includeRecord: true },
+            null,
+            { source: 'rest-crud', includeSnapshot: false }
+          );
+          jsonResponse(res, 201, {
+            status: 'created',
+            branchId,
+            moduleId,
+            table: tableName,
+            record: response.record,
+            ack: response.ack,
+            notice: response.notice
+          });
+          return;
+        }
+        if (req.method === 'PATCH') {
+          response = await handleModuleEvent(
+            branchId,
+            moduleId,
+            { action: 'module:merge', table: tableName, record: requestRecord, meta: requestMeta, source: 'rest-crud', includeRecord: true },
+            null,
+            { source: 'rest-crud', includeSnapshot: false }
+          );
+          jsonResponse(res, 200, {
+            status: 'updated',
+            branchId,
+            moduleId,
+            table: tableName,
+            record: response.record,
+            ack: response.ack,
+            notice: response.notice
+          });
+          return;
+        }
+        if (req.method === 'PUT') {
+          response = await handleModuleEvent(
+            branchId,
+            moduleId,
+            { action: 'module:save', table: tableName, record: requestRecord, meta: requestMeta, source: 'rest-crud', includeRecord: true },
+            null,
+            { source: 'rest-crud', includeSnapshot: false }
+          );
+          jsonResponse(res, 200, {
+            status: response.ack?.created ? 'created' : 'saved',
+            branchId,
+            moduleId,
+            table: tableName,
+            record: response.record,
+            ack: response.ack,
+            notice: response.notice
+          });
+          return;
+        }
+        if (req.method === 'DELETE') {
+          const recordInput = { ...requestRecord };
+          const queryId =
+            url.searchParams.get('id') ||
+            url.searchParams.get('recordId') ||
+            url.searchParams.get('record_id') ||
+            url.searchParams.get('key');
+          if (queryId && recordInput.id === undefined && recordInput.key === undefined) {
+            recordInput.id = queryId;
+          }
+          if (!Object.keys(recordInput).length) {
+            jsonResponse(res, 400, { error: 'missing-record-key' });
+            return;
+          }
+          response = await handleModuleEvent(
+            branchId,
+            moduleId,
+            { action: 'module:delete', table: tableName, record: recordInput, meta: requestMeta, source: 'rest-crud' },
+            null,
+            { source: 'rest-crud', includeSnapshot: false }
+          );
+          jsonResponse(res, 200, {
+            status: 'deleted',
+            branchId,
+            moduleId,
+            table: tableName,
+            recordRef: response.recordRef,
+            notice: response.notice,
+            ack: response.ack
+          });
+          return;
+        }
+      } catch (error) {
+        const notFound = typeof error?.message === 'string' && /not\sfound/i.test(error.message);
+        const code = error?.code === 'MODULE_STORE_NOT_FOUND' || notFound ? 404 : 400;
+        jsonResponse(res, code, { error: 'module-event-failed', message: error.message });
+        return;
+      }
+    }
+
+    jsonResponse(res, 405, { error: 'method-not-allowed' });
+    return;
+  }
+
   if (req.method === 'GET') {
     const value = traversePath(snapshot, tail);
     if (value === undefined) {
@@ -2228,80 +2493,157 @@ async function resetModule(branchId, moduleId) {
 
 async function handleModuleEvent(branchId, moduleId, payload = {}, client = null, options = {}) {
   const action = typeof payload.action === 'string' ? payload.action : 'module:insert';
-  if (action !== 'module:insert') {
-    throw new Error(`Unsupported module action: ${action}`);
-  }
   const tableName = payload.table || payload.tableName || payload.targetTable;
-  if (!tableName) throw new Error('Missing table name for module insert');
+  if (!tableName) throw new Error('Missing table name for module event');
   const recordPayload = payload.record || payload.data || {};
   const store = await ensureModuleStore(branchId, moduleId);
-  const created = store.insert(tableName, recordPayload, {
+  const contextInfo = {
     clientId: client?.id || null,
     userId: payload.userId || null,
     source: options.source || payload.source || null
-  });
+  };
+
+  let effectiveAction = action;
+  let recordResult = null;
+  let removedRecord = null;
+  let saveResult = null;
+
+  switch (action) {
+    case 'module:insert': {
+      recordResult = store.insert(tableName, recordPayload, contextInfo);
+      break;
+    }
+    case 'module:merge': {
+      recordResult = store.merge(tableName, recordPayload, contextInfo);
+      break;
+    }
+    case 'module:save': {
+      saveResult = store.save(tableName, recordPayload, contextInfo);
+      recordResult = saveResult.record;
+      effectiveAction = saveResult.created ? 'module:insert' : 'module:merge';
+      break;
+    }
+    case 'module:delete': {
+      const removal = store.remove(tableName, recordPayload, contextInfo);
+      removedRecord = removal?.record || null;
+      effectiveAction = 'module:delete';
+      break;
+    }
+    default:
+      throw new Error(`Unsupported module action: ${action}`);
+  }
+
   await persistModuleStore(store);
-  const snapshot = store.getSnapshot();
+
+  const timestamp = nowIso();
   const baseMeta = {
     serverId: SERVER_ID,
     branchId,
     moduleId,
     table: tableName,
-    timestamp: nowIso()
+    timestamp
   };
-  if (options.source || payload.source) {
-    baseMeta.source = options.source || payload.source;
+  if (contextInfo.source) {
+    baseMeta.source = contextInfo.source;
   }
   if (payload.meta && typeof payload.meta === 'object') {
     baseMeta.clientMeta = deepClone(payload.meta);
   }
+
+  const recordRef = store.getRecordReference(tableName, recordResult || removedRecord || recordPayload);
+  if (recordRef?.key) {
+    baseMeta.recordKey = recordRef.key;
+  }
+  if (recordRef?.id !== undefined) {
+    baseMeta.recordId = recordRef.id;
+  }
+
   const eventContext = getModuleEventStoreContext(branchId, moduleId);
+  const recordForLog = effectiveAction === 'module:delete' ? removedRecord : recordResult;
   const logEntry = await appendModuleEvent(eventContext, {
     id: payload.eventId || payload.id || null,
-    action,
+    action: effectiveAction,
     branchId,
     moduleId,
     table: tableName,
-    record: created,
-    meta: baseMeta,
+    record: recordForLog,
+    meta: { ...baseMeta, recordRef },
     publishState: payload.publishState
   });
   await updateEventMeta(eventContext, { lastAckId: logEntry.id });
-  const enrichedMeta = { ...baseMeta, eventId: logEntry.id, sequence: logEntry.sequence };
+
+  const enrichedMeta = { ...baseMeta, eventId: logEntry.id, sequence: logEntry.sequence, recordRef };
+  const entry = {
+    id: recordRef?.id || recordRef?.key || logEntry.id,
+    table: tableName,
+    action: effectiveAction,
+    recordRef,
+    meta: enrichedMeta,
+    created: saveResult ? saveResult.created : effectiveAction === 'module:insert',
+    deleted: effectiveAction === 'module:delete'
+  };
+  if (options.includeRecord === true || payload.includeRecord === true) {
+    entry.record = deepClone(recordForLog);
+  }
+
+  const notice = {
+    action: effectiveAction,
+    recordRef,
+    eventId: logEntry.id,
+    sequence: logEntry.sequence,
+    version: store.version,
+    timestamp,
+    created: entry.created === true,
+    deleted: entry.deleted === true,
+    meta: enrichedMeta
+  };
+
   const ack = {
     type: 'server:ack',
-    action,
+    action: effectiveAction,
     branchId,
     moduleId,
     version: store.version,
     table: tableName,
-    record: created,
+    recordRef,
     eventId: logEntry.id,
     sequence: logEntry.sequence,
     publishState: logEntry.publishState,
-    meta: enrichedMeta
+    meta: enrichedMeta,
+    entry
   };
+  if (entry.created !== undefined) ack.created = entry.created;
+  if (entry.deleted) ack.deleted = true;
+
   const event = {
     type: 'server:event',
-    action,
+    action: effectiveAction,
     branchId,
     moduleId,
     version: store.version,
     table: tableName,
-    record: created,
-    snapshot,
+    recordRef,
     eventId: logEntry.id,
     sequence: logEntry.sequence,
     publishState: logEntry.publishState,
-    meta: enrichedMeta
+    meta: enrichedMeta,
+    entry,
+    notice
   };
+
+  if (options.includeSnapshot || payload.includeSnapshot) {
+    event.snapshot = store.getSnapshot();
+  }
+
   if (client) {
     sendToClient(client, ack);
   }
   if (options.broadcast !== false) {
     broadcastToBranch(branchId, event, client);
   }
-  return { ack, event, logEntry };
+  await broadcastTableNotice(branchId, moduleId, tableName, notice);
+
+  return { ack, event, logEntry, recordRef, notice, record: recordResult, removed: removedRecord };
 }
 
 function registerClient(client) {
