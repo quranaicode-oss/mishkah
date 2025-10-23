@@ -5302,6 +5302,14 @@
         orderPayload.finishedAt = now;
       }
       const centralAvailable = !!(centralSync && typeof centralSync.publishCreateOrder === 'function');
+      const stateForKds = state;
+      let preflightKdsEnvelope = null;
+      try {
+        preflightKdsEnvelope = buildOrderEnvelope(orderPayload, stateForKds);
+      } catch(kdsSerializeError){
+        console.warn('[Mishkah][POS] Failed to build KDS payload before publish.', kdsSerializeError);
+        preflightKdsEnvelope = null;
+      }
       if(!centralAvailable){
         UI.pushToast(ctx, { title:t.toast.central_sync_blocked, message:t.toast.central_sync_offline, icon:'🛑' });
         return { status:'error', reason:'central-sync-unavailable' };
@@ -5331,13 +5339,26 @@
         if(centralAvailable){
           try{
             const ack = await centralSync.publishCreateOrder(orderPayload, {
-              meta:{ mode, posId: POS_INFO.id, posLabel: POS_INFO.label }
+              meta:{
+                mode,
+                posId: POS_INFO.id,
+                posLabel: POS_INFO.label,
+                kdsChannel: preflightKdsEnvelope?.channel || BRANCH_CHANNEL
+              },
+              kdsPayload: preflightKdsEnvelope ? preflightKdsEnvelope.payload : undefined
             });
             if(ack && ack.order){
               confirmedOrder = { ...confirmedOrder, ...ack.order };
             }
             if(ack && ack.existing){
               UI.pushToast(ctx, { title:t.toast.order_saved, icon:'ℹ️' });
+            }
+            if(kdsSync && typeof kdsSync.publishOrder === 'function'){
+              try {
+                kdsSync.publishOrder(confirmedOrder, stateForKds);
+              } catch(kdsPublishError){
+                console.warn('[Mishkah][POS] Failed to publish order to KDS bridge.', kdsPublishError);
+              }
             }
           } catch(syncErr){
             console.warn('[Mishkah][POS] Failed to publish order to central sync.', syncErr);
@@ -5524,7 +5545,8 @@
       formatCurrencyValue,
       round,
       calculateTotals,
-      getActivePaymentEntries,generateOrderId ,
+      getActivePaymentEntries,
+      generateOrderId,
       summarizePayments,
       createOrderLine,
       filterMenu,
@@ -5532,9 +5554,20 @@
       findCustomer,
       findCustomerAddress,
       createEmptyCustomerForm,
-      notesToText,normalizeDiscount ,
+      notesToText,
+      normalizeDiscount,
+      statusBadge,
+      orderStages,
+      orderStageMap,
+      orderStatuses,
+      orderStatusMap,
+      orderPaymentStates,
+      orderPaymentMap,
+      orderLineStatuses,
+      orderLineStatusMap,
       PAYMENT_METHODS,
-      POS_INFO,persistOrderFlow ,
+      POS_INFO,
+      persistOrderFlow,
       CAIRO_DISTRICTS,
       SHIFT_OPEN_FLOAT_DEFAULT,
       SHIFT_PIN_LENGTH,
