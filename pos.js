@@ -5328,15 +5328,16 @@
       beginOrderSaving();
       try{
         let confirmedOrder = { ...orderPayload };
+        let publishAck = null;
         if(centralAvailable){
           try{
-            const ack = await centralSync.publishCreateOrder(orderPayload, {
+            publishAck = await centralSync.publishCreateOrder(orderPayload, {
               meta:{ mode, posId: POS_INFO.id, posLabel: POS_INFO.label }
             });
-            if(ack && ack.order){
-              confirmedOrder = { ...confirmedOrder, ...ack.order };
+            if(publishAck && publishAck.order){
+              confirmedOrder = { ...confirmedOrder, ...publishAck.order };
             }
-            if(ack && ack.existing){
+            if(publishAck && publishAck.existing){
               UI.pushToast(ctx, { title:t.toast.order_saved, icon:'ℹ️' });
             }
           } catch(syncErr){
@@ -5350,6 +5351,26 @@
             });
             throw syncErr;
           }
+        }
+
+        if(!publishAck){
+          if(posDB.available && typeof posDB.saveTempOrder === 'function'){
+            const fallbackTempOrder = { ...orderPayload, dirty:true, isPersisted:false };
+            try{
+              await posDB.saveTempOrder(fallbackTempOrder);
+            } catch(tempErr){
+              console.warn('[Mishkah][POS] Failed to persist temp order during central fallback.', tempErr);
+            }
+          }
+          pushCentralDiagnostic({
+            event:'sync:order:fallback',
+            level:'warn',
+            message:'Central sync publish returned no acknowledgement; order stored locally.',
+            data:{ orderId: orderPayload.id, mode }
+          });
+          const fallbackError = new Error('Central sync publish returned no acknowledgement.');
+          fallbackError.code = 'POS_SYNC_FALLBACK';
+          throw fallbackError;
         }
 
         const persistableOrder = { ...confirmedOrder };
