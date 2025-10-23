@@ -5416,9 +5416,7 @@
             entry && entry.id === displayOrder.id ? { ...entry, ...displayOrder } : entry
           ));
         }
-        if(fallbackError){
-          throw fallbackError;
-        }
+        const fallbackErrorToThrow = fallbackError;
         ctx.setState(s=>{
           const data = s.data || {};
           const history = Array.isArray(data.ordersHistory) ? data.ordersHistory.slice() : [];
@@ -5492,6 +5490,9 @@
             ui: nextUi
           };
         });
+        if(fallbackErrorToThrow){
+          throw fallbackErrorToThrow;
+        }
         await refreshPersistentSnapshot({ focusCurrent:true, syncOrders:true });
         const toastKey = finalize ? 'order_finalized' : 'order_saved';
         UI.pushToast(ctx, { title:t.toast[toastKey], icon: finalize ? '✅' : '💾' });
