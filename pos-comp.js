@@ -696,7 +696,6 @@
               const saveButton = UI.Button({
                 attrs:{
                   gkey:'pos:order:save',
-                  'data-save-mode':'draft',
                   class: tw`min-w-[160px] flex items-center justify-center gap-2`,
                   disabled: isSavingOrder || undefined,
                   'data-loading': isSavingOrder ? 'true' : undefined

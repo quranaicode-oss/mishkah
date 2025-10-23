@@ -3,6 +3,9 @@
   global.MishkahPOSChunks.ws = function(scope){
     if(!scope || typeof scope !== 'object') return;
     with(scope){
+          const ensureRequestId = typeof scope.createRequestId === 'function'
+            ? scope.createRequestId
+            : ()=> `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
           function createKDSSync(options={}){
             const WebSocketX = U.WebSocketX || U.WebSocket;
             const endpoint = options.endpoint;
@@ -791,7 +794,7 @@
                 kdsPayload: extras.kdsPayload ? cloneDeep(extras.kdsPayload) : undefined,
                 meta: extras.meta ? cloneDeep(extras.meta) : undefined,
                 mutationId,
-                requestId: extras.requestId || createRequestId(),
+                requestId: extras.requestId || ensureRequestId(),
                 userId: userId || null,
                 trans_id: transId
               }
