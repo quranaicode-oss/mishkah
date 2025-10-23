@@ -63,8 +63,48 @@ export default class ModuleStore {
     if (!snapshot || typeof snapshot !== 'object') return this.getSnapshot();
     const tables = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
     for (const tableName of this.tables) {
-      const rows = Array.isArray(tables[tableName]) ? tables[tableName] : [];
-      this.data[tableName] = rows.map((row) => deepClone(row));
+      const incomingRows = Array.isArray(tables[tableName]) ? tables[tableName] : [];
+      let tableDefinition = null;
+      try {
+        tableDefinition = this.schemaEngine.getTable(tableName);
+      } catch (_err) {
+        tableDefinition = null;
+      }
+      const primaryFields = Array.isArray(tableDefinition?.fields)
+        ? tableDefinition.fields.filter((field) => field && field.primaryKey).map((field) => field.name)
+        : [];
+      const buildKey = (record) => {
+        if (!primaryFields.length || !record || typeof record !== 'object') return null;
+        const parts = [];
+        for (const fieldName of primaryFields) {
+          const value = record[fieldName];
+          if (value === undefined || value === null) {
+            return null;
+          }
+          parts.push(String(value));
+        }
+        return parts.join('::');
+      };
+      const keyed = new Map();
+      const fallback = new Map();
+      for (const rawRow of incomingRows) {
+        if (!rawRow || typeof rawRow !== 'object') continue;
+        const row = deepClone(rawRow);
+        const key = buildKey(row);
+        if (key) {
+          keyed.set(key, row);
+          continue;
+        }
+        let serialized = null;
+        try {
+          serialized = JSON.stringify(row);
+        } catch (_err) {
+          serialized = null;
+        }
+        const fallbackKey = serialized || `row:${fallback.size + keyed.size}`;
+        fallback.set(fallbackKey, row);
+      }
+      this.data[tableName] = [...keyed.values(), ...fallback.values()];
     }
     const total = Object.values(this.data).reduce((acc, value) => {
       if (Array.isArray(value)) return acc + value.length;

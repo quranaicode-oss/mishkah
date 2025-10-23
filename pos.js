@@ -2162,6 +2162,11 @@
         return storeMaps[TEMP_STORE].delete(orderId);
       }
 
+      async function clearTempOrder(){
+        storeMaps[TEMP_STORE].clear();
+        return true;
+      }
+
       async function listOrders(options={}){
         const onlyActive = options.onlyActive !== false;
         const typeFilter = options.type;
@@ -2326,6 +2331,7 @@
         getTempOrder,
         listTempOrders,
         deleteTempOrder,
+        clearTempOrder,
         markSync,
         bootstrap,
         getActiveShift,
@@ -6725,10 +6731,15 @@
         const persistableOrder = { ...confirmedOrder };
         delete persistableOrder.dirty;
         await posDB.saveOrder(persistableOrder);
-        if(posDB.available && typeof posDB.deleteTempOrder === 'function'){
-          try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
-          if(idChanged && previousOrderId){
-            try { await posDB.deleteTempOrder(previousOrderId); } catch(_tempErr){}
+        if(posDB.available){
+          if(typeof posDB.deleteTempOrder === 'function'){
+            try { await posDB.deleteTempOrder(confirmedOrder.id); } catch(_tempErr){ }
+            if(idChanged && previousOrderId){
+              try { await posDB.deleteTempOrder(previousOrderId); } catch(_tempErr){}
+            }
+          }
+          if(finalize && typeof posDB.clearTempOrder === 'function'){
+            try { await posDB.clearTempOrder(); } catch(_tempErr){}
           }
         }
         await posDB.markSync();
