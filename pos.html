@@ -307,7 +307,7 @@
       global.POS_WS2_DYNAMIC_ENDPOINTS = {
         branchId,
         moduleId: 'pos',
-        restBase: `/api/branch/${encodeURIComponent(branchId)}/pos`
+        restBase: `/api/branch/${encodeURIComponent(branchId)}/modules/pos`
       };
       if (!global.POS_SERVICE_ADAPTER) {
         const factory = global.MishkahPosServiceAdapter;
