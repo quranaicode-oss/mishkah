@@ -272,9 +272,25 @@ function jsonResponse(res, status, payload) {
   res.end(JSON.stringify(payload, null, 2));
 }
 
+function normalizeEpochMilliseconds(value) {
+  if (!Number.isFinite(value)) return null;
+  if (value === 0) return 0;
+  const abs = Math.abs(value);
+  if (abs >= 1e5 && abs < 1e12) {
+    const digits = Math.floor(Math.log10(abs)) + 1;
+    if (digits <= 10) {
+      const scaled = value * 1000;
+      return Number.isFinite(scaled) ? scaled : null;
+    }
+  }
+  return value;
+}
+
 function resolveTimestampInput(value) {
   if (value === undefined || value === null) return null;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return normalizeEpochMilliseconds(value);
+  }
   if (value instanceof Date) {
     const time = value.getTime();
     return Number.isFinite(time) ? time : null;
@@ -283,7 +299,9 @@ function resolveTimestampInput(value) {
     const trimmed = value.trim();
     if (!trimmed) return null;
     const numeric = Number(trimmed);
-    if (Number.isFinite(numeric)) return numeric;
+    if (Number.isFinite(numeric)) {
+      return normalizeEpochMilliseconds(numeric);
+    }
     const parsed = Date.parse(trimmed);
     if (Number.isFinite(parsed)) return parsed;
   }
