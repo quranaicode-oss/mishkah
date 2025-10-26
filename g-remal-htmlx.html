@@ -1027,6 +1027,7 @@
 
         function scrollToSection(id, ctx) {  
           var DOM =  window.Mishkah.utils.DOM;
+          console.log(ctx);
           DOM.scrollTo({ id: id }, { behavior: 'smooth', block: 'start', inline: 'nearest' }, ctx)
          
         }
