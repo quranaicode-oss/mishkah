@@ -1,0 +1,176 @@
+{
+  "components": {
+    "AppRoot": {
+      "types": ["layout", "structure"],
+      "parents": []
+    },
+    "AppShell": {
+      "types": ["layout", "structure"],
+      "parents": []
+    },
+    "Badge": {
+      "types": ["display", "status"],
+      "parents": ["List", "Toolbar", "Card"]
+    },
+    "Button": {
+      "types": ["input", "action"],
+      "parents": ["Forms", "Toolbar", "Card"]
+    },
+    "Card": {
+      "types": ["layout", "surface"],
+      "parents": ["AppRoot", "Dashboard"]
+    },
+    "Chart": {
+      "types": ["visualization", "chart"],
+      "parents": ["Figure", "Dashboard"]
+    },
+    "Charts": {
+      "types": ["visualization", "chart"],
+      "parents": ["Figure", "Dashboard"]
+    },
+    "Chip": {
+      "types": ["input", "filter"],
+      "parents": ["ChipGroup"]
+    },
+    "ChipGroup": {
+      "types": ["input", "selector"],
+      "parents": ["Toolbar", "Forms"]
+    },
+    "CounterCard": {
+      "types": ["visualization", "metric", "control"],
+      "parents": ["Card", "Dashboard"]
+    },
+    "Countdown": {
+      "types": ["display", "timer"],
+      "parents": ["Text", "Dashboard"]
+    },
+    "Divider": {
+      "types": ["layout", "separator"],
+      "parents": ["HStack", "VStack", "Card"]
+    },
+    "Drawer": {
+      "types": ["layout", "overlay"],
+      "parents": ["AppRoot"]
+    },
+    "EmptyState": {
+      "types": ["feedback", "placeholder"],
+      "parents": ["Card", "ScrollArea"]
+    },
+    "Field": {
+      "types": ["layout", "form-field"],
+      "parents": ["Forms", "Card"]
+    },
+    "Footerbar": {
+      "types": ["layout", "footer"],
+      "parents": ["AppRoot"]
+    },
+    "HStack": {
+      "types": ["layout", "stack"],
+      "parents": ["Containers"]
+    },
+    "Input": {
+      "types": ["input", "field"],
+      "parents": ["Forms"]
+    },
+    "Label": {
+      "types": ["input", "label"],
+      "parents": ["Forms"]
+    },
+    "LanguageSwitch": {
+      "types": ["input", "toggle"],
+      "parents": ["Toolbar", "Header"]
+    },
+    "List": {
+      "types": ["data", "list"],
+      "parents": ["ScrollArea", "Card"]
+    },
+    "ListItem": {
+      "types": ["data", "list-item"],
+      "parents": ["List"]
+    },
+    "Modal": {
+      "types": ["layout", "overlay"],
+      "parents": ["AppRoot"]
+    },
+    "NumpadDecimal": {
+      "types": ["input", "composite"],
+      "parents": ["Overlay", "Forms"]
+    },
+    "PriceText": {
+      "types": ["display", "numeric"],
+      "parents": ["ListItem", "Card"]
+    },
+    "QtyStepper": {
+      "types": ["input", "stepper"],
+      "parents": ["Forms", "Cart"]
+    },
+    "ScrollArea": {
+      "types": ["layout", "container"],
+      "parents": ["Card", "Drawer", "Modal"]
+    },
+    "SearchBar": {
+      "types": ["input", "search"],
+      "parents": ["Toolbar", "Forms"]
+    },
+    "Segmented": {
+      "types": ["navigation", "selector"],
+      "parents": ["Toolbar", "Card"]
+    },
+    "SegmentedSwitch": {
+      "types": ["input", "selector"],
+      "parents": ["Toolbar", "Forms"]
+    },
+    "Select": {
+      "types": ["input", "field"],
+      "parents": ["Forms"]
+    },
+    "StatCard": {
+      "types": ["visualization", "metric"],
+      "parents": ["Dashboard", "Card"]
+    },
+    "SweetNotice": {
+      "types": ["feedback", "notice"],
+      "parents": ["Card"]
+    },
+    "Switcher": {
+      "types": ["input", "toggle"],
+      "parents": ["Toolbar", "Forms"]
+    },
+    "Table": {
+      "types": ["data", "table"],
+      "parents": ["Card", "Dashboard"]
+    },
+    "Tabs": {
+      "types": ["navigation", "selector"],
+      "parents": ["AppRoot", "Card"]
+    },
+    "Textarea": {
+      "types": ["input", "field"],
+      "parents": ["Forms"]
+    },
+    "ThemeToggleIcon": {
+      "types": ["input", "toggle"],
+      "parents": ["Toolbar", "Header"]
+    },
+    "ToastHost": {
+      "types": ["feedback", "overlay"],
+      "parents": ["AppRoot"]
+    },
+    "Toolbar": {
+      "types": ["layout", "navigation"],
+      "parents": ["AppRoot", "Header"]
+    },
+    "ToolbarGroup": {
+      "types": ["layout", "control-group"],
+      "parents": ["Toolbar"]
+    },
+    "VStack": {
+      "types": ["layout", "stack"],
+      "parents": ["Containers"]
+    },
+    "pushToast": {
+      "types": ["command", "feedback"],
+      "parents": ["ToastHost"]
+    }
+  }
+}
