@@ -316,6 +316,12 @@
     Misc:       createAtomCategory("Misc",       ["hr","br"])
   };
 
+  if (hAtoms.Forms && hAtoms.Inputs && hAtoms.Inputs.Option && !hAtoms.Forms.Option) {
+    hAtoms.Forms.Option = function () {
+      return hAtoms.Inputs.Option.apply(null, arguments);
+    };
+  }
+
   (function(){
     if (!hAtoms.Tables || !hAtoms.Tables.Tbody) return;
     var baseTbody = hAtoms.Tables.Tbody;
