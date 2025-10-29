@@ -2035,6 +2035,8 @@
     ]);
   };
 
+  const isJobActive = (job)=> job && job.status !== 'ready' && job.status !== 'completed';
+
   const startJob = (job, nowIso, nowMs)=>{
     if(job.status === 'ready' || job.status === 'completed') return {
       ...job,
@@ -2148,27 +2150,32 @@
 
   const renderPrepPanel = (db, t, lang, now)=>{
     const orders = db.data.jobs.orders || [];
-    if(!orders.length) return renderEmpty(t.empty.prep);
+    const pendingOrders = orders.filter(order=> Array.isArray(order.jobs) && order.jobs.some(isJobActive));
+    if(!pendingOrders.length) return renderEmpty(t.empty.prep);
     const stationMap = db.data.stationMap || {};
-    return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, orders.map(order=> D.Containers.Article({ attrs:{ class: tw`flex flex-col gap-4 rounded-3xl border border-slate-800/60 bg-slate-950/80 p-5 shadow-xl shadow-slate-950/40` }}, [
+    return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, pendingOrders.map(order=>{
+      const activeJobs = (order.jobs || []).filter(isJobActive);
+      return D.Containers.Article({ attrs:{ class: tw`flex flex-col gap-4 rounded-3xl border border-slate-800/60 bg-slate-950/80 p-5 shadow-xl shadow-slate-950/40` }}, [
       D.Containers.Div({ attrs:{ class: tw`flex items-start justify-between gap-3` }}, [
         D.Text.H3({ attrs:{ class: tw`text-lg font-semibold text-slate-50` }}, [`${t.labels.order} ${order.orderNumber}`]),
         createBadge(`${SERVICE_ICONS[order.serviceMode] || '🧾'} ${t.labels.serviceMode[order.serviceMode] || order.serviceMode}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`)
       ]),
       order.tableLabel ? createBadge(`${t.labels.table} ${order.tableLabel}`, tw`border-slate-500/40 bg-slate-800/60 text-slate-100`) : null,
       order.customerName ? D.Text.P({ attrs:{ class: tw`text-sm text-slate-300` }}, [`${t.labels.customer}: ${order.customerName}`]) : null,
-      D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, order.jobs.map(job=> D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3` }}, [
+      D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-2` }}, activeJobs.map(job=> D.Containers.Div({ attrs:{ class: tw`flex flex-col gap-1 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3` }}, [
         D.Containers.Div({ attrs:{ class: tw`flex items-center justify-between gap-3` }}, [
           D.Text.Span({ attrs:{ class: tw`text-sm font-semibold text-slate-100` }}, [stationMap[job.stationId] ? (lang === 'ar' ? (stationMap[job.stationId].nameAr || stationMap[job.stationId].nameEn) : (stationMap[job.stationId].nameEn || stationMap[job.stationId].nameAr)) : job.stationCode || job.stationId]),
           createBadge(t.labels.jobStatus[job.status] || job.status, STATUS_CLASS[job.status] || tw`border-slate-600/40 bg-slate-800/70 text-slate-100`)
         ]),
         D.Text.Span({ attrs:{ class: tw`text-xs text-slate-400` }}, [`${t.labels.timer}: ${job.startMs ? formatDuration(now - job.startMs) : '00:00'}`])
       ])))
-    ].filter(Boolean))));
+    ].filter(Boolean));
+    }));
   };
 
   const renderStationPanel = (db, stationId, t, lang, now)=>{
-    const jobs = db.data.jobs.byStation[stationId] || [];
+    const allJobs = db.data.jobs.byStation[stationId] || [];
+    const jobs = allJobs.filter(isJobActive);
     const station = db.data.stationMap?.[stationId];
     if(!jobs.length) return renderEmpty(t.empty.station);
     return D.Containers.Section({ attrs:{ class: tw`grid gap-4 lg:grid-cols-2 xl:grid-cols-3` }}, jobs.map(job=> renderJobCard(job, station, t, lang, now)));

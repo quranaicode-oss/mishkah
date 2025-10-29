@@ -950,6 +950,35 @@
               handler: async (e,ctx)=>{
                 const trigger = e.target.closest('[data-save-mode]');
                 const mode = trigger?.getAttribute('data-save-mode') || 'draft';
+                const state = ctx.getState();
+                const t = getTexts(state);
+                const order = state.data?.order || {};
+                const orderType = order.type || 'dine_in';
+                if(orderType === 'dine_in'){
+                  const tableIds = Array.isArray(order.tableIds)
+                    ? order.tableIds.filter(id=> id !== null && id !== undefined && String(id).trim() !== '')
+                    : [];
+                  if(!tableIds.length){
+                    UI.pushToast(ctx, {
+                      title: t.toast.table_required || t.ui.select_table,
+                      message: t.ui.select_table,
+                      icon:'⚠️'
+                    });
+                    return;
+                  }
+                }
+                if(orderType === 'delivery'){
+                  const hasCustomer = !!(order.customerId || (order.customerName && order.customerPhone));
+                  const hasAddress = !!(order.customerAddressId || (order.customerAddress && String(order.customerAddress).trim()));
+                  if(!hasCustomer || !hasAddress){
+                    UI.pushToast(ctx, {
+                      title: t.toast.delivery_customer_required || t.toast.customer_missing_selection,
+                      message: t.ui.customer_delivery_required || t.toast.customer_missing_selection,
+                      icon:'⚠️'
+                    });
+                    return;
+                  }
+                }
                 await persistOrderFlow(ctx, mode);
               }
             },
