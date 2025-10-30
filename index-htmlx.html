@@ -903,11 +903,13 @@
         }
 
         function translate(state, key) {
+          if (!key) return '';
           var helpers = getHelpers();
-          var dict = helpers.STRINGS || {};
+          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
           var entry = dict[key];
           if (!entry) return key;
-          var lang = (state.env && state.env.lang) || 'ar';
+          var env = (state && state.env) || {};
+          var lang = env.lang || 'ar';
           return entry[lang] || entry.ar || entry.en || key;
         }
 
@@ -1292,6 +1294,7 @@
 		
 		
       </script>
+
     
       
     </template>
@@ -1319,31 +1322,6 @@
         var helpers = window.__INDEX = window.__INDEX || {};
         helpers.orders = helpers.orders || {};
         var STORAGE_KEY = 'mishkah:htmlx:index:prefs';
-
-        function exposeHelper(name, fn) {
-          helpers[name] = fn;
-          window[name] = fn;
-          return fn;
-        }
-
-        var getHelpers = exposeHelper('getHelpers', function getHelpers() {
-          return window.__INDEX || {};
-        });
-
-        var cloneState = exposeHelper('cloneState', function cloneState(prev) {
-          return JSON.parse(JSON.stringify(prev || {}));
-        });
-
-        var translate = exposeHelper('translate', function translate(state, key) {
-          if (!key) return '';
-          var helpers = getHelpers();
-          var dict = (state && state.i18n && state.i18n.strings) || helpers.STRINGS || {};
-          var entry = dict[key];
-          if (!entry) return key;
-          var lang = (state && state.env && state.env.lang) || 'ar';
-          return entry[lang] || entry.ar || entry.en || key;
-        });
-
 
         var STRINGS = {
           'app.title': { ar: 'مشكاة — تجربة HTMLx', en: 'Mishkah — HTMLx Experience' },
@@ -1427,20 +1405,6 @@
         };
         helpers.SOUND_EFFECTS = SOUND_EFFECTS;
 
-        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length
-          ? window.PROVERBS.slice()
-          : [
-              { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
-              { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
-              { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' },
-              { t: 'من طلب العلا سهر الليالي', hint: 'يتحدث عن الاجتهاد.', explanation: 'المثل يدعو إلى المثابرة وبذل الجهد لتحقيق الأهداف السامية.', lesson: 'الطموح يتحقق بالعمل والصبر.', source: 'حكمة تعليمية' },
-              { t: 'القناعة كنز لا يفنى', hint: 'يدعو للرضا.', explanation: 'يبين المثل أن القناعة ثروة داخلية تمنح صاحبها راحة مستدامة.', lesson: 'تقدير النعم الحالية يجلب السكينة.', source: 'مثل عربي متداول' },
-              { t: 'من شب على شيء شاب عليه', hint: 'يتعلق بالعادات.', explanation: 'يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه.', lesson: 'تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.', source: 'مثل عربي دارج' },
-              { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
-              { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
-            ];
-        helpers.PROVERBS = PROVERBS;
-
         function randomBetween(min, max) {
           return Math.floor(Math.random() * (max - min + 1)) + min;
         }
@@ -1470,119 +1434,6 @@
           });
         }
         helpers.checkSolved = checkSolved;
-
-        function defaultThemePrefs() {
-          return { fontScale: 100, background: 'nebula' };
-        }
-        helpers.defaultThemePrefs = defaultThemePrefs;
-
-        var THEME_BACKGROUND_PRESETS = [
-          {
-            id: 'nebula',
-            label: { ar: 'شفق بنفسجي', en: 'Violet nebula' },
-            light: {
-              gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)',
-              overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)'
-            },
-            dark: {
-              gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)',
-              overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)'
-            }
-          },
-          {
-            id: 'sunset',
-            label: { ar: 'غروب ذهبي', en: 'Golden sunset' },
-            light: {
-              gradient: 'linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)',
-              overlay1: 'radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)'
-            },
-            dark: {
-              gradient: 'linear-gradient(145deg, #1f172a 0%, #312e81 100%)',
-              overlay1: 'radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)',
-              overlay2: 'radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)'
-            }
-          }
-        ];
-        helpers.BACKGROUNDS = THEME_BACKGROUND_PRESETS;
-
-        var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
-        helpers.ALPHABET = ALPHABET;
-
-        var LOGIC_GENERATORS = [
-          function arithmetic(h) {
-            var step = h.randomBetween(2, 8);
-            var start = h.randomBetween(2, 15);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start + i * step);
-            }
-            var answer = start + length * step;
-            var pool = h.shuffle([answer, answer + step, answer - step, answer + 2 * step, answer - 2 * step]).slice(0, 4);
-            return {
-              type: 'arithmetic',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'تزداد القيم بمقدار ' + step + ' في كل خطوة.',
-                en: 'Values increase by ' + step + ' each step.'
-              }
-            };
-          },
-          function doubling(h) {
-            var start = h.randomBetween(2, 6);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              sequence.push(start * Math.pow(2, i));
-            }
-            var answer = start * Math.pow(2, length);
-            var pool = h.shuffle([answer, answer / 2, answer * 2, answer + start, answer - start]).slice(0, 4);
-            return {
-              type: 'double',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'كل قيمة ضعف السابقة.',
-                en: 'Each value doubles the previous one.'
-              }
-            };
-          },
-          function squares(h) {
-            var start = h.randomBetween(2, 5);
-            var length = 4;
-            var sequence = [];
-            for (var i = 0; i < length; i++) {
-              var base = start + i;
-              sequence.push(base * base);
-            }
-            var nextBase = start + length;
-            var answer = nextBase * nextBase;
-            var pool = h.shuffle([
-              answer,
-              (nextBase + 1) * (nextBase + 1),
-              (nextBase - 1) * (nextBase - 1),
-              answer + nextBase,
-              answer - nextBase
-            ]).slice(0, 4);
-            return {
-              type: 'square',
-              sequence: sequence,
-              answer: answer,
-              options: pool,
-              message: {
-                ar: 'الأعداد مربعات متتالية تبدأ من ' + start + '².',
-                en: 'Squares that start at ' + start + '².'
-              }
-            };
-          }
-        ];
-        helpers.LOGIC_GENERATORS = LOGIC_GENERATORS;
 
         var activeTimer = null;
         function clearTimer() {
@@ -1623,6 +1474,59 @@
             tickTimer(ctx);
           }, 1000);
         };
+
+        var PROVERBS = Array.isArray(window.PROVERBS) && window.PROVERBS.length
+          ? window.PROVERBS.slice()
+          : [
+              { t: 'رجع بخفي حنين', hint: 'يُقال لمن عاد بلا نتيجة.', explanation: 'تحكي القصة عن رجل فشل في مفاوضة إسكافي فعاد خالي الوفاض وقد فقد نعليه، فصار مثلاً عن الخيبة بعد مشقة.', lesson: 'التخطيط والمرونة في التفاوض يحميان من ضياع الجهد.', source: 'مثل عربي قديم' },
+              { t: 'خير الكلام ما قل ودل', hint: 'يتعلق بفصاحة التعبير.', explanation: 'يشجع المثل على اختيار كلمات قليلة لكنها معبرة وواضحة بدلاً من الإطالة المملة.', lesson: 'الإيجاز الواضح يبني تواصلاً أقوى.', source: 'حكمة عربية قديمة' },
+              { t: 'الصبر مفتاح الفرج', hint: 'يدعو للتريث.', explanation: 'يعلمنا المثل أن ضيق اللحظة لا يدوم وأن الصبر يفتح أبواب الحلول.', lesson: 'الهدوء والثبات يمنحان رؤية أوضح.', source: 'حكمة روحانية' },
+              { t: 'من طلب العلا سهر الليالي', hint: 'يتحدث عن الاجتهاد.', explanation: 'المثل يدعو إلى المثابرة وبذل الجهد لتحقيق الأهداف السامية.', lesson: 'الطموح يتحقق بالعمل والصبر.', source: 'حكمة تعليمية' },
+              { t: 'القناعة كنز لا يفنى', hint: 'يدعو للرضا.', explanation: 'يبين المثل أن القناعة ثروة داخلية تمنح صاحبها راحة مستدامة.', lesson: 'تقدير النعم الحالية يجلب السكينة.', source: 'مثل عربي متداول' },
+              { t: 'من شب على شيء شاب عليه', hint: 'يتعلق بالعادات.', explanation: 'يؤكد المثل أن ما ينشأ عليه الإنسان في صغره يستمر غالبًا معه.', lesson: 'تشكيل العادات الإيجابية مبكرًا استثمار طويل الأمد.', source: 'مثل عربي دارج' },
+              { t: 'رب ضارة نافعة', hint: 'يرى الخير في الابتلاء.', explanation: 'يوضح المثل أن المصائب قد تحمل في طياتها فرصًا لا نراها أولاً.', lesson: 'تغيير زاوية النظر يحول المحن إلى منح.', source: 'حكمة إسلامية شائعة' },
+              { t: 'العلم نور', hint: 'يشيد بالمعرفة.', explanation: 'يشبه المثل العلم بالنور الذي يبدد الظلام ويهدي العقول.', lesson: 'التعلم المستمر يفتح الآفاق.', source: 'قول تربوي مأثور' }
+            ];
+        helpers.PROVERBS = PROVERBS;
+
+        function defaultThemePrefs() {
+          return { fontScale: 100, background: 'nebula' };
+        }
+        helpers.defaultThemePrefs = defaultThemePrefs;
+        var THEME_BACKGROUND_PRESETS = [
+          {
+            id: 'nebula',
+            label: { ar: 'شفق بنفسجي', en: 'Violet nebula' },
+            light: {
+              gradient: 'linear-gradient(160deg, #f8f9ff 0%, #e8ecff 100%)',
+              overlay1: 'radial-gradient(circle at 20% 25%, rgba(79, 70, 229, 0.18), transparent 55%)',
+              overlay2: 'radial-gradient(circle at 80% 70%, rgba(14, 165, 233, 0.18), transparent 50%)'
+            },
+            dark: {
+              gradient: 'linear-gradient(160deg, #0d1224 0%, #111c3d 100%)',
+              overlay1: 'radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.22), transparent 55%)',
+              overlay2: 'radial-gradient(circle at 15% 80%, rgba(56, 189, 248, 0.18), transparent 55%)'
+            }
+          },
+          {
+            id: 'sunset',
+            label: { ar: 'غروب ذهبي', en: 'Golden sunset' },
+            light: {
+              gradient: 'linear-gradient(145deg, #fff7ed 0%, #fde68a 100%)',
+              overlay1: 'radial-gradient(circle at 25% 20%, rgba(251, 191, 36, 0.24), transparent 55%)',
+              overlay2: 'radial-gradient(circle at 75% 80%, rgba(249, 115, 22, 0.18), transparent 55%)'
+            },
+            dark: {
+              gradient: 'linear-gradient(145deg, #1f172a 0%, #312e81 100%)',
+              overlay1: 'radial-gradient(circle at 25% 20%, rgba(147, 51, 234, 0.24), transparent 55%)',
+              overlay2: 'radial-gradient(circle at 75% 80%, rgba(234, 179, 8, 0.18), transparent 55%)'
+            }
+          }
+        ];
+        helpers.BACKGROUNDS = THEME_BACKGROUND_PRESETS;
+
+        var ALPHABET = ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','و','ه','ة','ء','ي','ى'];
+        helpers.ALPHABET = ALPHABET;
 
         function applyThemePrefs(state) {
           var prefs = (state.data && state.data.themePrefs) || defaultThemePrefs();
@@ -1806,17 +1710,15 @@
         var state = buildInitialState();
         applyEnvironment(state);
         persistPrefs(state);
-let db = {
-            head: { title: 'مشكاة — تجربة HTMLx' },
-            env: state.env,
-            i18n: state.i18n,
-            data: state.data,
-            templates: [{ id: 'mishkah-index' }]
-          }
-		  let gn_orders={
-            orders: helpers.orders || {}
-          }
-		  
+
+        var db = {
+          head: { title: 'مشكاة — تجربة HTMLx' },
+          env: state.env,
+          i18n: state.i18n,
+          data: state.data,
+          templates: [{ id: 'mishkah-index' }]
+        };
+
         var start = M.HTMLxAgent.make(db);
 
         if (start && typeof start.catch === 'function') {
